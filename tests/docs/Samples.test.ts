@@ -25,6 +25,15 @@ describe('site/samples/samples.json', () => {
     }
   });
 
+  it('no placeholder is left: every sample is a real piece made on 1.0.0 (the site goes live with them)', () => {
+    expect(samples.filter((s: any) => s.placeholder).map((s: any) => s.id)).toEqual([]);
+    for (const s of samples) expect(s.version, s.id).toBe('1.0.0');
+    const kinds = samples.map((s: any) => s.kind);
+    expect(kinds.filter((k: string) => k === 'one').length).toBeGreaterThanOrEqual(4);
+    expect(kinds.filter((k: string) => k === 'refined').length).toBeGreaterThanOrEqual(2);
+    expect(kinds.filter((k: string) => k === 'promo')).toHaveLength(1);
+  });
+
   it('validateSample names what is wrong', () => {
     const good = samples.find((s: any) => s.kind === 'one');
     expect(validateSample({ ...good, runs: 4 }).join(' ')).toMatch(/runs/);

@@ -1,125 +1,136 @@
 {
   "samples": [
     {
-      "id": "placeholder-en",
+      "id": "clack-keyboard",
       "kind": "one",
       "lang": "en",
-      "title": "Bakery title",
+      "title": "Clack keyboard",
       "messages": [
-        "Use https://github.com/yjmtmtk/pixi-effects to make a video: a 10-second title for a bakery, warm cream colours, a soft chime at the end."
+        "Use https://github.com/yjmtmtk/pixi-effects to make a video: a 12-second launch film for a fictional mechanical keyboard called \"Clack\" — the keyboard in 3D turning slowly under a soft spotlight, keys pressing in rhythm with a punchy beat, and the name slamming in at the end."
       ],
-      "page": "index.html",
+      "page": "clack.html",
       "poster": "poster.jpg",
-      "alt": "Placeholder for the Bakery title sample",
-      "minutes": 3,
+      "alt": "A mechanical keyboard in 3D turns under a spotlight; its keys light up on the beat and the name CLACK slams in.",
+      "minutes": 5,
       "runs": 1,
       "model": "Claude Opus",
-      "version": "1.0.0",
-      "placeholder": true
+      "version": "1.0.0"
     },
     {
-      "id": "placeholder-ja",
+      "id": "neon-shotengai",
       "kind": "one",
       "lang": "ja",
-      "title": "Neon OPEN",
+      "title": "Neon shopping street",
       "messages": [
-        "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型 15 秒、夜の街のネオンで「OPEN」が点く、短いジングル付き。"
+        "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型（1080×1920）15秒。夜の商店街のネオン看板の文字が一つずつ点灯していき、最後に「OPEN」が大きく光る。短いジングル付き。"
       ],
-      "page": "index.html",
+      "page": "neon-shotengai.html",
       "poster": "poster.jpg",
-      "alt": "Placeholder for the Neon OPEN sample",
-      "minutes": 3,
-      "runs": 1,
-      "model": "Claude Opus",
-      "version": "1.0.0",
-      "placeholder": true
-    },
-    {
-      "id": "placeholder-zh",
-      "kind": "one",
-      "lang": "zh",
-      "title": "3D product",
-      "messages": [
-        "用 https://github.com/yjmtmtk/pixi-effects 做一个视频：一个在 3D 空间里慢慢旋转的产品盒子，柔和的灯光，最后出现品牌名。"
-      ],
-      "page": "index.html",
-      "poster": "poster.jpg",
-      "alt": "Placeholder for the 3D product sample",
-      "minutes": 3,
-      "runs": 1,
-      "model": "Claude Opus",
-      "version": "1.0.0",
-      "placeholder": true
-    },
-    {
-      "id": "placeholder-es",
-      "kind": "one",
-      "lang": "es",
-      "title": "Rain chart",
-      "messages": [
-        "Usa https://github.com/yjmtmtk/pixi-effects para hacer un vídeo: un gráfico de barras de las lluvias de cinco ciudades que crece y se ordena."
-      ],
-      "page": "index.html",
-      "poster": "poster.jpg",
-      "alt": "Placeholder for the Rain chart sample",
-      "minutes": 3,
-      "runs": 1,
-      "model": "Claude Opus",
-      "version": "1.0.0",
-      "placeholder": true
-    },
-    {
-      "id": "placeholder-ko",
-      "kind": "one",
-      "lang": "ko",
-      "title": "Beat words",
-      "messages": [
-        "https://github.com/yjmtmtk/pixi-effects 를 사용해서 영상을 만들어 줘: 음악 비트에 맞춰 네 단어가 튀어나오는 12초짜리 클립."
-      ],
-      "page": "index.html",
-      "poster": "poster.jpg",
-      "alt": "Placeholder for the Beat words sample",
-      "minutes": 3,
-      "runs": 1,
-      "model": "Claude Opus",
-      "version": "1.0.0",
-      "placeholder": true
-    },
-    {
-      "id": "placeholder-refined",
-      "kind": "refined",
-      "lang": "en",
-      "title": "Refined",
-      "messages": [
-        "Use https://github.com/yjmtmtk/pixi-effects to make a video: a launch teaser for a coffee app.",
-        "Warmer colours, please.",
-        "Slow the ending down and add the logo."
-      ],
-      "page": "index.html",
-      "poster": "poster.jpg",
-      "alt": "Placeholder for a refined sample",
-      "minutes": 9,
-      "runs": 1,
-      "model": "Claude Opus",
-      "version": "1.0.0",
-      "placeholder": true
-    },
-    {
-      "id": "placeholder-promo",
-      "kind": "promo",
-      "lang": "en",
-      "title": "pixi-effects",
-      "messages": [
-        "Make a promo video for this project."
-      ],
-      "page": "index.html",
-      "poster": "poster.jpg",
-      "alt": "Placeholder for the promo of this project",
+      "alt": "A vertical night street where neon signs light up one by one, then a big pink OPEN.",
       "minutes": 6,
       "runs": 1,
       "model": "Claude Opus",
-      "version": "1.0.0",
-      "placeholder": true
+      "version": "1.0.0"
+    },
+    {
+      "id": "bubble-tea",
+      "kind": "one",
+      "lang": "zh",
+      "title": "Bubble tea opening",
+      "messages": [
+        "用 https://github.com/yjmtmtk/pixi-effects 做一个视频：12 秒，一杯珍珠奶茶在柔和的灯光下慢慢旋转，珍珠浮起来，最后出现店名「云朵茶屋」和“今日开业”，配上轻快的音乐。"
+      ],
+      "page": "bubble-tea.html",
+      "poster": "poster.jpg",
+      "alt": "A cup of bubble tea turns in soft light, pearls rise, and the shop name 云朵茶屋 appears with “today we open”.",
+      "minutes": 6,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0"
+    },
+    {
+      "id": "lluvia-ciudades",
+      "kind": "one",
+      "lang": "es",
+      "title": "Rain in five cities",
+      "messages": [
+        "Usa https://github.com/yjmtmtk/pixi-effects para hacer un vídeo: 20 segundos, un gráfico de barras con la lluvia anual de cinco ciudades (Tokio 1530 mm, Londres 690, Bombay 2200, Seattle 960, El Cairo 25) que crece, se ordena de mayor a menor y termina con una frase que explica el resultado. Música tranquila."
+      ],
+      "page": "lluvia.html",
+      "poster": "poster.jpg",
+      "alt": "A bar chart of yearly rain in five cities grows, sorts itself and ends on “Bombay gets 88 times more rain than Cairo”.",
+      "minutes": 4,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0"
+    },
+    {
+      "id": "summer-sale",
+      "kind": "one",
+      "lang": "ko",
+      "title": "Summer sale",
+      "messages": [
+        "https://github.com/yjmtmtk/pixi-effects 를 사용해서 영상을 만들어 줘: 12초, 1080×1080 정사각형. 신나는 댄스 비트에 맞춰 'BIG', 'BOLD', 'BRIGHT' 세 단어가 박자마다 튀어나오고, 드롭에서 'SUMMER SALE 50%'가 번쩍이며 등장."
+      ],
+      "page": "summer-sale.html",
+      "poster": "poster.jpg",
+      "alt": "BIG, BOLD and BRIGHT hit on the beat, then SUMMER SALE 50% bursts out on the drop.",
+      "minutes": 4,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0"
+    },
+    {
+      "id": "brewly-refined",
+      "kind": "refined",
+      "lang": "en",
+      "title": "Brewly app teaser",
+      "messages": [
+        "Use https://github.com/yjmtmtk/pixi-effects to make a video: a 15-second launch teaser for a coffee-ordering app called Brewly.",
+        "Warmer colours, please, and let the phone screen show an order being placed.",
+        "Slow the ending down and finish on the logo with “Download free”."
+      ],
+      "page": "brewly-teaser.html",
+      "poster": "poster.jpg",
+      "alt": "A warm coffee-app teaser: the queue, an order placed on a phone, and the Brewly logo with Download free.",
+      "minutes": 16,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0"
+    },
+    {
+      "id": "pan-marche-refined",
+      "kind": "refined",
+      "lang": "ja",
+      "title": "Bread market",
+      "messages": [
+        "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：週末のパンのマルシェの告知、15秒。",
+        "もっとやわらかい手描き風にして、パンが焼き上がる湯気を入れて。",
+        "最後に日付と場所（11月23日・中央公園）を大きく出して、鐘の音で終わらせて。"
+      ],
+      "page": "pan-marche.html",
+      "poster": "poster.jpg",
+      "alt": "A hand-drawn bread market notice: a loaf bakes with rising steam, the breads line up, and it ends on 11.23 at the central park with a bell.",
+      "minutes": 12,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0"
+    },
+    {
+      "id": "promo-pixi-effects",
+      "kind": "promo",
+      "lang": "en",
+      "title": "pixi-effects promo",
+      "messages": [
+        "Make a promo video for this project."
+      ],
+      "page": "promo.html",
+      "poster": "poster.jpg",
+      "alt": "Code on the left becomes the picture on the right: text, motion, sound and a check, then the pixi-effects title and its install line.",
+      "minutes": 7,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0"
     }
   ]
 }

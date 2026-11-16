@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Three Roads</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/loader.css" />
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; color: #dfe6ff; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .stage { position: relative; width: min(960px, 100%); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; touch-action: none; }
+    .hint { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 6; padding: 9px 16px; border-radius: 999px;
+            background: #000b; color: #fff; font-weight: 700; pointer-events: none; transition: opacity .25s; white-space: nowrap; }
+    .hint[hidden] { display: none; }
+    .note { width: min(960px, 100%); color: #8f9bc0; font-size: 13px; }
+    .note code { color: #dfe6ff; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+    <div class="hint" id="hint" hidden>Click a signpost to choose your road</div>
+  </div>
+  <p class="note">
+    The film stops at the fork and waits for a click on one of the three signposts; what you click decides the last nine seconds.
+    Untouched, it is an ordinary 15-second video (the middle road): the download button in the player bar, or
+    <code>pixi-effects render three-roads.html -o three-roads.mp4</code>, exports it straight through. One ending on its own:
+    <code>--var path=0</code> (sea), <code>1</code> (stars), <code>2</code> (lights), or <code>?path=0</code> in the address.
+  </p>
+
+  <script>
+    window.__logs = [];
+    let group = '';
+    const text = (a) => { if (typeof a[0] === 'string' && a[0].includes('%')) { let i = 1; a = [a[0].replace(/%([csdifoO])/g, (_, f) => f === 'c' ? (i++, '') : String(a[i++])), ...a.slice(i)]; } return a.map(x => (x && x.message) || String(x)).join(' '); };
+    const gc = console.groupCollapsed.bind(console), ge = console.groupEnd.bind(console);
+    console.groupCollapsed = (...a) => { group = text(a); gc(...a); };
+    console.groupEnd = () => { group = ''; ge(); };
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + (group ? group + ' — ' : '') + text(a)); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/controller.js",
+      "pixi-effects/present":    "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/present.js"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie, particles, random } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // ── timing (120 bpm: a bar is 2 s, every cut sits on a bar line) ─────────────
+    const W = 1280, H = 720, FPS = 30, DURATION = 15;
+    const FORK = 6;            // the film waits here for a choice
+    const FLOOD = 8;           // the chosen ending floods in from its signpost
+    const forkFrame = Math.round(FORK * FPS);
+    const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+
+    // ── the road ───────────────────────────────────────────────────────────────
+    const HORIZON = 330, FX = 640, FY = 470;                 // horizon line, fork point
+    const ROADS = [
+      { name: 'The Sea',    sign: 'THE SEA',    x: 330, jingle: 'swipe', color: '#ffb48a' },
+      { name: 'The Stars',  sign: 'THE STARS',  x: 640, jingle: 'chime', color: '#a9b8ff' },
+      { name: 'The Lights', sign: 'THE LIGHTS', x: 950, jingle: 'coin',  color: '#ffd36b' },
+    ];
+    const DEFAULT_PATH = 1;    // what an untouched export shows
+    const SIGN_Y = 250;
+    const is = (k) => `step(0.5, 1 - abs(path - ${k}))`;     // 1 when the variable `path` is k, else 0
+
+    const rect = (w, h, x, y, fill, extra = {}) => ({ type: 'shape', shape: 'rect', width: w, height: h, ...extra, initial: { x, y, fill, ...extra.initial } });
+    const label = (txt, size, x, y, fill, extra = {}) => ({ type: 'text', text: txt, ...extra,
+      style: { fontFamily: FONT, fontSize: size, fontWeight: '800', fill, letterSpacing: 2, ...extra.style },
+      initial: { x, y, anchorX: 0.5, anchorY: 0.5, ...extra.initial } });
+    const fadeIn = (d = 0.7, at = 0) => ({ at, from: { alpha: 0 }, duration: d, ease: 'power2.out' });
+    const rise = (d = 0.9, at = 0) => ({ at, from: { alpha: 0, y: '+=30' }, duration: d, ease: 'expo.out' });
+
+    // the world before the fork: dusk sky, hills, a road that splits in three
+    const world = [
+      rect(W, H, W / 2, H / 2, undefined, { name: 'sky', fillGradient: { stops: [[0, '#141a46'], [0.32, '#3b2f6e'], [0.46, '#c4637a'], [0.5, '#f2a46b']] } }),
+      { type: 'shape', shape: 'circle', radius: 46, name: 'sun', initial: { x: 1120, y: 262, fill: '#ffd9a0' },
+        keyframes: [{ at: 0, to: { y: 290 }, duration: FLOOD, ease: 'none' }] },
+      ...Array.from({ length: 40 }, (_, i) => {
+        const r = random(100 + i);
+        return { type: 'shape', shape: 'circle', radius: 0.8 + r() * 1.4,
+          initial: { x: r() * W, y: 10 + r() * 170, fill: '#ffffff', alpha: 0.25 + r() * 0.5 },
+          keyframes: [{ at: r() * 2, to: { alpha: 0.1 }, duration: 0.8 + r(), ease: 'sine.inOut', repeat: 6, yoyo: true }] };
+      }),
+      { type: 'shape', shape: 'path', name: 'hills-far', d: `M0 ${HORIZON} L0 300 Q 180 250 360 292 T 720 284 T 1060 276 Q 1180 262 1280 290 L1280 ${HORIZON} Z`, initial: { fill: '#3a2f5c' } },
+      { type: 'shape', shape: 'path', name: 'hills-near', d: `M0 ${HORIZON + 6} L0 312 Q 220 286 470 318 T 900 310 T 1280 314 L1280 ${HORIZON + 6} Z`, initial: { fill: '#2a2347' } },
+      rect(W, H - HORIZON, W / 2, HORIZON + (H - HORIZON) / 2, undefined, { name: 'ground', fillGradient: { stops: [[0, '#25304a'], [1, '#121a2b']] } }),
+      // the three branches, from the fork to the horizon
+      ...ROADS.map((r, k) => ({ type: 'shape', shape: 'path', name: `branch-${k}`,
+        d: `M ${FX - 34} ${FY} L ${r.x - 13} ${HORIZON + 4} L ${r.x + 13} ${HORIZON + 4} L ${FX + 34} ${FY} Z`, initial: { fill: '#8c7a66' } })),
+      // the road you walk on: wide at the bottom, narrowing to the fork
+      { type: 'shape', shape: 'path', name: 'road', d: `M 430 ${H} L ${FX - 34} ${FY} L ${FX + 34} ${FY} L 850 ${H} Z`, initial: { fill: '#9a8670' } },
+      // dashes down the middle, in perspective
+      ...[0, 1, 2, 3, 4].map(i => {
+        const t = i / 5, y = FY + 20 + (H - FY) * t * t * 1.1, s = 0.35 + t * 1.1;
+        return rect(4 * s, 18 * s, FX, y, '#e9dcc4', { initial: { alpha: 0.8 } });
+      }),
+      // fireflies over the fields
+      ...particles({ count: 34, at: 0, emit: FLOOD, life: [2.5, 4], area: { x: W / 2, y: 520, width: 1200, height: 200 }, speed: [6, 22],
+        sway: { amp: 18, freq: 0.5 }, size: [2, 3.5], colors: ['#ffe9a8', '#fff3c6'], fade: { in: 0.8, out: 1 }, blendMode: 'add', name: 'fireflies' }),
+    ];
+
+    // the three signposts (each one a group named sign-k, so a click on any part of it counts)
+    const signs = ROADS.map((r, k) => ({
+      type: 'composition', name: `sign-${k}`, at: 3.6 + k * 0.15, duration: FLOOD + 1 - (3.6 + k * 0.15), width: W, height: H,
+      initial: { x: r.x, y: HORIZON + 6, pivotX: r.x, pivotY: HORIZON + 6 },
+      keyframes: [
+        { at: 0, from: { scale: 0, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.55, ease: 'back.out(2)' },
+        // just before the fork the three signs breathe, to invite a click
+        { at: 4.9 - (3.6 + k * 0.15), to: { scale: 1.07 }, duration: 0.5, ease: 'sine.inOut', repeat: 1, yoyo: true },
+        // after the choice: the chosen sign grows, the others fade
+        { at: FORK + 0.1 - (3.6 + k * 0.15), to: { scale: `1 + 0.18 * ${is(k)}`, alpha: `0.25 + 0.75 * ${is(k)}` }, duration: 0.5, ease: 'power2.out' },
+      ],
+      layers: [
+        rect(8, HORIZON + 6 - SIGN_Y, r.x, (SIGN_Y + HORIZON + 6) / 2, '#5a4330', { name: 'post' }),
+        rect(210, 56, r.x, SIGN_Y, '#f3e6cc', { name: 'board', initial: { stroke: '#5a4330', strokeWidth: 5 }, cornerRadius: 10 }),
+        label(r.sign, 26, r.x, SIGN_Y + 1, '#3b2a1c', { name: 'word' }),
+      ],
+    }));
+
+    // the traveller: a small cloaked figure with a lantern (a null carries the parts)
+    const traveller = [
+      { type: 'null', name: 'traveller', initial: { x: FX, y: H + 30, scale: 1.25 },
+        keyframes: [
+          { at: 0.3, to: { y: FY + 18, scale: 0.55 }, duration: FORK - 0.6, ease: 'sine.out' },
+          // after the fork: up the chosen branch
+          { at: FORK + 0.2, to: { x: `${FX} + (path - 1) * 300`, y: HORIZON + 14, scale: 0.16 }, duration: FLOOD - FORK - 0.1, ease: 'sine.inOut' },
+        ] },
+      { type: 'shape', shape: 'circle', radius: 70, parent: 'traveller', name: 'glow', blendMode: 'add',
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(255,200,110,0.55)'], [1, 'rgba(255,170,80,0)']] }, initial: { x: 22, y: -62 },
+        keyframes: [{ at: 0, to: { scale: 1.12 }, duration: 0.4, ease: 'sine.inOut', repeat: 18, yoyo: true }] },
+      { type: 'shape', shape: 'path', parent: 'traveller', name: 'cloak', d: 'M -22 0 L 22 0 L 10 -72 L -10 -72 Z', initial: { fill: '#1b1530' },
+        keyframes: [{ at: 0.3, to: { y: -5 }, duration: 0.25, ease: 'sine.inOut', repeat: 21, yoyo: true }] },
+      { type: 'shape', shape: 'circle', radius: 13, parent: 'traveller', name: 'head', initial: { x: 0, y: -82, fill: '#1b1530' },
+        keyframes: [{ at: 0.3, to: { y: -87 }, duration: 0.25, ease: 'sine.inOut', repeat: 21, yoyo: true }] },
+      { type: 'shape', shape: 'circle', radius: 7, parent: 'traveller', name: 'lantern', initial: { x: 22, y: -50, fill: '#ffe2a0' },
+        keyframes: [{ at: 0.3, to: { y: -55 }, duration: 0.25, ease: 'sine.inOut', repeat: 21, yoyo: true }] },
+    ];
+
+    const titles = [
+      label('THREE ROADS', 92, W / 2, 150, '#fff4e2', { name: 'title', at: 0.4, duration: 2.8, style: { letterSpacing: 14 },
+        keyframes: [rise(1.1), { at: -0.5, to: { alpha: 0 }, duration: 0.5 }] }),
+      label('Which way?', 64, W / 2, 140, '#ffffff', { name: 'question', at: 4.4, duration: FORK + 0.6 - 4.4, style: { fontWeight: '700', letterSpacing: 1 },
+        keyframes: [rise(0.8), { at: -0.4, to: { alpha: 0 }, duration: 0.4 }] }),
+    ];
+
+    // ── the endings: each a composition that lives from the flood to the end, shown only when `path` is its number ──
+    const ending = (k, layers) => ({
+      type: 'composition', name: `ending-${k}`, at: FLOOD, duration: DURATION - FLOOD, width: W, height: H,
+      initial: { alpha: is(k), x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2 },
+      keyframes: [{ at: 0, from: { scale: 1.08 }, to: { scale: 1 }, duration: DURATION - FLOOD, ease: 'sine.out' }],   // a slow settle, so the ending never stands still
+      // the new scene opens as a circle from the chosen signpost
+      mask: { type: 'shape', shape: 'circle', radius: 1500, initial: { x: ROADS[k].x, y: SIGN_Y, fill: '#ffffff', scale: 0.0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 1.0, ease: 'power2.inOut' }] },
+      layers,
+    });
+    const endTitle = (k, sub, titleFill, subFill) => [
+      label(ROADS[k].sign, 104, W / 2, 150, titleFill, { name: `end-title-${k}`, at: 1.5, style: { letterSpacing: 16 }, keyframes: [rise(1.1)] }),
+      label(sub, 34, W / 2, 228, subFill, { name: `end-sub-${k}`, at: 2.3, style: { fontWeight: '500', letterSpacing: 1 }, keyframes: [fadeIn(0.9)] }),
+    ];
+
+    // 0 · The Sea: a sunrise over water
+    const sea = ending(0, [
+      rect(W, H, W / 2, H / 2, undefined, { fillGradient: { stops: [[0, '#2a3576'], [0.45, '#e2789a'], [0.62, '#ffc48a']] } }),
+      { type: 'shape', shape: 'circle', radius: 120, name: 'sea-sun', initial: { x: W / 2, y: 520, fill: '#fff0c2' },
+        keyframes: [{ at: 0, to: { y: 440 }, duration: 6, ease: 'sine.out' }] },
+      rect(W, H - 440, W / 2, 440 + (H - 440) / 2, undefined, { name: 'water', fillGradient: { stops: [[0, '#3d4a8c'], [1, '#0e1636']] } }),
+      // the sun's path on the water
+      ...Array.from({ length: 9 }, (_, i) => {
+        const r = random(300 + i), y = 452 + i * 26, w = 220 - i * 14;
+        return rect(w, 4 + i * 0.6, W / 2 + (r() - 0.5) * 30, y, '#ffd9a0', { initial: { alpha: 0.75 - i * 0.06 },
+          keyframes: [{ at: r() * 0.6, to: { width: w * 0.55, x: `+=${(r() - 0.5) * 40}` }, duration: 0.9 + r() * 0.6, ease: 'sine.inOut', repeat: 6, yoyo: true }] });
+      }),
+      // waves rolling across
+      ...Array.from({ length: 14 }, (_, i) => {
+        const r = random(400 + i), y = 470 + r() * 240, w = 40 + r() * 90;
+        return rect(w, 3, r() * W, y, '#9fb0e6', { initial: { alpha: 0.35 },
+          keyframes: [{ at: 0, to: { x: `+=${60 + r() * 60}`, alpha: 0.1 }, duration: 3 + r() * 2, ease: 'sine.inOut', repeat: 1, yoyo: true }] });
+      }),
+      // the traveller, arrived, on the shore
+      { type: 'shape', shape: 'path', d: `M 0 ${H} L 0 650 Q 220 610 420 660 L 520 ${H} Z`, initial: { fill: '#1a1430' } },
+      { type: 'shape', shape: 'path', d: 'M 254 628 L 270 628 L 266 600 L 258 600 Z', initial: { fill: '#0d0a1c' } },
+      { type: 'shape', shape: 'circle', radius: 5, initial: { x: 262, y: 595, fill: '#0d0a1c' } },
+      { type: 'shape', shape: 'circle', radius: 3, initial: { x: 272, y: 610, fill: '#ffe2a0' } },
+      ...endTitle(0, 'past the hills, it was always there', '#ffffff', '#ffe6d6'),
+    ]);
+
+    // 1 · The Stars: the road climbs into the night
+    const stars = ending(1, [
+      rect(W, H, W / 2, H / 2, undefined, { fillGradient: { stops: [[0, '#03041a'], [0.7, '#141a4a'], [1, '#2a2160']] } }),
+      // an aurora drifting
+      ...[0, 1].map(i => ({ type: 'shape', shape: 'ellipse', radiusX: 450, radiusY: 80, blendMode: 'add', name: `aurora-${i}`,
+        fillGradient: { type: 'radial', stops: [[0, i ? 'rgba(120,90,255,0.32)' : 'rgba(80,255,190,0.28)'], [1, 'rgba(0,0,0,0)']] },
+        initial: { x: 420 + i * 460, y: 330 - i * 40, rotation: -8 + i * 14 },
+        keyframes: [{ at: 0, to: { x: `+=${i ? -120 : 120}`, scaleY: 1.4 }, duration: 7, ease: 'sine.inOut' }] })),
+      ...Array.from({ length: 140 }, (_, i) => {
+        const r = random(500 + i);
+        return { type: 'shape', shape: 'circle', radius: 0.7 + r() * r() * 2.4,
+          initial: { x: r() * W, y: r() * 560, fill: r() > 0.85 ? '#ffe7b0' : '#ffffff', alpha: 0.4 + r() * 0.6 },
+          keyframes: [{ at: r() * 2, to: { alpha: 0.15 }, duration: 0.6 + r() * 1.2, ease: 'sine.inOut', repeat: 5, yoyo: true }] };
+      }),
+      // a shooting star
+      rect(180, 2.5, 380, 120, undefined, { name: 'meteor', at: 3.2, duration: 0.9, initial: { rotation: 18, alpha: 0 },
+        fillGradient: { angle: 90, stops: [[0, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,1)']] },
+        keyframes: [{ at: 0, to: { x: 820, y: 263, alpha: 1 }, duration: 0.5, ease: 'power1.in' }, { at: 0.5, to: { alpha: 0 }, duration: 0.3 }] }),
+      // the hill, and the traveller on top
+      { type: 'shape', shape: 'path', d: `M 0 ${H} L 0 640 Q 640 470 1280 640 L 1280 ${H} Z`, initial: { fill: '#06061a' } },
+      { type: 'shape', shape: 'path', d: 'M 632 559 L 648 559 L 644 531 L 636 531 Z', initial: { fill: '#000000' } },
+      { type: 'shape', shape: 'circle', radius: 5, initial: { x: 640, y: 526, fill: '#000000' } },
+      { type: 'shape', shape: 'circle', radius: 18, blendMode: 'add', initial: { x: 650, y: 541 },
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(255,200,110,0.7)'], [1, 'rgba(255,170,80,0)']] } },
+      ...endTitle(1, 'the road just kept going up', '#ffffff', '#c7d0ff'),
+    ]);
+
+    // 2 · The Lights: a town where the windows come on, one after another
+    const buildings = Array.from({ length: 15 }, (_, i) => {
+      const r = random(700 + i), w = 70 + r() * 30, h = 150 + r() * 210, x = 30 + i * 86, base = 700;
+      const cols = 2, rows = Math.floor((h - 30) / 34);
+      const windows = [];
+      for (let row = 0; row < rows; row++) for (let c = 0; c < cols; c++) {
+        if (r() < 0.25) continue;
+        const delay = 1.0 + Math.abs(x - W / 2) / 260 + r() * 1.2;     // a wave from the middle outwards
+        windows.push(rect(12, 16, x - 14 + c * 28, base - h + 26 + row * 34, '#ffd36b', { initial: { alpha: 0 },
+          keyframes: [{ at: delay, to: { alpha: 0.95 }, duration: 0.15 }] }));
+      }
+      return [rect(w, h, x, base - h / 2, i % 2 ? '#1d1838' : '#241d46'), ...windows];
+    }).flat();
+    const lights = ending(2, [
+      rect(W, H, W / 2, H / 2, undefined, { fillGradient: { stops: [[0, '#0f0d2e'], [0.6, '#3a2564'], [1, '#7a3d6e']] } }),
+      { type: 'shape', shape: 'circle', radius: 30, initial: { x: 1170, y: 64, fill: '#f6f0dc' } },
+      ...buildings,
+      rect(W, 30, W / 2, 705, '#0b0920'),
+      ...endTitle(2, 'every window, somebody home', '#ffffff', '#ffe3b0'),
+    ]);
+
+    const sound = [
+      { type: 'audio', name: 'bed', volume: 0.32, duration: DURATION, music: { bpm: 120, tracks: [
+        { inst: 'pad', notes: 'Am:8 F:8 C:8 G:8' },
+        { inst: 'pluck', vol: 0.45, notes: 'a4:1 c5:1 e5:1 c5:1 a4:1 c5:1 e5:1 c5:1 f4:1 a4:1 c5:1 a4:1 f4:1 a4:1 c5:1 a4:1 c4:1 e4:1 g4:1 e4:1 c4:1 e4:1 g4:1 e4:1 g4:1 b4:1 d5:1 b4:1 g4:1 b4:1 d5:2' },
+      ] } },
+      ...ROADS.map((_, k) => ({ type: 'audio', name: `sign-pop-${k}`, sfx: 'pop', at: 3.6 + k * 0.15, volume: 0.5 })),
+      { type: 'audio', name: 'flood', sfx: 'swoosh', at: FLOOD - 0.16 + 0.6, volume: 0.7 },
+      { type: 'audio', name: 'arrive', sfx: '{jingle}', at: FLOOD + 1.5, volume: 0.8 },
+    ];
+
+    const composition = { layers: [...world, ...signs, ...traveller, ...titles, sea, stars, lights, ...sound] };
+
+    // ── the movie ──────────────────────────────────────────────────────────────
+    const params = new URLSearchParams(location.search);
+    const fromUrl = params.has('path') ? Math.max(0, Math.min(2, Math.round(Number(params.get('path'))) || 0)) : null;
+    const startPath = fromUrl ?? DEFAULT_PATH;
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas, clickToPlay: false });   // a click on the picture chooses a road, it does not pause
+
+    try {
+      await movie.init({
+        canvas, width: W, height: H, duration: DURATION, frameRate: FPS, background: '#000000',
+        poster: 5.4, loudness: -16,
+        vars: { path: startPath, jingle: ROADS[startPath].jingle },
+        composition,
+      });
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+      throw e;
+    }
+
+    // ── the fork: playing stops here until a signpost is clicked ───────────────
+    const hint = document.getElementById('hint');
+    const SIGNS = ROADS.map((_, k) => `sign-${k}`);
+    const state = { chosen: fromUrl !== null };
+    window.choice = state;
+    const showHint = (on) => { hint.hidden = !on; };
+
+    const choose = async (k) => {
+      state.chosen = true;
+      showHint(false);
+      await movie.setVars({ path: k, jingle: ROADS[k].jingle });
+      if (movie.currentFrame >= forkFrame && !movie.isPlaying) movie.play();
+    };
+    const clearChoice = () => { if (state.chosen && fromUrl === null) state.chosen = false; };
+
+    movie.hover({ only: SIGNS, cursor: true });
+    canvas.addEventListener('click', (event) => {
+      if (state.chosen && movie.currentFrame >= forkFrame) return;       // the road is taken
+      const hit = movie.pick(...movie.canvasPoint(event), { only: SIGNS });
+      if (!hit) return;
+      const k = SIGNS.findIndex(n => JSON.stringify(hit).includes(`"${n}`) || (hit.name || '').startsWith(n));
+      if (k >= 0) choose(k);
+    });
+
+    let last = 0;
+    movie.on('frame', ({ frame }) => {
+      if (movie.isPlaying) {
+        if (!state.chosen && last < forkFrame && frame >= forkFrame) {   // reached the fork with no choice: wait
+          movie.pause();
+          movie.gotoFrame(forkFrame);
+          showHint(true);
+        } else if (last >= forkFrame && frame < forkFrame) {             // played again from the start: choose again
+          clearChoice();
+        }
+      }
+      last = frame;
+    });
+    movie.on('seeked', ({ frame }) => {
+      if (frame < forkFrame) clearChoice();
+      showHint(frame === forkFrame && !state.chosen);
+      last = frame;
+    });
+    movie.on('play', () => { if (!state.chosen && movie.currentFrame === forkFrame) { movie.pause(); showHint(true); } });   // play pressed while waiting at the fork
+
+    window.__ready = true;
+  </script>
+</body>
+</html>

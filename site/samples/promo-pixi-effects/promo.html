@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pixi-effects — promo</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    // A console group's title leads the warnings inside it (PixiJS prints a deprecation as a group titled with its message, the stack inside).
+    let group = '';
+    const text = (a) => { if (typeof a[0] === 'string' && a[0].includes('%')) { let i = 1; a = [a[0].replace(/%([csdifoO])/g, (_, f) => f === 'c' ? (i++, '') : String(a[i++])), ...a.slice(i)]; } return a.map(x => (x && x.message) || String(x)).join(' '); };
+    const gc = console.groupCollapsed.bind(console), ge = console.groupEnd.bind(console);
+    console.groupCollapsed = (...a) => { group = text(a); gc(...a); };
+    console.groupEnd = () => { group = ''; ge(); };
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + (group ? group + ' — ' : '') + text(a)); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/controller.js",
+      "pixi-effects/present":  "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/present.js",
+      "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/3d.js",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
+      "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie, random, particles } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // PixiJS 2D objects built by code (Graphics, Sprites, a thousand pieces): { type: 'scene2d', setup({ root }) { root.addChild(…); return { objects } }, update(t, { objects }) { … } } — no import; recipe scene2d-basics
+    // import { register3D } from 'pixi-effects/3d';   // a 3D scene (PixiJS 3D: meshes, glTF models, lights) as a layer: call register3D() before init; recipe scene3d-basics
+    // import { Mesh3D, Model3D, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, layers }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 20;
+    const BEAT = 0.5, BAR = 2;                                   // 120 bpm: every cut on a bar line
+
+    // Palette and type: site/shared/tokens.css
+    const C = {
+      bgTop: '#fcfbfd', bgBottom: '#efecf8', ink: '#1d1630', ink2: '#5b5272', ink3: '#6e6588',
+      pink: '#e91e63', pinkText: '#c2185b', violet: '#8b5cf6', sky: '#38bdf8', orange: '#f2a65a',
+      codeBg: '#1d1630', codeInk: '#f3f0ff', codeKey: '#9cd8ff', codeStr: '#ffc98a', codeNum: '#ff8ab0', codeCom: '#a59cc2',
+      line: '#e3dff0',
+    };
+    const SANS = 'Helvetica Neue, Helvetica, Arial, sans-serif';
+    const MONO = 'Menlo, SF Mono, Consolas, monospace';
+
+    // Scenes (movie seconds): [start, end)
+    const S = { hook: [0, 4], seek: [4, 8], sound: [8, 12], check: [12, 16], close: [16, 20] };
+
+    // Layout: code card left, frame card right (centres)
+    const CODE = { x: 348, y: 412, w: 548, h: 360 };
+    const FRAME = { x: 932, y: 412, w: 548, h: 308 };
+
+    // ---------- helpers ----------
+    // colour a piece of JS like the site's code blocks
+    function codeSpans(src) {
+      const out = [];
+      const re = /(\/\/[^\n]*)|('[^']*')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_]\w*)(?=:)|(\$ )|(✓)/g;
+      let last = 0, m;
+      while ((m = re.exec(src))) {
+        if (m.index > last) out.push(src.slice(last, m.index));
+        const fill = m[1] ? C.codeCom : m[2] ? C.codeStr : m[3] ? C.codeNum : m[4] ? C.codeKey : m[5] ? C.pink : C.sky;
+        out.push({ text: m[0], fill });
+        last = m.index + m[0].length;
+      }
+      if (last < src.length) out.push(src.slice(last));
+      return out;
+    }
+    // a block of code that types itself in, then leaves before the scene ends
+    function codeBlock(name, src, [s, e], typeFor = 1.4) {
+      return {
+        type: 'text', name, parent: 'codeRig', at: s + 0.2, duration: e - s - 0.2,
+        style: { fontFamily: MONO, fontSize: 22, lineHeight: 34, fill: C.codeInk, align: 'left' },
+        spans: codeSpans(src),
+        initial: { x: -CODE.w / 2 + 30, y: -CODE.h / 2 + 62, visibleChars: 0 },
+        keyframes: [
+          { at: 0, to: { visibleChars: src.length }, duration: typeFor, ease: 'none' },
+          { at: -0.3, to: { alpha: 0, y: '-=12' }, duration: 0.25, ease: 'power2.in' },
+        ],
+      };
+    }
+    // headline on top, one word group in pink
+    function headline(name, plain, accent, [s, e]) {
+      return {
+        type: 'text', name, at: s + 0.25, duration: e - s - 0.25,
+        style: { fontFamily: SANS, fontSize: 50, fontWeight: '800', fill: C.ink, letterSpacing: -1 },
+        spans: [plain, { text: accent, fill: C.pink }],
+        initial: { x: W / 2, y: 120, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [
+          { at: 0, from: { alpha: 0, y: '+=24' }, duration: 0.6, ease: 'power3.out' },
+          { at: -0.3, to: { alpha: 0, y: '-=16' }, duration: 0.25, ease: 'power2.in' },
+        ],
+      };
+    }
+    // a card: soft layered shadow + body
+    function card(parent, w, h, fill, extra = {}) {
+      const shadow = [0, 1, 2].map(i => ({
+        type: 'shape', shape: 'rect', parent, width: w + 8 + i * 14, height: h + 8 + i * 14, cornerRadius: 22 + i * 7,
+        initial: { x: 0, y: 14 + i * 4, fill: '#50328c', alpha: 0.07 - i * 0.02 },
+      }));
+      return [...shadow, { type: 'shape', shape: 'rect', parent, width: w, height: h, cornerRadius: 20, initial: { x: 0, y: 0, fill, ...extra } }];
+    }
+    const enterExit = (delay) => [
+      { at: delay, from: { alpha: 0, y: '+=40', scale: 0.96 }, duration: 0.7, ease: 'power3.out' },
+      { at: S.close[0] - 0.4, to: { alpha: 0, y: '+=24', scale: 0.94 }, duration: 0.35, ease: 'power2.in' },
+    ];
+
+    const layers = [];
+
+    // ---------- background ----------
+    layers.push({ type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2 },
+      fillGradient: { stops: [[0, C.bgTop], [1, C.bgBottom]] } });
+    // soft colour blobs that drift (texture, not content)
+    [[C.pink, 120, 640, 260], [C.violet, 1180, 110, 300], [C.sky, 1120, 690, 220], [C.orange, 160, 80, 160]].forEach(([col, x, y, r], i) => {
+      layers.push({ type: 'shape', shape: 'circle', name: `blob${i}`, radius: r,
+        fillGradient: { type: 'radial', stops: [[0, col + '33'], [1, col + '00']] },
+        initial: { x, y },
+        keyframes: [{ at: 0, to: { x: x + (i % 2 ? -60 : 60), y: y + (i < 2 ? 40 : -40) }, duration: DURATION, ease: 'sine.inOut' }] });
+    });
+
+    // ---------- rigs (cards move as units) ----------
+    layers.push({ type: 'null', name: 'codeRig', duration: S.close[0], initial: { x: CODE.x, y: CODE.y }, keyframes: enterExit(0) });
+    layers.push({ type: 'null', name: 'frameRig', duration: S.close[0], initial: { x: FRAME.x, y: FRAME.y }, keyframes: enterExit(0.12) });
+
+    // ---------- code card ----------
+    layers.push(...card('codeRig', CODE.w, CODE.h, C.codeBg));
+    [C.pink, C.orange, C.sky].forEach((col, i) => layers.push({ type: 'shape', shape: 'circle', parent: 'codeRig', radius: 6,
+      initial: { x: -CODE.w / 2 + 26 + i * 20, y: -CODE.h / 2 + 24, fill: col } }));
+    layers.push({ type: 'text', name: 'codeTab', parent: 'codeRig', text: 'promo.html', duration: S.close[0],
+      style: { fontFamily: MONO, fontSize: 16, fill: C.codeCom },
+      initial: { x: CODE.w / 2 - 22, y: -CODE.h / 2 + 24, anchorX: 1, anchorY: 0.5 },
+      keyframes: [{ at: S.check[0], set: { text: 'terminal' } }] });
+
+    layers.push(codeBlock('code.hook',
+`{ type: 'text', text: 'Hello',
+  at: 2,
+  keyframes: [{ at: 0,
+    from: { scale: 1.6, alpha: 0 },
+    duration: 0.35,
+    ease: 'back.out' }] }`, S.hook, 1.6));
+
+    layers.push(codeBlock('code.seek',
+`{ type: 'shape', shape: 'circle',
+  keyframes: [{ at: 0,
+    to: { x: 440 },
+    duration: 1.2,
+    ease: 'power2.inOut' }] }
+
+// any frame, in any order:
+// the same picture`, S.seek, 1.4));
+
+    layers.push(codeBlock('code.sound',
+`{ type: 'audio', sfx: 'chime',
+  at: 9 },
+{ type: 'audio', music: {
+  bpm: 120,
+  tracks: [{ inst: 'keys',
+    notes: 'Fmaj7:4 G:4 Em7:4' }],
+  drums: { kick: 'x.......' } } }`, S.sound, 1.0));
+
+    // the terminal: the command types, then the report lines tick in, one per beat
+    const CHECK_CMD = '$ npx pixi-effects check promo.html';
+    layers.push(codeBlock('code.check', CHECK_CMD, S.check, 0.8));
+    const REPORT = [
+      ['✓ warnings', '0'], ['✓ layout', 'ok'], ['✓ sound', 'ok'], ['✓ export', 'promo.mp4'], ['✓ contact sheet', 'sheet.png'],
+    ];
+    const reportAt = (i) => S.check[0] + 0.9 + i * 0.4;
+    REPORT.forEach(([k, v], i) => {
+      layers.push({ type: 'text', name: `report${i}`, parent: 'codeRig', at: reportAt(i), duration: S.check[1] - reportAt(i),
+        style: { fontFamily: MONO, fontSize: 22, fill: C.codeInk, align: 'left' },
+        spans: [{ text: k, fill: C.sky }, ' '.repeat(18 - k.length), { text: v, fill: C.codeStr }],
+        initial: { x: -CODE.w / 2 + 30, y: -CODE.h / 2 + 114 + i * 34 },
+        keyframes: [{ at: 0, from: { alpha: 0, x: '-=10' }, duration: 0.2, ease: 'power2.out' },
+                    { at: -0.3, to: { alpha: 0 }, duration: 0.25 }] });
+    });
+    const exitAt = reportAt(REPORT.length) ;
+    layers.push({ type: 'text', name: 'exit0', parent: 'codeRig', at: exitAt, duration: S.check[1] - exitAt,
+      style: { fontFamily: MONO, fontSize: 22, fontWeight: '700', fill: C.codeInk },
+      spans: [{ text: '→ exit 0', fill: C.pink }],
+      initial: { x: -CODE.w / 2 + 30, y: -CODE.h / 2 + 114 + REPORT.length * 34 + 6 },
+      keyframes: [{ at: 0, from: { alpha: 0, scale: 1.3 }, duration: 0.3, ease: 'back.out(2)' },
+                  { at: -0.3, to: { alpha: 0 }, duration: 0.25 }] });
+
+    // ---------- frame card: the picture the code makes ----------
+    layers.push(...card('frameRig', FRAME.w, FRAME.h, '#ffffff', { stroke: C.line, strokeWidth: 1 }));
+    const fl = [];   // frame-local layers (0,0 = frame top-left), movie seconds
+    const FW = FRAME.w, FH = FRAME.h;
+
+    // HOOK: "Hello" lands exactly as the code says (at 2, from scale 1.6)
+    fl.push({ type: 'text', name: 'hello', text: 'Hello', at: 2, duration: S.hook[1] - 2,
+      style: { fontFamily: SANS, fontSize: 104, fontWeight: '800', fill: C.ink, letterSpacing: -3 },
+      initial: { x: FW / 2, y: FH / 2, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { scale: 1.6, alpha: 0 }, duration: 0.35, ease: 'back.out' },
+                  { at: -0.3, to: { alpha: 0, scale: 0.9 }, duration: 0.25, ease: 'power2.in' }] });
+    fl.push({ type: 'shape', shape: 'rect', name: 'helloBar', at: 2.15, duration: S.hook[1] - 2.15, width: 150, height: 8, cornerRadius: 4,
+      initial: { x: FW / 2, y: FH / 2 + 66, fill: C.pink },
+      keyframes: [{ at: 0, from: { scaleX: 0 }, duration: 0.4, ease: 'power3.out' },
+                  { at: -0.3, to: { alpha: 0 }, duration: 0.25 }] });
+    // a "waiting" cursor before the frame has its picture
+    fl.push({ type: 'text', name: 'frameEmpty', text: 'frame 0', at: 0.4, duration: 1.6,
+      style: { fontFamily: MONO, fontSize: 20, fill: C.ink3 }, initial: { x: FW / 2, y: FH / 2, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.3 }] });
+
+    // SEEK: one curve drives the circle, the playhead and the frame counter
+    const SCRUB = [[4.6, 1], [5.6, 0.25], [6.3, 0.85], [6.9, 0.45], [7.5, 0.65]];  // [time reached, position 0..1]
+    const scrubKeys = (map, prop, layerStart) => {
+      let t = 4.0;
+      return SCRUB.map(([at, p]) => { const k = { at: t + 0.1 - layerStart, to: { [prop]: map(p) }, duration: at - t - 0.1, ease: 'power2.inOut' }; t = at; return k; });
+    };
+    const cx = (p) => 70 + p * (FW - 140);
+    fl.push({ type: 'shape', shape: 'rect', name: 'groundLine', at: S.seek[0], duration: 3.75, width: FW - 100, height: 2,
+      initial: { x: FW / 2, y: 200, fill: C.line }, keyframes: [{ at: 0, from: { scaleX: 0 }, duration: 0.5, ease: 'power3.out' }] });
+    fl.push({ type: 'shape', shape: 'circle', name: 'ball', at: S.seek[0], duration: 3.75, radius: 34,
+      initial: { x: cx(0), y: 162, fill: C.pink },
+      keyframes: [{ at: 0, from: { scale: 0 }, duration: 0.35, ease: 'back.out(2)' }, ...scrubKeys(cx, 'x', S.seek[0]),
+                  { at: -0.3, to: { alpha: 0 }, duration: 0.25 }] });
+    // timeline strip under the picture (inside the card)
+    const tx = (p) => 40 + p * (FW - 80);
+    fl.push({ type: 'shape', shape: 'rect', name: 'track', at: S.seek[0], duration: 3.75, width: FW - 80, height: 6, cornerRadius: 3,
+      initial: { x: FW / 2, y: 266, fill: C.line } });
+    for (let i = 0; i <= 8; i++) fl.push({ type: 'shape', shape: 'rect', at: S.seek[0], duration: 3.75, width: 2, height: i % 4 ? 8 : 14,
+      initial: { x: tx(i / 8), y: 266, fill: '#c9c2de' } });
+    fl.push({ type: 'shape', shape: 'rect', name: 'playheadLine', at: S.seek[0], duration: 3.75, width: 3, height: 34,
+      initial: { x: tx(0), y: 266, fill: C.violet }, keyframes: scrubKeys(tx, 'x', S.seek[0]) });
+    fl.push({ type: 'shape', shape: 'circle', name: 'playhead', at: S.seek[0], duration: 3.75, radius: 8,
+      initial: { x: tx(0), y: 248, fill: C.violet }, keyframes: scrubKeys(tx, 'x', S.seek[0]) });
+    fl.push({ type: 'text', name: 'frameCounter', text: 'frame {value}', at: S.seek[0], duration: 3.75,
+      style: { fontFamily: MONO, fontSize: 20, fill: C.ink2 }, initial: { x: 40, y: 32, anchorY: 0.5, value: 0 },
+      keyframes: scrubKeys(p => Math.round(p * 36), 'value', S.seek[0]) });
+    fl.push({ type: 'text', name: 'deterministic', text: 'no hidden clock', at: S.seek[0] + 0.3, duration: 3.45,
+      style: { fontFamily: MONO, fontSize: 20, fill: C.violet }, initial: { x: FW - 40, y: 32, anchorX: 1, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.3 }] });
+
+    // SOUND: bars hit on every beat; the chime at 9.0 rings out as a circle
+    const NB = 11, BW = 28, BG = 15, base = 262, maxH = 186;
+    const rnd = random(11);
+    const barCols = [C.pink, C.violet, C.sky, C.orange];
+    for (let b = 0; b < NB; b++) {
+      const hump = 0.45 + 0.55 * Math.sin(Math.PI * (b + 0.5) / NB);
+      const keys = [{ at: 0, from: { scaleY: 0 }, duration: 0.3, ease: 'power3.out' }];
+      for (let t = S.sound[0] + BEAT; t < S.sound[1] - 0.3; t += BEAT) {
+        const h = Math.min(1, hump * (0.45 + 0.55 * rnd()) * (Math.round((t - S.sound[0]) / BEAT) % 2 ? 0.8 : 1));
+        keys.push({ at: t - S.sound[0], to: { scaleY: h }, duration: 0.06, ease: 'power2.out' });
+        keys.push({ at: t - S.sound[0] + 0.06, to: { scaleY: h * 0.3 }, duration: 0.4, ease: 'power2.out' });
+      }
+      keys.push({ at: -0.3, to: { alpha: 0 }, duration: 0.25 });
+      fl.push({ type: 'shape', shape: 'rect', name: `bar${b}`, at: S.sound[0], duration: S.sound[1] - S.sound[0], width: BW, height: maxH,
+        cornerRadius: 6, anchorY: 1, initial: { x: FW / 2 + (b - (NB - 1) / 2) * (BW + BG), y: base, fill: barCols[b % 4], scaleY: 0.3 }, keyframes: keys });
+    }
+    fl.push({ type: 'shape', shape: 'circle', name: 'chimeRing', at: 9, duration: 1.4, radius: 60,
+      initial: { x: FW / 2, y: 160, fill: 'rgba(0,0,0,0)', stroke: C.pink, strokeWidth: 4 },
+      keyframes: [{ at: 0, from: { scale: 0.3, alpha: 1 }, to: { scale: 3.2, alpha: 0 }, duration: 1.4, ease: 'power2.out' }] });
+    fl.push({ type: 'text', name: 'chimeLabel', text: "sfx: 'chime'", at: 9, duration: 2.7,
+      style: { fontFamily: MONO, fontSize: 20, fill: C.pinkText }, initial: { x: FW / 2, y: 32, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { alpha: 0, y: '+=10' }, duration: 0.3, ease: 'power2.out' }, { at: -0.3, to: { alpha: 0 }, duration: 0.25 }] });
+
+    // CHECK: a contact sheet of this film's own moments fills in
+    const TW = 152, TH = 86, TG = 16;
+    const sheetX = (FW - (3 * TW + 2 * TG)) / 2, sheetY = 66;
+    fl.push({ type: 'text', name: 'sheetLabel', text: 'sheet.png', at: S.check[0] + 0.6, duration: 3.4,
+      style: { fontFamily: MONO, fontSize: 18, fill: C.ink3 }, initial: { x: sheetX, y: 34, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.3 }, { at: -0.3, to: { alpha: 0 }, duration: 0.25 }] });
+    const tileContent = [
+      () => [{ type: 'text', text: 'Hello', style: { fontFamily: SANS, fontSize: 30, fontWeight: '800', fill: C.ink }, initial: { x: TW / 2, y: TH / 2, anchorX: 0.5, anchorY: 0.5 } }],
+      () => [{ type: 'shape', shape: 'circle', radius: 13, initial: { x: 34, y: TH / 2, fill: C.pink } }],
+      () => [{ type: 'shape', shape: 'circle', radius: 13, initial: { x: TW - 34, y: TH / 2, fill: C.pink } }],
+      () => [0, 1, 2, 3, 4, 5, 6].map(b => ({ type: 'shape', shape: 'rect', width: 9, height: 18 + 30 * Math.sin(Math.PI * (b + 0.5) / 7) * (b % 2 ? 0.7 : 1), anchorY: 1, cornerRadius: 2, initial: { x: TW / 2 + (b - 3) * 14, y: TH - 14, fill: barCols[b % 4] } })),
+      () => [{ type: 'text', text: '✓ 0', style: { fontFamily: MONO, fontSize: 22, fill: C.violet }, initial: { x: TW / 2, y: TH / 2, anchorX: 0.5, anchorY: 0.5 } }],
+      () => [{ type: 'text', spans: [{ text: 'pixi', fill: C.pink }, { text: '-effects', fill: C.ink }], style: { fontFamily: SANS, fontSize: 20, fontWeight: '900' }, initial: { x: TW / 2, y: TH / 2, anchorX: 0.5, anchorY: 0.5 } }],
+    ];
+    tileContent.forEach((make, i) => {
+      const at = S.check[0] + 1.0 + i * BEAT * 0.5 + 0.25;
+      const col = i % 3, row = Math.floor(i / 3);
+      fl.push({ type: 'composition', name: `tile${i}`, width: TW, height: TH, clip: true, at, duration: S.check[1] - at,
+        initial: { x: sheetX + col * (TW + TG) + TW / 2, y: sheetY + row * (TH + TG + 22) + TH / 2, pivotX: TW / 2, pivotY: TH / 2 },
+        keyframes: [{ at: 0, from: { alpha: 0, scale: 0.85 }, duration: 0.3, ease: 'back.out(2)' }, { at: -0.3, to: { alpha: 0 }, duration: 0.25 }],
+        layers: [{ type: 'shape', shape: 'rect', width: TW, height: TH, cornerRadius: 8, initial: { x: TW / 2, y: TH / 2, fill: C.bgBottom } }, ...make()] });
+      fl.push({ type: 'text', text: ['0:02', '0:05', '0:07', '0:10', '0:14', '0:18'][i], at, duration: S.check[1] - at,
+        style: { fontFamily: MONO, fontSize: 14, fill: C.ink3 },
+        initial: { x: sheetX + col * (TW + TG), y: sheetY + row * (TH + TG + 22) + TH + 4 },
+        keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.3 }, { at: -0.3, to: { alpha: 0 }, duration: 0.25 }] });
+    });
+
+    layers.push({ type: 'composition', name: 'frame', parent: 'frameRig', width: FW, height: FH, clip: true, duration: S.close[0],
+      initial: { x: -FW / 2, y: -FH / 2 }, layers: fl });
+
+    // ---------- headlines ----------
+    layers.push(headline('h.hook', 'Write a video as ', 'data.', S.hook));
+    layers.push(headline('h.seek', 'Scrub any way. ', 'Same frame.', S.seek));
+    layers.push(headline('h.sound', 'Sound with ', 'no audio files.', S.sound));
+    layers.push(headline('h.check', 'Written by AI. ', 'Checked by AI.', S.check));
+
+    // ---------- close ----------
+    const T0 = S.close[0];
+    layers.push(...particles({ count: 46, at: T0 + 0.05, life: [0.9, 1.6], area: { x: W / 2, y: 240 }, speed: [180, 520],
+      gravity: 380, drag: 1.4, size: [4, 8], scale: [1, 0.3], fade: { out: 0.5 }, colors: [C.pink, C.violet, C.sky, C.orange], shape: 'rect', spin: [-300, 300], seed: 4, name: 'confetti' }));
+    layers.push({ type: 'text', name: 'logo', at: T0, duration: DURATION - T0,
+      style: { fontFamily: SANS, fontSize: 132, fontWeight: '900', letterSpacing: -5 },
+      spans: [{ text: 'pixi', fill: C.pink }, { text: '-effects', fill: C.ink }],
+      initial: { x: W / 2, y: 240, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { alpha: 0, scale: 0.7 }, duration: 0.5, ease: 'back.out(1.6)' }] });
+    layers.push({ type: 'text', name: 'tagline', text: 'Declarative composition and video rendering for the web.', at: T0 + 0.4, duration: DURATION - T0 - 0.4,
+      style: { fontFamily: SANS, fontSize: 30, fontWeight: '500', fill: C.ink2 },
+      initial: { x: W / 2, y: 346, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { alpha: 0, y: '+=18' }, duration: 0.6, ease: 'power3.out' }] });
+    layers.push({ type: 'null', name: 'pillRig', at: T0 + 0.9, duration: DURATION - T0 - 0.9, initial: { x: W / 2, y: 444 },
+      keyframes: [{ at: 0, from: { alpha: 0, scale: 0.9 }, duration: 0.5, ease: 'back.out(2)' }] });
+    layers.push({ type: 'shape', shape: 'rect', parent: 'pillRig', at: T0 + 0.9, duration: DURATION - T0 - 0.9, width: 640, height: 72, cornerRadius: 36,
+      initial: { x: 0, y: 0, fill: C.codeBg } });
+    layers.push({ type: 'text', name: 'install', parent: 'pillRig', at: T0 + 0.9, duration: DURATION - T0 - 0.9,
+      style: { fontFamily: MONO, fontSize: 26, fill: C.codeInk },
+      spans: [{ text: '$ ', fill: C.pink }, { text: 'npx skills add ', fill: C.codeKey }, { text: 'yjmtmtk/pixi-effects', fill: C.codeStr }],
+      initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } });
+    layers.push({ type: 'text', name: 'footer', text: 'MIT  ·  Built on PixiJS v8  ·  github.com/yjmtmtk/pixi-effects', at: T0 + 1.4, duration: DURATION - T0 - 1.4,
+      style: { fontFamily: SANS, fontSize: 24, fontWeight: '500', fill: C.ink3 },
+      initial: { x: W / 2, y: 540, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.6 }] });
+
+    // ---------- sound ----------
+    // music: 120 bpm, 10 bars; drums enter on "Hello" (beat 4) and stop for the close; Cmaj7 resolves on 16 s
+    const prog = 'Fmaj7:4 G:4 Em7:4 Am7:4 | Fmaj7:4 G:4 Dm7:4 G7:4 | Cmaj7:8';
+    const bass = 'f2:1.5 f2:0.5 c3:1 f2:1 | g2:1.5 g2:0.5 d3:1 g2:1 | e2:1.5 e2:0.5 b2:1 e2:1 | a1:1.5 a1:0.5 e2:1 a1:1 | '
+               + 'f2:1.5 f2:0.5 c3:1 f2:1 | g2:1.5 g2:0.5 d3:1 g2:1 | d2:1.5 d2:0.5 a2:1 d2:1 | g1:1.5 g1:0.5 d2:1 g2:1 | c2:8';
+    layers.push({ type: 'audio', name: 'music', at: 0, volume: 0.9, music: {
+      bpm: 120, reverb: 0.25,
+      tracks: [
+        { inst: 'keys', vol: 0.6, strum: 0.012, notes: prog },
+        { inst: 'bass', vol: [[0, 0.3], [4, 0.85]], notes: bass },
+        { inst: 'pluck', vol: [[0, 0], [8, 0], [8.01, 0.4], [32, 0.4]], step: 0.5,
+          notes: '_:8 | e4 g4 b4 g4 e4 g4 b4 d5 | c5 e5 a5 e5 c5 e5 a5 e5 | a4 c5 f5 c5 a4 c5 f5 a5 | b4 d5 g5 d5 b4 d5 g5 b5 | a4 d5 f5 d5 a4 d5 f5 a5 | b4 d5 f5 d5 g4 b4 d5 f5 | _:8' },
+        { inst: 'pad', vol: 0.5, attack: 0.6, notes: '_:32 Cmaj7@4:8' },
+        { inst: 'bell', vol: 0.5, notes: '_:32 g5:1 c6:1 e6:6' },
+      ],
+      drums: [
+        { from: 4, to: 31, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' },
+        { from: 32, to: 33, crash: 'x...............' },
+      ],
+    } });
+
+    const sfx = (preset, at, extra = {}) => layers.push({ type: 'audio', at, sfx: preset, ...extra });
+    // typing in the hook (the code card types; one tick every 3rd character)
+    for (let t = 0.25; t < 1.8; t += 0.11) sfx('typewriter', t, { volume: 0.5 });
+    sfx('hit', 2.0);
+    // every cut on a bar line: the swoosh peaks 0.16 s in
+    [4, 8, 12].forEach(t => sfx('swoosh', t - 0.16, { volume: 0.7 }));
+    sfx('chime', 9.0);
+    REPORT.forEach((_, i) => sfx('click', reportAt(i), { volume: 1.2 }));
+    sfx('pop', exitAt);
+    sfx('riser', T0 - 1.0, { duration: 1.0, volume: 0.6 });
+    sfx('hit', T0);
+    sfx('pop', T0 + 0.9);
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 18, loudness: -16,        // the moment that stands for the video before it plays (pick your most striking one)
+        background: '#fcfbfd',
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { layers },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

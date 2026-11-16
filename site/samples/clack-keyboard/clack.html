@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Clack — launch film</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/loader.css" />
+  <style>
+    body { background: #08080a; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(960px, 100%); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="CLACK"></div>
+  </div>
+
+  <script>
+    window.__logs = [];
+    let group = '';
+    const text = (a) => { if (typeof a[0] === 'string' && a[0].includes('%')) { let i = 1; a = [a[0].replace(/%([csdifoO])/g, (_, f) => f === 'c' ? (i++, '') : String(a[i++])), ...a.slice(i)]; } return a.map(x => (x && x.message) || String(x)).join(' '); };
+    const gc = console.groupCollapsed.bind(console), ge = console.groupEnd.bind(console);
+    console.groupCollapsed = (...a) => { group = text(a); gc(...a); };
+    console.groupEnd = () => { group = ''; ge(); };
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + (group ? group + ' — ' : '') + text(a)); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/controller.js",
+      "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/3d.js",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
+      "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie, musicEvents, wiggle } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    import { register3D, scene3d } from 'pixi-effects/3d';
+    import { Mesh3D, Container3D, CubeGeometry, PlaneGeometry, Material3D, SpotLight, DirectionalLight } from '@pixi/3d';
+
+    register3D();
+
+    // ---------------------------------------------------------------- timing
+    // 120 bpm: a beat is 0.5 s, a bar 2 s. 12 s = 6 bars.
+    //   bar 1 (0–2)   intro: spotlight fades up, pad only
+    //   bars 2–4 (2–8) groove: kick / snare / hat; every hit presses a key
+    //   bar 5 (8–10)  build: snare roll sweeps a wave across the board, riser
+    //   10.0          SLAM: every key down, crash, the name lands
+    //   10–12         hold on the name
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    const BPM = 120, BEAT = 60 / BPM;
+    const SLAM = 20 * BEAT;                       // 10 s
+
+    const ORANGE = '#ff6a2b', CREAM = '#ece6d8';
+
+    const music = {
+      bpm: BPM, reverb: 0.2, seed: 3, drumVol: 1,
+      tracks: [
+        { inst: 'pad',  vol: [[0, 0.15], [4, 0.5], [20, 0.55], [24, 0.35]], attack: 0.6, release: 1.5,
+          notes: 'Am:8 F:4 C:4 G:4 Am:4' },
+        { inst: 'bass', vol: 0.95, tone: 0.55, reverb: 0,
+          notes: '_:4 | a1:0.75 _:0.25 a1:0.5 a2:0.5 _:0.5 a1:0.5 g1:0.5 a1:0.5 | f1:0.75 _:0.25 f1:0.5 f2:0.5 _:0.5 f1:0.5 e1:0.5 f1:0.5 | c2:0.75 _:0.25 c2:0.5 c3:0.5 _:0.5 c2:0.5 b1:0.5 c2:0.5 | g1:0.5 g1:0.5 g1:0.5 g1:0.5 g1:0.5 g1:0.5 g1:0.5 g1:0.5 | a1:4' },
+        { inst: 'bell', vol: 0.55, ring: 2.5, notes: '_:20 [a5 e6]:4' },
+      ],
+      drums: [
+        { from: 4,  to: 16, kick: 'x.....x.x.......', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' },
+        { from: 16, to: 20, kick: 'x...x...x...x...', snare: 'x.x.x.x.xxxxxxxx', hat: 'x.x.x.x.x.x.x.x.' },
+        { from: 20, to: 21, kick: 'x...', crash: 'x...' },
+      ],
+    };
+    const ev = await musicEvents(music);
+    const hitsOf = (kind) => (ev.drums.find(d => d.kind === kind)?.hits || []).map(h => h.time);
+    const KICKS = hitsOf('kick'), SNARES = hitsOf('snare'), HATS = hitsOf('hat');
+
+    // ---------------------------------------------------------------- keyboard layout (60 %, in key units)
+    const ROWS = [
+      [['esc', 1, 'accent'], ...'1234567890-='.split('').map(c => [c, 1]), ['bksp', 2, 'mod']],
+      [['tab', 1.5, 'mod'], ...'qwertyuiop[]'.split('').map(c => [c, 1]), ['\\', 1.5, 'mod']],
+      [['caps', 1.75, 'mod'], ...'asdfghjkl;\''.split('').map(c => [c, 1]), ['enter', 2.25, 'accent']],
+      [['lshift', 2.25, 'mod'], ...'zxcvbnm,./'.split('').map(c => [c, 1]), ['rshift', 2.75, 'mod']],
+      [['lctrl', 1.25, 'mod'], ['lwin', 1.25, 'mod'], ['lalt', 1.25, 'mod'], ['space', 6.25, 'space'], ['ralt', 1.25, 'mod'], ['fn', 1.25, 'mod'], ['menu', 1.25, 'mod'], ['rctrl', 1.25, 'mod']],
+    ];
+    const KEYS = [];                                 // { id, x, z, w, kind }
+    ROWS.forEach((row, r) => {
+      let x = -7.5;
+      for (const [id, w, kind = 'alpha'] of row) {
+        KEYS.push({ id, x: x + w / 2, z: -2 + r, w, kind, row: r });
+        x += w;
+      }
+    });
+    const byId = Object.fromEntries(KEYS.map(k => [k.id, k]));
+
+    // ---------------------------------------------------------------- which key each hit presses
+    // press = { time, strength 0..1 }
+    const presses = new Map(KEYS.map(k => [k, []]));
+    const press = (k, time, s) => presses.get(k).push({ time, s });
+    const SPELL = 'clack'.split('');
+    KICKS.filter(t => t < SLAM - 0.01).forEach((t, i) => press(byId[SPELL[i % SPELL.length]], t, 1));
+    const TYPE = 'thequickbrownfoxjumpsoverlazydg'.split('');
+    HATS.forEach((t, i) => press(byId[TYPE[(i * 7) % TYPE.length]], t, 0.55));
+    // snare: the space bar in the groove; in the build the roll sweeps a column wave left → right
+    const roll = SNARES.filter(t => t >= 16 * BEAT - 0.01 && t < SLAM - 0.01);
+    SNARES.filter(t => t < 16 * BEAT - 0.01).forEach(t => press(byId.space, t, 1));
+    roll.forEach((t, i) => {
+      const u = roll.length > 1 ? i / (roll.length - 1) : 0;
+      const cx = -7.5 + u * 15;
+      KEYS.filter(k => Math.abs(k.x - cx) < 0.9).forEach(k => press(k, t, 0.85));
+    });
+    KEYS.forEach(k => press(k, SLAM, 1.25));          // the slam: every key at once
+
+    const pressDepth = (dt) => dt < 0 ? 0 : dt < 0.035 ? dt / 0.035 : Math.exp(-(dt - 0.035) / 0.08);
+    const glowOf = (dt) => dt < 0 ? 0 : Math.exp(-dt / 0.28);
+
+    // ---------------------------------------------------------------- the 3D stage
+    const smooth = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+    let spot;
+    const stage = scene3d({
+      type: 'scene3d', name: 'board',
+      view: { toneMapping: 'aces', exposure: 1.05, shadowQuality: 'high',
+        environment: { skyColor: 0xa09a92, groundColor: 0x1a1612, intensity: 0.12 } },
+      setup: ({ root, camera }) => {
+        const floor = new Mesh3D({ geometry: new PlaneGeometry({ width: 80, height: 80 }),
+          material: new Material3D({ baseColor: 0x34343a, roughness: 0.8 }),
+          rotation: { x: -Math.PI / 2, y: 0, z: 0 }, position: { x: 0, y: -0.6, z: 0 }, receiveShadow: true });
+        root.addChild(floor);
+
+        const board = new Container3D();
+        root.addChild(board);
+
+        // case: a low anodised block with a raised rim
+        const caseMat = new Material3D({ baseColor: 0x2a2c33, metallic: 0.7, roughness: 0.38 });
+        board.addChild(new Mesh3D({ geometry: new CubeGeometry({ width: 15.9, height: 1.0, depth: 5.9 }), material: caseMat,
+          position: { x: 0, y: -0.1, z: 0 }, castShadow: true, receiveShadow: true }));
+        const plateMat = new Material3D({ baseColor: 0x121317, roughness: 0.7 });
+        board.addChild(new Mesh3D({ geometry: new CubeGeometry({ width: 15.2, height: 0.1, depth: 5.2 }), material: plateMat,
+          position: { x: 0, y: 0.42, z: 0 } }));
+        // an orange accent strip on the front edge
+        board.addChild(new Mesh3D({ geometry: new CubeGeometry({ width: 15.9, height: 0.06, depth: 0.06 }),
+          material: new Material3D({ baseColor: 0x220c04, emissive: { color: ORANGE, strength: 1.6 } }),
+          position: { x: 0, y: -0.25, z: 2.96 } }));
+
+        const BASE = { alpha: 0xece6d8, mod: 0x5c5853, accent: 0xff6a2b, space: 0xece6d8 };
+        const caps = [];
+        for (const k of KEYS) {
+          const color = BASE[k.kind];
+          const skirt = new Material3D({ baseColor: color, roughness: 0.55 });
+          const top = new Material3D({ baseColor: color, roughness: 0.45, emissive: { color: ORANGE, strength: 0 } });
+          const cap = new Container3D({ position: { x: k.x, y: 0.47, z: k.z } });
+          cap.addChild(new Mesh3D({ geometry: new CubeGeometry({ width: k.w - 0.1, height: 0.42, depth: 0.9 }), material: skirt,
+            position: { x: 0, y: 0.21, z: 0 }, castShadow: true, receiveShadow: true }));
+          cap.addChild(new Mesh3D({ geometry: new CubeGeometry({ width: k.w - 0.32, height: 0.1, depth: 0.68 }), material: top,
+            position: { x: 0, y: 0.46, z: -0.03 }, castShadow: true, receiveShadow: true }));
+          board.addChild(cap);
+          caps.push({ k, cap, top, list: presses.get(k).sort((a, b) => a.time - b.time) });
+        }
+
+        spot = new SpotLight({ color: 0xfff1de, intensity: 0, coneAngle: 24, penumbra: 0.8, castShadow: true });
+        spot.position.set(1.5, 15, 7);
+        spot.lookAt({ x: 0, y: 0, z: 0 });
+        const rim = new DirectionalLight({ color: 0xb8c4ff, intensity: 0 });
+        rim.position.set(0, 4, -10);
+        rim.lookAt({ x: 0, y: 0, z: 0 });
+        root.addChild(spot, rim);
+
+        camera.fov = 34;
+        return { objects: { board, caps, spot, rim } };
+      },
+      update: (t, { objects, camera }) => {
+        const { board, caps, spot, rim } = objects;
+        // light comes up over the first bar and a half, and flares on the slam
+        const up = smooth(0.1, 2.2, t);
+        const flare = t >= SLAM ? Math.exp(-(t - SLAM) / 0.2) : 0;
+        spot.intensity = 520 * up + 140 * flare;
+        rim.intensity = 0.7 * up;
+
+        // the board turns slowly through the whole film
+        const u = t / DURATION;
+        board.rotation.y = -0.62 + 0.95 * smooth(0, 1, u) + 0.25 * u;
+        board.rotation.x = 0.04 * Math.sin(t * 0.6);
+        board.position.y = 0.08 * Math.sin(t * 0.9);
+
+        // camera: a slow push in, low and three-quarter
+        const d = 22.5 - 3.5 * smooth(0, SLAM, t) + 1.5 * smooth(SLAM, DURATION, t);
+        camera.position.set(0, d * 0.5, d * 0.86);
+        camera.lookAt({ x: 0, y: 0.2, z: 0 });
+
+        // keys: depth and glow from the latest press
+        for (const c of caps) {
+          let depth = 0, glow = 0;
+          for (const p of c.list) {
+            if (p.time > t + 1e-6) break;
+            const dt = t - p.time;
+            depth = Math.max(depth, pressDepth(dt) * p.s);
+            glow = Math.max(glow, glowOf(dt) * p.s);
+          }
+          c.cap.position.y = 0.47 - 0.24 * Math.min(1, depth);
+          c.top.emissive.strength = 3.2 * glow;
+        }
+      },
+      keyframes: [
+        { at: SLAM + 0.05, to: { alpha: 0.42 }, duration: 0.6, ease: 'power2.out' },
+      ],
+    });
+
+    // ---------------------------------------------------------------- 2D layers
+    const layers = [
+      { type: 'shape', name: 'bg', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#08080a' } },
+      stage,
+      // vignette keeps the spotlit board as the only bright thing
+      { type: 'shape', name: 'vignette', shape: 'rect', width: 'GW', height: 'GH',
+        initial: { x: 'GW/2', y: 'GH/2', fillGradient: { type: 'radial', center: [0.5, 0.52], innerRadius: 0.25, radius: 0.85,
+          stops: [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.85)']] } } },
+
+      // intro whisper
+      { type: 'text', name: 'intro', text: 'INTRODUCING', at: 0.6, duration: 1.4,
+        style: { fontFamily: 'Helvetica Neue, Arial, sans-serif', fontSize: 22, fontWeight: '600', fill: '#bdb7aa', letterSpacing: 14 },
+        initial: { x: 'GW/2', y: 96, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [
+          { at: 0, from: { alpha: 0, y: 108 }, to: { alpha: 1, y: 96 }, duration: 0.6, ease: 'power2.out' },
+          { at: -0.4, to: { alpha: 0 }, duration: 0.4 },
+        ] },
+
+      // build: a thin progress line that races across with the snare roll
+      { type: 'shape', name: 'buildline', shape: 'rect', width: 1, height: 3, at: 16 * BEAT, duration: SLAM - 16 * BEAT,
+        initial: { x: 'GW*0.1', y: 'GH - 70', anchorX: 0, fill: ORANGE, alpha: 0.9 },
+        keyframes: [{ at: 0, to: { width: 'GW*0.8' }, duration: SLAM - 16 * BEAT, ease: 'power2.in' }] },
+
+      // the slam
+      { type: 'shape', name: 'flash', shape: 'rect', width: 'GW', height: 'GH', at: SLAM, duration: 0.22,
+        initial: { x: 'GW/2', y: 'GH/2', fill: '#fff4e8', alpha: 0.5 }, blendMode: 'add',
+        keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.2, ease: 'power3.out' }] },
+      { type: 'text', name: 'name-shadow', text: 'CLACK', at: SLAM, duration: DURATION - SLAM,
+        style: { fontFamily: 'Arial Black, Helvetica Neue, Arial, sans-serif', fontSize: 210, fontWeight: '900', fill: ORANGE, letterSpacing: 6 },
+        initial: { x: 'GW/2', y: 'GH/2 - 18', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [
+          { at: 0.02, from: { alpha: 0.9, scale: 1 }, to: { alpha: 0, scale: 1.35 }, duration: 0.5, ease: 'power2.out' },
+        ] },
+      { type: 'text', name: 'name', text: 'CLACK', at: SLAM, duration: DURATION - SLAM,
+        style: { fontFamily: 'Arial Black, Helvetica Neue, Arial, sans-serif', fontSize: 210, fontWeight: '900', fill: CREAM, letterSpacing: 6,
+          dropShadow: { color: '#000000', alpha: 0.6, blur: 24, distance: 0 } },
+        initial: { x: 'GW/2', y: 'GH/2 - 18', anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [
+          { at: 0, from: { scale: 2.8, rotation: -6, alpha: 0 }, to: { scale: 1, rotation: 0, alpha: 1 }, duration: 0.14, ease: 'expo.out' },
+          ...wiggle({ at: 0.14, duration: 0.3, freq: 30, seed: 2, ease: 'none', props: { x: { around: W / 2, amp: 12 }, y: { around: H / 2 - 18, amp: 8 } } }),
+          { at: 0.5, to: { scale: 1.04 }, duration: DURATION - SLAM - 0.5, ease: 'none' },
+        ] },
+      { type: 'text', name: 'tagline', text: 'MECHANICAL KEYBOARD', at: SLAM + 0.5, duration: DURATION - SLAM - 0.5,
+        style: { fontFamily: 'Helvetica Neue, Arial, sans-serif', fontSize: 26, fontWeight: '600', fill: '#d9d3c6', letterSpacing: 16 },
+        initial: { x: 'GW/2', y: 'GH/2 + 112', anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0, y: 'GH/2 + 128' }, to: { alpha: 1, y: 'GH/2 + 112' }, duration: 0.5, ease: 'power3.out' }] },
+      { type: 'shape', name: 'rule', shape: 'rect', width: 0, height: 4, at: SLAM + 0.35, duration: DURATION - SLAM - 0.35,
+        initial: { x: 'GW/2', y: 'GH/2 + 78', fill: ORANGE },
+        keyframes: [{ at: 0, to: { width: 140 }, duration: 0.45, ease: 'power3.out' }] },
+
+      // sound: the score, a riser into the slam, the hit, and a soft key click on every press
+      { type: 'audio', name: 'music', at: 0, volume: 0.9, music },
+      { type: 'audio', name: 'riser', sfx: 'riser', at: SLAM - 2, duration: 2, volume: 0.7 },
+      { type: 'audio', name: 'hit', sfx: { preset: 'hit', pitch: -3 }, at: SLAM, volume: 1.4 },
+      { type: 'audio', name: 'slam-click', sfx: { preset: 'click', pitch: -8, brightness: -0.2 }, at: SLAM, volume: 1.5 },
+      ...[...KICKS.filter(t => t < SLAM - 0.01), ...SNARES.filter(t => t < 16 * BEAT - 0.01)].map((t, i) => ({
+        type: 'audio', name: `clack-${i}`, at: t, volume: 0.9,
+        sfx: { preset: 'click', pitch: -4 + (i % 3) * 2, brightness: 0.1, seed: i } })),
+      ...HATS.filter(t => t < SLAM - 0.01).map((t, i) => ({
+        type: 'audio', name: `tick-${i}`, at: t + 0.004, volume: 1.1,
+        sfx: { preset: 'typewriter', pitch: (i % 4) - 1, seed: 100 + i } })),
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage'), theme: { accent: ORANGE } });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 11,
+        background: '#08080a',
+        loudness: -15,
+        composition: { layers },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

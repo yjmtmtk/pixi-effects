@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brewly — launch teaser</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #120c08; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    // A console group's title leads the warnings inside it (PixiJS prints a deprecation as a group titled with its message, the stack inside).
+    let group = '';
+    const text = (a) => { if (typeof a[0] === 'string' && a[0].includes('%')) { let i = 1; a = [a[0].replace(/%([csdifoO])/g, (_, f) => f === 'c' ? (i++, '') : String(a[i++])), ...a.slice(i)]; } return a.map(x => (x && x.message) || String(x)).join(' '); };
+    const gc = console.groupCollapsed.bind(console), ge = console.groupEnd.bind(console);
+    console.groupCollapsed = (...a) => { group = text(a); gc(...a); };
+    console.groupEnd = () => { group = ''; ge(); };
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + (group ? group + ' — ' : '') + text(a)); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/controller.js",
+      "pixi-effects/present":  "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/present.js",
+      "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/3d.js",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
+      "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie, animateText, wiggle } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // PixiJS 2D objects built by code (Graphics, Sprites, a thousand pieces): { type: 'scene2d', setup({ root }) { root.addChild(…); return { objects } }, update(t, { objects }) { … } } — no import; recipe scene2d-basics
+    // import { register3D } from 'pixi-effects/3d';   // a 3D scene (PixiJS 3D: meshes, glTF models, lights) as a layer: call register3D() before init; recipe scene3d-basics
+    // import { Mesh3D, Model3D, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, layers }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 15;
+
+    // ── Beat grid: 96 bpm → a beat is 0.625 s, a bar 2.5 s. Every cut sits on a bar, every cue on a beat.
+    const BEAT = 0.625, BAR = 2.5;
+    const C = {
+      espresso: '#4a2415', roast: '#2e150b', cream: '#fde9cf', caramel: '#ea7a2c', honey: '#f6b23e',
+      muted: '#9b6448', card: '#fff6ea', chip: '#f6dcbc', white: '#ffffff', phone: '#22100a', rim: '#8a5232',
+    };
+    const SANS = '"Avenir Next", "Helvetica Neue", Arial, sans-serif';
+    const type = (fontSize, fill, extra = {}) => ({ fontFamily: SANS, fontSize, fontWeight: '800', fill, ...extra });
+    const drawOn = (at, duration = 0.8, ease = 'power2.inOut') => ({ at, to: { trimEnd: 1 }, duration, ease });
+    const bg = (fill) => ({ type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill } });
+    const withParent = (parent) => (l) => ({ ...l, parent });
+
+    // ── A coffee cup in line art (body, handle, three wisps of steam), hung on a null so it scales as one.
+    const CUP_BODY = 'M -64 -56 L 64 -56 L 54 58 Q 52 74 36 74 L -36 74 Q -52 74 -54 58 Z';
+    const CUP_HANDLE = 'M 62 -30 Q 104 -30 102 2 Q 100 30 58 30';
+    const STEAM = 'M 0 0 C -14 -18 14 -36 0 -54 C -14 -72 14 -90 0 -108';
+    function cup(rig, { color, width, at = 0, seed = 1, life, pace = 1 }) {
+      const line = (name, d, x, y, keyframes) => ({
+        type: 'shape', shape: 'path', name, d, parent: rig, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
+        initial: { x, y, pivotX: 0, pivotY: 0, stroke: color, strokeWidth: width }, keyframes,
+      });
+      return [
+        line(`${rig}-body`, CUP_BODY, 0, 0, [drawOn(at, 0.9 * pace)]),
+        line(`${rig}-handle`, CUP_HANDLE, 0, 0, [drawOn(at + 0.55 * pace, 0.4 * pace, 'power2.out')]),
+        ...[-32, 0, 32].map((dx, i) => line(`${rig}-steam${i}`, STEAM, dx, -78, [
+          drawOn(at + (0.5 + i * 0.12) * pace, 0.9 * pace, 'sine.out'),
+          ...wiggle({ at: at + 0.5, duration: life - at - 0.5, freq: 1.6, seed: seed + i, props: { x: { around: dx, amp: 5 }, alpha: { around: 0.8, amp: 0.2 } } }),
+        ])),
+      ];
+    }
+
+    // A tap: a caramel ring that grows and fades where the finger lands.
+    const ripple = (name, at, x, y, parent) => ({
+      type: 'shape', shape: 'circle', name, radius: 10, at, duration: 0.5, ...(parent ? { parent } : {}),
+      initial: { x, y, fill: C.caramel, alpha: 0.55 },
+      keyframes: [{ at: 0, to: { radius: 40, alpha: 0 }, duration: 0.45, ease: 'power2.out' }],
+    });
+
+    // ── 1. HOOK (0 – 2.5): a cup draws itself, "Mornings move fast." word by word on the beat.
+    const hook = { type: 'composition', name: 'hook', at: 0, duration: BAR, layers: [
+      bg(C.espresso),
+      { type: 'shape', shape: 'circle', name: 'warmth', radius: 380,
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(240,140,60,0.55)'], [1, 'rgba(240,140,60,0)']] },
+        initial: { x: 640, y: 300, alpha: 0.45 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.2 }] },
+      { type: 'null', name: 'cupRig', initial: { x: 640, y: 290, scale: 1.12 },
+        keyframes: [{ at: 0, to: { scale: 1.22 }, duration: BAR, ease: 'none' }] },
+      ...cup('cupRig', { color: C.cream, width: 6, at: 0, life: BAR }),
+      ...animateText('Mornings move fast.', type(68, C.cream), { by: 'words', x: 640, y: 468, align: 'center',
+        at: BEAT, duration: BAR - BEAT, in: 'rise', stagger: { each: BEAT / 2 } }),
+    ] };
+
+    // ── 2. PROBLEM (2.5 – 5): a queue; "Coffee lines don't."; a caramel strike and the queue drops away.
+    const QUEUE = 9, Q_X0 = 230, Q_DX = 102, Q_Y = 440, YOU = QUEUE - 1;
+    const person = (i) => {
+      const rig = `p${i}`, fill = i === YOU ? C.caramel : C.roast;
+      const enter = 0.04 + i * 0.04, drop = 2.0 + (YOU - 1 - i) * 0.03;
+      return [
+        { type: 'null', name: rig, initial: { x: Q_X0 + i * Q_DX, y: Q_Y, alpha: 0 },
+          keyframes: [
+            { at: enter, from: { y: Q_Y + 24 }, to: { y: Q_Y, alpha: 1 }, duration: 0.35, ease: 'power3.out' },
+            ...(i === YOU ? [] : [{ at: drop, to: { y: Q_Y + 70, alpha: 0 }, duration: 0.3, ease: 'power2.in' }]),
+          ] },
+        { type: 'shape', shape: 'circle', name: `${rig}-head`, parent: rig, radius: 21, initial: { x: 0, y: -62, fill } },
+        { type: 'shape', shape: 'rect', name: `${rig}-body`, parent: rig, width: 52, height: 74, cornerRadius: 24, initial: { x: 0, y: 0, fill } },
+      ];
+    };
+    const line = { type: 'composition', name: 'line', at: BAR, duration: BAR, layers: [
+      bg(C.cream),
+      { type: 'text', name: 'lines-head', text: 'Coffee lines don’t.', style: type(72, C.roast),
+        initial: { x: 640, y: 170, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, from: { y: 200, alpha: 0.35 }, to: { y: 170, alpha: 1 }, duration: 0.4, ease: 'power3.out' }] },
+      ...Array.from({ length: QUEUE }, (_, i) => person(i)).flat(),
+      { type: 'text', name: 'you', text: 'you', at: BEAT * 2, style: type(26, C.caramel),
+        initial: { x: Q_X0 + YOU * Q_DX, y: 335, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, from: { y: 350 }, to: { y: 335, alpha: 1 }, duration: 0.25, ease: 'power2.out' }] },
+      { type: 'shape', shape: 'line', name: 'strike', from: [170, 440], to: [1110, 440], trimEnd: 0, strokeCap: 'round',
+        initial: { stroke: C.caramel, strokeWidth: 14 },
+        keyframes: [drawOn(BEAT * 3, 0.3, 'power3.out'), { at: 2.0, to: { alpha: 0 }, duration: 0.3 }] },
+    ] };
+
+    // ── 3. REVEAL (5 – 10): the phone places an order — menu → Latte → order sheet → Place order → Order placed → Ready.
+    const T_TAP = BEAT * 2, T_SIZE = BEAT * 3, T_OAT = BEAT * 3.5, T_ORDER = BEAT * 4, T_PLACED = BEAT * 5, T_READY = BEAT * 6, T_FLOOD = BEAT * 7.2;   // seconds inside the scene
+    const PHONE_X = 880, PHONE_Y = 360, SW = 274, SH = 574, SX = SW / 2;          // the screen: its own 274×574 space, origin top-left
+    const DRINKS = [['Latte', '#c98f5a'], ['Cold brew', '#4a2414'], ['Flat white', '#ecc99a']];
+    const CARD_Y = (i) => 175 + i * 92;
+    const SHEET_TOP = 190;
+    const card = (i) => {
+      const [label, swatch] = DRINKS[i], rig = `card${i}`, cy = CARD_Y(i);
+      return [
+        { type: 'null', name: rig, initial: { x: SX, y: cy, alpha: 0 },
+          keyframes: [{ at: 0.45 + i * 0.1, from: { y: cy + 24 }, to: { y: cy, alpha: 1 }, duration: 0.35, ease: 'power3.out' }] },
+        { type: 'shape', shape: 'rect', name: `${rig}-bg`, parent: rig, width: 236, height: 76, cornerRadius: 18, initial: { x: 0, y: 0, fill: C.card } },
+        { type: 'shape', shape: 'circle', name: `${rig}-swatch`, parent: rig, radius: 20, initial: { x: -84, y: 0, fill: swatch } },
+        { type: 'text', name: `${rig}-name`, parent: rig, text: label, style: type(22, C.roast), initial: { x: -50, y: 0, anchorX: 0, anchorY: 0.5 } },
+      ];
+    };
+    const S = withParent('sheet');
+    const CHIP_X = [-78, 0, 78], CHIP_Y = 150, ROW_Y = 206, BTN_Y = 272;
+    const screenUI = { type: 'composition', name: 'screenUI', parent: 'phone', width: SW, height: SH, clip: true,
+      initial: { x: -SX, y: -SH / 2 }, layers: [
+      { type: 'shape', shape: 'rect', name: 'screen', width: SW, height: SH, initial: { x: SX, y: SH / 2, fill: C.cream } },
+      { type: 'text', name: 'app-name', text: 'brewly', style: type(30, C.caramel, { letterSpacing: -0.5 }), initial: { x: 19, y: 65, anchorX: 0, anchorY: 0.5 } },
+      { type: 'text', name: 'app-prompt', text: 'Pick your drink', style: type(18, C.muted, { fontWeight: '600' }), initial: { x: 19, y: 99, anchorX: 0, anchorY: 0.5 } },
+      ...DRINKS.map((_, i) => card(i)).flat(),
+      // Tap: Latte is chosen
+      { type: 'shape', shape: 'rect', name: 'chosen', parent: 'card0', at: T_TAP, width: 236, height: 76, cornerRadius: 18, trimEnd: 0,
+        initial: { x: 0, y: 0, stroke: C.caramel, strokeWidth: 4, fillAlpha: 0 }, keyframes: [drawOn(0, 0.2, 'power2.out')] },
+      ripple('tap-latte', T_TAP, SX + 70, CARD_Y(0)),
+      // the order sheet slides up over the menu
+      { type: 'shape', shape: 'rect', name: 'shade', at: T_TAP + 0.2, width: SW, height: SH, initial: { x: SX, y: SH / 2, fill: C.roast, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.3 }, duration: 0.3 }] },
+      { type: 'null', name: 'sheet', initial: { x: SX, y: SH + 10, alpha: 0 }, keyframes: [{ at: T_TAP + 0.2, set: { alpha: 1 } }, { at: T_TAP + 0.2, to: { y: SHEET_TOP }, duration: 0.4, ease: 'power3.out' }] },
+      ...[
+        { type: 'shape', shape: 'rect', name: 'sheet-bg', width: SW, height: SH - SHEET_TOP, cornerRadius: 36, initial: { x: 0, y: (SH - SHEET_TOP) / 2, fill: C.card } },
+        { type: 'shape', shape: 'rect', name: 'grabber', width: 40, height: 5, cornerRadius: 3, initial: { x: 0, y: 14, fill: C.muted, alpha: 0.5 } },
+        { type: 'shape', shape: 'circle', name: 'sheet-swatch', radius: 24, initial: { x: -90, y: 60, fill: DRINKS[0][1] } },
+        { type: 'text', name: 'sheet-title', text: 'Latte', style: type(30, C.roast), initial: { x: -54, y: 48, anchorX: 0, anchorY: 0.5 } },
+        { type: 'text', name: 'sheet-sub', text: 'Espresso, steamed milk', style: type(15, C.muted, { fontWeight: '600' }), initial: { x: -54, y: 76, anchorX: 0, anchorY: 0.5 } },
+        { type: 'text', name: 'size-label', text: 'Size', style: type(16, C.muted, { fontWeight: '600' }), initial: { x: -116, y: 114, anchorX: 0, anchorY: 0.5 } },
+        ...CHIP_X.map((x, i) => ({ type: 'shape', shape: 'rect', name: `chip${i}`, width: 70, height: 40, cornerRadius: 20, initial: { x, y: CHIP_Y, fill: C.chip } })),
+        { type: 'shape', shape: 'rect', name: 'chip-on', width: 70, height: 40, cornerRadius: 20, initial: { x: CHIP_X[0], y: CHIP_Y, fill: C.caramel },
+          keyframes: [{ at: T_SIZE, to: { x: CHIP_X[1] }, duration: 0.22, ease: 'power3.out' }] },
+        ...['S', 'M', 'L'].map((t, i) => ({ type: 'text', name: `chip-${t}`, text: t, style: type(19, C.roast), initial: { x: CHIP_X[i], y: CHIP_Y, anchorX: 0.5, anchorY: 0.5 } })),
+        { type: 'text', name: 'oat-label', text: 'Oat milk', style: type(20, C.roast), initial: { x: -116, y: ROW_Y, anchorX: 0, anchorY: 0.5 } },
+        { type: 'shape', shape: 'rect', name: 'toggle', width: 54, height: 32, cornerRadius: 16, initial: { x: 88, y: ROW_Y, fill: C.chip },
+          keyframes: [{ at: T_OAT, to: { fill: C.caramel }, duration: 0.18 }] },
+        { type: 'shape', shape: 'circle', name: 'toggle-knob', radius: 12, initial: { x: 75, y: ROW_Y, fill: C.white },
+          keyframes: [{ at: T_OAT, to: { x: 101 }, duration: 0.18, ease: 'power2.out' }] },
+        { type: 'shape', shape: 'rect', name: 'button', width: 236, height: 60, cornerRadius: 30, initial: { x: 0, y: BTN_Y, fill: C.roast } },
+        { type: 'shape', shape: 'rect', name: 'progress', at: T_ORDER, width: 60, height: 60, cornerRadius: 30, initial: { x: -118, y: BTN_Y, anchorX: 0, fill: C.caramel },
+          keyframes: [{ at: 0, to: { width: 236 }, duration: T_PLACED - T_ORDER - 0.05, ease: 'power1.inOut' }] },
+        { type: 'text', name: 'button-label', text: 'Place order', style: type(21, C.cream), initial: { x: 0, y: BTN_Y, anchorX: 0.5, anchorY: 0.5 },
+          keyframes: [{ at: T_ORDER, set: { text: 'Placing order…' } }, { at: T_PLACED, set: { text: 'Order placed ✓' } }] },
+      ].map(S),
+      ripple('tap-size', T_SIZE, SX + CHIP_X[1], SHEET_TOP + CHIP_Y),
+      ripple('tap-oat', T_OAT, SX + 88, SHEET_TOP + ROW_Y),
+      ripple('tap-order', T_ORDER, SX + 50, SHEET_TOP + BTN_Y),
+      // Pick up: the screen dims and the "Ready" card springs up with a check mark
+      { type: 'shape', shape: 'rect', name: 'scrim', at: T_READY, width: SW, height: SH, initial: { x: SX, y: SH / 2, fill: C.espresso, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.5 }, duration: 0.25 }] },
+      { type: 'null', name: 'ready', at: T_READY, initial: { x: SX, y: SH / 2 - 20, scale: 0.6, alpha: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.bouncy' }, { at: 0, to: { alpha: 1 }, duration: 0.15 }] },
+      ...[
+        { type: 'shape', shape: 'rect', name: 'ready-card', width: 244, height: 304, cornerRadius: 26, initial: { x: 0, y: 8, fill: C.card } },
+        { type: 'shape', shape: 'circle', name: 'ready-dot', radius: 46, initial: { x: 0, y: -48, fill: C.honey } },
+        { type: 'shape', shape: 'path', name: 'check', d: 'M -20 0 L -6 14 L 22 -16', trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
+          initial: { x: 0, y: -48, stroke: C.roast, strokeWidth: 9 }, keyframes: [drawOn(0.15, 0.35, 'power2.out')] },
+        { type: 'text', name: 'ready-title', text: 'Ready for pickup', style: type(22, C.roast), initial: { x: 0, y: 40, anchorX: 0.5, anchorY: 0.5 } },
+        { type: 'text', name: 'ready-drink', text: 'Latte · M · Oat milk', style: type(18, C.muted, { fontWeight: '600' }), initial: { x: 0, y: 74, anchorX: 0.5, anchorY: 0.5 } },
+      ].map(withParent('ready')),
+    ] };
+    const steps = [['Tap.', T_TAP], ['Order.', T_ORDER], ['Pick up.', T_READY]].map(([word, at], i, all) => ({
+      type: 'text', name: `step${i}`, text: word, at, style: type(96, C.caramel),
+      initial: { x: 120, y: 230 + i * 130, anchorX: 0, anchorY: 0.5, alpha: 0 },
+      keyframes: [
+        { at: 0, from: { x: 80 }, to: { x: 120, alpha: 1 }, duration: 0.4, ease: 'power3.out' },
+        ...(all[i + 1] ? [{ at: all[i + 1][1] - at, to: { fill: C.cream, alpha: 0.45 }, duration: 0.3 }] : []),
+      ],
+    }));
+    const app = { type: 'composition', name: 'app', at: BAR * 2, duration: BAR * 2, layers: [
+      bg(C.espresso),
+      { type: 'shape', shape: 'circle', name: 'app-warmth', radius: 520,
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(240,140,60,0.30)'], [1, 'rgba(240,140,60,0)']] }, initial: { x: PHONE_X, y: PHONE_Y } },
+      ...steps,
+      { type: 'null', name: 'phone', initial: { x: PHONE_X, y: PHONE_Y + 640, rotation: 8 },
+        keyframes: [{ at: 0.02, to: { y: PHONE_Y, rotation: 0 }, duration: 'auto', ease: 'spring.gentle' }] },
+      { type: 'shape', shape: 'rect', name: 'phone-body', parent: 'phone', width: 300, height: 600, cornerRadius: 46,
+        initial: { x: 0, y: 0, fill: C.phone, stroke: C.rim, strokeWidth: 3 } },
+      screenUI,
+      { type: 'shape', shape: 'rect', name: 'notch', parent: 'phone', width: 86, height: 22, cornerRadius: 11, initial: { x: 0, y: -268, fill: C.phone } },
+      // the flood: caramel grows out of the ready dot and becomes the end card
+      { type: 'shape', shape: 'circle', name: 'flood', at: T_FLOOD, radius: 46, initial: { x: PHONE_X, y: PHONE_Y - 68, fill: C.caramel },
+        keyframes: [{ at: 0, to: { radius: 1020 }, duration: BAR * 2 - T_FLOOD, ease: 'power2.in' }] },
+    ] };
+
+    // ── 4. CLOSE (10 – 15), slow: the cup draws, the name settles letter by letter, the promise, then "Download free"; a long, gentle push-in to the last frame.
+    const SLOW = { duration: 1.0, ease: 'power2.out' };
+    const close = { type: 'composition', name: 'close', at: BAR * 4, duration: BAR * 2, layers: [
+      bg(C.caramel),
+      { type: 'null', name: 'endRig', initial: { x: 640, y: 360, scale: 1 },
+        keyframes: [{ at: 0, to: { scale: 1.07 }, duration: BAR * 2, ease: 'sine.inOut' }] },
+      { type: 'null', name: 'endCup', parent: 'endRig', initial: { x: 0, y: -172, scale: 0.55 } },
+      ...cup('endCup', { color: C.espresso, width: 10, at: 0.05, seed: 7, life: BAR * 2, pace: 1.5 }),
+      ...animateText('brewly', type(156, C.espresso, { letterSpacing: -3 }), { x: 0, y: -126, align: 'center',
+        at: 0.3, duration: BAR * 2 - 0.3, in: { from: { y: 36, alpha: 0 }, ...SLOW }, stagger: { each: 0.11 } }).map(withParent('endRig')),
+      ...animateText('Order ahead. Sip sooner.', type(44, C.espresso, { fontWeight: '600' }), { by: 'words', x: 0, y: 62, align: 'center',
+        at: 1.6, duration: BAR * 2 - 1.6, in: { from: { y: 14, alpha: 0 }, ...SLOW }, stagger: { each: 0.16 } }).map(withParent('endRig')),
+      { type: 'null', name: 'cta', parent: 'endRig', at: 2.75, initial: { x: 0, y: 190, alpha: 0 },
+        keyframes: [{ at: 0, from: { y: 210 }, to: { y: 190, alpha: 1 }, duration: 1.1, ease: 'power2.out' }] },
+      { type: 'shape', shape: 'rect', name: 'cta-bg', parent: 'cta', width: 330, height: 72, cornerRadius: 36, initial: { x: 0, y: 0, fill: C.roast } },
+      { type: 'text', name: 'cta-text', parent: 'cta', text: 'Download free', style: type(30, C.cream, { letterSpacing: 0.5 }),
+        initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } },
+    ] };
+
+    // ── Sound: a 6-bar tune (F → Am → Dm → B♭ → F), drums from the reveal, sfx on the beats.
+    const music = { type: 'audio', name: 'music', at: 0, volume: 0.62, keyframes: [{ at: 13, to: { volume: 0.3 }, duration: 2, ease: 'sine.in' }], music: {
+      bpm: 96, reverb: 0.26, seed: 4, swing: 0.08,
+      tracks: [
+        { inst: 'keys', vol: 0.6, strum: 0.012, notes: 'Fmaj7:4 | Am7:4 | Dm7:4 | Bbmaj7:4 | Fmaj7:8' },
+        { inst: 'bass', vol: 0.85, notes: '_:4 | a1:1.5 _:0.5 e2:2 | d2:1.5 _:0.5 a1:1 d2:1 | bb1:1.5 _:0.5 f2:1 c2:1 | f2:8' },
+        { inst: 'pluck', vol: 0.55, pan: 0.2, notes: '_:8 | a4:0.5 c5:0.5 f5:1 e5:0.5 d5:0.5 c5:1 | d5:0.5 f5:0.5 a5:1 g5:1 e5:1 | f5:4 | c5:2 a4:2' },
+        { inst: 'pad', vol: [[0, 0.2], [16, 0.5], [24, 0.3]], attack: 0.6, release: 1.5, notes: '[f3 a3 c4 e4]:8 [d3 f3 a3 c4]:4 [bb2 d3 f3 a3]:4 [f3 a3 c4 e4]:8' },
+      ],
+      drums: [
+        { from: 4, to: 8, hat: 'x.x.x.x.x.x.x.x.' },
+        { from: 8, to: 16, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' },
+        { from: 16, to: 17, crash: 'x...............' },
+      ],
+    } };
+    const sfx = (name, preset, at, extra = {}) => ({ type: 'audio', name, at, sfx: preset, ...extra });
+    const sounds = [
+      sfx('cut-line', 'swipe', BAR, { volume: 0.7 }),
+      sfx('strike', 'swipe', BAR + BEAT * 3, { volume: 0.8, sfx: { preset: 'swipe', pitch: -5 } }),
+      sfx('phone-in', 'swoosh', BAR * 2 - 0.12, { volume: 0.8 }),
+      sfx('tap', 'click', BAR * 2 + T_TAP, { volume: 1.2 }),
+      sfx('sheet', 'swipe', BAR * 2 + T_TAP + 0.2, { volume: 0.4, sfx: { preset: 'swipe', pitch: 4 } }),
+      sfx('size', 'click', BAR * 2 + T_SIZE, { volume: 0.8, sfx: { preset: 'click', pitch: 3 } }),
+      sfx('oat', 'click', BAR * 2 + T_OAT, { volume: 0.8, sfx: { preset: 'click', pitch: 5 } }),
+      sfx('order', 'click', BAR * 2 + T_ORDER, { volume: 1.2, sfx: { preset: 'click', pitch: -3 } }),
+      sfx('placed', 'pop', BAR * 2 + T_PLACED, { volume: 0.8 }),
+      sfx('ready', 'chime', BAR * 2 + T_READY, { volume: 0.9 }),
+      sfx('build', 'riser', BAR * 4 - 0.55, { duration: 0.55, volume: 0.5 }),
+      sfx('land', 'hit', BAR * 4, { volume: 0.7, sfx: { preset: 'hit', brightness: -0.3 } }),
+      sfx('cta', 'chime', BAR * 4 + 2.75, { volume: 0.55, sfx: { preset: 'chime', pitch: -5, brightness: -0.4 } }),
+    ];
+
+    const layers = [hook, line, app, close, music, ...sounds];
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 13.5,       // the moment that stands for the video before it plays (pick your most striking one)
+        background: '#4a2415',
+        loudness: -16,
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { layers },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

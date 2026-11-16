@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>パンのマルシェ — 週末告知 15s</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@600&family=Caveat:wght@700&display=block" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #2a1a0f; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    // A console group's title leads the warnings inside it (PixiJS prints a deprecation as a group titled with its message, the stack inside).
+    let group = '';
+    const text = (a) => { if (typeof a[0] === 'string' && a[0].includes('%')) { let i = 1; a = [a[0].replace(/%([csdifoO])/g, (_, f) => f === 'c' ? (i++, '') : String(a[i++])), ...a.slice(i)]; } return a.map(x => (x && x.message) || String(x)).join(' '); };
+    const gc = console.groupCollapsed.bind(console), ge = console.groupEnd.bind(console);
+    console.groupCollapsed = (...a) => { group = text(a); gc(...a); };
+    console.groupEnd = () => { group = ''; ge(); };
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + (group ? group + ' — ' : '') + text(a)); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/controller.js",
+      "pixi-effects/present":  "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/present.js",
+      "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/3d.js",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
+      "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie, animateText, particles } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // ───────── 告知の中身（ここを書き換えてください） ─────────
+    const INFO = {
+      date:  '11.23',                       // 開催日（大きく出す数字）
+      day:   '月・祝',                       // 曜日（丸い札の中）
+      place: '中央公園',                      // 会場
+      lead:  '勤労感謝の日、',                 // タイトルの前の一言
+    };
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 15;
+    const BEAT = 60 / 96, BAR = BEAT * 4;          // 96 bpm: 1小節 = 2.5 秒
+    const C = { paper: '#f6ecd8', crust: '#b8692f', dough: '#f3e0b9', ink: '#5a3219', dark: '#4a2e1c', wheat: '#e9b45a', butter: '#f6d58e', cream: '#fbf3e3' };
+    const JP = '"Klee One", "Hiragino Maru Gothic ProN", sans-serif';
+    const HAND = 'Caveat, "Klee One", cursive';
+
+    const ALL_TEXT = INFO.lead + INFO.day + '会場パンのマルシェ焼きたてが、ひろばにならぶ。バゲットクロワッサンあんぱんベーグルお腹をすかせて来てね' + INFO.place;
+    await Promise.all([
+      document.fonts.load(`600 140px "Klee One"`, ALL_TEXT),
+      document.fonts.load(`700 100px Caveat`, INFO.date + 'Weekend Bread Marché and more…'),
+    ]);
+
+    // ───────── 手描きの道具（すべて時間の関数：同じ t なら同じ絵） ─────────
+    const hr = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+    const boil = (t) => Math.floor(t * 6) % 3;                 // 線が 1 秒に 6 回、3 通りにふるえる（手描きアニメの線）
+    const lerpHex = (a, b, k) => { const p = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); const A = p(a), B = p(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',')})`; };
+    const ellipsePts = (cx, cy, rx, ry, n = 56) => Array.from({ length: n }, (_, i) => { const a = i / n * Math.PI * 2; return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]; });
+    const capsulePts = (cx, cy, w, h, n = 72) => Array.from({ length: n }, (_, i) => {   // 角の丸い棒（バゲット、札）
+      const a = i / n * Math.PI * 2, r = h / 2, hx = w / 2 - r, ca = Math.cos(a), sa = Math.sin(a);
+      const x = Math.abs(ca) < 1e-9 ? 0 : Math.sign(ca) * (hx + r * Math.pow(Math.abs(ca), 0.6)); return [cx + x, cy + sa * r];
+    });
+    const wobble = (pts, seed, amp) => pts.map(([x, y], i) => { const a = i / pts.length * Math.PI * 2;
+      return [x + amp * (Math.sin(a * 3 + hr(seed) * 6.3) + 0.5 * Math.sin(a * 7 + hr(seed + 1) * 6.3)), y + amp * (Math.cos(a * 4 + hr(seed + 2) * 6.3) + 0.5 * Math.sin(a * 6 + hr(seed + 3) * 6.3))]; });
+    const trace = (ctx, pts, close = true) => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); if (close) ctx.closePath(); };
+    // 塗りを少しずらし、輪郭を 2 回なぞる＝手描きの版ずれ
+    const sketch = (ctx, pts, seed, fill, { amp = 3, line = 4, ink = C.ink, hatch = 0 } = {}) => {
+      const a = wobble(pts, seed, amp);
+      ctx.save(); ctx.translate(4, 3); trace(ctx, a); ctx.fillStyle = fill; ctx.fill(); ctx.restore();
+      if (hatch) {                                              // 影は斜めの鉛筆線
+        ctx.save(); trace(ctx, a); ctx.clip(); ctx.strokeStyle = 'rgba(90,50,25,' + hatch + ')'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+        const xs = a.map(p => p[0]), ys = a.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+        for (let x = x0 - (y1 - y0); x < x1; x += 11) { const j = hr(seed + x) * 6; ctx.beginPath(); ctx.moveTo(x + (x1 - x0) * 0.55 + j, y1 + 4); ctx.lineTo(x + (x1 - x0) * 0.55 + (y1 - y0) * 0.45 + j, y0 + (y1 - y0) * 0.55); ctx.stroke(); }
+        ctx.restore();
+      }
+      ctx.strokeStyle = ink; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.lineWidth = line; trace(ctx, a); ctx.stroke();
+      ctx.globalAlpha = 0.35; ctx.lineWidth = line * 0.5; trace(ctx, wobble(pts, seed + 9, amp * 1.4)); ctx.stroke(); ctx.globalAlpha = 1;
+    };
+    const stroke = (ctx, pts, seed, color, width, amp = 2) => {    // 開いた線（クープ、下線）
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      trace(ctx, pts.map(([x, y], i) => [x + amp * Math.sin(i * 1.7 + hr(seed) * 6), y + amp * Math.cos(i * 1.3 + hr(seed + 1) * 6)]), false); ctx.stroke();
+    };
+    const curve = (p0, p1, p2, n = 10) => Array.from({ length: n + 1 }, (_, i) => { const u = i / n; return [0, 1].map(k => (1 - u) * (1 - u) * p0[k] + 2 * u * (1 - u) * p1[k] + u * u * p2[k]); });
+
+    // ───────── パンの絵 ─────────
+    const BREADS = {
+      // bake: 0 = 生地 → 1 = 焼き上がり（ふくらみ、色づき、クープが開く）
+      boule: { w: 320, h: 260, draw: (ctx, t, info) => {
+        const b = boil(t), k = info.params.bake ?? 1, cx = 160, cy = 150, rx = 112, ry = 74 + 20 * k;
+        ctx.fillStyle = 'rgba(90,50,25,0.15)'; trace(ctx, wobble(ellipsePts(cx, 236, 118, 16), b, 2)); ctx.fill();
+        sketch(ctx, ellipsePts(cx, cy + 20 * (1 - k), rx, ry), 10 + b, lerpHex(C.dough, C.crust, k), { hatch: 0.12 + 0.2 * k });
+        const sc = lerpHex('#e6cfa3', C.butter, k), y = cy + 20 * (1 - k), o = 6 * k;
+        [[[-60, -30 - o], [0, 2], [60, -30 - o]], [[-64, 14 + o], [0, 44 + o], [64, 14 + o]]].forEach((c, i) =>
+          stroke(ctx, curve(...c.map(([x, yy]) => [cx + x, y + yy])), 20 + b + i, sc, 5 + 4 * k, 1.5));
+        [[-30, 1], [30, -1]].forEach(([dx, s], i) => stroke(ctx, curve([cx + dx, y - 62 * k - 8], [cx + dx * 0.35, y], [cx + dx, y + 58 * k + 8]), 30 + b + i, sc, 5 + 4 * k, 1.5));
+      } },
+      baguette: { w: 440, h: 150, draw: (ctx, t) => {
+        const b = boil(t);
+        sketch(ctx, capsulePts(220, 72, 390, 82), 40 + b, C.crust, { hatch: 0.28 });
+        for (let i = 0; i < 5; i++) { const x = 85 + i * 66; stroke(ctx, curve([x - 24, 92], [x, 70], [x + 28, 56], 6), 50 + b + i, C.butter, 8, 1.5); }
+      } },
+      croissant: { w: 340, h: 240, draw: (ctx, t) => {
+        const b = boil(t), cx = 170, cy = 40, R = 122;
+        [[-2.5, 0.45], [2.5, 0.45], [-1.6, 0.72], [1.6, 0.72], [-0.8, 0.92], [0.8, 0.92], [0, 1]].forEach(([a, s], i) => {
+          const th = Math.PI / 2 + a * 0.42; ctx.save(); ctx.translate(cx + Math.cos(th) * R, cy + Math.sin(th) * R); ctx.rotate(th + Math.PI / 2);
+          sketch(ctx, ellipsePts(0, 0, 32 * s, 55 * s, 40), 60 + b * 7 + i, lerpHex(C.crust, '#d9954e', s - 0.4), { amp: 2, line: 3.5, hatch: 0.18 }); ctx.restore();
+        });
+      } },
+      bagel: { w: 250, h: 250, draw: (ctx, t) => {
+        const b = boil(t), cx = 125, cy = 125;
+        const outer = wobble(ellipsePts(cx, cy, 102, 98), 80 + b, 3), inner = wobble(ellipsePts(cx, cy, 30, 28, 30), 90 + b, 2).reverse();
+        ctx.save(); ctx.translate(4, 3); ctx.beginPath(); [outer, inner].forEach(p => { p.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); });
+        ctx.fillStyle = '#c47b3c'; ctx.fill(); ctx.restore();
+        ctx.strokeStyle = C.ink; ctx.lineWidth = 4; ctx.lineJoin = 'round'; trace(ctx, outer); ctx.stroke(); trace(ctx, inner); ctx.stroke();
+        for (let i = 0; i < 24; i++) { const a = hr(i) * 6.28, rr = 46 + hr(i + 50) * 44; ctx.save(); ctx.translate(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); ctx.rotate(hr(i + 99) * 3);
+          ctx.fillStyle = C.cream; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(0, 0, 5.5, 2.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore(); }
+      } },
+    };
+
+    // 湯気：ゆらめく S 字の線が、下から生まれて上で消える。amount で量（0 – 1）
+    const STEAM_W = 300, STEAM_H = 320;
+    const drawSteam = (ctx, t, info) => {
+      const amt = info.params.amount, n = info.params.wisps ?? 3, cx = STEAM_W / 2, base = STEAM_H - 10;
+      if (amt <= 0.01) return;
+      for (let i = 0; i < n * 2; i++) {
+        const ph = (t * 0.45 + i / (n * 2) + hr(i) * 0.1) % 1, x0 = cx + ((i % n) - (n - 1) / 2) * 46 + (hr(i + 7) - 0.5) * 20;
+        const len = 110 + 50 * amt, rise = 80, life = Math.sin(ph * Math.PI);
+        const pts = Array.from({ length: 19 }, (_, k) => { const u = k / 18;
+          return [x0 + Math.sin(u * 5.2 + t * 2.4 + i * 1.9) * (10 + 26 * u) * (0.6 + 0.4 * amt), base - ph * rise - u * len]; });
+        const a = amt * life;                                  // 1 本の線として描く（根元は太く濃く、先は細く消える）
+        const g = (al) => { const gr = ctx.createLinearGradient(0, pts[0][1], 0, pts[18][1]); gr.addColorStop(0, `rgba(255,255,255,${al})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); return gr; };
+        const gb = (al) => { const gr = ctx.createLinearGradient(0, pts[0][1], 0, pts[18][1]); gr.addColorStop(0, `rgba(110,70,40,${al})`); gr.addColorStop(1, 'rgba(110,70,40,0)'); return gr; };
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        [[18, 1], [11, 0.65]].forEach(([wd, frac]) => {
+          const sub = pts.slice(0, Math.round(18 * frac) + 1);
+          ctx.strokeStyle = gb(a * 0.3); ctx.lineWidth = wd + 4; trace(ctx, sub, false); ctx.stroke();
+          ctx.strokeStyle = g(a * 0.85); ctx.lineWidth = wd; trace(ctx, sub, false); ctx.stroke();
+        });
+      }
+    };
+    const steam = (name, parent, at, end, x, y, amount, extraKeys = [], wisps = 3) => ({
+      type: 'canvas', name, parent, at, duration: end - at, width: STEAM_W, height: STEAM_H, draw: drawSteam, params: { amount, wisps },
+      initial: { x, y, anchorX: 0.5, anchorY: 1 }, keyframes: extraKeys });
+
+    // パン1個 = 動きを持つ null ＋ 絵（＋湯気）。ぽよんと出てきて、ゆっくり揺れる
+    const bread = (kind, { name, at, end, x, y, scale = 1, rot = 0, steamAt }) => [
+      { type: 'null', name, at, duration: end - at, initial: { x, y, scale: 0, rotation: rot - 20 },
+        keyframes: [
+          { at: 0, to: { scale, rotation: rot }, duration: 'auto', ease: 'spring.wobbly' },
+          { at: 1, to: { rotation: rot + 3 }, duration: BAR / 2, ease: 'sine.inOut', repeat: 12, yoyo: true },
+        ] },
+      { type: 'canvas', name: name + 'Art', parent: name, at, duration: end - at, width: BREADS[kind].w, height: BREADS[kind].h, draw: BREADS[kind].draw,
+        initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } },
+      ...(steamAt !== undefined ? [steam(name + 'Steam', name, at, end, 0, -BREADS[kind].h * 0.12, 0, [{ at: steamAt, to: { 'params.amount': 0.75 }, duration: 0.8 }])] : []),
+    ];
+    const sfx = (preset, at, extra = {}, volume = 0.5) => ({ type: 'audio', sfx: { preset, ...extra }, at, volume });
+
+    // 塗りのにじむ円で場面を切り替える（縁は手描きの線）
+    const flood = (name, at, end, cx, cy, color) => ({
+      type: 'canvas', name, at, duration: end - at, width: W, height: H, params: { r: 0 },
+      keyframes: [{ at: 0, to: { 'params.r': 860 }, duration: FLOOD, ease: 'power2.in' }],
+      draw: (ctx, t, info) => { const r = info.params.r; if (r < 1) return;
+        sketch(ctx, ellipsePts(cx, cy, r, r * 0.96, 90), 200 + boil(t), color, { amp: Math.min(10, r * 0.05), line: 5 }); },
+    });
+    // 手描きの下線（p: 0 → 1 で描かれていく）
+    const underline = (name, at, end, cx, cy, w, color) => ({
+      type: 'canvas', name, at, duration: end - at, width: w + 40, height: 50, params: { p: 0 },
+      initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, to: { 'params.p': 1 }, duration: 0.6, ease: 'power2.out' }],
+      draw: (ctx, t, info) => { const n = Math.max(2, Math.round(40 * info.params.p));
+        const pts = Array.from({ length: n }, (_, i) => { const u = i / 39; return [20 + u * w, 25 + Math.sin(u * 9) * 5 - u * 4]; });
+        stroke(ctx, pts, 300 + boil(t), color, 6, 1); },
+    });
+
+    const FLOOD = 0.5;
+    const S1_END = BAR * 2.5;        // 6.25
+    const S2_END = BAR * 4;          // 10.0
+
+    // ───────── シーン1（0 – 6.25 s）：パンが焼き上がる → みんな集まってタイトル ─────────
+    const BAKE = BAR - 0.3;           // 2.2 s かけて焼き上がる
+    const scene1 = [
+      { type: 'shape', shape: 'rect', name: 'bg1', width: 'GW', height: 'GH', duration: S1_END + FLOOD, initial: { x: 'GW/2', y: 'GH/2', fill: C.paper } },
+      // オーブンの温かい光（焼いている間だけ）
+      { type: 'shape', shape: 'circle', name: 'ovenGlow', radius: 330, duration: BAR + 0.8, initial: { x: 640, y: 380, alpha: 0 },
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(255,170,80,0.55)'], [1, 'rgba(255,170,80,0)']] },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }, { at: 1.2, to: { scale: 1.08 }, duration: 0.5, repeat: 1, yoyo: true }, { at: BAR, to: { alpha: 0 }, duration: 0.8 }] },
+      // 主役のブール：中央で焼き上がり、湯気がふわっと立ち、上へ移動
+      { type: 'null', name: 'hero', duration: S1_END + FLOOD, initial: { x: 640, y: 400, scale: 1.45 },
+        keyframes: [
+          { at: 0, from: { scale: 1.25 }, to: { scale: 1.45 }, duration: BAKE, ease: 'sine.inOut' },
+          { at: BAR, to: { scale: 1.6 }, duration: 0.12, ease: 'power2.out' }, { at: BAR + 0.12, to: { scale: 1.45 }, duration: 'auto', ease: 'spring.wobbly' },
+          { at: BAR + BEAT, to: { x: 640, y: 200, scale: 0.85 }, duration: 0.7, ease: 'power3.inOut' },
+        ] },
+      { type: 'canvas', name: 'heroArt', parent: 'hero', duration: S1_END + FLOOD, width: 320, height: 260, draw: BREADS.boule.draw, params: { bake: 0 },
+        initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0.2, to: { 'params.bake': 1 }, duration: BAKE - 0.2, ease: 'power1.inOut' }] },
+      steam('heroSteam', 'hero', 0, S1_END + FLOOD, 0, -50, 0, [
+        { at: BAKE - 0.5, to: { 'params.amount': 1 }, duration: 0.8, ease: 'power2.out' },
+        { at: BAR + BEAT * 2, to: { 'params.amount': 0.7 }, duration: 1 },
+      ], 3),
+      ...animateText('ふっくら、焼きあがり。', { fontFamily: JP, fontWeight: '600', fontSize: 44, fill: C.ink },
+        { x: 640, y: 645, align: 'center', at: 0.5, duration: BAR + BEAT - 0.5, in: 'fade', out: 'fade', stagger: { each: 0.05 }, idle: { rotation: 2 } }),
+      ...[
+        ['baguette',  { name: 'baguette1',  x: 175,  y: 640, scale: 0.68, rot: -16 }],
+        ['croissant', { name: 'croissant1', x: 1110, y: 630, scale: 0.68, rot: 10 }],
+        ['bagel',     { name: 'bagel1',     x: 170,  y: 160, scale: 0.62, rot: 0 }],
+        ['baguette',  { name: 'baguette2',  x: 1100, y: 150, scale: 0.58, rot: 22 }],
+      ].flatMap(([k, o], i) => bread(k, { ...o, at: BAR + BEAT * (1.5 + i * 0.5), end: S1_END + FLOOD })),
+      ...particles({ count: 30, emit: 5, at: BAR, life: [2.5, 3.5], area: { x: 640, y: 740, width: 1300 }, angle: -90, speed: [20, 45], size: [3, 6],
+        sway: { amp: 20, freq: 0.5 }, colors: ['#ffffff', '#efd9b4'], fade: { in: 0.6, out: 0.8 }, name: 'flour', seed: 3 }),
+      ...animateText(INFO.lead, { fontFamily: JP, fontWeight: '600', fontSize: 46, fill: C.ink },
+        { x: 640, y: 318, align: 'center', at: BAR + BEAT * 2, duration: S1_END + FLOOD - (BAR + BEAT * 2), in: 'rise', stagger: { each: 0.06 } }),
+      ...animateText('パンのマルシェ', { fontFamily: JP, fontWeight: '600', fontSize: 140, fill: C.crust, stroke: { color: C.cream, width: 12 }, padding: 14 },
+        { x: 640, y: 380, align: 'center', at: BAR + BEAT * 3, duration: S1_END + FLOOD - (BAR + BEAT * 3), in: 'pop', stagger: { each: BEAT / 4 }, idle: { y: 4, rotation: 2.5 } }),
+      underline('titleLine', BAR + BEAT * 5.5, S1_END + FLOOD, 640, 548, 560, C.wheat),
+      { type: 'text', name: 'enTitle', text: 'Weekend Bread Marché', at: BAR + BEAT * 6, duration: S1_END + FLOOD - (BAR + BEAT * 6),
+        style: { fontFamily: HAND, fontWeight: '700', padding: 16, fontSize: 50, fill: C.crust },
+        initial: { x: 640, y: 600, anchorX: 0.5, anchorY: 0.5, alpha: 0, rotation: -2 },
+        keyframes: [{ at: 0, from: { y: 618 }, to: { y: 600, alpha: 1 }, duration: 0.6, ease: 'power3.out' }] },
+    ];
+
+    // ───────── シーン2（6.25 – 10 s）：焼きたてのラインナップ ─────────
+    const S2 = S1_END + FLOOD;      // 6.75
+    const TAGS = ['バゲット', 'クロワッサン', 'あんぱん', 'ベーグル'];
+    const tag = (label, i) => {
+      const at = S2 + BEAT * (1 + i * 0.5), cx = 640 + (i - 1.5) * 272, cy = 470, end = S2_END + FLOOD;
+      return [
+        { type: 'null', name: 'tag' + i, at, duration: end - at, initial: { x: cx, y: cy, scale: 0, rotation: -8 },
+          keyframes: [{ at: 0, to: { scale: 1, rotation: i % 2 ? 3 : -3 }, duration: 'auto', ease: 'spring.bouncy' }] },
+        { type: 'canvas', name: 'tagCard' + i, parent: 'tag' + i, at, duration: end - at, width: 280, height: 120, initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 },
+          draw: (ctx, t) => sketch(ctx, capsulePts(138, 58, 240, 82), 400 + i * 10 + boil(t), C.cream, { amp: 2.5, line: 3.5 }) },
+        { type: 'text', name: 'tagText' + i, parent: 'tag' + i, text: label, at, duration: end - at,
+          style: { fontFamily: JP, fontWeight: '600', fontSize: 36, fill: C.crust }, initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } },
+        sfx('pop', at, { pitch: i * 2 }),
+      ];
+    };
+    const scene2 = [
+      flood('flood1', S1_END, S2_END + FLOOD, 640, 200, C.wheat),
+      ...animateText('焼きたてが、\nひろばにならぶ。', { fontFamily: JP, fontWeight: '600', fontSize: 84, fill: C.dark, lineHeight: 112 },
+        { by: 'chars', x: 640, y: 120, align: 'center', at: S2, duration: S2_END + FLOOD - S2, in: 'rise', stagger: { each: 0.03 }, idle: { rotation: 2 } }),
+      ...TAGS.flatMap(tag),
+      { type: 'text', name: 'andMore', text: 'and more…', at: S2 + BEAT * 3.5, duration: S2_END + FLOOD - (S2 + BEAT * 3.5),
+        style: { fontFamily: HAND, fontWeight: '700', padding: 16, fontSize: 52, fill: C.dark },
+        initial: { x: 640, y: 600, anchorX: 0.5, anchorY: 0.5, alpha: 0, rotation: -3 },
+        keyframes: [{ at: 0, from: { x: 610 }, to: { x: 640, alpha: 1 }, duration: 0.5, ease: 'power3.out' }] },
+    ];
+
+    // ───────── シーン3（10 – 15 s）：日時と会場 ─────────
+    const S3 = S2_END + FLOOD;      // 10.5
+    const info = (name, text, at, y, style, rotation = 0) => ({ type: 'text', name, text, at, duration: DURATION - at, style,
+      initial: { x: 640, y, anchorX: 0.5, anchorY: 0.5, alpha: 0, rotation },
+      keyframes: [{ at: 0, from: { y: y + 24 }, to: { y, alpha: 1 }, duration: 0.6, ease: 'power3.out' }] });
+    const BELL1 = S3 + BEAT * 4.5, BELL2 = S3 + BEAT * 5.5;      // 13.31 s「カーン」, 13.94 s「コーン」
+    const pulse = (layerAt) => [BELL1, BELL2].flatMap(tb => [
+      { at: tb - layerAt, to: { scale: 1.07 }, duration: 0.08, ease: 'power2.out' },
+      { at: tb - layerAt + 0.08, to: { scale: 1 }, duration: 'auto', ease: 'spring.wobbly' }]);
+    const big = (name, text, at, x, y, style, extra = {}) => ({ type: 'text', name, text, at, duration: DURATION - at, style,
+      initial: { x, y, anchorX: 0.5, anchorY: 0.5, scale: 0.4, alpha: 0, rotation: extra.rotation ?? 0 },
+      keyframes: [{ at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.bouncy' }, { at: 0, to: { alpha: 1 }, duration: 0.15 }, ...pulse(at)] });
+    // 手描きの鐘：上の輪を支点に揺れる。params.ring で音の線（ ))) ）が出る
+    const BELL_SIDE = [[0, 30], [16, 32], [30, 42], [38, 62], [42, 92], [48, 116], [60, 130], [70, 140]];
+    const bellPts = (() => { const cx = 130, R = BELL_SIDE.map(([x, y]) => [cx + x, y]), L = BELL_SIDE.map(([x, y]) => [cx - x, y]).reverse();
+      const bottom = Array.from({ length: 9 }, (_, i) => { const u = i / 8; return [cx + 70 - 140 * u, 140 + Math.sin(u * Math.PI) * 8]; });
+      return [...R, ...bottom.slice(1, -1), ...L.slice(0, -1)]; })();
+    const bell = { type: 'canvas', name: 'bell', at: S3 + BEAT * 3.5, duration: DURATION - (S3 + BEAT * 3.5), width: 260, height: 190, params: { ring: 0 },
+      initial: { x: 1120, y: 110, anchorX: 0.5, anchorY: 0.1, scale: 0, rotation: 0 },
+      keyframes: [
+        { at: 0, to: { scale: 0.9 }, duration: 'auto', ease: 'spring.bouncy' },
+        ...[BELL1, BELL2].flatMap((tb, i) => { const t0 = tb - (S3 + BEAT * 3.5), d = i ? -1 : 1;
+          return [{ at: t0 - 0.12, to: { rotation: -14 * d }, duration: 0.12, ease: 'power2.in' },
+                  { at: t0, to: { rotation: 0 }, duration: 'auto', ease: 'spring.wobbly' },
+                  { at: t0, from: { 'params.ring': 1 }, to: { 'params.ring': 0 }, duration: 0.9, ease: 'power1.out' }]; }),
+      ],
+      draw: (ctx, t, info) => {
+        const b = boil(t), cx = 130;
+        ctx.strokeStyle = C.butter; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(cx, 18, 11, 0, Math.PI * 2); ctx.stroke();        // つり輪
+        ctx.fillStyle = C.wheat; ctx.beginPath(); ctx.arc(cx, 152, 13, 0, Math.PI * 2); ctx.fill();                               // 舌
+        sketch(ctx, bellPts, 700 + b, C.butter, { amp: 2, line: 4, ink: '#3a2212', hatch: 0.25 });
+        stroke(ctx, curve([cx - 44, 104], [cx, 112], [cx + 44, 104]), 710 + b, C.wheat, 4, 1);                                    // 帯
+        const r = info.params.ring;
+        if (r > 0.02) [0, 1, 2].forEach(k => { ctx.globalAlpha = r * (1 - k * 0.25); const rr = 26 + k * 16 + (1 - r) * 10;
+          [1, -1].forEach(sd => { ctx.strokeStyle = C.butter; ctx.lineWidth = 4; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.arc(cx + sd * 66, 92, rr, sd > 0 ? -0.6 : Math.PI - 0.6, sd > 0 ? 0.6 : Math.PI + 0.6); ctx.stroke(); }); });
+        ctx.globalAlpha = 1;
+      } };
+    const scene3 = [
+      flood('flood2', S2_END, DURATION, 640, 470, C.dark),
+      ...bread('boule',    { name: 'boule3',    at: S3 + BEAT * 3, end: DURATION, x: 1130, y: 625, scale: 0.6, rot: 6, steamAt: 0.3 }),
+      ...bread('baguette', { name: 'baguette3', at: S3 + BEAT * 3.5, end: DURATION, x: 150, y: 630, scale: 0.6, rot: -20 }),
+      info('label', 'Weekend Bread Marché', S3, 95, { fontFamily: HAND, fontWeight: '700', padding: 16, fontSize: 44, fill: C.wheat }, -2),
+      underline('rule', S3 + 0.3, DURATION, 640, 132, 380, C.wheat),
+      // 日付を大きく：「11.23」＋ 手描きの丸札「月・祝」
+      big('date', INFO.date, S3 + BEAT * 0.5, 565, 255, { fontFamily: HAND, fontWeight: '700', padding: 24, fontSize: 230, fill: C.cream }, { rotation: -2 }),
+      { type: 'null', name: 'dayBadge', at: S3 + BEAT * 1.5, duration: DURATION - (S3 + BEAT * 1.5), initial: { x: 905, y: 285, scale: 0, rotation: -12 },
+        keyframes: [{ at: 0, to: { scale: 1, rotation: 8 }, duration: 'auto', ease: 'spring.bouncy' }, ...pulse(S3 + BEAT * 1.5)] },
+      { type: 'canvas', name: 'dayCircle', parent: 'dayBadge', at: S3 + BEAT * 1.5, duration: DURATION - (S3 + BEAT * 1.5), width: 170, height: 170,
+        initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 }, draw: (ctx, t) => sketch(ctx, ellipsePts(83, 83, 70, 68), 600 + boil(t), C.wheat, { amp: 2.5, line: 4, ink: '#3a2212' }) },
+      { type: 'text', name: 'dayText', parent: 'dayBadge', text: INFO.day, at: S3 + BEAT * 1.5, duration: DURATION - (S3 + BEAT * 1.5),
+        style: { fontFamily: JP, fontWeight: '600', fontSize: 36, fill: C.dark }, initial: { x: 2, y: 2, anchorX: 0.5, anchorY: 0.5 } },
+      // 会場を大きく
+      { ...info('placeLabel', '会場', S3 + BEAT * 2.5, 512, { fontFamily: JP, fontWeight: '600', fontSize: 36, fill: C.wheat }), initial: { x: 400, y: 512, anchorX: 1, anchorY: 0.5, alpha: 0 } },
+      big('place', INFO.place, S3 + BEAT * 2.75, 670, 495, { fontFamily: JP, fontWeight: '600', fontSize: 128, fill: C.cream, padding: 12 }),
+      underline('placeLine', S3 + BEAT * 3.25, DURATION, 640, 572, 600, C.wheat),
+      ...animateText('お腹をすかせて、来てね。', { fontFamily: JP, fontWeight: '600', fontSize: 40, fill: C.butter },
+        { x: 640, y: 640, align: 'center', at: S3 + BEAT * 3.5, duration: DURATION - (S3 + BEAT * 3.5), in: 'fade', stagger: { each: 0.04 }, idle: { rotation: 2 } }),
+      bell,
+    ];
+
+    // 紙の質感：全体の上に、点と繊維を乗算で
+    const paper = { type: 'canvas', name: 'paper', width: W, height: H, blendMode: 'multiply', initial: { x: 0, y: 0, alpha: 0.6 },
+      draw: (ctx) => {
+        for (let i = 0; i < 1600; i++) { ctx.fillStyle = `rgba(120,85,55,${0.05 + hr(i + 3) * 0.12})`; ctx.fillRect(hr(i) * W, hr(i + 0.5) * H, 1 + hr(i + 1) * 1.6, 1 + hr(i + 2) * 1.6); }
+        ctx.strokeStyle = 'rgba(120,85,55,0.08)'; ctx.lineWidth = 1;
+        for (let i = 0; i < 140; i++) { const x = hr(i + 900) * W, y = hr(i + 901) * H, a = hr(i + 902) * 6.28, l = 8 + hr(i + 903) * 18;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + Math.cos(a) * l * 0.5 + 3, y + Math.sin(a) * l * 0.5 - 3, x + Math.cos(a) * l, y + Math.sin(a) * l); ctx.stroke(); }
+        const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, W * 0.7); g.addColorStop(0, 'rgba(120,80,40,0)'); g.addColorStop(1, 'rgba(120,80,40,0.28)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      } };
+
+    // ───────── 音：ファイルなしの音楽 + 効果音 ─────────
+    const sound = [
+      { type: 'audio', at: 0, volume: 0.7, keyframes: [{ at: BELL1 - 0.3, to: { volume: 0.35 }, duration: 0.3 }], music: {
+        bpm: 96, swing: 0.12, reverb: 0.25, seed: 11, drumVol: 0.8,
+        tracks: [
+          { inst: 'keys', vol: [[0, 0.35], [4, 0.6]], strum: 0.02, notes: 'Fmaj7:4 Dm7:4 Bbmaj7:4 C7:4 Fmaj7:4 [f3 a3 c4 e4]:4' },
+          { inst: 'bass', vol: 0.8, notes: '_:4 | d2:1.5 _:0.5 a2:1 d2:1 | bb1:1.5 _:0.5 f2:1 bb1:1 | c2:1.5 _:0.5 g2:1 c2:1 | f2:1.5 _:0.5 c3:1 f2:1 | f2:4' },
+          { inst: 'musicbox', vol: [[0, 0.4], [8, 0.5]], step: 0.5, notes: 'c5:1 a4:1 f5:2 | d5:1 f5:1 a5:2 | g5:1 f5:1 d5:1 bb4:1 | c5:1 e5:1 g5:2 | a5:1 g5:1 f5:1 c5:1 | f5:4' },
+          { inst: 'pad', vol: [[0, 0.3], [20, 0.4]], notes: '[f3 c4 a4]:8 [bb2 f3 d4]:4 [c3 g3 e4]:4 [f3 c4 a4]:8' },
+        ],
+        drums: [{ from: 4, to: 20, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }],
+      } },
+      { type: 'audio', name: 'oven', at: 0.2, duration: BAKE, volume: 0.25,          // 焼ける音（ちりちり）
+        sfx: { voices: [{ wave: 'noise', filter: { type: 'bandpass', freq: [2500, 4200] }, envelope: 'swell' }] } },
+      sfx('chime', BAR, { pitch: 7 }, 0.6),                                          // 「チン」：焼き上がり
+      ...[0, 1, 2, 3].map(i => sfx('pop', BAR + BEAT * (1.5 + i * 0.5), { pitch: 3 + i * 2 })),
+      sfx('swoosh', S1_END - 0.16), sfx('swoosh', S2_END - 0.16),
+      sfx('pop', S3 + BEAT * 0.5, { pitch: 2 }), sfx('pop', S3 + BEAT * 1.5, { pitch: 7 }), sfx('pop', S3 + BEAT * 2.75, { pitch: 5 }),
+      // 鐘：基音＋鐘らしい倍音（2.0, 2.76, 5.4 倍）＋低いうなり。高い「カーン」→ 低い「コーン」で終わる
+      ...[[BELL1, 698.5, 1.1], [BELL2, 523.3, 1.2]].map(([at, f, vol], i) => ({ type: 'audio', name: 'bell' + (i + 1), at, duration: DURATION - at, volume: vol,
+        sfx: { voices: [
+          { wave: 'sine', freq: f, envelope: 'fall', gain: 1 },
+          { wave: 'sine', freq: f / 2, envelope: 'fall', gain: 0.5 },
+          { wave: 'sine', freq: f * 2.0, envelope: 'fall', gain: 0.45 },
+          { wave: 'sine', freq: f * 2.76, envelope: 'fall', gain: 0.3, to: 0.6 },
+          { wave: 'sine', freq: f * 5.4, envelope: 'fall', gain: 0.15, to: 0.25 },
+          { wave: 'noise', filter: { type: 'bandpass', freq: f * 4 }, envelope: 'fall', gain: 0.25, to: 0.03 },
+        ] } })),
+    ];
+
+    const layers = [...scene1, ...scene2, ...scene3, paper, ...sound];
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 14.2, loudness: -16,        // the moment that stands for the video before it plays (pick your most striking one)
+        background: '#f6ecd8',
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { layers },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

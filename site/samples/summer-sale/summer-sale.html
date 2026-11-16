@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SUMMER SALE 50%</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&display=swap" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(760px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1080" height="1080"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    // A console group's title leads the warnings inside it (PixiJS prints a deprecation as a group titled with its message, the stack inside).
+    let group = '';
+    const text = (a) => { if (typeof a[0] === 'string' && a[0].includes('%')) { let i = 1; a = [a[0].replace(/%([csdifoO])/g, (_, f) => f === 'c' ? (i++, '') : String(a[i++])), ...a.slice(i)]; } return a.map(x => (x && x.message) || String(x)).join(' '); };
+    const gc = console.groupCollapsed.bind(console), ge = console.groupEnd.bind(console);
+    console.groupCollapsed = (...a) => { group = text(a); gc(...a); };
+    console.groupEnd = () => { group = ''; ge(); };
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + (group ? group + ' — ' : '') + text(a)); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/controller.js",
+      "pixi-effects/present":  "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/present.js",
+      "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/3d.js",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
+      "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie, particles } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // PixiJS 2D objects built by code (Graphics, Sprites, a thousand pieces): { type: 'scene2d', setup({ root }) { root.addChild(…); return { objects } }, update(t, { objects }) { … } } — no import; recipe scene2d-basics
+    // import { register3D } from 'pixi-effects/3d';   // a 3D scene (PixiJS 3D: meshes, glTF models, lights) as a layer: call register3D() before init; recipe scene3d-basics
+    // import { Mesh3D, Model3D, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, layers }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1080, H = 1080, FPS = 30, DURATION = 12;
+    const BEAT = 0.5;                 // 120 bpm: a beat is 0.5 s, a bar 2 s
+    const DROP = 12 * BEAT;           // the drop: 6.0 s (beat 12)
+    const FONT = 'Anton, Impact, "Arial Black", sans-serif';
+    const INK = '#14101f';            // hard pop-art shadow / outline colour
+
+    // ── the music: one score, everything on the beat grid ─────────────────────────────
+    const off = (n) => `_:0.5 ${n}:0.5 `.repeat(4);               // a bar of off-beat notes
+    const pump = (lo, hi) => `${lo}:0.5 ${hi}:0.5 `.repeat(4);     // a bar of octave-pumping 8ths
+    const music = {
+      bpm: 120, reverb: 0.18, humanize: 0.004, drumVol: 1,
+      tracks: [
+        { inst: 'bass', vol: 1.0, tone: 0.55, notes:
+            off('a1') + off('f1') +                                        // bars 1-2: words
+            'g1:0.5 g1:0.5 g1:0.5 g1:0.5 g1:0.25 g1:0.25 g2:0.25 g2:0.25 _:1 ' + // bar 3: build, then the gap
+            pump('c2', 'c3') + 'f1:0.5 f2:0.5 f1:0.5 f2:0.5 g1:0.5 g2:0.5 g1:0.5 g2:0.5 ' + pump('c2', 'c3') },
+        { inst: 'keys', vol: 0.55, notes:
+            off('Am@4') + off('F@4') + 'G@4:0.5 _:0.5 G@4:0.5 _:0.5 G@4:0.5 _:1.5 ' +
+            off('C@4') + '_:0.5 F@4:0.5 _:0.5 F@4:0.5 _:0.5 G@4:0.5 _:0.5 G@4:0.5 ' + off('C@4') },
+        { inst: 'lead', vol: 0.75, reverb: 0.4, notes:
+            '_:12 e5:0.5 g5:0.5 e5:0.5 c5:0.5 g5:1 e5:1 ' +
+            'f5:0.5 a5:0.5 f5:0.5 c5:0.5 g5:0.5 b5:0.5 d6:1 ' +
+            'c6:0.5 g5:0.5 e5:0.5 g5:0.5 c6:2' },
+      ],
+      drums: [
+        { from: 0,  to: 8,  kick: 'x...x...x...x...', hat: '..x...x...x...x.', clap: '....x.......x...' },
+        { from: 8,  to: 10, kick: 'x...x...', snare: 'x.x.x.x.' },
+        { from: 10, to: 11, kick: 'x...', snare: 'xxxx' },
+        // beat 11-12: the gap before the drop (no drums)
+        { from: 12, to: 24, kick: 'x...x...x...x...', openhat: '..x...x...x...x.', clap: '....x.......x...', shaker: 'x.xxx.xxx.xxx.xx' },
+        { from: 12, to: 13, crash: 'x' },
+      ],
+    };
+
+    // ── helpers ────────────────────────────────────────────────────────────────────────
+    const full = (fill, at, duration, extra = {}) => ({ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', at, duration,
+      initial: { x: 'GW/2', y: 'GH/2', fill, ...(extra.initial || {}) }, keyframes: extra.keyframes, name: extra.name });
+
+    // a heavy word with a hard offset shadow: two text layers that move together
+    function popWord({ name, text, at, duration, size, fill, x = 'GW/2', y = 'GH/2', rot = 0, from = 2.6, grow = 1.08, shadow = 16, parent }) {
+      const style = { fontFamily: FONT, fontSize: size, fill, letterSpacing: 4, padding: 20 };
+      const kf = [
+        { at: 0, from: { scale: from, rotation: rot * 3, alpha: 0 }, to: { scale: 1, rotation: rot, alpha: 1 }, duration: 0.12, ease: 'expo.out' },
+        { at: 0.12, to: { scale: grow }, duration: Math.max(0.05, duration - 0.12), ease: 'none' },
+      ];
+      const base = { type: 'text', text, at, duration, parent };
+      return [
+        { ...base, name: name + '-shadow', style: { ...style, fill: INK },
+          initial: { x: typeof x === 'number' ? x + shadow : `${x} + ${shadow}`, y: typeof y === 'number' ? y + shadow : `${y} + ${shadow}`, anchorX: 0.5, anchorY: 0.5 }, keyframes: kf },
+        { ...base, name, style: { ...style, stroke: { color: INK, width: Math.round(size * 0.035), join: 'round' } },
+          initial: { x, y, anchorX: 0.5, anchorY: 0.5 }, keyframes: kf },
+      ];
+    }
+    // a ring that bursts out from the centre on a beat
+    const ring = (at, color, r = 360) => ({ type: 'shape', shape: 'circle', radius: r, at, duration: 0.45,
+      initial: { x: 'GW/2', y: 'GH/2', fill: color, fillAlpha: 0, stroke: color, strokeWidth: 22 },
+      keyframes: [{ at: 0, from: { scale: 0.35, alpha: 1 }, to: { scale: 1.45, alpha: 0 }, duration: 0.45, ease: 'power2.out' }] });
+    const flash = (at, alpha = 1, d = 0.35) => full('#ffffff', at, d, { initial: { alpha }, keyframes: [{ at: 0, to: { alpha: 0 }, duration: d, ease: 'power2.out' }] });
+
+    // ── section 1 (0-4 s): BIG / BOLD / BRIGHT, one word per beat ──────────────────────────
+    const WORDS = [['BIG', 520], ['BOLD', 440], ['BRIGHT', 330]];
+    const LOOKS = [            // [background, word, ring]
+      ['#ff2e88', '#ffe600', '#ffffff'],
+      ['#ffe600', '#ff2e88', '#14101f'],
+      ['#00c2ff', '#ffffff', '#ffe600'],
+      ['#ff6a00', '#ffffff', '#ffe600'],
+    ];
+    const layers = [ full(INK, 0, DURATION) ];
+    const sfx = [];
+    for (let i = 0; i < 8; i++) {
+      const at = i * BEAT, [word, size] = WORDS[i % 3], [bg, fg, rc] = LOOKS[i % 4];
+      const rot = i % 2 ? 4 : -4;
+      layers.push(full(bg, at, BEAT, { name: 'bg' + i }));
+      layers.push(ring(at, rc));
+      layers.push(...particles({ count: 26, at, life: [0.35, 0.5], area: { x: W / 2, y: H / 2 }, speed: [500, 900], drag: 2,
+        size: [8, 16], colors: [rc, fg, '#ffffff'], fade: { out: 0.25 }, seed: 10 + i, name: 'pop' + i }));
+      layers.push(...popWord({ name: `w${i}-${word}`, text: word, at, duration: BEAT, size, fill: fg, rot }));
+      sfx.push({ type: 'audio', sfx: { preset: 'pop', pitch: [0, 3, 7][i % 3] }, at, volume: 0.55 });
+    }
+
+    // ── section 2 (4-5.5 s): the build, words on the 8ths, growing and strobing ─────────────
+    for (let i = 0; i < 6; i++) {
+      const at = 4 + i * BEAT / 2, [word, size] = WORDS[i % 3], [bg, fg] = LOOKS[(i + 1) % 4];
+      layers.push(full(bg, at, BEAT / 2, { name: 'bgb' + i }));
+      layers.push(...popWord({ name: `b${i}-${word}`, text: word, at, duration: BEAT / 2, size: size * (0.8 + i * 0.06), fill: fg,
+        rot: i % 2 ? 6 : -6, from: 1.8, grow: 1.05 }));
+    }
+    // 5.5-6 s: the gap. Black, all three words stacked on the 16ths, pushing in
+    layers.push({ type: 'null', name: 'stack', at: 5.5, duration: 0.5, initial: { x: W / 2, y: H / 2 },
+      keyframes: [{ at: 0, from: { scale: 1 }, to: { scale: 1.18 }, duration: 0.5, ease: 'power2.in' }] });
+    WORDS.forEach(([word], i) => layers.push(...popWord({ name: 's-' + word, text: word, at: 5.5 + i * BEAT / 4, duration: 0.5 - i * BEAT / 4,
+      size: 210, fill: ['#ff2e88', '#ffe600', '#00c2ff'][i], x: 0, y: (i - 1) * 245, from: 1.6, grow: 1, shadow: 10, parent: 'stack' })));
+
+    // ── section 3 (6-12 s): the drop: SUMMER SALE 50% ───────────────────────────────────
+    const T = DURATION - DROP;
+    const R = 1600, N = 18;              // sunburst rays around (0, 0)
+    let rays = '';
+    for (let k = 0; k < N; k++) {
+      const a0 = (k / N) * 2 * Math.PI, a1 = a0 + Math.PI / N;
+      rays += `M 0 0 L ${(R * Math.cos(a0)).toFixed(1)} ${(R * Math.sin(a0)).toFixed(1)} L ${(R * Math.cos(a1)).toFixed(1)} ${(R * Math.sin(a1)).toFixed(1)} Z `;
+    }
+    layers.push(full('#ffd000', DROP, T, { name: 'drop-bg' }));
+    layers.push({ type: 'shape', shape: 'path', name: 'rays', d: rays, at: DROP, duration: T,
+      initial: { x: 'GW/2', y: 'GH/2', fill: '#ff9f00', alpha: 0.85 },
+      keyframes: [{ at: 0, from: { rotation: 0, scale: 0.6 }, to: { rotation: 50, scale: 1 }, duration: T, ease: 'power1.out' }] });
+    layers.push({ type: 'shape', shape: 'circle', name: 'disc', radius: 430, at: DROP, duration: T,
+      initial: { x: 'GW/2', y: 'GH/2', fill: '#ff2e88', stroke: INK, strokeWidth: 14 },
+      keyframes: [
+        { at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.6, ease: 'back.out(2.2)' },
+        { at: 0.6, from: { scale: 1.04 }, to: { scale: 1 }, duration: BEAT, ease: 'power2.out', repeat: Math.round((T - 0.6) / BEAT) - 1 },
+      ] });
+    // the type rides on a null that pulses on every beat
+    layers.push({ type: 'null', name: 'rig', at: DROP, duration: T, initial: { x: W / 2, y: H / 2 },
+      keyframes: [{ at: 0, from: { scale: 1.06 }, to: { scale: 1 }, duration: BEAT, ease: 'power2.out', repeat: T / BEAT - 1 }] });
+    layers.push(...popWord({ name: 'SUMMER', text: 'SUMMER', at: DROP, duration: T, size: 190, fill: '#ffffff', x: 0, y: -330, rot: -3, from: 3, grow: 1, shadow: 12, parent: 'rig' }));
+    layers.push(...popWord({ name: 'SALE', text: 'SALE', at: DROP + BEAT / 2, duration: T - BEAT / 2, size: 250, fill: '#ffffff', x: 0, y: -95, rot: 2, from: 3, grow: 1, shadow: 14, parent: 'rig' }));
+    // 50%: arrives on beat 13 and flashes (a strobe of on/off, then a glow that hits on every beat)
+    const P = DROP + BEAT;
+    const fifty = popWord({ name: 'fifty', text: '50%', at: P, duration: DURATION - P, size: 330, fill: '#ffe600', x: 0, y: 200, rot: -4, from: 4, grow: 1, shadow: 18, parent: 'rig' });
+    const strobe = [0, 0.06, 0.12, 0.18, 0.24].map((t, k) => ({ at: 0.12 + t, set: { alpha: k % 2 ? 1 : 0.15 } }));
+    for (const l of fifty) l.keyframes = [...l.keyframes.slice(0, 1), ...strobe, { at: 0.42, set: { alpha: 1 } }];
+    fifty[1].filters = [{ type: 'glow', name: 'g', color: '#ffffff', distance: 28, outerStrength: 0, quality: 0.3 }];
+    fifty[1].keyframes.push({ at: 0.5, from: { 'filters.g.outerStrength': 7 }, to: { 'filters.g.outerStrength': 0 }, duration: BEAT, ease: 'power2.out', repeat: Math.round((DURATION - P - 0.5) / BEAT) - 1 });
+    layers.push(...fifty);
+
+    // confetti and flashes: on the drop, then on each bar line
+    const confetti = ['#ffffff', '#00c2ff', '#ffe600', '#ff2e88', '#14101f'];
+    layers.push(...particles({ count: 140, at: DROP, life: [1.6, 2.4], area: { x: W / 2, y: H / 2 }, speed: [500, 1300], gravity: 900, drag: 1.4,
+      size: [10, 20], colors: confetti, spin: [-540, 540], fade: { out: 0.5 }, seed: 3, name: 'confetti' }));
+    [8, 10].forEach((t, k) => layers.push(...particles({ count: 50, at: t, emit: 0, life: [1.6, 2.2], area: { x: W / 2, y: -30, width: W }, angle: 90,
+      speed: [100, 300], gravity: 500, size: [10, 18], colors: confetti, sway: { amp: 30, freq: 1.4 }, fade: { out: 0.4 }, seed: 20 + k, name: 'rain' + k })));
+    layers.push(flash(DROP, 1, 0.5), flash(8, 0.55), flash(10, 0.55));
+
+    // ── sound effects on the picture's beats ─────────────────────────────────────────────
+    sfx.push(
+      { type: 'audio', sfx: 'riser', at: DROP - 1.6, duration: 1.6, volume: 0.9 },
+      { type: 'audio', sfx: 'hit', at: DROP, volume: 1.1 },
+      { type: 'audio', sfx: { preset: 'swoosh', pitch: 5 }, at: P - 0.16, volume: 0.7 },
+      { type: 'audio', sfx: { preset: 'chime', pitch: 5 }, at: P + 0.12, volume: 0.6 },
+    );
+    layers.push({ type: 'audio', name: 'music', at: 0, music, volume: 0.9 }, ...sfx);
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await document.fonts.load('100px "Anton"');
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 7.5,
+        loudness: -14,        // the moment that stands for the video before it plays (pick your most striking one)
+        background: '#14101f',
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { layers },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

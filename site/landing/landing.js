@@ -22,7 +22,9 @@
       var img = fig.querySelector('img');
       img.src = tab.getAttribute('data-poster');
       img.alt = tab.getAttribute('data-alt');
-      img.removeAttribute('width'); img.removeAttribute('height');
+      var w = tab.getAttribute('data-w'), h = tab.getAttribute('data-h');
+      img.setAttribute('width', w); img.setAttribute('height', h);
+      fig.style.setProperty('--ar', (w / h).toFixed(4));                // the box takes the new piece's shape before its poster loads
       var btn = fig.querySelector('.live-play');
       if (btn) btn.setAttribute('aria-label', 'Play ' + tab.getAttribute('data-title'));
       if (facts) facts.innerHTML = '<ul class="facts">' + tab.getAttribute('data-meta').split(' · ').map(function (f) { var li = document.createElement('li'); li.textContent = f; return li.outerHTML; }).join('') + '</ul>';

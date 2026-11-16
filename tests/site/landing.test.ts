@@ -90,4 +90,17 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
       expect(await cdp.eval(`window.__copied`)).toBe('npx skills add yjmtmtk/pixi-effects');
     });
   }, 30000);
+
+  it('the hero keeps a shape that fits the screen whatever the piece (a vertical one does not stretch the page)', async () => {
+    await withLanding(1440, async (cdp) => {
+      const tabs: string[] = await cdp.eval(`[...document.querySelectorAll('[role="tab"]')].map(t => t.id)`);
+      for (const id of tabs) {
+        await cdp.eval(`document.getElementById(${JSON.stringify(id)}).click()`);
+        await check.sleep(200);
+        const r = await cdp.eval(`(() => { const f = document.querySelector('#hero figure.live'), b = f.getBoundingClientRect(), i = f.querySelector('img'); return { h: b.height, w: b.width, vh: innerHeight, ratio: i.naturalWidth / i.naturalHeight }; })()`);
+        expect(r.h, id).toBeLessThanOrEqual(r.vh * 0.75 + 1);
+        expect(Math.abs(r.w / r.h - r.ratio), `${id}: the box has the picture's shape`).toBeLessThan(0.03);
+      }
+    });
+  }, 60000);
 });

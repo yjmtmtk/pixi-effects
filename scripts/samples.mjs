@@ -63,10 +63,13 @@ const factsHtml = (s) => `<ul class="facts">${facts(s).map((f) => `<li>${esc(f)}
 const pagePath = (ctx, s) => `${ctx.root}site/samples/${s.id}/${s.page}`;
 const posterPath = (ctx, s) => `${ctx.root}site/samples/${s.id}/${s.poster}`;
 
+const sizeOf = (ctx, s) => jpegSize(join(ctx.root_dir, 'site/samples', s.id, s.poster));
+
 function figure(ctx, s, { autoplay = false, lazy = true } = {}) {
-  const size = jpegSize(join(ctx.root_dir, 'site/samples', s.id, s.poster));
+  const size = sizeOf(ctx, s);
   const wh = size ? ` width="${size.width}" height="${size.height}"` : '';
-  return `<figure class="live" data-page="${esc(pagePath(ctx, s))}"${autoplay ? ' data-autoplay' : ''}>
+  const ar = size ? ` style="--ar:${(size.width / size.height).toFixed(4)}"` : '';            // its shape: the hero fits it to the screen's height
+  return `<figure class="live" data-page="${esc(pagePath(ctx, s))}"${autoplay ? ' data-autoplay' : ''}${ar}>
   <img src="${esc(posterPath(ctx, s))}" alt="${esc(s.alt)}"${wh}${lazy ? ' loading="lazy"' : ''}>
   <button class="live-play" type="button" aria-label="Play ${esc(s.title)}">▶</button>
 </figure>`;
@@ -112,7 +115,7 @@ export function renderHero(ctx) {
   const hero = heroSamples(listOf(ctx));
   if (!hero.length) return '';
   const first = hero[0];
-  const tabs = hero.map((s, i) => `<button type="button" role="tab" id="tab-${s.lang}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" aria-controls="hero-panel" data-card="sample-${esc(s.id)}" data-page="${esc(pagePath(ctx, s))}" data-poster="${esc(posterPath(ctx, s))}" data-alt="${esc(s.alt)}" data-title="${esc(s.title)}" data-meta="${esc(caption(s))}">${LANG_LABEL[s.lang]}</button>`).join('\n  ');
+  const tabs = hero.map((s, i) => { const z = sizeOf(ctx, s) ?? { width: 16, height: 9 }; return `<button type="button" role="tab" id="tab-${s.lang}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" aria-controls="hero-panel" data-card="sample-${esc(s.id)}" data-page="${esc(pagePath(ctx, s))}" data-poster="${esc(posterPath(ctx, s))}" data-w="${z.width}" data-h="${z.height}" data-alt="${esc(s.alt)}" data-title="${esc(s.title)}" data-meta="${esc(caption(s))}">${LANG_LABEL[s.lang]}</button>`; }).join('\n  ');
   const sentences = hero.map((s, i) => `<p class="sentence" lang="${esc(s.lang)}" data-tab="tab-${s.lang}"${i ? ' hidden' : ''}>${esc(s.messages[0])}</p>`).join('\n  ');
   return `<div class="hero-tabs" role="tablist" aria-label="The sentence, in ${hero.length} languages">
   ${tabs}
