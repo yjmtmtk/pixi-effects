@@ -12,7 +12,10 @@
   // the piece is ready, so this lands before anyone sees it.
   var FIT = 'html,body{margin:0!important;padding:0!important;height:100%!important;overflow:hidden!important}' +
     '.stage{position:fixed!important;inset:0!important;width:auto!important;max-width:none!important;margin:0!important;z-index:2147483000}' +
-    '.stage canvas{width:100%!important;height:100%!important;border-radius:0!important;object-fit:contain}';
+    '.stage canvas{width:100%!important;height:100%!important;border-radius:0!important;object-fit:contain}' +
+    // the pieces are pinned to 1.0.0, whose loop button looks the same on and off without a theme (fixed in the library after 1.0.0)
+    '.mc-loop{position:relative}.mc-loop[aria-pressed="false"]{opacity:.4}.mc-loop[aria-pressed="true"]{opacity:1;color:var(--mc-accent,#007AFF)}' +
+    '.mc-loop[aria-pressed="true"]::after{content:"";position:absolute;left:50%;bottom:1px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:currentColor}';
   function fit(w) {
     var d = null;
     try { d = w && w.document; } catch (e) { return; }

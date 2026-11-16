@@ -90,7 +90,11 @@ export const CONTROLLER_CSS = `
   transition: opacity 120ms ease;
 }
 .mc-btn:hover { opacity: 1; }
-.mc-loop[aria-pressed="true"] { opacity: 1; color: var(--mc-accent); }
+.mc-loop { position: relative; }
+.mc-loop[aria-pressed="false"] { opacity: 0.4; }
+.mc-loop[aria-pressed="false"]:hover { opacity: 0.8; }
+.mc-loop[aria-pressed="true"] { opacity: 1; color: var(--mc-accent, #007AFF); }
+.mc-loop[aria-pressed="true"]::after { content: ""; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; }
 .mc-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .mc-time {
   font-size: 12px; font-family: Menlo, Monaco, monospace;

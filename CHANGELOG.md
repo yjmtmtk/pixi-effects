@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **The player bar's loop button now looks different on and off.** Without a `theme`, the on colour was unset, so the button stayed white either way. Now it is dimmed when off; when on, it takes the accent colour (`#007AFF` by default) and shows a dot. Its title says `Loop: on` or `Loop: off`.
+
 ## 1.0.0
 
 **1.0: the API is frozen.** The names settled in 0.55.0 are the 1.0 names (the freeze table: `docs/superpowers/specs/2026-11-16-api-freeze-1.0.md`). From here, a breaking change comes only in a new major version.
