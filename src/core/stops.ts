@@ -2,8 +2,8 @@ import { warnUnknownOptions } from './options';
 
 /** What an author writes in `composition.stops`: a time in seconds, or an object. */
 export interface StopSpec {
-  /** Where playback stops, in seconds (negative counts back from the end). */
-  at: number;
+  /** Where playback stops, in seconds (negative counts back from the end), or a moment by name (`'host@in'`). */
+  at: number | import('../types').Moment;
   /** This stop is the settled state of a new page. A name (shown in the page list), or `true` for an unnamed page. Without it the stop is a step of the page before. */
   page?: string | true;
   /** Speaker notes for this stop. */
@@ -40,17 +40,17 @@ const KEYS = ['at', 'page', 'notes', 'advance', 'pdf'] as const;
  * own, otherwise only the stops that say `page` start one (the first stop always does). Negative times count back from the end;
  * two stops on the same frame are one; anything outside the movie or not a number is dropped, with a warning that names it.
  */
-export function normalizeStops(raw: ReadonlyArray<number | StopSpec> | undefined, duration: number, frameRate: number): Stop[] {
+export function normalizeStops(raw: ReadonlyArray<unknown> | undefined, duration: number, frameRate: number): Stop[] {
   if (!raw || raw.length === 0) return [];
   const total = Math.round(duration * frameRate);
-  const specs: StopSpec[] = [];
+  const specs: Array<StopSpec & { at: number }> = [];
   raw.forEach((r, i) => {
-    const spec: StopSpec | null = typeof r === 'number' ? { at: r } : (r && typeof r === 'object' ? r : null);
+    const spec = (typeof r === 'number' ? { at: r } : (r && typeof r === 'object' ? r : null)) as StopSpec | null;
     if (!spec || typeof spec.at !== 'number' || !Number.isFinite(spec.at)) {
       console.warn(`pixi-effects: stops[${i}] ${JSON.stringify(r)} is not a time in seconds (or { at, page?, notes?, advance?, pdf? }); ignored`);
       return;
     }
-    if (typeof r === 'object') warnUnknownOptions(`stops[${i}]`, r, KEYS);
+    if (typeof r === 'object') warnUnknownOptions(`stops[${i}]`, r as object, KEYS);
     const at = spec.at < 0 ? duration + spec.at : spec.at;
     if (at < -1e-9 || at > duration + 1e-9) {
       console.warn(`pixi-effects: stops[${i}] at ${spec.at} s is outside the movie (0 to ${duration} s); ignored`);
@@ -60,7 +60,7 @@ export function normalizeStops(raw: ReadonlyArray<number | StopSpec> | undefined
   });
   specs.sort((a, b) => a.at - b.at);
 
-  const kept: StopSpec[] = [];
+  const kept: Array<StopSpec & { at: number }> = [];
   for (const s of specs) {
     const frame = Math.min(total, Math.max(0, Math.round(s.at * frameRate)));
     const last = kept[kept.length - 1];

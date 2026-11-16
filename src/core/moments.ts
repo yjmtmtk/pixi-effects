@@ -23,7 +23,9 @@ interface Node {
   /** the layers inside it, found by name (a mask or a transition is not listed: it is resolved, not named) */
   children: Node[];
   /** what it is, for the messages */
-  kind: 'layer' | 'mask' | 'transition';
+  kind: 'layer' | 'mask' | 'transition' | 'stop';
+  /** a stop's place in `stops`, for the messages */
+  index?: number;
   /** a mask with no `at` of its own lives with this layer */
   owner?: Node;
   /** its own lifespan (a composition) */
@@ -65,7 +67,7 @@ export function resolveMoments<T>(spec: T, opts: { duration: number; frameRate: 
   const visiting: Node[] = [];
   const kfDone = new Set<Node>(), kfDoing = new Set<Node>();
 
-  const who = (n: Node): string => n.kind === 'transition' ? `transition "${String(n.spec.from)}" → "${String(n.spec.to)}"`
+  const who = (n: Node): string => n.kind === 'stop' ? `stops[${n.index}]` : n.kind === 'transition' ? `transition "${String(n.spec.from)}" → "${String(n.spec.to)}"`
     : n.kind === 'mask' ? `the mask of ${describeLayer(n.owner!.spec as never)}` : describeLayer(n.spec as never);
   const tell = (e: Unresolved) => (e.message.startsWith('is ') ? ' ' : ': ') + e.message;
 
@@ -270,7 +272,7 @@ function needsWork(spec: Plain): boolean {
   const layer = (l: unknown): boolean => isPlain(l) && (typeof l.at === 'string' || l.markers !== undefined || (Array.isArray(l.keyframes) && l.keyframes.some(isNamedKf))
     || look(l.sequences) || layer(maskLayerOf(l.mask)) || (Array.isArray(l.transitions) && l.transitions.some(t => isPlain(t) && typeof t.at === 'string')));
   const look = (list: unknown): boolean => Array.isArray(list) && list.some(layer);
-  return spec.markers !== undefined || layer(spec);
+  return spec.markers !== undefined || layer(spec) || (Array.isArray(spec.stops) && spec.stops.some(st => typeof st === 'string' || (isPlain(st) && typeof st.at === 'string')));
 }
 
 function makeNode(spec: Plain, parent: Node | null, life: number, kind: Node['kind'], say: (m: string) => void, all: Node[], owner?: Node): Node {
@@ -308,6 +310,11 @@ function makeNode(spec: Plain, parent: Node | null, life: number, kind: Node['ki
         makeNode(copy, node, num(copy.duration) ?? num(l.duration) ?? span, 'mask', say, all, child);
       }
     }
+  }
+  // the root's stops: a moment alone ('host@in') or as a stop's at; on the movie's clock
+  if (!parent && Array.isArray(spec.stops)) {
+    spec.stops = spec.stops.map(st => (typeof st === 'string' ? { at: st } : isPlain(st) ? { ...st } : st));
+    (spec.stops as unknown[]).forEach((st, i) => { if (isPlain(st) && typeof st.at === 'string') { const n = makeNode(st, node, span, 'stop', say, all); n.index = i; } });
   }
   if (Array.isArray(spec.transitions)) {
     spec.transitions = spec.transitions.map(t => (isPlain(t) ? { ...t } : t));

@@ -123,7 +123,8 @@ export interface TransitionCommon {
   /** Sibling sequence's `name` — the incoming scene. Must be declared after `from` in the parent's `sequences[]`. */
   to: string;
   /** Start time in the PARENT composition's time (like a sequence's `at`, not sequence-local). Negative = back from the parent's end. */
-  at: number;
+  /** Seconds on the clock of the composition, or a moment by name (`'a@end - 1'`). */
+  at: number | Moment;
   /** Length of the transition in seconds. Must be > 0. */
   duration: number;
   /** Ease name (`'power2.out'`, `'back.out(1.7)'`, `'spring.bouncy'`, `'cubic-bezier(.4,0,.2,1)'`, `'steps(8)'`). Default `'none'` (linear). */
@@ -909,7 +910,7 @@ export interface CompositionSpec extends SequenceCommon {
    * are steps of it; with no `page` anywhere each stop is a page. Nothing changes for an ordinary player: `Presenter` (and `next(movie)`, from `pixi-effects/present`)
    * stop at them, `Controller` shows them as marks on the seek bar.
    */
-  stops?: Array<number | import('./core/stops').StopSpec>;
+  stops?: Array<number | Moment | import('./core/stops').StopSpec>;
   /**
    * Compositions written once and placed many times: `{ lowerThird: { params: { title: 'Name' }, width, height, sequences } }`, placed with
    * `{ use: 'lowerThird', params: { title: 'Aiko' }, at, initial }` anywhere in the movie (also inside another component).

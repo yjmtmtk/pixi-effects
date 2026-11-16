@@ -507,7 +507,7 @@ function expandDip(
   }
   toInitial.alpha = 0;
   ensureKeyframes(toSeq).push({
-    at: t.at + half, to: { alpha: 1 }, duration: half, ease,
+    at: layerAt(t) + half, to: { alpha: 1 }, duration: half, ease,
   });
 }
 

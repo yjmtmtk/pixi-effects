@@ -171,3 +171,17 @@ describe('resolveMoments: review round', () => {
   });
 });
 
+describe('resolveMoments: stops', () => {
+  it('a stop may be a moment, alone or as its at (a presentation that pauses where a part lands)', () => {
+    const r = run([lowerThird('host', 2)], { stops: ['host@in', { at: 'host@out', page: 'b' }, 1] });
+    expect(r.warnings).toEqual([]);
+    const stops = (r.spec as { stops: Array<number | { at: number; page?: string }> }).stops;
+    expect(stops[0]).toEqual({ at: 2.6 });
+    expect(stops[1]).toEqual({ at: 4.4, page: 'b' });
+    expect(stops[2]).toBe(1);
+  });
+  it('a stop that names nothing is said', () => {
+    expect(run([lowerThird('host', 2)], { stops: ['hots@in'] }).warnings[0]).toMatch(/stops\[0\]: at: "hots@in": no layer named "hots" — did you mean "host"\?/);
+  });
+});
+

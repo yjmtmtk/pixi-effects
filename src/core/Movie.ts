@@ -394,7 +394,7 @@ export class Movie {
       this._resized = false;
       for (const w of lintComposition(options.composition, this._vars)) console.warn(w);
       this._mixCache.set(null, null);
-      this.stops = normalizeStops(applyVars(options.composition, this._vars)?.stops, this.duration, this.frameRate);
+      this.stops = normalizeStops(this._stopsOf(options.composition, this._vars), this.duration, this.frameRate);
       this._posterFrame = poster.frame;
       this.background = options.background ?? '#000000';
 
@@ -476,6 +476,11 @@ export class Movie {
       this._emitError('init', err);
       throw err;
     }
+  }
+
+  /** The composition's stops in seconds: after its components and variables, a stop that names a moment (`'host@in'`) made a time. */
+  private _stopsOf(composition: CompositionSpec | undefined, vars: Vars): CompositionSpec['stops'] {
+    return resolveMoments(applyVars(expandComponents(composition).spec, vars), { duration: this.duration, frameRate: this.frameRate }).spec?.stops;
   }
 
   /**
@@ -687,7 +692,7 @@ export class Movie {
         safeRun(() => oldTimeline?.kill());
         this._vars = vars;
         this._composition = composition;
-        this.stops = normalizeStops(applyVars(composition, vars)?.stops, this.duration, this.frameRate);
+        this.stops = normalizeStops(this._stopsOf(composition, vars), this.duration, this.frameRate);
         sequence = null;
       } finally { this._silent--; }
 

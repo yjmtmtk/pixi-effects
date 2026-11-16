@@ -163,7 +163,7 @@ interface CompositionSpec extends SequenceCommon
   height?: number
   markers?: Record<string, number>
   sequences?: SequenceSpec[]
-  stops?: (number | StopSpec)[]
+  stops?: (number | `${string}@${string}` | StopSpec)[]
   transitions?: TransitionSpec[]
   width?: number
 function computeEnvelope(audio: AudioLike, options?: EnvelopeOptions): AudioEnvelope
@@ -502,7 +502,7 @@ interface OnionSkinOptions
   to?: number
 function orbit(opts: OrbitOptions): CameraSequenceSpec
 interface OrbitOptions
-  at?: number
+  at?: number | `${string}@${string}`
   center?: [number, number]
   degrees: number
   dollyZoom?: { from: number; to: number; ease?: string | undefined; }
@@ -763,7 +763,7 @@ interface Stop
   pdf?: boolean
 interface StopSpec
   advance?: number
-  at: number
+  at: number | `${string}@${string}`
   notes?: string
   page?: string | true
   pdf?: boolean
@@ -831,7 +831,7 @@ interface TimelineTransition
   start: number
   to: string
 interface TransitionCommon
-  at: number
+  at: number | `${string}@${string}`
   duration: number
   ease?: string
   from: string

@@ -39,7 +39,7 @@ interface KenBurnsBase {
   /** Optional sequence name for transitions / addressing. */
   name?: string;
   /** Start time in seconds (parent-relative). */
-  at?: number;
+  at?: number | import('../types').Moment;
   /** Length of the animation in seconds. Required. */
   duration: number;
   /** How the image fills the canvas. Default `'cover'`. */

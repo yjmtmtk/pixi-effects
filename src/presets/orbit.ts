@@ -30,7 +30,7 @@ export interface OrbitOptions {
    */
   dollyZoom?: { from: number; to: number; ease?: string };
   /** Start time in seconds (composition time, like any layer). */
-  at?: number;
+  at?: number | import('../types').Moment;
   name?: string;
   /** Sampling density. Default one segment per 0.1 s. */
   stepsPerSecond?: number;
