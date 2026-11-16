@@ -25,6 +25,17 @@ REGIONS['samples-hero'] = renderHero;
 REGIONS['samples-promo'] = renderPromo;
 REGIONS['samples-one'] = renderOne;
 REGIONS['samples-refined'] = renderRefined;
+/** The Lab's "light" block: the comparison piece as a page and as an MP4, measured (lab/sizes.json, written by scripts/lab-sizes.mjs). */
+REGIONS['lab-sizes'] = ({ root_dir }) => {
+  const s = JSON.parse(readFileSync(join(root_dir, 'lab/sizes.json'), 'utf8'));
+  const kb = (b) => `${(b / 1024).toFixed(1)} KB`;
+  const share = Math.max(1, Math.round((s.html / s.mp4) * 100));
+  return `<div class="sizes">
+  <div class="size"><span class="size-name">The page</span><span class="bar page" style="--w:${share}%"></span><b>${kb(s.html)}</b></div>
+  <div class="size"><span class="size-name">The MP4</span><span class="bar mp4" style="--w:100%"></span><b>${kb(s.mp4)}</b></div>
+  <p class="size-note">The same 6 seconds at 640 × 360. The page is ${Math.round(s.mp4 / s.html)} times smaller, and it also plays at 4K without growing.</p>
+</div>`;
+};
 export function syncSite({ root = ROOT, check = false } = {}) {
   const { pages } = JSON.parse(readFileSync(join(root, 'site/pages.json'), 'utf8'));
   const stale = [], written = [];

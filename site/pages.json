@@ -27,7 +27,10 @@
     },
     {
       "file": "lab/index.html",
-      "current": "lab"
+      "current": "lab",
+      "regions": [
+        "lab-sizes"
+      ]
     }
   ]
 }

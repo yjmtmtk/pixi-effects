@@ -1,4 +1,4 @@
-// The landing page's own behaviour: the hero's language tabs (each puts its sentence and its piece in the hero) and the copy buttons.
+// The landing page's own behaviour: the hero's language tabs (each puts its sentence and its piece in the hero). The copy buttons: site/shared/copy.js.
 (function () {
   function tabs() {
     var list = document.querySelector('#hero [role="tablist"]');
@@ -38,23 +38,6 @@
     });
   }
 
-  function copies() {
-    [].forEach.call(document.querySelectorAll('[data-copy]'), function (btn) {
-      var src = document.getElementById(btn.getAttribute('data-copy'));
-      var label = btn.textContent;
-      btn.addEventListener('click', function () {
-        var text = src.textContent.trim();
-        function selectIt() {                                        // no clipboard: select the text, so it can be copied by hand
-          var r = document.createRange(); r.selectNodeContents(src);
-          var s = getSelection(); s.removeAllRanges(); s.addRange(r);
-          btn.textContent = 'Selected: press ⌘C / Ctrl+C';
-        }
-        var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = label; }, 1600); };
-        try { navigator.clipboard.writeText(text).then(done, selectIt); } catch (e) { selectIt(); }
-      });
-    });
-  }
-
-  function init() { tabs(); copies(); }
+  function init() { tabs(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

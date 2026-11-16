@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A video that draws itself · pixi-effects Lab</title>
+  <!--
+    The Lab's comparison piece (lab/index.html; docs/superpowers/plans/2026-11-16-site-v1.md, Task 8). Every size in it is an expression of the
+    movie's size (W, H, GW, GH), never a pixel, so movie.resize() draws it again, sharp, at any size: the page fills its window and follows it.
+    Variables: title (a string), accent (a colour). lab/media/compare.mp4 is this page rendered at 640 x 360 (render --quality medium).
+    ?bar=1 shows the player bar (its download button saves the MP4).
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; background: #1d1630; overflow: hidden; }
+    #box { position: fixed; inset: 0; }
+    #box canvas { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="box"><canvas id="stage"></canvas></div>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/controller.js" } }
+  </script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const q = new URLSearchParams(location.search);
+    const T = 6;
+    const INK = '#1d1630', SOFT = '#a59cc2';
+    const FONT = 'ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+    const n = (v) => (v >= 0 ? `+ ${v.toFixed(4)}` : `- ${(-v).toFixed(4)}`);
+
+    // twelve keyframe diamonds on a ring, turning once in T seconds (sizes are shares of the height)
+    const diamonds = Array.from({ length: 12 }, (_, i) => {
+      const a = (i / 12) * Math.PI * 2;
+      return { type: 'shape', shape: 'rect', name: `kf${i}`, width: 'GH * 0.03', height: 'GH * 0.03', cornerRadius: 'GH * 0.004',
+        parent: 'orbit',                                                 // measured from the middle; the orbit turns them round it
+        initial: { x: `GH * ${(0.4 * Math.cos(a)).toFixed(4)}`, y: `GH * ${(0.4 * Math.sin(a)).toFixed(4)}`, rotation: 45, fill: i % 3 === 0 ? '{accent}' : i % 3 === 1 ? '#38bdf8' : '#f2a65a' },
+        keyframes: [
+          { at: 0, to: { rotation: -315 }, duration: T, ease: 'none' },     // a spin of their own, against the orbit
+        ] };
+    });
+
+    const composition = { layers: [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: INK } },
+      { type: 'shape', shape: 'circle', name: 'ring', radius: 'GH * 0.4', initial: { x: 'GW/2', y: 'GH/2', stroke: '{accent}', strokeWidth: 'GH * 0.004', trimStart: 0.08 },
+        keyframes: [{ at: 0, to: { rotation: -360 }, duration: T, ease: 'none' }] },          // an open ring turning the other way: one turn per loop
+      { type: 'null', name: 'orbit', initial: { x: 'GW/2', y: 'GH/2' }, keyframes: [{ at: 0, to: { rotation: 360 }, duration: T, ease: 'none' }] },   // one turn per loop: no seam
+      ...diamonds,
+      { type: 'text', name: 'title', text: '{title}', style: { fontFamily: FONT, fontSize: 'GH * 0.13', fontWeight: '900', fill: '#ffffff', letterSpacing: 'GH * -0.004' },
+        initial: { x: 'GW/2', y: 'GH * 0.47', anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0, to: { scale: 1.04 }, duration: T / 2, ease: 'sine.inOut', repeat: 1, yoyo: true }] },   // a breath: there and back in one loop
+      { type: 'text', name: 'line', text: 'drawn live, at any size', style: { fontFamily: FONT, fontSize: 'GH * 0.04', fontWeight: '600', fill: SOFT },
+        initial: { x: 'GW/2', y: 'GH * 0.58', anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'text', name: 'fine', text: 'zoom in: this line is 2% of the height, and it stays sharp', style: { fontFamily: FONT, fontSize: 'GH * 0.02', fill: SOFT },
+        initial: { x: 'GW/2', y: 'GH * 0.66', anchorX: 0.5, anchorY: 0.5 } },
+    ] };
+
+    const box = document.getElementById('box');
+    const pixels = () => [Math.max(2, Math.round(box.clientWidth * devicePixelRatio)), Math.max(2, Math.round(box.clientHeight * devicePixelRatio))];
+    const movie = new Movie();
+    window.movie = movie;
+    if (q.get('bar') === '1') new Controller(movie, { canvas: document.getElementById('stage') });
+    try {
+      const [w, h] = pixels();
+      await movie.init({ canvas: document.getElementById('stage'), width: w, height: h, duration: T, frameRate: 30, loop: true, background: INK,
+        poster: 2.5, vars: { title: q.get('title') || 'pixi-effects', accent: q.get('accent') || '#e91e63' }, composition });
+      new ResizeObserver(() => { const [w2, h2] = pixels(); if (w2 !== movie.width || h2 !== movie.height) movie.resize(w2, h2).catch(console.error); }).observe(box);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

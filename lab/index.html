@@ -4,12 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lab — a video that is not a file · pixi-effects</title>
+<meta name="description" content="A pixi-effects video can be delivered as the page that draws it: smaller than an MP4, sharp at any size, editable while it plays, and touchable.">
+<meta name="theme-color" content="#fcfbfd">
 <meta name="color-scheme" content="light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23fcfbfd'/%3E%3Crect x='9' y='9' width='14' height='14' rx='2' transform='rotate(45 16 16)' fill='%23e91e63'/%3E%3C/svg%3E">
 <!--site:head-->
 <link rel="stylesheet" href="../site/shared/tokens.css">
 <link rel="stylesheet" href="../site/shared/site.css">
 <script src="../site/shared/live.js" defer></script>
 <!--/site:head-->
+<link rel="stylesheet" href="lab.css">
+<script src="../site/shared/copy.js" defer></script>
+<script src="lab.js" defer></script>
 </head>
 <body>
 <!--site:header-->
@@ -18,16 +24,114 @@
   <div class="wrap">
     <a class="brand" href="../"><span class="dia" aria-hidden="true"></span>pixi-effects</a>
     <nav aria-label="Site">
+      <a href="../lab/" aria-current="page">Lab</a>
       <a href="../for-ai.html">For AI</a>
       <a class="gh" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
     </nav>
   </div>
 </header>
 <!--/site:header-->
+
 <main id="main" class="wrap">
-  <h1>A video that is not a file</h1>
-  <p>Coming with the site (plan Task 8).</p>
+
+  <header class="lab-head">
+    <h1>This is not an MP4.</h1>
+    <p class="lede">Every video on this site is a web page that draws itself. The same small file is the video, the player and the source, so it can do things a video file cannot.</p>
+  </header>
+
+  <section class="lab-block" id="light" aria-labelledby="light-title">
+    <div class="lab-text">
+      <h2 id="light-title">Light</h2>
+      <p>A video file stores every pixel of every frame. The page stores what to draw.</p>
+      <p class="ask">Ask your AI: “Give me the page as well as the MP4, so I can put it on my site.”</p>
+    </div>
+    <div class="lab-demo">
+<!--site:lab-sizes-->
+<div class="sizes">
+  <div class="size"><span class="size-name">The page</span><span class="bar page" style="--w:5%"></span><b>5.4 KB</b></div>
+  <div class="size"><span class="size-name">The MP4</span><span class="bar mp4" style="--w:100%"></span><b>115.6 KB</b></div>
+  <p class="size-note">The same 6 seconds at 640 × 360. The page is 21 times smaller, and it also plays at 4K without growing.</p>
+</div>
+<!--/site:lab-sizes-->
+    </div>
+  </section>
+
+  <section class="lab-block" id="sharp" aria-labelledby="sharp-title">
+    <div class="lab-text">
+      <h2 id="sharp-title">Sharp at any zoom</h2>
+      <p>Zoom in on both. The MP4 stretches its pixels. The page draws the picture again at the new size.</p>
+      <label class="zoom"><span>Zoom</span><input type="range" min="1" max="4" step="0.5" value="1" aria-label="Zoom"><output>1×</output></label>
+      <p class="ask">Ask your AI: “Write every size as a share of the width and height, so it stays sharp on any screen.”</p>
+    </div>
+    <div class="lab-demo panes">
+      <figure class="pane"><div class="zoom-box"><video src="media/compare.mp4" muted loop playsinline autoplay preload="metadata"></video></div><figcaption>The MP4</figcaption></figure>
+      <figure class="pane"><div class="zoom-box"><iframe src="pieces/compare.html" title="The comparison piece, live" loading="lazy"></iframe></div><figcaption>The page</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="lab-block" id="live-edit" aria-labelledby="edit-title">
+    <div class="lab-text">
+      <h2 id="edit-title">Changes while you watch</h2>
+      <p>Type a title, pick a colour. The video is built again in a few milliseconds and keeps playing from the same frame.</p>
+      <div class="edit-controls">
+        <label class="field"><span>Title</span><input type="text" value="pixi-effects" maxlength="24" spellcheck="false"></label>
+        <div class="swatches" role="group" aria-label="Colour">
+          <button type="button" class="swatch" data-accent="#e91e63" style="--c:#e91e63" aria-label="Pink" aria-pressed="true"></button>
+          <button type="button" class="swatch" data-accent="#8b5cf6" style="--c:#8b5cf6" aria-label="Violet" aria-pressed="false"></button>
+          <button type="button" class="swatch" data-accent="#38bdf8" style="--c:#38bdf8" aria-label="Sky" aria-pressed="false"></button>
+          <button type="button" class="swatch" data-accent="#f2a65a" style="--c:#f2a65a" aria-label="Orange" aria-pressed="false"></button>
+        </div>
+      </div>
+      <p class="ask">Ask your AI: “Make the name and the colour variables, so I can change them without asking you again.”</p>
+    </div>
+    <div class="lab-demo"><div class="frame"><iframe src="pieces/compare.html" title="The comparison piece, with a title and a colour you can change" loading="lazy"></iframe></div></div>
+  </section>
+
+  <section class="lab-block" id="touch" aria-labelledby="touch-title">
+    <div class="lab-text">
+      <h2 id="touch-title">Touchable</h2>
+      <p>A video can wait for a choice, or let you move what is in it. Left alone, each one still exports as an ordinary video.</p>
+      <p class="ask">Ask your AI: “Stop at the fork and let the viewer choose the ending.”</p>
+    </div>
+    <div class="lab-demo touch">
+      <figure class="live" data-page="pieces/ending.html">
+        <img src="pieces/ending.jpg" alt="A film that stops at a fork and asks which ending to play" width="1280" height="720" loading="lazy">
+        <button class="live-play" type="button" aria-label="Play choose your ending">▶</button>
+        <figcaption>Choose the ending</figcaption>
+      </figure>
+      <figure class="live" data-page="pieces/move3d.html">
+        <img src="pieces/move3d.jpg" alt="A 3D scene with objects on a platform that you can drag" width="1280" height="720" loading="lazy">
+        <button class="live-play" type="button" aria-label="Play move the objects">▶</button>
+        <figcaption>Drag the objects</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="lab-block" id="mp4" aria-labelledby="mp4-title">
+    <div class="lab-text">
+      <h2 id="mp4-title">An MP4 when you need one</h2>
+      <p>A frame is the same picture on every machine, so the page can write the video file itself, in the browser. Open the piece with its player bar and press the download button.</p>
+      <p><a class="pill" href="pieces/compare.html?bar=1">Open it with its player</a></p>
+      <p class="ask">Ask your AI: “Render it as an MP4 too.”</p>
+    </div>
+  </section>
+
+  <section class="lab-block" id="embed" aria-labelledby="embed-title">
+    <div class="lab-text">
+      <h2 id="embed-title">Put it on your own site</h2>
+      <p>One element, wherever HTML goes. Host the page next to your site, or point at this one.</p>
+      <p class="ask">Ask your AI: “Give me the HTML to embed it on my page.”</p>
+    </div>
+    <div class="lab-demo">
+      <pre class="snippet"><code id="embed-code">&lt;iframe src="https://yjmtmtk.github.io/pixi-effects/lab/pieces/compare.html"
+        width="640" height="360" loading="lazy"
+        title="A video that draws itself"&gt;&lt;/iframe&gt;</code></pre>
+      <p><button type="button" class="pill ghost" data-copy="embed-code">Copy</button></p>
+    </div>
+  </section>
+
 </main>
+
 <!--site:footer-->
 <footer class="site-foot">
   <div class="wrap">
@@ -35,6 +139,7 @@
       <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
       <a href="https://www.npmjs.com/package/pixi-effects">npm</a>
       <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/CHANGELOG.md">CHANGELOG</a>
+      <a href="../lab/">Lab</a>
       <a href="../for-ai.html">For AI</a>
       <a href="https://x.com/t_yjm" rel="me noopener">Author on X</a>
     </p>

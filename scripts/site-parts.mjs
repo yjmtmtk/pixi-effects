@@ -5,8 +5,9 @@ export const NPM = 'https://www.npmjs.com/package/pixi-effects';
 /** The author's X account. */
 export const AUTHOR_X = 'https://x.com/t_yjm';
 
-/** The entrances, with their address from the site root (the Lab joins when its page exists: plan Task 8). */
+/** The entrances, with their address from the site root. */
 export const NAV = [
+  { id: 'lab', label: 'Lab', href: 'lab/' },
   { id: 'forai', label: 'For AI', href: 'for-ai.html' },
 ];
 
