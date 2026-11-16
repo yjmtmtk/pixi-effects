@@ -1,5 +1,6 @@
 import { EXPRESSION_NAMES } from '../expr/Parser';
 import { suggestName } from './options';
+import { isPlain } from './isPlain';
 
 /** A variable holds a number (read as an identifier in an expression) or a string (read as `{name}` in any string of the spec). */
 export type VarValue = number | string;
@@ -9,7 +10,6 @@ export type Vars = Record<string, VarValue>;
 export const RESERVED_NAMES: readonly string[] = ['w', 'h', 'W', 'H', 'GW', 'GH', 't', 'd', 'T', 'contain', 'cover', 'value', ...EXPRESSION_NAMES];
 
 const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const isPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
 
 /** What an author declared (`vars` in `movie.init`, or a `setVars` call), checked: a name that is refused or a value of the wrong kind is said and left out. */
 export function normalizeVars(raw: unknown, where: string, warn: (message: string) => void = m => console.warn(m)): Vars {
