@@ -5,7 +5,7 @@
  *   --flag                               a switch (true)
  *   -o                                   a short name, where the command has one
  *   -h, --help                           the usage with every option, one a line (exit 0)
- *   --                                   the end of the options: what follows is words (`pixi-effects help -- --strict`)
+ *   --                                   the end of the options: what follows is words (`pixi-effects help -- --range`)
  *   -1.5, -                              a negative number and a lone dash are words, not options
  *
  * A mistake is a UsageError (exit code 2): an unknown option with the nearest name, a value that is missing, an old name with its new one.

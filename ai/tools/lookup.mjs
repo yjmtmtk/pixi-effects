@@ -190,7 +190,7 @@ export const LOOKUP_SPECS = {
     { flag: '--force', help: 'replace <name>.html if it exists' },
   ] },
   recipe: { name: 'recipe', usage: '[id]', about: 'the tested recipes (id and title); with an id (or a unique part of one), that recipe with its code', options: [] },
-  help: { name: 'help', usage: '<word …>', about: 'the sections of the docs about a word (mask, threeD, keyframes, music …); to look up an option, end the options first: pixi-effects help -- --strict', options: [] },
+  help: { name: 'help', usage: '<word …>', about: 'the sections of the docs about a word (mask, threeD, keyframes, music …); to look up an option, end the options first: pixi-effects help -- --range', options: [] },
   quickstart: { name: 'quickstart', usage: '', about: 'the first page to read (2 KB): the workflow and the rules that cause most failures', options: [] },
 };
 
