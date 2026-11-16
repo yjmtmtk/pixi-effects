@@ -71,7 +71,7 @@ describe('cameraPath(): a camera flight as keyframes', () => {
     expect(() => cameraPath({ points: [[0, 0, 0]] as never, duration: 2 })).toThrow(/at least two points/);
     expect(() => cameraPath({ points: [[0, 0], [1, 1]] as never, duration: 2 })).toThrow(/\[x, y, z\]/);
     expect(() => cameraPath({ ...straight, duration: 0 })).toThrow(/duration/);
-    expect(() => cameraPath({ ...straight, frameRate: 0 })).toThrow(/frameRate/);
+    expect(() => cameraPath({ ...straight, samplesPerSecond: 0 })).toThrow(/samplesPerSecond/);
     expect(() => cameraPath({ points: [[0, 0, 5], [0, 0, 5]], duration: 1 })).toThrow(/no length/);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     cameraPath({ ...straight, lookahead: 0.2 } as never);

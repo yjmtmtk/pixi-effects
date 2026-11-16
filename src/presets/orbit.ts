@@ -3,7 +3,7 @@ import { warnUnknownOptions } from '../core/options';
 import { homeDistance, DEFAULT_FOV, DEG } from '../space/math';
 import type { CameraSequenceSpec, Keyframe } from '../types';
 
-const ORBIT_KEYS = ['duration', 'degrees', 'start', 'radius', 'center', 'width', 'height', 'fov', 'ease', 'dollyZoom', 'at', 'name', 'stepsPerSecond'] as const;
+const ORBIT_KEYS = ['duration', 'degrees', 'start', 'radius', 'center', 'width', 'height', 'fov', 'ease', 'dollyZoom', 'at', 'name', 'samplesPerSecond'] as const;
 
 export interface OrbitOptions {
   /** Length of the move in seconds. Required, > 0. */
@@ -33,7 +33,7 @@ export interface OrbitOptions {
   at?: number | import('../types').Moment;
   name?: string;
   /** Sampling density. Default one segment per 0.1 s. */
-  stepsPerSecond?: number;
+  samplesPerSecond?: number;
 }
 
 /**
@@ -53,7 +53,7 @@ export interface OrbitOptions {
 export function orbit(opts: OrbitOptions): CameraSequenceSpec {
   warnUnknownOptions('orbit()', opts, ORBIT_KEYS);
   const {
-    duration, degrees, width = 1280, height = 720, fov, ease = 'sine.inOut', stepsPerSecond = 10,
+    duration, degrees, width = 1280, height = 720, fov, ease = 'sine.inOut', samplesPerSecond = 10,
   } = opts;
   if (!(duration > 0)) throw new Error(`pixi-effects: orbit duration must be > 0 (got ${duration})`);
   const dolly = opts.dollyZoom;
@@ -63,7 +63,7 @@ export function orbit(opts: OrbitOptions): CameraSequenceSpec {
   const [cx, cy] = opts.center ?? [width / 2, height / 2];
   const fixedR = opts.radius ?? homeDistance(height, fov ?? DEFAULT_FOV);
   const start = opts.start ?? -degrees / 2;
-  const steps = Math.max(1, Math.round(duration * stepsPerSecond));
+  const steps = Math.max(1, Math.round(duration * samplesPerSecond));
   const easeFn = parseEase(ease);
   const dollyEase = dolly ? parseEase(dolly.ease ?? ease) : null;
   const pos = (i: number): Record<string, number> => {

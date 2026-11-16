@@ -88,11 +88,11 @@ interface CameraPathOptions
   at?: number
   duration: number
   ease?: string
-  frameRate?: number
   from?: number
   look?: [number, number, number] | "ahead"
   lookAhead?: number
   points: [number, number, number][]
+  samplesPerSecond?: number
   smooth?: boolean
   to?: number
 interface CameraSequenceSpec extends SequenceCommon
@@ -207,10 +207,10 @@ interface FollowPathOptions
   d: string
   duration: number
   ease?: string
-  frameRate?: number
   from?: number
   orient?: boolean
   rotate?: number
+  samplesPerSecond?: number
   to?: number
 interface FontReport
   failed: string[]
@@ -508,8 +508,8 @@ interface OrbitOptions
   height?: number
   name?: string
   radius?: number
+  samplesPerSecond?: number
   start?: number
-  stepsPerSecond?: number
   width?: number
 function particles(opts: ParticlesOptions): SequenceSpec[]
 interface ParticlesOptions
@@ -525,7 +525,7 @@ interface ParticlesOptions
   gravity?: number
   life: Range
   name?: string
-  sampleRate?: number
+  samplesPerSecond?: number
   scale?: [number, number]
   seed?: number
   shape?: "circle" | "rect" | "star"
@@ -577,9 +577,9 @@ interface ReactOptions
   at?: number
   audioOffset?: number
   duration: number
-  frameRate?: number
   loop?: boolean
   props: Record<string, ReactProp>
+  samplesPerSecond?: number
 interface ReactProp
   amount: number
   attack?: number

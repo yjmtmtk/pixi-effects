@@ -277,7 +277,7 @@
     map.push({
       type: 'shape', shape: 'circle', name: 'traveller', radius: 5.5, at: LEGS[0].start, duration: LEGS[3].end - LEGS[0].start + 0.2,
       initial: { x: STOPS[0].p[0], y: STOPS[0].p[1], fillColor: RED, strokeColor: PAPER, strokeWidth: 2 },
-      keyframes: LEGS.flatMap(L => followPath({ d: L.d, duration: L.end - L.start, at: L.start - LEGS[0].start, ease: 'power2.inOut', frameRate: FPS })),
+      keyframes: LEGS.flatMap(L => followPath({ d: L.d, duration: L.end - L.start, at: L.start - LEGS[0].start, ease: 'power2.inOut', samplesPerSecond: FPS })),
     });
     // arrival ring at the destination: "you are here", once
     const END = LEGS[3].end;

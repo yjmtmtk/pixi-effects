@@ -62,7 +62,7 @@ describe('particles(): motion', () => {
   });
 
   it('gravity bends the path: sampled positions follow y = y0 + vy·t + ½·g·t²', () => {
-    const l = particles({ ...straight, angle: -90, gravity: 200, sampleRate: 4 }) as any;
+    const l = particles({ ...straight, angle: -90, gravity: 200, samplesPerSecond: 4 }) as any;
     const moves = kf(l[0]).filter(k => k.to && 'y' in k.to);
     expect(moves).toHaveLength(8);                                    // 2 s × 4 samples
     for (const m of moves) {
@@ -74,21 +74,21 @@ describe('particles(): motion', () => {
   });
 
   it('wind pushes sideways', () => {
-    const m = kf(particles({ ...straight, speed: 0, wind: 50, sampleRate: 2 })[0]).filter(k => k.to && 'x' in k.to).at(-1);
+    const m = kf(particles({ ...straight, speed: 0, wind: 50, samplesPerSecond: 2 })[0]).filter(k => k.to && 'x' in k.to).at(-1);
     close(m.to.x, 100 + 0.5 * 50 * 4, 4);
   });
 
   it('drag slows it down toward a terminal speed (exponential)', () => {
     const k = 2;
-    const m = kf(particles({ ...straight, drag: k, sampleRate: 2 })[0]).filter(x => x.to && 'x' in x.to).at(-1);
+    const m = kf(particles({ ...straight, drag: k, samplesPerSecond: 2 })[0]).filter(x => x.to && 'x' in x.to).at(-1);
     close(m.to.x, 100 + (100 / k) * (1 - Math.exp(-k * 2)), 4);
-    const g = kf(particles({ ...straight, angle: 90, speed: 0, gravity: 100, drag: 1, sampleRate: 1 })[0]).filter(x => x.to && 'y' in x.to).at(-1);
+    const g = kf(particles({ ...straight, angle: 90, speed: 0, gravity: 100, drag: 1, samplesPerSecond: 1 })[0]).filter(x => x.to && 'y' in x.to).at(-1);
     const t = 2, vInf = 100;                                         // a / k
     close(g.to.y, 200 + vInf * t + (0 - vInf) * (1 - Math.exp(-t)) / 1, 4);
   });
 
   it('sway wobbles x smoothly around the path and starts exactly at the birth point', () => {
-    const l = particles({ ...straight, speed: 0, sway: { amp: 20, freq: 1 }, sampleRate: 10 }) as any;
+    const l = particles({ ...straight, speed: 0, sway: { amp: 20, freq: 1 }, samplesPerSecond: 10 }) as any;
     const xs = kf(l[0]).filter(k => k.to && 'x' in k.to).map(k => k.to.x);
     expect(Math.max(...xs.map(x => Math.abs(x - 100)))).toBeGreaterThan(2);
     expect(Math.max(...xs.map(x => Math.abs(x - 100)))).toBeLessThanOrEqual(40.0001);
@@ -158,11 +158,11 @@ describe('particles(): mistakes are said out loud', () => {
     expect(() => particles({ ...base, area: undefined as never })).toThrow(/area/);
     expect(() => particles({ ...base, shape: 'blob' as never })).toThrow(/shape.*"blob"/s);
     expect(() => particles({ ...base, emit: -1 })).toThrow(/emit/);
-    expect(() => particles({ ...base, sampleRate: 0 })).toThrow(/sampleRate/);
+    expect(() => particles({ ...base, samplesPerSecond: 0 })).toThrow(/samplesPerSecond/);
   });
 
   it('refuses to bake an absurd number of keyframes, saying how to cut it', () => {
-    expect(() => particles({ ...base, count: 1000, life: 10, gravity: 100 })).toThrow(/too many keyframes.*sampleRate/s);
+    expect(() => particles({ ...base, count: 1000, life: 10, gravity: 100 })).toThrow(/too many keyframes.*samplesPerSecond/s);
   });
 
   it('warns about a misspelt option', () => {

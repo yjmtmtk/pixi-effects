@@ -600,7 +600,7 @@
       seqs.push({ type: 'camera', name: 'cam',
         initial: { focus: -STEP, aperture: 34, fogNear: 600, fogFar: 2600, fogColor: INK, fogAmount: 0.95 },
         keyframes: [
-          ...cameraPath({ points: [[960, 540, 2300], [1040, 500, 700], [900, 590, -900], [960, 540, -2500]], duration: FLY, ease: 'power1.in', frameRate: FPS }),
+          ...cameraPath({ points: [[960, 540, 2300], [1040, 500, 700], [900, 590, -900], [960, 540, -2500]], duration: FLY, ease: 'power1.in', samplesPerSecond: FPS }),
           ...wiggle({ duration: FLY, freq: 7, seed: 4, props: { offsetX: { around: 0, amp: 4 }, offsetY: { around: 0, amp: 3 } } }),
           { at: 0, to: { focus: -3900 }, duration: FLY, ease: 'power1.in' },
         ] });

@@ -1691,7 +1691,7 @@ sequences: [
 | `radius` | distance from the centre; default = the default camera distance for `height` and `fov`, so `z = 0` is 1:1 at angle 0 |
 | `center` | `[x, y]` to circle and look at; default the canvas centre |
 | `width`, `height` | canvas size for the defaults (1280 × 720) |
-| `fov`, `ease`, `at`, `name`, `stepsPerSecond` | `ease` default `'sine.inOut'` |
+| `fov`, `ease`, `at`, `name`, `samplesPerSecond` | `ease` default `'sine.inOut'` |
 
 `z` is specified, so it stops following `fov`; for an orbit **plus** a dolly zoom write your own `fov` and `z = (H/2) / tan(fov/2)` keyframes.
 
@@ -1744,9 +1744,9 @@ import { particles } from 'pixi-effects';
 | `blendMode` | `'add'` makes overlaps glow |
 | `template` | any layer (an image, a text) used for every particle instead of a shape; its keyframes are kept |
 | `seed`, `name` | another seed is another burst; layers are named `<name>-0`, `<name>-1`, … |
-| `sampleRate` | samples per second of a curved path (default 20); a path with no gravity, wind, drag or sway is one straight tween |
+| `samplesPerSecond` | samples of a curved path a second (default 20; straight between samples); a path with no gravity, wind, drag or sway is one straight tween |
 
-It throws, with the fix, when it would bake an absurd number of keyframes: lower `count`, `life` or `sampleRate`. Particles are real layers (names like `burst1-0`), so `inspect` and the timeline list them, grouped as one family.
+It throws, with the fix, when it would bake an absurd number of keyframes: lower `count`, `life` or `samplesPerSecond`. Particles are real layers (names like `burst1-0`), so `inspect` and the timeline list them, grouped as one family.
 
 ### `cameraPath`
 
@@ -1756,7 +1756,7 @@ A camera flight as keyframes for `x`, `y`, `z`, `lookAtX`, `lookAtY` and `lookAt
 import { cameraPath, wiggle } from 'pixi-effects';
 
 { type: 'camera', keyframes: [
-  ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', frameRate: 30 }),
+  ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', samplesPerSecond: 30 }),
   ...wiggle({ duration: 7, freq: 9, props: { offsetX: { around: 0, amp: 5 }, offsetY: { around: 0, amp: 3 } } }),      // a handheld shake on the offsets
 ] }
 ```
@@ -1771,7 +1771,7 @@ import { cameraPath, wiggle } from 'pixi-effects';
 | `lookAhead` | with `'ahead'`: how far ahead, as a fraction 0–1 of the route (default 0.08); past the end it continues along the last direction |
 | `smooth` | `true` (default): a smooth curve through the points (Catmull-Rom); `false`: straight lines |
 | `from` / `to` | fractions 0–1 of the route to start and stop at (default 0 → 1; `from: 1, to: 0` flies it backwards) |
-| `frameRate` | samples per second: your movie's `frameRate` (default 30) |
+| `samplesPerSecond` | samples a second, straight between them (not a stepped look: that is a composition's `frameRate`): your movie's frame rate puts the layer exactly on the path at every frame (default 30) |
 
 Layers the camera passes take `hideBehindCamera: true`. The recipe `camera-fly-through` in `skills/pixi-effects/reference/recipes.md` is a whole corridor.
 
@@ -1784,7 +1784,7 @@ import { followPath } from 'pixi-effects';
 
 { type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4,
   initial: { fillColor: '#ffd166' },
-  keyframes: followPath({ d: 'M 120 560 C 360 120 920 120 1160 560', duration: 4, ease: 'power2.inOut', orient: true, frameRate: 30 }) }
+  keyframes: followPath({ d: 'M 120 560 C 360 120 920 120 1160 560', duration: 4, ease: 'power2.inOut', orient: true, samplesPerSecond: 30 }) }
 ```
 
 | Option | Notes |
@@ -1795,7 +1795,7 @@ import { followPath } from 'pixi-effects';
 | `ease` | Ease for the progress along the path (default `'none'`: constant speed) |
 | `from` / `to` | fractions 0–1 of the path to start and stop at (default 0 → 1; `from: 1, to: 0` goes backwards) |
 | `orient` / `rotate` | `orient: true` also keyframes `rotation` (degrees) to face the way it is going, without ever jumping by a turn; `rotate` adds an offset (`-90` for an image that points up) |
-| `frameRate` | samples per second (default 30) |
+| `samplesPerSecond` | samples a second, straight between them (default 30) |
 
 It returns `Keyframe[]`: spread it next to other keyframes, but not another `x`, `y` or `rotation` during the trip.
 

@@ -19,8 +19,10 @@ const isSubsequence = (small: string, big: string): boolean => {
 };
 
 /** Names AI authors commonly guess, mapped to the real option (only suggested when the real option exists here). */
-const COMMON_ALIASES: Record<string, string> = {
-  fps: 'frameRate', framerate: 'frameRate', frame_rate: 'frameRate',
+const COMMON_ALIASES: Record<string, string | readonly string[]> = {
+  // a frame rate is the movie's or a composition's; in a preset that bakes keyframes it is how often it samples
+  fps: ['frameRate', 'samplesPerSecond'], framerate: ['frameRate', 'samplesPerSecond'], frame_rate: ['frameRate', 'samplesPerSecond'],
+  samplerate: 'samplesPerSecond', stepspersecond: 'samplesPerSecond', samples: 'samplesPerSecond',
   bg: 'background', backgroundcolor: 'background', bgcolor: 'background',
   seconds: 'duration', length: 'duration', time: 'duration',
   w: 'width', h: 'height', cols: 'columns', sweep: 'degrees', angle: 'degrees',
@@ -48,14 +50,15 @@ const COMMON_ALIASES: Record<string, string> = {
 
 /** The real name another tool's word stands for (`opacity` → `alpha`), whatever is valid where it was written; null when it is not such a word. */
 export function aliasOf(name: string): string | null {
-  return COMMON_ALIASES[name.toLowerCase()] ?? null;
+  const a = COMMON_ALIASES[name.toLowerCase()];
+  return (typeof a === 'string' ? a : a?.[0]) ?? null;
 }
 
 /** The valid name an author most likely meant by `name` (alias, typo, abbreviation or case slip), or null. */
 export function suggestName(name: string, valid: readonly string[]): string | null {
   const n = name.toLowerCase();
-  const alias = COMMON_ALIASES[n];
-  if (alias && valid.includes(alias)) return alias;
+  const aliases = COMMON_ALIASES[n];
+  for (const alias of typeof aliases === 'string' ? [aliases] : aliases ?? []) if (valid.includes(alias)) return alias;
   let best: { v: string; score: number } | null = null;
   for (const v of valid) {
     const lv = v.toLowerCase();

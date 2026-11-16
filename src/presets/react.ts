@@ -3,7 +3,7 @@ import type { Keyframe } from '../types';
 import type { AudioEnvelope } from '../audio/envelope';
 import { warnUnknownOptions } from '../core/options';
 
-const KEYS = ['at', 'duration', 'props', 'audioOffset', 'loop', 'frameRate'] as const;
+const KEYS = ['at', 'duration', 'props', 'audioOffset', 'loop', 'samplesPerSecond'] as const;
 const PROP_KEYS = ['base', 'amount', 'band', 'beats', 'decay', 'attack', 'release', 'invert', 'curve'] as const;
 const MAX_STEPS = 4000;
 
@@ -39,7 +39,7 @@ export interface ReactOptions {
   /** The sound repeats (a looping music layer) instead of the last value being held. */
   loop?: boolean;
   /** Samples per second (default: the envelope's, so one per video frame). Lower it for a long layer, the steps get longer. */
-  frameRate?: number;
+  samplesPerSecond?: number;
 }
 
 /**
@@ -56,9 +56,9 @@ export function react(env: AudioEnvelope, options: ReactOptions): Keyframe[] {
   warnUnknownOptions('react()', options, KEYS);
   const { at: atRaw, duration, props, audioOffset = 0, loop = false } = options;
   const at = secondsAt('react', atRaw, 'keyframes');
-  const frameRate = options.frameRate ?? env.frameRate;
+  const frameRate = options.samplesPerSecond ?? env.frameRate;
   if (!(Number.isFinite(duration) && duration > 0)) throw new Error(`react(): duration must be a positive number of seconds, got ${duration}`);
-  if (!(Number.isFinite(frameRate) && frameRate > 0)) throw new Error(`react(): frameRate must be a positive number, got ${frameRate}`);
+  if (!(Number.isFinite(frameRate) && frameRate > 0)) throw new Error(`react(): samplesPerSecond must be a positive number, got ${frameRate}`);
   const names = Object.keys(props ?? {});
   if (names.length === 0) throw new Error('react(): props is empty; name at least one property, e.g. props: { scale: { base: 1, amount: 0.3 } }');
   for (const n of names) {
@@ -69,7 +69,7 @@ export function react(env: AudioEnvelope, options: ReactOptions): Keyframe[] {
     if (p.beats && !(p.decay === undefined || (Number.isFinite(p.decay) && p.decay > 0))) throw new Error(`react(): props.${n}.decay must be a positive number of seconds, got ${p.decay}`);
   }
   const steps = Math.max(1, Math.round(duration * frameRate));
-  if (steps > MAX_STEPS) throw new Error(`react(): too many keyframes (${steps} steps, max ${MAX_STEPS}); lower frameRate (now ${frameRate}) or duration`);
+  if (steps > MAX_STEPS) throw new Error(`react(): too many keyframes (${steps} steps, max ${MAX_STEPS}); lower samplesPerSecond (now ${frameRate}) or duration`);
 
   const wrap = (a: number): number => (loop && env.duration > 0 ? ((a % env.duration) + env.duration) % env.duration : a);
   const beatPulse = (a: number, decay: number): number => {

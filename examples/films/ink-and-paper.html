@@ -540,7 +540,7 @@
       const seqs = [bg(PAPER)];
       seqs.push({ type: 'camera', name: 'cam', initial: { fov: 40, focus: -300, aperture: 38, fogNear: 1500, fogFar: 3400, fogColor: PAPER, fogAmount: 0.25 },
         keyframes: [
-          ...cameraPath({ points: [[700, 470, 1760], [860, 520, 1420], [960, 560, 1150]], duration: dur, ease: 'sine.inOut', look: [960, 540, -100], frameRate: FPS }),
+          ...cameraPath({ points: [[700, 470, 1760], [860, 520, 1420], [960, 560, 1150]], duration: dur, ease: 'sine.inOut', look: [960, 540, -100], samplesPerSecond: FPS }),
           { at: 1.5, to: { focus: 80 }, duration: 1.0, ease: 'power2.inOut' },
         ] });
       seqs.push({ type: 'light', kind: 'ambient', initial: { intensity: 1.0 } });

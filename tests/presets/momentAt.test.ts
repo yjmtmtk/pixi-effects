@@ -17,3 +17,17 @@ describe('a preset given a moment by name in at', () => {
     expect(particles({ count: 2, life: [1, 1], speed: [10, 20], area: { x: 0, y: 0 } } as never).length).toBe(2);
   });
 });
+
+describe('how often a preset samples is samplesPerSecond in every preset', () => {
+  it('the old names say the new one (frameRate, sampleRate, stepsPerSecond)', async () => {
+    const { vi } = await import('vitest');
+    const { orbit } = await import('../../src/presets/orbit');
+    const w = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    followPath({ d: 'M0 0 L10 0', duration: 1, frameRate: 30 } as never);
+    particles({ count: 1, life: [1, 1], area: { x: 0, y: 0 }, sampleRate: 20 } as never);
+    orbit({ duration: 1, degrees: 90, stepsPerSecond: 10 } as never);
+    const said = w.mock.calls.map(c => String(c[0]));
+    w.mockRestore();
+    expect(said.filter(s => /did you mean "samplesPerSecond"\?/.test(s))).toHaveLength(3);
+  });
+});

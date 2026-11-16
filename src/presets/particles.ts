@@ -3,7 +3,7 @@ import type { SequenceSpec, Keyframe } from '../types';
 import { warnUnknownOptions, suggestName } from '../core/options';
 import { random, noise } from '../expr/random';
 
-const KEYS = ['count', 'at', 'emit', 'life', 'area', 'angle', 'speed', 'gravity', 'wind', 'drag', 'sway', 'size', 'scale', 'fade', 'colors', 'shape', 'spin', 'seed', 'name', 'blendMode', 'template', 'sampleRate'] as const;
+const KEYS = ['count', 'at', 'emit', 'life', 'area', 'angle', 'speed', 'gravity', 'wind', 'drag', 'sway', 'size', 'scale', 'fade', 'colors', 'shape', 'spin', 'seed', 'name', 'blendMode', 'template', 'samplesPerSecond'] as const;
 const SHAPES = ['circle', 'rect', 'star'] as const;
 const MAX_KEYFRAMES = 30000;
 
@@ -53,7 +53,7 @@ export interface ParticlesOptions {
   /** Use this layer (any type: an image, a text) for every particle instead of a shape; its keyframes are kept. */
   template?: SequenceSpec;
   /** Samples per second of a curved path (gravity, wind, drag, sway): straight steps between them. Default 20. */
-  sampleRate?: number;
+  samplesPerSecond?: number;
 }
 
 /**
@@ -66,17 +66,17 @@ export interface ParticlesOptions {
  *                size: [3, 7], colors: ['#ffd166', '#ff6b9d', '#4cc9f0'], fade: { out: 0.4 }, blendMode: 'add' })
  * ```
  *
- * A particle with no gravity, wind, drag or sway is one straight tween; a curved path is sampled `sampleRate` times a second.
+ * A particle with no gravity, wind, drag or sway is one straight tween; a curved path is sampled `samplesPerSecond` times a second.
  */
 export function particles(opts: ParticlesOptions): SequenceSpec[] {
   warnUnknownOptions('particles()', opts, KEYS);
-  const { count, at: atRaw, emit = 0, gravity = 0, wind = 0, drag = 0, sway, fade, colors = ['#ffffff'], shape = 'circle', seed = 0, name = 'particle', template, sampleRate = 20 } = opts;
+  const { count, at: atRaw, emit = 0, gravity = 0, wind = 0, drag = 0, sway, fade, colors = ['#ffffff'], shape = 'circle', seed = 0, name = 'particle', template, samplesPerSecond = 20 } = opts;
   const at = secondsAt('particles', atRaw, 'layers');
   if (!(Number.isInteger(count) && count > 0)) throw new Error(`particles(): count must be a whole number of particles (at least 1), got ${count}`);
   const life = range('life', opts.life, 1e-6);
   if (!opts.area || !Number.isFinite(opts.area.x) || !Number.isFinite(opts.area.y)) throw new Error('particles(): area is required: { x, y } (the centre) and optionally width / height to spread over');
   if (!(Number.isFinite(emit) && emit >= 0)) throw new Error(`particles(): emit must be a number of seconds >= 0, got ${emit}`);
-  if (!(Number.isFinite(sampleRate) && sampleRate > 0)) throw new Error(`particles(): sampleRate must be a positive number (samples per second), got ${sampleRate}`);
+  if (!(Number.isFinite(samplesPerSecond) && samplesPerSecond > 0)) throw new Error(`particles(): samplesPerSecond must be a positive number (samples per second), got ${samplesPerSecond}`);
   if (!(SHAPES as readonly string[]).includes(shape)) {
     const g = suggestName(String(shape), SHAPES);
     throw new Error(`particles(): shape "${shape}" is not one of ${SHAPES.map(s => `"${s}"`).join(', ')}${g ? `; did you mean "${g}"?` : ''}`);
@@ -86,9 +86,9 @@ export function particles(opts: ParticlesOptions): SequenceSpec[] {
   const size = range('size', opts.size ?? [3, 6], 0);
   const spin = opts.spin === undefined ? null : range('spin', opts.spin, -Infinity);
   const curved = gravity !== 0 || wind !== 0 || drag !== 0 || !!sway;
-  const worst = curved ? Math.max(1, Math.ceil(life[1] * sampleRate)) : 1;
+  const worst = curved ? Math.max(1, Math.ceil(life[1] * samplesPerSecond)) : 1;
   if (count * worst > MAX_KEYFRAMES) {
-    throw new Error(`particles(): too many keyframes (${count} particles × up to ${worst} samples each): lower count or life, or lower sampleRate (now ${sampleRate})`);
+    throw new Error(`particles(): too many keyframes (${count} particles × up to ${worst} samples each): lower count or life, or lower samplesPerSecond (now ${samplesPerSecond})`);
   }
 
   const round = (v: number) => Math.round(v * 1e6) / 1e6;
@@ -119,7 +119,7 @@ export function particles(opts: ParticlesOptions): SequenceSpec[] {
     };
 
     const kfs: Keyframe[] = [];
-    const steps = curved ? Math.max(1, Math.ceil(lifetime * sampleRate)) : 1;
+    const steps = curved ? Math.max(1, Math.ceil(lifetime * samplesPerSecond)) : 1;
     const step = lifetime / steps;
     for (let k = 1; k <= steps; k++) {
       const p = at_(k * step);

@@ -269,7 +269,7 @@
       { type: 'null', name: 'skein', at: T.skein, duration: SKEIN_DUR,
         initial: { scale: 0.62, alpha: 1 },
         keyframes: [
-          ...followPath({ d: 'M 1360 34 C 1110 70 760 210 300 400', duration: SKEIN_DUR, ease: 'none', frameRate: FPS }),
+          ...followPath({ d: 'M 1360 34 C 1110 70 760 210 300 400', duration: SKEIN_DUR, ease: 'none', samplesPerSecond: FPS }),
           { at: 0, to: { scale: 0.3 }, duration: SKEIN_DUR, ease: 'sine.out' },
           { at: 6.4, to: { alpha: 0 }, duration: 1.5, ease: 'sine.inOut' },
         ] },

@@ -73,7 +73,7 @@ describe('react(): keyframes that follow the sound', () => {
 
   it('frameRate samples less often than the envelope (and the steps are longer)', () => {
     const env = made([0, 0.25, 0.5, 0.75, 1, 1, 1, 1, 1, 1, 1]);
-    const k = react(env, { duration: 1, frameRate: 5, props: { v: { amount: 1 } } }) as any[];
+    const k = react(env, { duration: 1, samplesPerSecond: 5, props: { v: { amount: 1 } } }) as any[];
     expect(tweens(k)).toHaveLength(5);
     expect(tweens(k)[0].duration).toBe(0.2);
   });
@@ -85,7 +85,7 @@ describe('react(): keyframes that follow the sound', () => {
     expect(() => react(env, { duration: 1, props: { v: { amount: 1, band: 'sub' } } })).toThrow(/band "sub".*level.*bass/s);
     expect(() => react(env, { duration: 1, props: { v: { amount: NaN } } })).toThrow(/amount/);
     expect(() => react(env, { duration: 1, props: { v: { amount: 1, beats: true, decay: 0 } } })).toThrow(/decay/);
-    expect(() => react(env, { duration: 1000, props: { v: { amount: 1 } } })).toThrow(/too many keyframes.*frameRate/s);
+    expect(() => react(env, { duration: 1000, props: { v: { amount: 1 } } })).toThrow(/too many keyframes.*samplesPerSecond/s);
   });
 
   it('warns about a misspelt option', () => {

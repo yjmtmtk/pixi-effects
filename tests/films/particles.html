@@ -27,7 +27,7 @@
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
         composition: { sequences: mode === 'one'
-          ? particles({ count: 1, at: 0.5, life: 2, area: { x: 640, y: 600 }, angle: -90, speed: 300, gravity: 600, size: 10, sampleRate: 30 })
+          ? particles({ count: 1, at: 0.5, life: 2, area: { x: 640, y: 600 }, angle: -90, speed: 300, gravity: 600, size: 10, samplesPerSecond: 30 })
           : particles({ count: 60, at: 0.5, emit: 0.5, life: [1, 2], area: { x: 640, y: 500, width: 200 }, angle: [-120, -60], speed: [200, 500], gravity: 500, size: [3, 7], colors: ['#ff0000', '#00ff00', '#ffffff'], spin: [-200, 200], shape: 'star', seed: 5 }) },
       });
       window.__ready = true;

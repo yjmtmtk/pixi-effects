@@ -4,7 +4,7 @@ import { warnUnknownOptions } from '../core/options';
 import { flattenSvgPath } from '../sequences/trimPath';
 import { parseEase } from './_ease';
 
-const KEYS = ['d', 'at', 'duration', 'ease', 'from', 'to', 'orient', 'rotate', 'frameRate'] as const;
+const KEYS = ['d', 'at', 'duration', 'ease', 'from', 'to', 'orient', 'rotate', 'samplesPerSecond'] as const;
 const MAX_STEPS = 2000;
 
 export interface FollowPathOptions {
@@ -23,8 +23,8 @@ export interface FollowPathOptions {
   orient?: boolean;
   /** With `orient`: degrees added to the heading (`-90` for an image that points up). Default 0. */
   rotate?: number;
-  /** Samples per second: set it to your movie's `frameRate` so the layer is exactly on the path at every frame. Default 30. */
-  frameRate?: number;
+  /** Samples per second (between two the motion is a straight line, not a step): set it to your movie's `frameRate` so the layer is exactly on the path at every frame. Default 30. */
+  samplesPerSecond?: number;
 }
 
 interface Segment { x0: number; y0: number; x1: number; y1: number; start: number; len: number }
@@ -35,25 +35,25 @@ interface Segment { x0: number; y0: number; x1: number; y1: number; start: numbe
  * and text `anchorX: 0.5, anchorY: 0.5`.
  *
  * The path is walked by arc length (so the speed is even whatever the curve) and sampled once per frame as short straight
- * steps, which keeps the layer on the path at every rendered frame when `frameRate` matches the movie's.
+ * steps, which keeps the layer on the path at every rendered frame when `samplesPerSecond` matches the movie's frame rate.
  *
  * ```js
  * { type: 'shape', shape: 'circle', radius: 12, initial: { fillColor: '#ffd166' },
- *   keyframes: followPath({ d: 'M 100 600 C 300 100 900 100 1180 600', duration: 4, ease: 'power2.inOut', frameRate: 30 }) }
+ *   keyframes: followPath({ d: 'M 100 600 C 300 100 900 100 1180 600', duration: 4, ease: 'power2.inOut', samplesPerSecond: 30 }) }
  * ```
  */
 export function followPath(opts: FollowPathOptions): Keyframe[] {
   warnUnknownOptions('followPath()', opts, KEYS);
-  const { d, at: atRaw, duration, ease = 'none', from = 0, to = 1, orient = false, rotate = 0, frameRate = 30 } = opts;
+  const { d, at: atRaw, duration, ease = 'none', from = 0, to = 1, orient = false, rotate = 0, samplesPerSecond = 30 } = opts;
   const at = secondsAt('followPath', atRaw, 'keyframes');
   if (typeof d !== 'string' || d.trim() === '') throw new Error('followPath(): d must be SVG path data, e.g. "M 100 600 C 300 100 900 100 1180 600"');
   if (!(Number.isFinite(duration) && duration > 0)) throw new Error(`followPath(): duration must be a positive number of seconds, got ${duration}`);
-  if (!(Number.isFinite(frameRate) && frameRate > 0)) throw new Error(`followPath(): frameRate must be a positive number (samples per second), got ${frameRate}`);
+  if (!(Number.isFinite(samplesPerSecond) && samplesPerSecond > 0)) throw new Error(`followPath(): samplesPerSecond must be a positive number (samples per second), got ${samplesPerSecond}`);
   for (const [n, v] of [['from', from], ['to', to]] as const) {
     if (!(Number.isFinite(v) && v >= 0 && v <= 1)) throw new Error(`followPath(): ${n} must be a fraction of the path between 0 and 1, got ${v}`);
   }
-  const steps = Math.max(1, Math.round(duration * frameRate));
-  if (steps > MAX_STEPS) throw new Error(`followPath(): ${steps} samples is too many (max ${MAX_STEPS}); lower frameRate or duration`);
+  const steps = Math.max(1, Math.round(duration * samplesPerSecond));
+  if (steps > MAX_STEPS) throw new Error(`followPath(): ${steps} samples is too many (max ${MAX_STEPS}); lower samplesPerSecond or duration`);
 
   const segments: Segment[] = [];
   let total = 0;

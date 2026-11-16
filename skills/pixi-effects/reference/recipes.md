@@ -939,7 +939,7 @@ const ROUTE = 'M 120 560 C 360 120 920 120 1160 560';
 return [
   { type: 'shape', shape: 'path', d: ROUTE, duration: 5, initial: { strokeColor: '#ffffff', strokeWidth: 3, strokeAlpha: 0.25 } },     // the route, faint
   { type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4.5, initial: { fillColor: '#ffd166' },
-    keyframes: followPath({ d: ROUTE, duration: 4, ease: 'power2.inOut', orient: true, frameRate: 30 }) },                               // a pointer that faces the way it goes
+    keyframes: followPath({ d: ROUTE, duration: 4, ease: 'power2.inOut', orient: true, samplesPerSecond: 30 }) },                               // a pointer that faces the way it goes
 ];
 ```
 
@@ -1030,7 +1030,7 @@ return { duration: 8, sequences: [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0a10' } },
   ...Array.from({ length: 9 }, (_, i) => gate(i, -i * 380)),
   { type: 'camera', keyframes: [
-    ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', frameRate: 30 }),
+    ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', samplesPerSecond: 30 }),
     ...wiggle({ duration: 7, freq: 9, seed: 2, props: { offsetX: { around: 0, amp: 5 }, offsetY: { around: 0, amp: 3 } } }),
   ] },
 ] };
@@ -1080,7 +1080,7 @@ return [{
 
 ## Particles (`particles()`: seeded, so every run and export is identical)
 
-`particles()` returns one layer per particle: seeded start, launch angle and speed, size, colour and life, with gravity / wind / drag / sway baked into the keyframes. `count` and `life` are required, and so is the emitter `area` (its centre; add `width` / `height` to spread over a box). `emit: 0` is a burst, `emit: 3` spreads the births over 3 s. `angle`: 0 right, 90 down, −90 up. `blendMode: 'add'` makes overlaps glow. It throws (with the fix) if it would bake too many keyframes: lower `count`, `life` or `sampleRate`.
+`particles()` returns one layer per particle: seeded start, launch angle and speed, size, colour and life, with gravity / wind / drag / sway baked into the keyframes. `count` and `life` are required, and so is the emitter `area` (its centre; add `width` / `height` to spread over a box). `emit: 0` is a burst, `emit: 3` spreads the births over 3 s. `angle`: 0 right, 90 down, −90 up. `blendMode: 'add'` makes overlaps glow. It throws (with the fix) if it would bake too many keyframes: lower `count`, `life` or `samplesPerSecond`.
 
 ```js
 // @recipe particles

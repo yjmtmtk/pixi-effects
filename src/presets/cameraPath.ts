@@ -3,7 +3,7 @@ import type { Keyframe } from '../types';
 import { warnUnknownOptions } from '../core/options';
 import { parseEase } from './_ease';
 
-const KEYS = ['points', 'at', 'duration', 'ease', 'look', 'lookAhead', 'smooth', 'from', 'to', 'frameRate'] as const;
+const KEYS = ['points', 'at', 'duration', 'ease', 'look', 'lookAhead', 'smooth', 'from', 'to', 'samplesPerSecond'] as const;
 const MAX_STEPS = 4000;
 const PER_SPAN = 48;                                                 // samples per span of the curve, for the arc-length table
 
@@ -27,36 +27,36 @@ export interface CameraPathOptions {
   /** Where on the route to start and stop, as fractions 0–1 of its length (default 0 → 1). `from: 1, to: 0` flies it backwards. */
   from?: number;
   to?: number;
-  /** Samples per second: set it to your movie's `frameRate`. Default 30. */
-  frameRate?: number;
+  /** Samples per second (between two the motion is a straight line, not a step): set it to your movie's `frameRate`. Default 30. */
+  samplesPerSecond?: number;
 }
 
 /**
  * A camera flight as keyframes for `x`, `y`, `z`, `lookAtX`, `lookAtY` and `lookAtZ`: put the result in a camera layer's `keyframes`.
  * The route is walked by arc length (an even speed whatever the curve; an `ease` shapes it) and sampled once per frame as short
- * straight steps, so the camera is exactly on the route at every rendered frame when `frameRate` matches the movie's.
+ * straight steps, so the camera is exactly on the route at every rendered frame when `samplesPerSecond` matches the movie's frame rate.
  *
  * ```js
- * { type: 'camera', keyframes: cameraPath({ points: [[640, 360, 2400], [700, 340, 900], [640, 360, -1500]], duration: 8, ease: 'power2.in', frameRate: 30 }) }
+ * { type: 'camera', keyframes: cameraPath({ points: [[640, 360, 2400], [700, 340, 900], [640, 360, -1500]], duration: 8, ease: 'power2.in', samplesPerSecond: 30 }) }
  * ```
  */
 export function cameraPath(opts: CameraPathOptions): Keyframe[] {
   warnUnknownOptions('cameraPath()', opts, KEYS);
-  const { points, at: atRaw, duration, ease = 'none', look = 'ahead', lookAhead = 0.08, smooth = true, from = 0, to = 1, frameRate = 30 } = opts;
+  const { points, at: atRaw, duration, ease = 'none', look = 'ahead', lookAhead = 0.08, smooth = true, from = 0, to = 1, samplesPerSecond = 30 } = opts;
   const at = secondsAt('cameraPath', atRaw, 'keyframes');
   if (!Array.isArray(points) || points.length < 2) throw new Error('cameraPath(): points needs at least two points: [[x, y, z], [x, y, z], …]');
   points.forEach((p, i) => {
     if (!Array.isArray(p) || p.length !== 3 || !p.every(Number.isFinite)) throw new Error(`cameraPath(): points[${i}] must be [x, y, z] numbers, got ${JSON.stringify(p)}`);
   });
   if (!(Number.isFinite(duration) && duration > 0)) throw new Error(`cameraPath(): duration must be a positive number of seconds, got ${duration}`);
-  if (!(Number.isFinite(frameRate) && frameRate > 0)) throw new Error(`cameraPath(): frameRate must be a positive number (samples per second), got ${frameRate}`);
+  if (!(Number.isFinite(samplesPerSecond) && samplesPerSecond > 0)) throw new Error(`cameraPath(): samplesPerSecond must be a positive number (samples per second), got ${samplesPerSecond}`);
   if (look !== 'ahead' && !(Array.isArray(look) && look.length === 3 && look.every(Number.isFinite))) throw new Error(`cameraPath(): look must be 'ahead' or [x, y, z] numbers, got ${JSON.stringify(look)}`);
   if (!(Number.isFinite(lookAhead) && lookAhead >= 0 && lookAhead <= 1)) throw new Error(`cameraPath(): lookAhead must be a fraction of the route between 0 and 1, got ${lookAhead}`);
   for (const [n, v] of [['from', from], ['to', to]] as const) {
     if (!(Number.isFinite(v) && v >= 0 && v <= 1)) throw new Error(`cameraPath(): ${n} must be a fraction of the route between 0 and 1, got ${v}`);
   }
-  const steps = Math.max(1, Math.round(duration * frameRate));
-  if (steps > MAX_STEPS) throw new Error(`cameraPath(): ${steps} samples is too many (max ${MAX_STEPS}); lower frameRate or duration`);
+  const steps = Math.max(1, Math.round(duration * samplesPerSecond));
+  if (steps > MAX_STEPS) throw new Error(`cameraPath(): ${steps} samples is too many (max ${MAX_STEPS}); lower samplesPerSecond or duration`);
 
   // the route as a dense polyline with its cumulative length (the curve is sampled once; the walk is by arc length)
   const curve: P3[] = [];
