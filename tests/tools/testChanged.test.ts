@@ -15,10 +15,10 @@ describe('testsFor: which browser tests a change needs', () => {
     expect(r.files).toContain('tests/tools/springSeek.test.ts');
     expect(r.files).not.toContain('tests/tools/noFalseWarnings.test.ts');
   });
-  it('a change to the key lint needs the corpus test (the test films); a gallery piece needs only the gallery test, never the corpus', () => {
+  it('a change to the key lint needs the corpus test (the test films); a Lab piece needs only the Lab tests, never the corpus', () => {
     expect(testsFor(['src/core/lint.ts']).files).toContain('tests/tools/noFalseWarnings.test.ts');
-    const piece = testsFor(['examples/gallery/aurora-logo.html']).files;
-    expect(piece).toEqual(['tests/site/galleryBrowser.test.ts']);
+    const piece = testsFor(['lab/pieces/ending.html']).files;
+    expect(piece).toEqual(['tests/site/lab.test.ts', 'tests/docs/Lab.test.ts']);
   });
   it('a change to documents needs no browser test at all', () => {
     const r = testsFor(['docs/dsl.md', 'skills/pixi-effects/reference/cheatsheet.md', 'CHANGELOG.md', 'llms-full.txt']);

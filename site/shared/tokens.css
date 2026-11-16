@@ -16,10 +16,6 @@
   --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
   --gutter:16px; --max:1180px;
-  /* the names the pages before 1.0 used, until they are removed (plan Task 10) */
-  --bg:var(--bg-bottom); --bg-2:var(--card); --bg-3:#e7e3f3;
-  --accent:var(--pink-deep); --on-accent:#ffffff; --amber:var(--orange);
-  --model-fable:#8a5f0a; --model-opus:#5b46c4; --model-sonnet:#1f7a62; --model-haiku:#b02a55;
   color-scheme:light;
 }
 @media (min-width:600px){ :root{--gutter:28px} }

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 // @ts-expect-error plain ESM script without types
@@ -17,7 +17,7 @@ describe('previewing the whole site locally', () => {
   it('the maintainer guide names that command', () => {
     expect(read('site/README.md')).toContain('npm run site');
   });
-  it('the staged site has no Guide, music lab or numbered tour', async () => {
+  it('the staged site has no Guide, music lab or numbered tour, and no examples/ at all (1.0: Home, Lab, For AI)', async () => {
     const out = join(tmpdir(), `site-${process.pid}`);
     try {
       await stageSite(out);
@@ -25,8 +25,8 @@ describe('previewing the whole site locally', () => {
       expect(existsSync(join(out, 'examples/_guide'))).toBe(false);
       expect(existsSync(join(out, 'examples/music-lab.html'))).toBe(false);
       expect(existsSync(join(out, 'examples/music-lab'))).toBe(false);
-      const shipped = readdirSync(join(out, 'examples'));
-      expect(shipped.filter((f) => /^\d\d-/.test(f) || ['index.html', 'examples.json', 'examples.css', '_checks'].includes(f))).toEqual([]);      // no numbered tour, no index, nothing test-only
+      expect(existsSync(join(out, 'examples'))).toBe(false);
+      for (const page of ['index.html', 'lab/index.html', 'for-ai.html']) expect(existsSync(join(out, page)), page).toBe(true);
     } finally { rmSync(out, { recursive: true, force: true }); }
   }, 60_000);
 });

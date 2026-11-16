@@ -29,9 +29,7 @@ const FILMS = [
   ['transition-under-matte', [0, 30]], ['gradient-anim', [0, 30]], ['shape-morph', [0, 30]], ['text-japanese-wrap', [0]], ['vertical-text', [0]],
   ['spans', [0]], ['fonts', [0]], ['scene2d', [0, 30]], ['scene3d', [0, 30]], ['follow', [0, 45]], ['scene3d-space', [0, 30]], ['music', [0]],
   ['audio-formats?ext=ogg', [0]], ['first-video', [0, 60]],
-  ['examples/gallery/aiai-gasa.html', [0, 90], { export: false }], ['examples/gallery/loop-morph.html', [0, 60], { export: false }],
-  ['examples/gallery/aurora-logo.html', [0, 60], { export: false }], ['examples/gallery/isometric-city.html', [0, 90], { export: false }],
-  ['examples/films/light-as-material.html', [0, 120], { export: false }],
+  ['scene3d-model', [0, 30]], ['canvas-layer', [0, 30]], ['composition-group', [0]], ['grain', [0, 30]],
 ];
 const urlOf = (film) => film.includes('/') ? film : `tests/films/${film.includes('?') ? film.replace('?', '.html?') : film + '.html'}`;
 const only = opt('--only')?.split(',');

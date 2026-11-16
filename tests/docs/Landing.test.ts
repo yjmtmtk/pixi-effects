@@ -43,8 +43,7 @@ describe('the landing page (index.html at the repository root, deployed as the s
     const curious = main.slice(main.indexOf('id="curious"'));
     expect(curious).toContain('href="lab/"');
     expect(curious).toContain('href="for-ai.html"');
-    const removed = new RegExp(`examples/(gallery|films|showreel)|examples/interactive/(index\\.html)?"|${'play'}ground`, 'i');   // (spelt in two: a docs test greps the repository for the removed page's name)
-    expect(html).not.toMatch(removed);
+    // the removed pages: the docs tests that grep every shipped file check them
   });
 
   it('stays short: at most 500 visible words of its own in <main> (the generated samples aside)', () => {

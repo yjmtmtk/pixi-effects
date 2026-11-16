@@ -2,7 +2,7 @@
 
 > **Status**: stable — current release `1.0.0`. From 1.0 on, a breaking change comes only in a new major version (semver); see the [CHANGELOG](./CHANGELOG.md) for what each release changed.
 
-**[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 43 pieces written as plain data by AI models · **[For AI →](https://yjmtmtk.github.io/pixi-effects/for-ai.html)** · what an AI reads and runs.
+**[The site →](https://yjmtmtk.github.io/pixi-effects/)** · videos Claude made from one sentence · **[Lab →](https://yjmtmtk.github.io/pixi-effects/lab/)** · a video that is not a file · **[For AI →](https://yjmtmtk.github.io/pixi-effects/for-ai.html)** · what an AI reads and runs.
 
 ## Make a video by asking an AI
 
@@ -42,7 +42,7 @@ npm install pixi-filters # optional — only if a layer uses a named filter othe
 
 ### Browser via CDN (no bundler)
 
-Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML/Element/script/type/importmap) and you're done — see [`examples/`](./examples/) for full files.
+Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML/Element/script/type/importmap) and you're done — the [template](./skills/pixi-effects/template.html) is a full file.
 
 ```html
 <script type="importmap">
@@ -187,8 +187,8 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
 
 - [**DSL reference**](./docs/dsl.md) — composition, layers, 3D layers & camera, 3D scenes (scene3d), keyframes, expressions, filters
 - [**API reference**](./docs/api.md) — `Movie`, `Controller`, `pixi-effects/present`, `pixi-effects/3d`, events, render options
-- [**Interactive movies**](./examples/interactive/) — nine live samples of a movie you change while it plays (variables, `setVars`, `rebuild`, loop): rock paper scissors, a scrolling city, a tune from four chords, a card for anyone, choose your ending … ([docs/api.md](./docs/api.md))
-- [**Gallery**](./examples/gallery/) — 43 complete pieces, each one HTML file of data
+- [**Lab**](./lab/) — a video that is not a file: light, sharp at any zoom, changes while you watch (variables, `setVars`), touchable ([docs/api.md](./docs/api.md))
+- [**Samples**](./site/samples/) — the site's videos, each made by Claude Opus from the message beside it
 - [**Recipes**](./skills/pixi-effects/reference/recipes.md) — tested code you can copy (`npx pixi-effects recipe`)
 
 ## Browser support

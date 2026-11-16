@@ -83,7 +83,7 @@ describe('the Chrome path: one environment variable, CHROME_PATH', () => {
     for (const f of ['README.md', 'docs/media.md', 'skills/pixi-effects/SKILL.md', 'skills/pixi-effects/reference/cheatsheet.md', 'AGENTS.md']) {
       expect(readFileSync(join(root, f), 'utf8'), f).not.toMatch(/\bCHROME=|\$CHROME\b/);
     }
-    for (const f of ['ai/tools/check.mjs', 'ai/tools/render.mjs', 'ai/tools/mediaBrowser.mjs', 'ai/tools/media.mjs', 'scripts/make-posters.mjs']) {
+    for (const f of ['ai/tools/check.mjs', 'ai/tools/render.mjs', 'ai/tools/mediaBrowser.mjs', 'ai/tools/media.mjs']) {
       expect(readFileSync(join(root, f), 'utf8'), f).not.toMatch(/CHROME=(PATH|\/)|or CHROME\b(?!_)/);
     }
     for (const cmd of ['check', 'render', 'frames']) expect(cli([cmd, '--help']).stdout, cmd).toMatch(/CHROME_PATH/);

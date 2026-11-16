@@ -22,8 +22,7 @@ describe('for-ai.html (the one page for AI)', () => {
     expect(html).not.toMatch(/(?:href|src)="\//);
   });
   it('points to no page removed at 1.0, and uses the 1.0 look (its own stylesheet, no numbered chapter headings, no old landing styles)', () => {
-    const removed = new RegExp(`examples/(gallery|films|showreel)|examples/interactive/(index\\.html)?"|${'play'}ground`, 'i');
-    expect(html).not.toMatch(removed);
+    // the removed pages: the docs tests that grep every shipped file check them
     expect(html).toContain('href="site/for-ai.css"');
     expect(html).not.toContain('site/landing/landing.css');
     expect(html).not.toMatch(/class="ch"/);

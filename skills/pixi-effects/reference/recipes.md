@@ -1866,7 +1866,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
 The grabbed point stays under the pointer exactly, whatever the camera does (the maths is the camera's own ray, not a guess of pixels per unit). Without `followCamera` it works the same in the layer's own units (metres): the ray is the layer's camera's.
 
-**On the ground:** use `'floor'`. Then `m.delta[1]` is 0: write only `pos.x` and `pos.z`, never `y`, and the object stays on the floor. A pointer ray that points above the horizon never meets the floor and `move` answers null (the `if (!m) return` keeps the object where it was). To see a floor in perspective: a camera above it, looking down at it (the composition's `y` runs DOWN, so a camera `y` smaller than the floor's is above it), and a floor big enough that its far edge stays above the horizon of the view. The page `examples/interactive/move3d.html` is this, with three objects, a platform they cannot leave and the light's shadow.
+**On the ground:** use `'floor'`. Then `m.delta[1]` is 0: write only `pos.x` and `pos.z`, never `y`, and the object stays on the floor. A pointer ray that points above the horizon never meets the floor and `move` answers null (the `if (!m) return` keeps the object where it was). To see a floor in perspective: a camera above it, looking down at it (the composition's `y` runs DOWN, so a camera `y` smaller than the floor's is above it), and a floor big enough that its far edge stays above the horizon of the view. The Lab's page `lab/pieces/move3d.html` is this, with three objects, a platform they cannot leave and the light's shadow.
 
 ```js
 // @docs-only drag-3d-floor

@@ -61,7 +61,7 @@ describe('check.mjs — pure helpers', () => {
 
   it('findRoot: the nearest folder above the page that holds dist/index.js', () => {
     const has = (p: string) => p === '/proj/dist/index.js';
-    expect(tool.findRoot('/proj/examples/gallery', has)).toBe('/proj');
+    expect(tool.findRoot('/proj/lab/pieces', has)).toBe('/proj');
     expect(tool.findRoot('/elsewhere/a', has)).toBe('/elsewhere/a');
   });
 

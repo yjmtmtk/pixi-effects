@@ -13,7 +13,6 @@ code,pre,kbd{font-family:var(--mono)}
 code{font-size:.9em;background:#e7e3f3;padding:.1em .35em;border-radius:6px}
 pre code{background:none;padding:0;font-size:inherit}
 .wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gutter)}
-.mono{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 .eyebrow{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--pink-text)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .skip{position:absolute;left:16px;top:-60px;z-index:60;background:var(--pink-deep);color:#fff;padding:8px 12px;border-radius:999px;font-weight:700;text-decoration:none}
@@ -21,11 +20,11 @@ pre code{background:none;padding:0;font-size:inherit}
 [hidden]{display:none!important}
 
 /* ---------- buttons ---------- */
-.pill,.btn{display:inline-flex;align-items:center;gap:.5em;padding:.85em 1.4em;border-radius:999px;font:inherit;font-weight:800;font-size:15px;line-height:1;text-decoration:none;cursor:pointer;border:0;background:var(--card);color:var(--ink);box-shadow:var(--shadow);transition:transform .15s ease,box-shadow .15s ease}
-.pill:hover,.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
-.pill.primary,.pill:not(.ghost),.btn.primary{background:var(--pink-deep);color:#fff}
+.pill{display:inline-flex;align-items:center;gap:.5em;padding:.85em 1.4em;border-radius:999px;font:inherit;font-weight:800;font-size:15px;line-height:1;text-decoration:none;cursor:pointer;border:0;background:var(--card);color:var(--ink);box-shadow:var(--shadow);transition:transform .15s ease,box-shadow .15s ease}
+.pill:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+.pill:not(.ghost){background:var(--pink-deep);color:#fff}
 .pill.ghost{background:var(--card);color:var(--ink)}
-.btn svg,.pill svg{width:14px;height:14px;flex:none}
+.pill svg{width:14px;height:14px;flex:none}
 
 /* ---------- cards ---------- */
 .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
@@ -51,15 +50,6 @@ pre code{background:none;padding:0;font-size:inherit}
 /* ---------- keyframe diamond (the brand mark) ---------- */
 .dia{display:inline-block;width:10px;height:10px;background:var(--pink);transform:rotate(45deg);border-radius:2px;flex:none}
 
-/* ---------- the chapter heading of the pages before 1.0 (removed with them, plan Task 10) ---------- */
-.ch{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:16px}
-.ch .n{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--ink-3)}
-.ch h2{font-size:clamp(30px,4vw,48px);flex-basis:100%;order:3}
-.ch .rule{flex:1;height:1px;background:var(--line);min-width:24px}
-.deck{font-size:clamp(17px,1.4vw,20px);color:var(--ink-2);max-width:62ch;line-height:1.5}
-.deck strong{color:var(--ink);font-weight:700}
-@media (min-width:900px){ .ch{gap:18px;margin-bottom:20px;flex-wrap:nowrap} .ch h2{flex-basis:auto;order:0} }
-
 /* ---------- site header ---------- */
 .top{position:sticky;top:0;z-index:40;background:rgba(252,251,253,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 .top .wrap{display:flex;align-items:center;gap:12px 22px;min-height:60px}
@@ -79,4 +69,4 @@ pre code{background:none;padding:0;font-size:inherit}
 .site-foot .links a:hover{color:var(--pink-text)}
 .site-foot .end{font-size:13px;color:var(--ink-3);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
-@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .pill,.btn{transition:none} .pill:hover,.btn:hover{transform:none} }
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .pill{transition:none} .pill:hover{transform:none} }

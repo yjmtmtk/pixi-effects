@@ -1,42 +1,52 @@
 # The pixi-effects site
 
-The GitHub Pages site is four entrances that share one look: **Home** (the landing page), **Gallery**, **Interactive**, and **For AI** (the one page for AI). It shows what the library can do; everything an AI reads lives in `docs/` and `skills/`.
-This folder holds what they share. The rest of each page lives next to its own content.
+The GitHub Pages site is three pages that share one look (the 1.0 design: `docs/superpowers/specs/2026-11-16-site-v1-design.md`):
+
+- **Home**: one sentence and the video it made, the promo of this project, the samples, and how to start.
+- **Lab**: a video that is not a file.
+- **For AI**: what an AI reads and runs.
+
+Everything an AI reads lives in `docs/` and `skills/`. This folder holds what the pages share.
 
 ## Where things are
 
-| Entrance | Address | Source | Its own styles |
+| Page | Address | Source | Its own files |
 |---|---|---|---|
-| Home | `/` | `index.html` (repository root) | `site/landing/landing.css` |
-| Gallery | `/examples/gallery/` | `examples/gallery/index.html` + `pieces.json` (pieces: `<id>.html`) | `examples/gallery/gallery.css` |
-| Interactive | `/examples/interactive/` | `examples/interactive/index.html` + the sample pages | inline |
-| For AI | `/for-ai.html` | `for-ai.html` (repository root); the recipe list is generated (`recipe-list` region) | `site/landing/landing.css` |
+| Home | `/` | `index.html` (repository root) | `site/landing/landing.css`, `landing.js` |
+| Lab | `/lab/` | `lab/index.html`; its pieces in `lab/pieces/`, the one MP4 in `lab/media/` | `lab/lab.css`, `lab/lab.js` |
+| For AI | `/for-ai.html` | `for-ai.html` (repository root); the recipe list is generated (`recipe-list` region) | `site/for-ai.css` |
 
-**Preview the whole site: `npm run site`.** It builds exactly what Pages serves (`scripts/stage-site.mjs`, the same script the workflow runs) into `_site/` and serves it on http://127.0.0.1:8080/. Run it again to pick up changes.
-The repository root is also the site root, but the staged copy is the truth: `stage-site.mjs` copies a list (never `tests/films`).
+The samples of the home page are data: `site/samples/samples.json`, with one folder per piece. See `site/samples/README.md`.
+
+**Preview the whole site: `npm run site`.** It builds exactly what Pages serves into `_site/` and serves it on http://127.0.0.1:8080/. It uses `scripts/stage-site.mjs`, the same script the workflow runs. Run it again to pick up changes.
 
 ## What is shared (`site/shared/`)
 
-- `tokens.css`: every colour, font and size, for the dark and the light theme. **The only place to change a colour.** `tests/docs/SiteTokens.test.ts` checks the contrast.
-- `site.css`: base styles, buttons, the chapter heading, the header and the footer.
-- `site.js`: the theme switch (auto / light / dark, remembered in the browser).
-- The header, footer and `<head>` links are written by `scripts/site-parts.mjs` into each page, between markers:
-  `<!--site:head-->…<!--/site:head-->`, `<!--site:header-->…<!--/site:header-->`, `<!--site:footer-->…<!--/site:footer-->`.
-  Do not edit between the markers by hand.
+- `tokens.css`: every colour, font and size of the 1.0 look. It is light only, with PixiJS's pink, violet, sky and orange as accents. **It is the only place to change a colour.** `tests/docs/SiteTokens.test.ts` checks the exact palette and the contrast.
+- `site.css`: the base styles, the pill button, the card, the code chip, the live player, the header and the footer.
+- `live.js`: the live player. A poster shows first, then the piece itself plays in an iframe:
+  - one plays at a time;
+  - under `prefers-reduced-motion`, nothing starts by itself;
+  - a piece that cannot start says so.
+- `copy.js`: the copy buttons (`data-copy="id"`). It selects the text where the clipboard is refused.
+- The header, the footer and the `<head>` links are written by `scripts/site-parts.mjs` into each page, between the markers `<!--site:head-->…<!--/site:head-->`, `<!--site:header-->…<!--/site:header-->` and `<!--site:footer-->…<!--/site:footer-->`. Do not edit between the markers by hand.
+- `scripts/sync-site.mjs` also writes the generated regions:
+  - the samples: `samples-hero`, `samples-promo`, `samples-one` and `samples-refined`, from `site/samples/samples.json`;
+  - the Lab's measured sizes: `lab-sizes`, from `lab/sizes.json`, which `scripts/lab-sizes.mjs` measures;
+  - the recipe list: `recipe-list`.
 
 ## Common jobs
 
-- **Change the navigation, the header or the footer**: edit `scripts/site-parts.mjs` (the entrances are `NAV`; the footer is built from it too), run `npm run site:sync`. A test fails while any page is out of date (`node scripts/sync-site.mjs --check`).
-- **Add a page**: put the three markers and `<main id="main">` in it, add it to `site/pages.json` (`current` is the nav entry it belongs to; `parts` limits the markers, `regions` asks for generated lists), run `npm run site:sync`, and add it to `PAGES` in `tests/site/siteShellBrowser.test.ts`.
-- **Add a gallery piece**: see `examples/gallery/BRIEF.md`; `node scripts/build-gallery.mjs` and `node scripts/make-posters.mjs`.
-- **Where a style goes**: shared by two or more pages → `site/shared/site.css`; used by one page → that page's own stylesheet.
+- **Change the navigation, the header or the footer**: edit `scripts/site-parts.mjs` (the entrances are `NAV`), then run `npm run site:sync`. A test fails while any page is out of date (`node scripts/sync-site.mjs --check`).
+- **Add or replace a sample**: follow `site/samples/README.md`, then run `npm run site:sync`.
+- **Change the Lab's comparison piece**: render its MP4 again (the command is in the comment at the top of `lab/pieces/compare.html`), then run `node scripts/lab-sizes.mjs` and `npm run site:sync`.
+- **Add a page**: put the three markers and `<main id="main">` in it, add it to `site/pages.json`, run `npm run site:sync`, add it to `PAGES` in `tests/site/siteShellBrowser.test.ts`, and add its files to `scripts/stage-site.mjs`.
 
 ## Checks
 
-- `npm run test:fast`: includes the shell, the tokens and the link check of the staged site: in every page, each `href` / `src` / `poster` / `srcset`, each import-map target and each relative `import` in an inline module script must resolve to a file, and none may start with `/` (which breaks under `/pixi-effects/`). It does not follow links inside separate script or style files, and it does not run the pages (the real-browser tests do).
-- `node scripts/site-links.mjs _site`: the same link check on a staged folder.
-- `tests/site/siteShellBrowser.test.ts` and `tests/site/galleryBrowser.test.ts` (real Chrome): the header fits at 390 and 1440 px, the theme switch changes the colours, the gallery filters and theatre still work.
-
-## Release
-
-The landing page names the release in several places (`tests/docs/Landing.test.ts` checks that they are all the current version). Bump them with the other version pins; `site/landing/FACTS.md` lists the facts the page rests on.
+- `npm run test:fast` runs the shell, the tokens, the samples, the Lab's sizes, and the link check of the staged site.
+- The real-browser tests (Chrome) are:
+  - `tests/site/siteShellBrowser.test.ts`: the header at 390 and 1440 px;
+  - `livePlayer`: poster, one at a time, reduced motion, a piece that cannot start;
+  - `landing`: the language tabs at 390 px, the keyboard, the copy fallback;
+  - `lab`: the zoom redraws, a variable changes the picture, the touchable pieces start.
