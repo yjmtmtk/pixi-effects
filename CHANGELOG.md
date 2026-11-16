@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
 **1.0: the API is frozen.** The names settled in 0.55.0 are the 1.0 names (the freeze table: `docs/superpowers/specs/2026-11-16-api-freeze-1.0.md`). From here, a breaking change comes only in a new major version.
 

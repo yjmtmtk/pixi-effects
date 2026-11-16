@@ -25,7 +25,7 @@ describe('the landing page (index.html at the repository root, deployed as the s
   });
 
   it('says the current release (bump it with the other pins when you release)', () => {
-    const mentioned = [...html.matchAll(/v?(\d+\.\d+\.\d+)/g)].map(m => m[1]!).filter(v => /^0\.\d+\.\d+$/.test(v));
+    const mentioned = [...html.matchAll(/v?(\d+\.\d+\.\d+)/g)].map(m => m[1]!).filter(v => /^[01]\.\d+\.\d+$/.test(v));      // pixi-effects is 0.x or 1.x; PixiJS (8.x) and other libraries are left out
     expect(mentioned.length).toBeGreaterThanOrEqual(2);      // the importmap pin and the status line
     expect(new Set(mentioned)).toEqual(new Set([version]));
   });
