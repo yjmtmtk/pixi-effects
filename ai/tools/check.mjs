@@ -91,7 +91,7 @@ export const SPEC = {
     { flag: '--format', value: 'F[,F]', help: 'the export(s): mp4, webm, mov or mkv, one or a list (default mp4)' },
     { flag: '--no-export', help: 'no export (faster while you iterate)' },
     { flag: '--draft', help: 'the export is a draft: half size, low quality, no motion blur (a much smaller file)' },
-    { flag: '--at', value: 'LIST', help: 'pictures at moments you name: 3.5, 50%, f120, title@end, host@in, @drop (frames/*.png and at.png)' },
+    { flag: '--at', value: 'LIST', help: 'pictures at moments you name: 3.5, 50%, f120, start, end, title@end, host@in, @drop (frames/*.png and at.png)' },
     { flag: '--crop', value: 'X,Y,W,H', help: 'with --at: each picture is that part of the canvas (canvas pixels), enlarged up to 4x' },
     { flag: '--pick', value: 'X,Y', help: 'with --at, repeatable: what is under that canvas point at each moment, the top layer first (movie.pick)' },
     { flag: '--do', value: 'STEPS', help: 'real mouse and key events, after everything else: "click Lime; hover 640,360; drag card > 770,240; wait 1; key Space" (repeatable)' },

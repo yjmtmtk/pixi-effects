@@ -25,6 +25,10 @@ describe('resolveAtList', () => {
   it('seconds, percent, frames and layer@start|mid|end', () => {
     expect(resolveAtList('3.5, 50%, f120, title@end, logo@mid, title@start', ctx).map((x: any) => x.frame)).toEqual([105, 150, 120, 179, 225, 60]);
   });
+  it('start and end are the first and the very last frame (the words of frames --at)', () => {
+    expect(resolveAtList('start, end', ctx)).toEqual([{ label: 'start', frame: 0 }, { label: 'end', frame: 300 }]);
+    expect(resolveAtList('END,Start', ctx).map((x: any) => x.frame)).toEqual([300, 0]);
+  });
   it('a layer folded into a family row (pop-# ×4) is still addressed by its own name', () => {
     const rows = [{ name: 'title', start: 0, end: 10 }, { name: 'pop-# ×4', start: 1, end: 6, parts: [{ start: 1, end: 2 }, { start: 2, end: 3 }, { start: 3, end: 4 }, { start: 5, end: 6 }], partNames: ['pop-1', 'pop-2', 'pop-3', 'pop-4'] }];
     expect(resolveAtList('pop-3@end,pop-4@start', { ...ctx, rows }).map((x: any) => x.frame)).toEqual([119, 150]);

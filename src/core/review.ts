@@ -53,9 +53,9 @@ export function sampleFrames({ totalFrames, frameRate, scenes = [], step = 0.25,
   return [...frames].sort((a, b) => a - b);
 }
 
-const AT_HELP = "use seconds (3.5), a percentage (50%), a frame (f120), a layer's start / mid / end (name@end) or a marker (host@in, @drop)";
+const AT_HELP = "use seconds (3.5), a percentage (50%), a frame (f120), start or end (the first or the last frame), a layer's start / mid / end (name@end) or a marker (host@in, @drop)";
 
-/** A list such as `3.5, 50%, f120, title@end` → frames, each with a label for a file name. A mistake says what could not be read. */
+/** A list such as `3.5, 50%, f120, end, title@end` → frames, each with a label for a file name (`start` / `end`: the first / the very last frame). A mistake says what could not be read. */
 export function resolveAtList(list: string, ctx: { frameRate: number; totalFrames: number; duration: number; rows: Row[]; markers?: MarkerTime[] }): Array<{ label: string; frame: number }> {
   const { frameRate: fps, totalFrames, duration, rows, markers = [] } = ctx;
   const out: Array<{ label: string; frame: number }> = [], used = new Set<string>();
@@ -79,7 +79,8 @@ export function resolveAtList(list: string, ctx: { frameRate: number; totalFrame
         throw new Error(`--at "${raw}": no marker "${m[2]}" on ${layer ? `"${layer}"` : 'the root composition'} (markers: ${list}; any layer also has @start, @mid, @end)`);
       }
       frame = Math.round(mark.time * fps); label = layer ? `${layer}-${m[2]}` : m[2]!;
-    } else if ((m = raw.match(/^(\d+(?:\.\d+)?)%$/))) { frame = Math.round(Number(m[1]) / 100 * totalFrames); label = `${m[1]}pct`; }
+    } else if (/^(start|end)$/i.test(raw)) { label = raw.toLowerCase(); frame = label === 'start' ? 0 : totalFrames; }
+    else if ((m = raw.match(/^(\d+(?:\.\d+)?)%$/))) { frame = Math.round(Number(m[1]) / 100 * totalFrames); label = `${m[1]}pct`; }
     else if ((m = raw.match(/^f(\d+)$/i))) { frame = Number(m[1]); label = `f${m[1]}`; }
     else if (/^\d+(\.\d+)?$/.test(raw)) { frame = Math.round(Number(raw) * fps); label = `${Number(raw).toFixed(2)}s`; }
     else throw new Error(`--at: cannot read "${raw}": ${AT_HELP}`);
