@@ -29,8 +29,7 @@
 .hero-tabs [role="tab"]:hover{color:var(--ink)}
 .hero-tabs [role="tab"][aria-selected="true"]{background:var(--ink);color:#fff}
 .hero-panel .sentence{position:relative;background:var(--card);border-radius:22px 22px 22px 6px;padding:18px 22px;font-size:clamp(17px,1.6vw,21px);line-height:1.45;font-weight:600;box-shadow:var(--shadow);overflow-wrap:anywhere}
-.hero-video{position:relative;margin-top:22px;padding-top:26px}
-.hero-video::before{content:"";position:absolute;left:34px;top:0;width:3px;height:22px;border-radius:3px;background:linear-gradient(var(--pink),var(--violet))}
+.hero-video{position:relative;margin-top:20px}
 .hero-video .live{box-shadow:var(--shadow-lg),0 0 0 6px #fff;width:min(100%, calc(75vh * var(--ar, 1.7778)));margin-inline:auto;aspect-ratio:var(--ar, 1.7778)}
 .hero-video .live img{width:100%;height:100%;object-fit:cover}
 .hero-facts{margin-top:14px}
