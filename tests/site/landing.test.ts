@@ -56,6 +56,10 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
       const r = await cdp.eval(`({ page: document.querySelector('#hero figure.live').getAttribute('data-page'), shown: [...document.querySelectorAll('#hero .sentence')].filter(p => !p.hidden).map(p => p.dataset.tab) })`);
       expect(r.page).toBe(last.page);
       expect(r.shown).toEqual([last.id]);
+      // the sentence links to the card of the piece it made (the spec: "each sentence links to the sample it actually made")
+      const link = await cdp.eval(`(() => { const a = document.querySelector('#hero a.hero-card'); return a ? a.getAttribute('href') : null; })()`);
+      const card = await cdp.eval(`document.getElementById(${JSON.stringify(last.id)}).dataset.card`);
+      expect(link).toBe(`#${card}`);
     });
   }, 30000);
 

@@ -33,6 +33,10 @@
 .hero-video::before{content:"";position:absolute;left:34px;top:0;width:3px;height:22px;border-radius:3px;background:linear-gradient(var(--pink),var(--violet))}
 .hero-video .live{box-shadow:var(--shadow-lg),0 0 0 6px #fff}
 .hero-facts{margin-top:14px}
+.hero-link{margin-top:10px;font-size:14px}
+.hero-link a{color:var(--ink-2);font-weight:700}
+.hero-install{margin-top:24px}
+.hero-install code{white-space:nowrap;overflow-wrap:normal}       /* one command, one line (it fits a 390 px phone) */
 
 /* facts about how a piece was made: small chips */
 .facts{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}

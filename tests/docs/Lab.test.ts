@@ -66,6 +66,22 @@ describe('lab/index.html', () => {
     }
   });
 
+  it('the two live panes stand on the poster of the piece (never an empty box), and the piece pins every library it loads', () => {
+    for (const id of ['sharp', 'live-edit']) {
+      const block = main.slice(main.indexOf(`id="${id}"`));
+      expect(block.slice(0, block.indexOf('</section>')), id).toMatch(/<img[^>]+src="pieces\/compare\.jpg"[\s\S]*<iframe/);
+    }
+    const src = read('lab/pieces/compare.html');
+    expect(src).toMatch(/"mediabunny":\s*"https:\/\/esm\.sh\/mediabunny@\d/);
+  });
+
+  it('says what the page needs to run, measured: the player it loads once (lab/sizes.json player > 0)', () => {
+    const s = JSON.parse(read('lab/sizes.json'));
+    expect(s.player).toBeGreaterThan(s.html);
+    expect(main).toContain(`${Math.round(s.player / 1024)} KB`);
+    expect(main).toMatch(/once/);
+  });
+
   it('gives the embed snippet, with a copy button', () => {
     const embed = main.slice(main.indexOf('id="embed"'));
     expect(embed).toMatch(/&lt;iframe[^<]*lab\/pieces\/compare\.html/);

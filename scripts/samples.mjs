@@ -122,6 +122,7 @@ export function renderHero(ctx) {
   <div class="hero-video">
 ${figure(ctx, first, { autoplay: true, lazy: false })}
   <div class="hero-facts">${factsHtml(first)}</div>
+  <p class="hero-link"><a class="hero-card" href="#sample-${esc(first.id)}">See this one with its card</a></p>
   </div>
 </div>`;
 }

@@ -8,7 +8,8 @@
     The Lab's comparison piece (lab/index.html; docs/superpowers/plans/2026-11-16-site-v1.md, Task 8). Every size in it is an expression of the
     movie's size (W, H, GW, GH), never a pixel, so movie.resize() draws it again, sharp, at any size: the page fills its window and follows it.
     Variables: title (a string), accent (a colour). lab/media/compare.mp4 is this page rendered at 640 x 360 (render --quality medium).
-    ?bar=1 shows the player bar (its download button saves the MP4).
+    ?bar=1 shows the player bar (its download button saves the MP4). It plays by itself, round and round, unless ?bar=1 (the bar plays it), ?still=1
+    (the page around it decides: the Lab) or the viewer asks for less motion (prefers-reduced-motion).
   -->
   <style>
     html, body { margin: 0; height: 100%; background: #1d1630; overflow: hidden; }
@@ -26,7 +27,7 @@
   <script type="importmap">
   { "imports": {
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
-      "mediabunny":              "https://esm.sh/mediabunny",
+      "mediabunny":              "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js",
       "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/controller.js" } }
   </script>
@@ -77,6 +78,8 @@
         poster: 2.5, vars: { title: q.get('title') || 'pixi-effects', accent: q.get('accent') || '#e91e63' }, composition });
       new ResizeObserver(() => { const [w2, h2] = pixels(); if (w2 !== movie.width || h2 !== movie.height) movie.resize(w2, h2).catch(console.error); }).observe(box);
       window.__ready = true;
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (q.get('bar') !== '1' && q.get('still') !== '1' && !reduce) movie.play();
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));
     }

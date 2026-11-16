@@ -12,7 +12,7 @@ const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/
 const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 
-async function withLab<T>(fn: (cdp: any) => Promise<T>): Promise<T> {
+async function withLab<T>(fn: (cdp: any) => Promise<T>, opts: { reduce?: boolean } = {}): Promise<T> {
   const { server, port } = await check.serve(root);
   const dir = mkdtempSync(join(tmpdir(), 'lab-'));
   const { proc, cdp } = await launchPage(chrome, dir);
@@ -20,6 +20,7 @@ async function withLab<T>(fn: (cdp: any) => Promise<T>): Promise<T> {
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+    if (opts.reduce) await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/lab/index.html` });
     await check.sleep(1000);
     return await fn(cdp);
@@ -78,4 +79,47 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Lab in
       }
     });
   }, 90000);
+
+  it('the live panes play (the page is a video, not a still frame) beside the playing MP4', async () => {
+    await withLab(async (cdp) => {
+      await cdp.eval(`document.getElementById('sharp').scrollIntoView()`);
+      expect(await readyIn(cdp, '#sharp iframe')).toBe(true);
+      let s: any = {};
+      for (let i = 0; i < 30 && !(s.page && s.mp4); i++) {
+        await check.sleep(150);
+        s = await cdp.eval(`({ page: document.querySelector('#sharp iframe').contentWindow.movie.isPlaying, mp4: !document.querySelector('#sharp video').paused })`);
+      }
+      expect(s).toEqual({ page: true, mp4: true });
+    });
+  }, 60000);
+
+  it('with prefers-reduced-motion nothing plays by itself, and one button plays and pauses both panes', async () => {
+    await withLab(async (cdp) => {
+      await cdp.eval(`document.getElementById('sharp').scrollIntoView()`);
+      expect(await readyIn(cdp, '#sharp iframe')).toBe(true);
+      await check.sleep(800);
+      const still = await cdp.eval(`({ page: document.querySelector('#sharp iframe').contentWindow.movie.isPlaying, mp4: !document.querySelector('#sharp video').paused })`);
+      expect(still).toEqual({ page: false, mp4: false });
+      await cdp.eval(`document.querySelector('#sharp [data-play-panes]').click()`);
+      let s: any = {};
+      for (let i = 0; i < 30 && !(s.page && s.mp4); i++) {
+        await check.sleep(150);
+        s = await cdp.eval(`({ page: document.querySelector('#sharp iframe').contentWindow.movie.isPlaying, mp4: !document.querySelector('#sharp video').paused })`);
+      }
+      expect(s).toEqual({ page: true, mp4: true });
+      await cdp.eval(`document.querySelector('#sharp [data-play-panes]').click()`);
+      await check.sleep(400);
+      expect(await cdp.eval(`({ page: document.querySelector('#sharp iframe').contentWindow.movie.isPlaying, mp4: !document.querySelector('#sharp video').paused })`)).toEqual({ page: false, mp4: false });
+    }, { reduce: true });
+  }, 60000);
+
+  it('a pane that cannot start keeps its poster and says so (never an empty box), and stops trying', async () => {
+    await withLab(async (cdp) => {
+      await cdp.eval(`(() => { const f = document.querySelector('#live-edit iframe'); f.src = '../tests/site/fixtures/broken.html'; })()`);
+      let note = '';
+      for (let i = 0; i < 60 && !note; i++) { await check.sleep(200); note = await cdp.eval(`(document.querySelector('#live-edit .live-note') || {}).textContent || ''`); }
+      expect(note).toMatch(/could not play it live/);
+      expect(await cdp.eval(`getComputedStyle(document.querySelector('#live-edit img')).display !== 'none'`)).toBe(true);
+    });
+  }, 30000);
 });

@@ -25,15 +25,17 @@ REGIONS['samples-hero'] = renderHero;
 REGIONS['samples-promo'] = renderPromo;
 REGIONS['samples-one'] = renderOne;
 REGIONS['samples-refined'] = renderRefined;
-/** The Lab's "light" block: the comparison piece as a page and as an MP4, measured (lab/sizes.json, written by scripts/lab-sizes.mjs). */
+/** The Lab's "light" block: the comparison piece as a page and as an MP4, and the player the page loads once (lab/sizes.json, measured by scripts/lab-sizes.mjs). */
 REGIONS['lab-sizes'] = ({ root_dir }) => {
   const s = JSON.parse(readFileSync(join(root_dir, 'lab/sizes.json'), 'utf8'));
   const kb = (b) => `${(b / 1024).toFixed(1)} KB`;
-  const share = Math.max(1, Math.round((s.html / s.mp4) * 100));
+  const top = Math.max(s.html, s.mp4, s.player);
+  const w = (b) => `${Math.max(1, Math.round((b / top) * 100))}%`;
   return `<div class="sizes">
-  <div class="size"><span class="size-name">The page</span><span class="bar page" style="--w:${share}%"></span><b>${kb(s.html)}</b></div>
-  <div class="size"><span class="size-name">The MP4</span><span class="bar mp4" style="--w:100%"></span><b>${kb(s.mp4)}</b></div>
-  <p class="size-note">The same 6 seconds at 640 × 360. The page is ${Math.round(s.mp4 / s.html)} times smaller, and it also plays at 4K without growing.</p>
+  <div class="size"><span class="size-name">The page</span><span class="bar page" style="--w:${w(s.html)}"></span><b>${kb(s.html)}</b></div>
+  <div class="size"><span class="size-name">The MP4</span><span class="bar mp4" style="--w:${w(s.mp4)}"></span><b>${kb(s.mp4)}</b></div>
+  <div class="size"><span class="size-name">Its player</span><span class="bar player" style="--w:${w(s.player)}"></span><b>${Math.round(s.player / 1024)} KB</b></div>
+  <p class="size-note">The same 6 seconds at 640 × 360. The page needs its player, PixiJS and pixi-effects, which a browser loads once for the whole site (measured on the wire, from the CDNs). Every further video is a few KB, and it plays at 4K without growing.</p>
 </div>`;
 };
 export function syncSite({ root = ROOT, check = false } = {}) {

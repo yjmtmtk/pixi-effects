@@ -33,10 +33,12 @@ describe('the landing page (index.html at the repository root, deployed as the s
     expect(main).toContain('<!--site:samples-refined-->');
   });
 
-  it('gives the install command exactly once, as a chip with a copy button, in "Start"', () => {
-    expect(html.split('npx skills add yjmtmtk/pixi-effects').length - 1).toBe(1);
+  it('gives the install command on the first screen (the hero), as a chip with a copy button, and again in "Start"', () => {
+    const hero = main.slice(main.indexOf('id="hero"'), main.indexOf('id="promo"'));
+    expect(hero).toMatch(/class="code-chip[^"]*"[\s\S]*npx skills add yjmtmtk\/pixi-effects[\s\S]*<button[^>]*data-copy/);
     const start = main.slice(main.indexOf('id="start"'), main.indexOf('id="curious"'));
     expect(start).toMatch(/class="code-chip"[\s\S]*npx skills add yjmtmtk\/pixi-effects[\s\S]*<button[^>]*data-copy/);
+    expect(html.split('npx skills add yjmtmtk/pixi-effects').length - 1).toBe(2);
   });
 
   it('points to the Lab and the For AI page, quietly, and to no removed page', () => {

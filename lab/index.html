@@ -42,15 +42,16 @@
   <section class="lab-block" id="light" aria-labelledby="light-title">
     <div class="lab-text">
       <h2 id="light-title">Light</h2>
-      <p>A video file stores every pixel of every frame. The page stores what to draw.</p>
+      <p>A video file stores every pixel of every frame. The page stores what to draw, and borrows a player it shares with every other video.</p>
       <p class="ask">Ask your AI: “Give me the page as well as the MP4, so I can put it on my site.”</p>
     </div>
     <div class="lab-demo">
 <!--site:lab-sizes-->
 <div class="sizes">
-  <div class="size"><span class="size-name">The page</span><span class="bar page" style="--w:5%"></span><b>5.4 KB</b></div>
-  <div class="size"><span class="size-name">The MP4</span><span class="bar mp4" style="--w:100%"></span><b>115.6 KB</b></div>
-  <p class="size-note">The same 6 seconds at 640 × 360. The page is 21 times smaller, and it also plays at 4K without growing.</p>
+  <div class="size"><span class="size-name">The page</span><span class="bar page" style="--w:1%"></span><b>5.7 KB</b></div>
+  <div class="size"><span class="size-name">The MP4</span><span class="bar mp4" style="--w:21%"></span><b>115.6 KB</b></div>
+  <div class="size"><span class="size-name">Its player</span><span class="bar player" style="--w:100%"></span><b>562 KB</b></div>
+  <p class="size-note">The same 6 seconds at 640 × 360. The page needs its player, PixiJS and pixi-effects, which a browser loads once for the whole site (measured on the wire, from the CDNs). Every further video is a few KB, and it plays at 4K without growing.</p>
 </div>
 <!--/site:lab-sizes-->
     </div>
@@ -64,8 +65,9 @@
       <p class="ask">Ask your AI: “Write every size as a share of the width and height, so it stays sharp on any screen.”</p>
     </div>
     <div class="lab-demo panes">
-      <figure class="pane"><div class="zoom-box"><video src="media/compare.mp4" muted loop playsinline autoplay preload="metadata"></video></div><figcaption>The MP4</figcaption></figure>
-      <figure class="pane"><div class="zoom-box"><iframe src="pieces/compare.html" title="The comparison piece, live" loading="lazy"></iframe></div><figcaption>The page</figcaption></figure>
+      <figure class="pane"><div class="zoom-box"><video src="media/compare.mp4" poster="pieces/compare.jpg" muted loop playsinline preload="metadata"></video></div><figcaption>The MP4</figcaption></figure>
+      <figure class="pane"><div class="zoom-box live-pane"><img src="pieces/compare.jpg" alt="" width="1280" height="720"><iframe src="pieces/compare.html?still=1" title="The comparison piece, live" loading="lazy"></iframe></div><figcaption>The page</figcaption></figure>
+      <p class="pane-controls"><button type="button" class="pill ghost" data-play-panes>Play</button></p>
     </div>
   </section>
 
@@ -84,7 +86,8 @@
       </div>
       <p class="ask">Ask your AI: “Make the name and the colour variables, so I can change them without asking you again.”</p>
     </div>
-    <div class="lab-demo"><div class="frame"><iframe src="pieces/compare.html" title="The comparison piece, with a title and a colour you can change" loading="lazy"></iframe></div></div>
+    <div class="lab-demo"><div class="frame live-pane"><img src="pieces/compare.jpg" alt="" width="1280" height="720"><iframe src="pieces/compare.html?still=1" title="The comparison piece, with a title and a colour you can change" loading="lazy"></iframe></div>
+      <p class="pane-controls"><button type="button" class="pill ghost" data-play-panes>Play</button></p></div>
   </section>
 
   <section class="lab-block" id="touch" aria-labelledby="touch-title">

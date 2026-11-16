@@ -21,6 +21,8 @@
 .bar{display:block;height:18px;border-radius:999px;width:var(--w);min-width:12px}
 .bar.page{background:var(--pink)}
 .bar.mp4{background:linear-gradient(90deg,var(--violet),var(--sky))}
+.bar.player{background:repeating-linear-gradient(90deg,#d9d3ec 0 10px,#e7e3f3 10px 20px)}
+.size-name{white-space:nowrap}
 .size-note{font-size:14px;color:var(--ink-3)}
 
 /* sharp: two panes that zoom together */
@@ -32,6 +34,13 @@
 .zoom-box{position:relative;aspect-ratio:16/9;overflow:hidden;border-radius:var(--radius-sm);background:var(--code-bg);box-shadow:var(--shadow)}
 .zoom-box > *{position:absolute;left:0;top:0;width:100%;height:100%;border:0;display:block}
 .zoom-box video{object-fit:fill}
+/* a live pane stands on the piece's poster: the iframe shows once the piece is ready; a note says when it cannot start */
+.live-pane img{object-fit:cover}
+.live-pane iframe{opacity:0;transition:opacity .25s ease}
+.live-pane.is-ready iframe{opacity:1}
+.live-pane .live-note{position:absolute;left:12px;right:12px;bottom:12px;top:auto;width:auto;height:auto;margin:0;padding:8px 12px;border-radius:10px;background:rgba(29,22,48,.82);color:#fff;font-size:14px;line-height:1.4}
+.pane-controls{grid-column:1 / -1;margin-top:4px}
+@media (prefers-reduced-motion:reduce){ .live-pane iframe{transition:none} }
 .pane figcaption{margin-top:8px;font-size:14px;font-weight:700;color:var(--ink-2)}
 @media (max-width:599px){ .panes{grid-template-columns:1fr} }
 
@@ -44,7 +53,8 @@
 .swatch{width:34px;height:34px;border-radius:50%;border:3px solid #fff;background:var(--c);box-shadow:var(--shadow);cursor:pointer}
 .swatch[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:2px}
 .frame{position:relative;aspect-ratio:16/9;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-lg);background:var(--code-bg)}
-.frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.frame img,.frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+.lab-demo > .pane-controls{margin-top:12px}
 
 /* touchable */
 .touch{display:grid;gap:18px}
