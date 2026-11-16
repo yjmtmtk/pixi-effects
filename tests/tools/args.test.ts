@@ -90,7 +90,7 @@ describe('every command answers --help with every option and exit 0; an unknown 
 
   it('check --help lists every option, one a line (it once printed one line, and its header missed --var and --size)', () => {
     const h = cli(['check', '--help']).stdout;
-    for (const flag of ['--out', '--frames', '--formats', '--no-export', '--draft', '--at', '--crop', '--pick', '--do', '--webgl', '--onion', '--seam', '--strict', '--query', '--var', '--size', '--timeout', '--root', '--chrome']) {
+    for (const flag of ['--out', '--frames', '--format', '--no-export', '--draft', '--at', '--crop', '--pick', '--do', '--webgl', '--onion', '--seam', '--strict', '--query', '--var', '--size', '--timeout', '--root', '--chrome']) {
       expect(h.split('\n').some(l => new RegExp(`^\\s+(-\\w, )?${flag}\\b`).test(l)), flag).toBe(true);
     }
   });

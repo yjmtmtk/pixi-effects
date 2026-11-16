@@ -8,7 +8,7 @@
  *                                                                        and it says the real times; --exact re-encodes so the start is the frame asked for
  *   npx pixi-effects audio  <file|url> -o <out.m4a> [--force] [--json]  the sound of a file, copied out (no re-encode): .m4a for AAC, .webm for Opus, .mka for any
  *   npx pixi-effects concat <a> <b> [<c> …] -o <out> [--force] [--json] join clips by copy (no re-encode): they must have the same codecs, shown size, rotation and sound; it says where each clip starts
- *   npx pixi-effects frames <file|url> [--at 1,3.5,50%,f120,end,"every 2s"] [--size 480] [--sheet] [-o dir] [--json]
+ *   npx pixi-effects frames <file|url> [--at 1,3.5,50%,f120,end,"every 2s"] [--width 480] [--sheet] [-o dir] [--json]
  *                                                                        PNGs of the frames at those times (default: 0, 25%, 50%, 75%, end), and a contact sheet
  *   npx pixi-effects sound  <file|url> [--waveform] [-o dir] [--json]    loudness (LUFS), true peak, clipping, silences, level over time; a waveform picture
  *
@@ -35,7 +35,7 @@ export const USAGE = `usage:
   pixi-effects trim   <file|url> <start> <end> -o <out> [--exact] [--force] [--json]
   pixi-effects audio  <file|url> -o <out.m4a> [--force] [--json]
   pixi-effects concat <a> <b> [<c> …] -o <out> [--force] [--json]
-  pixi-effects frames <file|url> [--at 1,3.5,50%,f120,end] [--size 480] [--sheet] [-o dir] [--json]
+  pixi-effects frames <file|url> [--at 1,3.5,50%,f120,end] [--width 480] [--sheet] [-o dir] [--json]
   pixi-effects sound  <file|url> [--waveform] [--window S] [-o dir] [--json]
 (every option of one: pixi-effects <command> --help)`;
 
@@ -58,9 +58,9 @@ const COMMANDS = {
   concat: { usage: '<a> <b> [<c> …] -o <out> [options]', positional: ['file', 'file'], variadic: true, about: 'join clips by copy (no re-encode): the same codecs, shown size, rotation and sound; it says where each clip starts', options: [
     { flag: '--out', short: '-o', value: 'FILE', help: 'the file to write (needed)' },
     FORCE_OPT, JSON_OPT] },
-  frames: { usage: '<file|url> [options]', positional: ['file'], about: 'PNGs of the frames at those times (default 0, 25%, 50%, 75%, end), and a contact sheet (uses Chrome)', options: [
+  frames: { usage: '<file|url> [options]', positional: ['file'], renamed: { '--size': '--width (the width of each picture in pixels; --size is WxH in the other commands)' }, about: 'PNGs of the frames at those times (default 0, 25%, 50%, 75%, end), and a contact sheet (uses Chrome)', options: [
     { flag: '--at', value: 'LIST', help: 'the times: 1, 3.5, 50%, f120, start, end, every:2s (a list with commas)' },
-    { flag: '--size', value: 'N', kind: 'num', help: 'the width of each picture in pixels (default 480; the height follows)' },
+    { flag: '--width', value: 'N', kind: 'num', help: 'the width of each picture in pixels (default 480; the height follows)' },
     { flag: '--sheet', help: 'also one contact sheet of them all, with their times' },
     { flag: '--out', short: '-o', value: 'DIR', help: 'the folder to write into (default <name>-frames)' },
     JSON_OPT, CHROME_OPT] },
@@ -636,7 +636,7 @@ commands.frames = async ({ file, opts }, io, env = {}) => {
   if (fs.existsSync(outDir) && !fs.statSync(outDir).isDirectory()) throw new Error(`${outDir} is a file, not a folder: frames writes its pictures into a folder (-o <folder>)`);
   const { withBrowser } = await import(pathToFileURL(path.join(HERE, 'mediaBrowser.mjs')).href);
   const inputs = new Map([['f1', isUrl(file) ? file : path.resolve(file)]]);
-  const r = await withBrowser({ chrome: opts.chrome, inputs, outDir, requestLog: env.requestLog }, ({ call }) => call('frames', { id: 'f1', times, size: opts.size ?? 480, sheet: !!opts.sheet }));
+  const r = await withBrowser({ chrome: opts.chrome, inputs, outDir, requestLog: env.requestLog }, ({ call }) => call('frames', { id: 'f1', times, size: opts.width ?? 480, sheet: !!opts.sheet }));
   const report = { file, duration: probe.duration, outDir, frames: r.frames.map(f => ({ ...f, path: path.join(outDir, f.file) })), sheet: r.sheet };
   if (opts.json) io.log(JSON.stringify(report, null, 2));
   else {

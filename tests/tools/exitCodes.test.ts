@@ -47,7 +47,7 @@ describe('exit code 2: the command line is wrong', () => {
       ['new', 'bad', '--size', '1080'], ['new', 'bad', '--duration', 'long'],
       ['check', 'p.html', '--crop', '1,2'], ['check', 'p.html', '--var', 'lang'], ['check', 'p.html', '--size', '1080'],
       ['render', 'p.html', '--format', 'avi'], ['render', 'p.html', '-o', 'x.xyz'], ['render', 'p.html', '--var', '=en'],
-      ['view', 'a.html', 'b.html'], ['frames', 'a.mp4', '--size', 'big'], ['trim', 'a.mp4', 'soon', '2', '-o', 'b.mp4'],
+      ['view', 'a.html', 'b.html'], ['frames', 'a.mp4', '--width', 'big'], ['check', 'p.html', '--out', 'p.mp4'], ['trim', 'a.mp4', 'soon', '2', '-o', 'b.mp4'],
     ]) {
       const r = cli(argv, dir);
       expect(r.status, `${argv.join(' ')}: ${r.stderr}`).toBe(2);

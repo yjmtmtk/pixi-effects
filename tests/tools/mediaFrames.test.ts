@@ -102,10 +102,10 @@ describe.skipIf(!chrome || process.env.SKIP_BROWSER_TESTS)('frames: pictures of 
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }, 90_000);
 
-  it('--size 160 makes the pictures 160 wide, and the default asks for no upscaling of a small video', async () => {
+  it('--width 160 makes the pictures 160 wide, and the default asks for no upscaling of a small video', async () => {
     const dir = tmp();
     try {
-      const r = await run(['frames', fx('colors.mp4'), '--at', '1', '--size', '160', '-o', dir, '--json']);
+      const r = await run(['frames', fx('colors.mp4'), '--at', '1', '--width', '160', '-o', dir, '--json']);
       expect(r.code, r.err).toBe(0);
       const png = readPng(join(dir, JSON.parse(r.out).frames[0].file));
       expect([png.width, png.height]).toEqual([160, 90]);

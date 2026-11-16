@@ -19,7 +19,7 @@ const onCdn = await fetch(`https://cdn.jsdelivr.net/npm/pixi-effects@${version}/
 
 describe('check.mjs — pure helpers', () => {
   it('parseArgs: a page, options with values, and a clear error for a typo', () => {
-    const o = tool.parseArgs(['my.html', '--frames', '6', '--formats', 'mp4,webm', '--no-export', '--timeout', '90', '--out', 'o']);
+    const o = tool.parseArgs(['my.html', '--frames', '6', '--format', 'mp4,webm', '--no-export', '--timeout', '90', '--out', 'o']);
     expect(o).toMatchObject({ page: 'my.html', frames: 6, formats: ['mp4', 'webm'], export: false, timeout: 90, out: 'o' });
     expect(tool.parseArgs(['p.html']).formats).toEqual(['mp4']);
     expect(() => tool.parseArgs(['p.html', '--fast'])).toThrow(/unknown option --fast/);
@@ -34,6 +34,17 @@ describe('check.mjs — pure helpers', () => {
     said.length = 0;
     expect(tool.findChrome({ CHROME: '/x/old', CHROME_PATH: '/x/chrome' }, (p: string) => p === '/x/chrome', 'linux', say)).toBe('/x/chrome');
     expect(said).toEqual([]);
+  });
+
+  it('parseArgs: the names of render (--format, -o); the old --formats says the new one; --out is a folder, not a video', () => {
+    expect(tool.parseArgs(['p.html', '--format', 'webm']).formats).toEqual(['webm']);
+    expect(tool.parseArgs(['p.html', '-o', 'dir']).out).toBe('dir');
+    expect(tool.parseArgs(['p.html', '-o=dir']).out).toBe('dir');
+    expect(() => tool.parseArgs(['p.html', '--formats', 'mp4'])).toThrow(/--formats is now --format/);
+    for (const v of ['x.mp4', 'out/clip.WEBM', 'a.mov']) {
+      expect(() => tool.parseArgs(['p.html', '--out', v]), v).toThrow(/--out is a folder/);
+    }
+    expect(() => tool.parseArgs(['p.html', '-o', 'x.mp4'])).toThrow(/pixi-effects render p\.html -o x\.mp4/);
   });
 
   it('parseArgs: --strict', () => {

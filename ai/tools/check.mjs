@@ -86,9 +86,9 @@ export const SPEC = {
   usage: '<page.html> [options]',
   about: 'review a video page: warnings, layout, sound, a contact sheet and a real export, in check-out/<name>/ (report.json, sheet.png, the video)',
   options: [
-    { flag: '--out', value: 'DIR', help: 'the folder to write into (default check-out/<name>/; DIR itself, with no <name>/ inside it)' },
+    { flag: '--out', short: '-o', value: 'DIR', help: 'the folder to write into (default check-out/<name>/; DIR itself, with no <name>/ inside it)' },
     { flag: '--frames', value: 'N', help: 'tiles of the contact sheet (default 12)' },
-    { flag: '--formats', value: 'LIST', help: 'the export(s): mp4, webm, mov, mkv, one or a list (default mp4)' },
+    { flag: '--format', value: 'F[,F]', help: 'the export(s): mp4, webm, mov or mkv, one or a list (default mp4)' },
     { flag: '--no-export', help: 'no export (faster while you iterate)' },
     { flag: '--draft', help: 'the export is a draft: half size, low quality, no motion blur (a much smaller file)' },
     { flag: '--at', value: 'LIST', help: 'pictures at moments you name: 3.5, 50%, f120, title@end, host@in, @drop (frames/*.png and at.png)' },
@@ -106,7 +106,7 @@ export const SPEC = {
     { flag: '--root', value: 'DIR', help: 'the folder served (default: the nearest folder above the page with dist/)' },
     { flag: '--chrome', value: 'PATH', help: 'the Chrome / Chromium to use (or set CHROME_PATH)' },
   ],
-  renamed: {},
+  renamed: { '--formats': '--format (one or a list, as in render: --format mp4,webm)' },
 };
 export const USAGE = helpText(SPEC);
 
@@ -161,9 +161,12 @@ export function parseArgs(argv) {
   if (r.help) return { ...o, help: true };
   const bad = (m) => { throw new UsageError(`check: ${m}`); };
   for (const { flag, value: v } of r.options) {
-    if (flag === '--out') o.out = v;
+    if (flag === '--out') {
+      if (/\.(mp4|webm|mov|mkv|m4v|avi|gif|wav|ogg|mp3|pdf)$/i.test(v)) bad(`--out is a folder (check writes report.json, sheet.png and the export into it), got "${v}"; to write a video file: pixi-effects render ${r.positional[0] ?? 'page.html'} -o ${v}`);
+      o.out = v;
+    }
     else if (flag === '--frames') o.frames = Math.max(1, Math.round(Number(v)) || 12);
-    else if (flag === '--formats') o.formats = v.split(',').map(s => s.trim()).filter(Boolean);
+    else if (flag === '--format') o.formats = v.split(',').map(s => s.trim()).filter(Boolean);
     else if (flag === '--no-export') o.export = false;
     else if (flag === '--webgl') o.webgl = true;
     else if (flag === '--strict') o.strict = true;
