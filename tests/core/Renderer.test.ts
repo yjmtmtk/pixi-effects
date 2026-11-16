@@ -280,9 +280,9 @@ describe('Renderer — encode loop', () => {
     expect(local.gotoFrame.map((c) => c.frame)).toEqual([59]);                  // only the final "show the frame itself, not its last sample": the last exported frame
   });
 
-  it('a layer name is a range', async () => {
+  it('a layer by its name is a scene', async () => {
     const { movie, local } = fakeMovie({ totalFrames: 300, frameRate: 30 });
-    await exportFrames(asMovie(movie), { range: 'title' });
+    await exportFrames(asMovie(movie), { scene: 'title' });
     expect(local.gotoFrame[0]!.frame).toBe(30);
     expect(local.gotoFrame[local.gotoFrame.length - 1]!.frame).toBe(59);          // the layer's span is [30, 60): its last frame is 59
   });
