@@ -14,6 +14,8 @@ import { expandSpans } from '../text/spans';
 import { buildScope } from '../expr/Scope';
 import type { SequenceSpec, CompositionShape, TextSequenceSpec } from '../types';
 import { layerAt } from './layerAt';
+import { describeLayer } from './lint';
+import { guessType, guessShape, SHAPE_NAMES, LAYER_TYPES } from './layerKeys';
 
 let _CompositionSequence: typeof import('../sequences/Composition').CompositionSequence | null = null;
 async function getCompositionSequence() {
@@ -85,8 +87,15 @@ export async function buildSequenceTree(
     if (!Cls) {
       const type = (spec as { type: string }).type;
       const entry = OPTIONAL_ENTRIES[type], removed = REMOVED_TYPES[type];
-      console.warn(removed ? `pixi-effects: ${removed}` : `pixi-effects: unknown sequence type "${type}"${entry ? `: import { ${entry.call} } from '${entry.from}' and call ${entry.call}() before movie.init` : ''}`);
+      const guess = entry || removed ? null : guessType(String(type));
+      console.warn(removed ? `pixi-effects: ${removed}` : `pixi-effects: unknown layer type "${type}"${entry ? `: import { ${entry.call} } from '${entry.from}' and call ${entry.call}() before movie.init` : guess ? ` — did you mean ${guess}? (types: ${LAYER_TYPES.join(', ')})` : ''}`);
       await root.onLayerBuilt?.();                    // it was counted: count it done, or the bar would stop short
+      continue;
+    }
+    if (spec.type === 'shape' && !SHAPE_NAMES.includes(String((spec as { shape?: unknown }).shape))) {
+      const shape = String((spec as { shape?: unknown }).shape), guess = guessShape(shape);
+      console.warn(`pixi-effects: ${describeLayer(spec as never)}: unknown shape "${shape}"${guess ? ` — did you mean "${guess}"?` : ''} (shapes: ${SHAPE_NAMES.join(', ')}); it is not drawn`);
+      await root.onLayerBuilt?.();
       continue;
     }
     const seq = new Cls(spec, parent, root);

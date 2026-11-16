@@ -214,3 +214,18 @@ describe('lintKeys: the keys of a keyframe', () => {
     expect(kf({ ease: 'none', repeat: 1, yoyo: true, repeatDelay: 0.2 })).toEqual([]);
   });
 });
+
+describe('lintKeys: the guesses are the right ones', () => {
+  it('words other tools use: opacity → alpha, src / url → asset, a video\'s repeat → loop, muted → audio, lineWidth → strokeWidth', () => {
+    expect(warns({ type: 'text', text: 'x', initial: { opacity: 0.5 } })[0]).toMatch(/"opacity" is not an animatable property — did you mean "alpha"\?/);
+    expect(warns({ type: 'image', src: 'a.png' })[0]).toMatch(/"src" is not a image layer key — did you mean "asset"\?/);
+    expect(warns({ type: 'video', asset: 'v', url: 'a.mp4' })[0]).toMatch(/did you mean "asset"\?/);
+    expect(warns({ type: 'video', asset: 'v', repeat: true })[0]).toMatch(/did you mean "loop"\?/);
+    expect(warns({ type: 'video', asset: 'v', muted: true })[0]).toMatch(/did you mean "audio"\?/);
+    expect(warns({ type: 'shape', shape: 'rect', width: 1, height: 1, lineWidth: 2 })[0]).toMatch(/did you mean "strokeWidth"\?/);
+  });
+  it('a two-letter key is guessed only when it is a whole word of the name (fadeIn → in), not any two letters inside it (repeat, pixelated → at)', () => {
+    expect(warns({ type: 'image', asset: 'a', pixelated: true })[0]).not.toMatch(/did you mean "at"/);
+    expect(warns({ type: 'audio', asset: 'a', attenuation: 1 })[0]).not.toMatch(/did you mean "at"/);
+  });
+});

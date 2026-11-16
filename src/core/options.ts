@@ -40,8 +40,16 @@ const COMMON_ALIASES: Record<string, string> = {
   // named moments of a composition, by the words video editors, players and After Effects use
   cues: 'markers', cuepoints: 'markers', cuepoint: 'markers', marks: 'markers', timemarkers: 'markers', chaptermarkers: 'markers', compmarkers: 'markers', marker: 'markers',
   component: 'use', instanceof: 'use', instance: 'use', ref: 'use', props: 'params', properties: 'params', args: 'params', inputs: 'params',
+  // the words of CSS, HTML media and canvas
+  opacity: 'alpha', src: 'asset', url: 'asset', href: 'asset', file: 'asset', path: 'asset', repeat: 'loop', muted: 'audio', mute: 'audio',
+  linewidth: 'strokeWidth', borderwidth: 'strokeWidth', strokewidth: 'strokeWidth', thickness: 'strokeWidth',
   distort: 'warp', distortion: 'warp', displace: 'warp', displacement: 'warp', ripple: 'warp', wavy: 'warp', heathaze: 'warp', haze: 'warp',
 };
+
+/** The real name another tool's word stands for (`opacity` → `alpha`), whatever is valid where it was written; null when it is not such a word. */
+export function aliasOf(name: string): string | null {
+  return COMMON_ALIASES[name.toLowerCase()] ?? null;
+}
 
 /** The valid name an author most likely meant by `name` (alias, typo, abbreviation or case slip), or null. */
 export function suggestName(name: string, valid: readonly string[]): string | null {
@@ -54,7 +62,9 @@ export function suggestName(name: string, valid: readonly string[]): string | nu
     const d = distance(n, lv);
     const close = d <= Math.max(1, Math.floor(Math.min(n.length, lv.length) / 3));
     // an abbreviation (cols → columns) or a longer phrase containing the name (fadeIn → in)
-    const abbreviation = (n.length >= 3 && isSubsequence(n, lv)) || (lv.length >= 2 && n.length > lv.length && n.includes(lv));
+    // a two-letter key only as a whole word of the name (fadeIn → in), not as any two letters inside it (repeat, pixelated → at)
+    const words = name.split(/(?=[A-Z])|[-_ ]/).map(w => w.toLowerCase());
+    const abbreviation = (n.length >= 3 && isSubsequence(n, lv)) || (n.length > lv.length && (lv.length >= 3 ? n.includes(lv) : lv.length === 2 && words.includes(lv)));
     if (!close && !abbreviation) continue;
     const score = close ? d : 3 + (lv.length - n.length) / 100;   // typos first, then abbreviations
     if (!best || score < best.score) best = { v, score };

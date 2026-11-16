@@ -1,6 +1,6 @@
 import type { SequenceSpec } from '../types';
 import { collectPropKeys } from '../space/specKeys';
-import { suggestName } from './options';
+import { aliasOf, suggestName } from './options';
 import { layerKeys, kindName, kindsWithKey, pictureKeysIgnored, PROP_KEYS, STYLE_KEYS } from './layerKeys';
 import { layerAt } from './layerAt';
 
@@ -197,6 +197,14 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
         const v = (spec as unknown as Record<string, unknown>)[key];
         const shown = typeof v === 'number' || (typeof v === 'string' && v.length <= 24) ? JSON.stringify(v) : '…';
         warn(`pixi-effects: ${who}: "${key}" is a property, not a ${kindName(spec as { type: string; shape?: string })} key, so it is ignored: write it in initial (initial: { ${key}: ${shown} }) or in a keyframe`);
+        continue;
+      }
+      // another tool's word for a property (lineWidth → strokeWidth, opacity → alpha): the property goes in initial
+      const prop = aliasOf(key);
+      if (prop && PROP_KEYS.has(prop) && !valid.includes(prop)) {
+        const v = (spec as unknown as Record<string, unknown>)[key];
+        const shown = typeof v === 'number' || (typeof v === 'string' && v.length <= 24) ? JSON.stringify(v) : '…';
+        warn(`pixi-effects: ${who}: "${key}" is not a ${kindName(spec as { type: string; shape?: string })} key — did you mean "${prop}"? It is a property: write it in initial (initial: { ${prop}: ${shown} }) or in a keyframe`);
         continue;
       }
       const guess = suggestName(key, valid.filter(k => k !== 'type'));

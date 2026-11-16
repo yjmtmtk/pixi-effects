@@ -100,7 +100,7 @@ describe.skipIf(!chrome || !built || !hasWebMcp || process.env.SKIP_BROWSER_TEST
     await open(async (cdp) => {
       const code = await cdp.eval(`window.__playground.presets[0].code.replace("type: 'text',", "type: 'nope',")`);
       const set = body(await exec(cdp, 'set_code', { code }));
-      expect(set.logs.join('\n')).toMatch(/unknown sequence type "nope"/);
+      expect(set.logs.join('\n')).toMatch(/unknown layer type "nope"/);
       const r = await exec(cdp, 'check');
       expect(r.isError).not.toBe(true);
     });
