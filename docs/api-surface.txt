@@ -234,6 +234,8 @@ interface HoverOptions extends PickOptions
   onEnter?: ((hit: PickHit) => void)
   onLeave?: ((hit: PickHit) => void)
 interface ImageSequenceSpec extends SequenceCommon
+  anchorX?: PropValue
+  anchorY?: PropValue
   asset: string
   colorSpace?: "rgb" | "oklab" | "oklch"
   scaleMode?: "linear" | "nearest"
@@ -779,6 +781,8 @@ interface TextPiece
   y: number
 type TextPreset = keyof typeof PRESETS
 interface TextSequenceSpec extends SequenceCommon
+  anchorX?: PropValue
+  anchorY?: PropValue
   colorSpace?: "rgb" | "oklab" | "oklch"
   fillGradient?: GradientSpec
   format?: { decimals?: number | undefined; grouping?: boolean | undefined; pad?: number | undefined; time?: "hh:mm:ss" …
@@ -839,6 +843,8 @@ interface TransitionCommon
 type TransitionSpec = | CrossfadeTransition | WipeTransition | IrisTransition | SlideTransition | DipTransition | ZoomTransition | DissolveTransition | LumaTransition
 function useMediabunny(from: MediabunnySource): void
 interface VideoSequenceSpec extends SequenceCommon
+  anchorX?: PropValue
+  anchorY?: PropValue
   asset: string
   audio?: boolean
   loop?: boolean
@@ -1091,9 +1097,9 @@ every layer: type name parent follow at duration initial keyframes filters filte
 null layer: 
 camera layer: 
 light layer: kind falloff
-text layer: text spans format resolution style colorSpace fillGradient
-image layer: asset colorSpace scaleMode
-video layer: asset loop audio volume speed
+text layer: text spans format resolution style colorSpace fillGradient anchorX anchorY
+image layer: asset colorSpace scaleMode anchorX anchorY
+video layer: asset loop audio volume speed anchorX anchorY
 audio layer: volume asset loop sfx music speed
 composition layer: width height sequences transitions speed clip use params frameRate loop markers
 shader layer: fragment uniforms width height resolution transparent

@@ -298,6 +298,10 @@ export interface SequenceCommon {
 }
 
 export interface VideoSequenceSpec extends SequenceCommon {
+  /** The point of the layer that sits at `x` / `y`, 0..1 of its size (as a shape's): the same as `initial.anchorX` / `anchorY`, and it wins over them. */
+  anchorX?: PropValue;
+  anchorY?: PropValue;
+
   type: 'video';
   asset: string;
   loop?: boolean;
@@ -311,6 +315,10 @@ export interface VideoSequenceSpec extends SequenceCommon {
   speed?: number;
 }
 export interface ImageSequenceSpec extends SequenceCommon {
+  /** The point of the layer that sits at `x` / `y`, 0..1 of its size (as a shape's): the same as `initial.anchorX` / `anchorY`, and it wins over them. */
+  anchorX?: PropValue;
+  anchorY?: PropValue;
+
   type: 'image';
   asset: string;
   /**
@@ -342,6 +350,10 @@ export interface TextSpan {
 }
 
 export interface TextSequenceSpec extends SequenceCommon {
+  /** The point of the layer that sits at `x` / `y`, 0..1 of its size (as a shape's): the same as `initial.anchorX` / `anchorY`, and it wins over them. */
+  anchorX?: PropValue;
+  anchorY?: PropValue;
+
   type: 'text';
   /**
    * The text. May contain `{value}`, replaced by the layer's animatable number

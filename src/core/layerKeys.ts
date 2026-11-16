@@ -15,9 +15,9 @@ type Assert<T extends true> = T;
 
 export const COMMON = ['type', 'name', 'parent', 'follow', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
 
-const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume', 'speed'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
-const IMAGE = [...COMMON, 'asset', 'colorSpace', 'scaleMode'] as const satisfies readonly KeysOfUnion<ImageSequenceSpec>[];
-const TEXT = [...COMMON, 'text', 'spans', 'format', 'resolution', 'style', 'colorSpace', 'fillGradient'] as const satisfies readonly KeysOfUnion<TextSequenceSpec>[];
+const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume', 'speed', 'anchorX', 'anchorY'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
+const IMAGE = [...COMMON, 'asset', 'colorSpace', 'scaleMode', 'anchorX', 'anchorY'] as const satisfies readonly KeysOfUnion<ImageSequenceSpec>[];
+const TEXT = [...COMMON, 'text', 'spans', 'format', 'resolution', 'style', 'colorSpace', 'fillGradient', 'anchorX', 'anchorY'] as const satisfies readonly KeysOfUnion<TextSequenceSpec>[];
 const AUDIO = [...COMMON, 'volume', 'asset', 'loop', 'sfx', 'music', 'speed'] as const satisfies readonly KeysOfUnion<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec>[];
 const COMPOSITION = [...COMMON, 'width', 'height', 'sequences', 'transitions', 'speed', 'clip', 'use', 'params', 'frameRate', 'loop', 'markers'] as const satisfies readonly KeysOfUnion<CompositionSequenceSpec>[];
 const CAMERA = [...COMMON] as const satisfies readonly KeysOfUnion<CameraSequenceSpec>[];

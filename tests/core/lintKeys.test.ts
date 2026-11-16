@@ -36,8 +36,8 @@ describe('lintKeys: a property written on the layer instead of in initial', () =
     expect(warns({ type: 'shape', shape: 'rect', width: 1, height: 1, x: 100 })[0]).toMatch(/"x" is a property.*initial/s);
     expect(warns({ type: 'image', asset: 'a', rotationX: 20 })[0]).toMatch(/"rotationX" is a property.*initial/s);
   });
-  it('anchorX on a text layer (a shape owns it as a layer key, a text does not) says initial too, not "it belongs to rect shape"', () => {
-    const w = warns({ type: 'text', text: 'a', anchorX: 0.5 })[0]!;
+  it('anchorX on a composition (shapes, text, image and video take it at the top, a composition does not) says initial too, not "it belongs to rect shape"', () => {
+    const w = warns({ type: 'composition', width: 10, height: 10, sequences: [], anchorX: 0.5 })[0]!;
     expect(w).toMatch(/"anchorX" is a property.*initial: \{ anchorX: 0\.5 \}/s);
     expect(w).not.toMatch(/belongs to/);
   });

@@ -44,7 +44,7 @@ export abstract class Sequence {
   absoluteStart: number | null = null;
 
   constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape) {
-    this.spec = spec;
+    this.spec = liftAnchor(spec);
     this.parent = parent;
     this.root = root;
     this.at = layerAt(spec);
@@ -141,4 +141,12 @@ export abstract class Sequence {
     this.target?.destroy?.();
     this.target = null;
   }
+}
+
+/** A top-level `anchorX` / `anchorY` on text, image or video (a shape keeps them as its geometry) goes into `initial`, where it wins. */
+function liftAnchor(spec: SequenceSpec): SequenceSpec {
+  const s = spec as unknown as { type: string; anchorX?: unknown; anchorY?: unknown; initial?: Record<string, unknown> };
+  if ((s.type !== 'text' && s.type !== 'image' && s.type !== 'video') || (s.anchorX === undefined && s.anchorY === undefined)) return spec;
+  const { anchorX, anchorY, ...rest } = s;
+  return { ...rest, initial: { ...(s.initial ?? {}), ...(anchorX !== undefined ? { anchorX } : {}), ...(anchorY !== undefined ? { anchorY } : {}) } } as unknown as SequenceSpec;
 }
