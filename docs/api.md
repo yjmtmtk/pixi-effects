@@ -664,7 +664,7 @@ Active when `keyboard: true` and the key target is not `<input>`/`<textarea>`/`<
 ## `pixi-effects/3d`
 
 ```ts
-import { register3D, scene3d, layerTexture, loadModel, fitCamera, Scene3DSequence } from 'pixi-effects/3d';
+import { register3D, scene3d, layerTexture, loadModel, fitCamera } from 'pixi-effects/3d';
 import { Mesh3D, Model3D, DirectionalLight } from '@pixi/3d';
 ```
 
@@ -689,10 +689,6 @@ Loads a glTF / GLB as a PixiJS 3D `Model3D`: `{ object, model, clips, size(), fi
 ### `fitCamera(ctx, object, options?): void`
 
 Puts the layer's camera where the whole of `object` fits; options `direction` (default `[0.45, 0.3, 1]`), `margin` (default 1.1).
-
-### `Scene3DSequence`
-
-The layer class; `view` is its `View3D`. `checkDeterminism(times)` is what `check` runs; `pickAt({ x, y })` (a canvas point) and `dragPlane(point, plane)` are what `movie.pick` and `hit.scene3d.grab` call.
 
 ### Exported types
 

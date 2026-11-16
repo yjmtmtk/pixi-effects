@@ -17,7 +17,8 @@ describe('register3D', () => {
   });
 
   it('registers the scene3d layer type, and scene3d() hands the spec back as it is', async () => {
-    const { register3D, scene3d, Scene3DSequence } = await import('../../src/3d/index');
+    const { register3D, scene3d } = await import('../../src/3d/index');
+    const { Scene3DSequence } = await import('../../src/3d/Scene3DSequence');
     const { buildSequenceTree } = await import('../../src/core/Composition');
     register3D();
     const spec = { type: 'scene3d' as const, setup() {} };

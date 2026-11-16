@@ -21,7 +21,7 @@ export interface StopImagesOptions {
   as?: 'blob' | 'dataURL';
   /** Motion blur for the pictures (off unless you ask: they are usually for looking at). */
   motionBlur?: MotionBlurSpec;
-  /** Pictures for a PDF: stops flagged `pdf: false` are left out (a page whose stops are all flagged has no picture). `exportPDF` sets it. */
+  /** @internal Pictures for a PDF: stops flagged `pdf: false` are left out (a page whose stops are all flagged has no picture). `exportPDF` sets it. */
   pdf?: boolean;
   /** Called as each picture is ready, in order. */
   onImage?: (image: StopImage) => void;

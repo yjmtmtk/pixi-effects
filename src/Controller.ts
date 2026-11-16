@@ -104,6 +104,7 @@ interface ResolvedOptions {
 
 export class Controller {
   movie: Movie;
+  /** @internal */
   options: ResolvedOptions;
 
   private root: HTMLDivElement;

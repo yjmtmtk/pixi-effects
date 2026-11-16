@@ -8,7 +8,7 @@ import { createTimeline } from '../../src/core/timelineEngine';
 function readyMovie(totalFrames = 30, frameRate = 30) {
   const m = new Movie();
   const a = m as unknown as Record<string, unknown>;
-  Object.assign(a, { _initState: 'ready', totalFrames, frameRate, duration: totalFrames / frameRate });
+  Object.assign(a, { _initState: 'ready', _totalFrames: totalFrames, _frameRate: frameRate, _duration: totalFrames / frameRate });
   a.timeline = createTimeline({ paused: true });
   a._awaitVideoFrames = async () => {};
   a._updateSpace = () => {};
@@ -108,8 +108,8 @@ describe('Movie events: the names an HTML5 <video> has', () => {
   it('snapshot() and contactSheet() move the playhead but are not seeks the user asked for: no seeking / seeked from them', async () => {
     const m = readyMovie();
     (m as unknown as Record<string, unknown>).app = { canvas: document.createElement('canvas') };
-    (m as unknown as Record<string, unknown>).width = 8;
-    (m as unknown as Record<string, unknown>).height = 8;
+    (m as unknown as Record<string, unknown>)._width = 8;
+    (m as unknown as Record<string, unknown>)._height = 8;
     const log = record(m, 'seeking', 'seeked');
     await m.snapshot(5).catch(() => { /* happy-dom cannot draw a canvas: only the events matter */ });
     expect(log).toEqual([]);

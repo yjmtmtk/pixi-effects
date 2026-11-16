@@ -126,6 +126,7 @@ html, body { margin: 0; height: 100%; background: #0c0e16; color: #e8ecf8; font:
  */
 export class Presenter {
   readonly movie: Movie;
+  /** @internal */
   readonly options: Required<Omit<PresenterOptions, 'accent' | 'onExit'>> & { accent?: string; onExit?: () => void };
 
   private box: HTMLElement;

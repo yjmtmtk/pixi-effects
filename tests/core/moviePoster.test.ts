@@ -10,7 +10,7 @@ function readyMovie(totalFrames = 60, frameRate = 30) {
   const m = new Movie();
   const a = m as unknown as Record<string, unknown>;
   const drawn: number[] = [];
-  Object.assign(a, { _initState: 'ready', totalFrames, frameRate, duration: totalFrames / frameRate });
+  Object.assign(a, { _initState: 'ready', _totalFrames: totalFrames, _frameRate: frameRate, _duration: totalFrames / frameRate });
   a.timeline = createTimeline({ paused: true }).add(spacer(totalFrames / frameRate));      // a timeline with a length, as init() makes it
   a._rootSequence = {}; a.app = {};                                                                        // what _requireReady looks for
   a._awaitVideoFrames = async () => {};

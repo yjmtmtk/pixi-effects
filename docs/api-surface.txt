@@ -166,7 +166,6 @@ interface CompositionSpec extends SequenceCommon
   stops?: (number | `${string}@${string}` | StopSpec)[]
   transitions?: TransitionSpec[]
   width?: number
-function computeEnvelope(audio: AudioLike, options?: EnvelopeOptions): AudioEnvelope
 interface ContactSheetOptions
   as?: "blob" | "dataURL"
   cellWidth?: number
@@ -183,7 +182,6 @@ interface CustomFilterSpec
   type: "custom"
 interface DipTransition extends TransitionCommon
   kind: "dip"
-function dismissLoader(loader: HTMLElement | null): void
 interface DissolveTransition extends TransitionCommon
   kind: "dissolve"
   scale?: number
@@ -202,7 +200,6 @@ interface EnvelopeOptions
   beatSensitivity?: number
   frameRate?: number
 type Expr = string
-function failLoader(loader: HTMLElement | null, message: string): void
 type FilterSpec = ChromaKeyFilterSpec | CustomFilterSpec | NamedFilterSpec
 function followPath(opts: FollowPathOptions): Keyframe[]
 interface FollowPathOptions
@@ -325,8 +322,6 @@ class Movie
   audioBuffer: AudioBuffer | null
   background: string
   canvasPoint(event: { clientX: number; clientY: number; }): [number, number]
-  canvasProblems(): string[]
-  canvasReport(): CanvasRow[]
   contactSheet(opts?: (ContactSheetOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
   contactSheet(opts: ContactSheetOptions & { as: "dataURL"; }): Promise<string>
   currentFrame: number
@@ -372,7 +367,7 @@ class Movie
   posterImage(opts?: (SnapshotOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
   posterImage(opts: SnapshotOptions & { as: "dataURL"; }): Promise<string>
   project(target: string): { x: number; y: number; } | null
-  rebuild(change?: RebuildOptions, reason?: RebuildReason): Promise<RebuildReport>
+  rebuild(change?: RebuildOptions): Promise<RebuildReport>
   redraw(): Promise<void>
   render(options?: RenderOptions | undefined): Promise<Blob>
   resize(width: number, height: number): Promise<RebuildReport>
@@ -385,7 +380,6 @@ class Movie
   stops: Stop[]
   thumbnail(frame: number, opts?: ThumbnailOptions): Promise<HTMLCanvasElement | null>
   thumbnailsOff: "variables" | "video" | null
-  timeline: PureTimeline | null
   timelineChart(opts?: TimelineHtmlOptions): string
   timelineData(): TimelineData
   timelineSvg(opts?: TimelineSvgOptions): string
@@ -398,7 +392,7 @@ class Movie
 interface MovieErrorEvent
   error: unknown
   message: string
-  where: "rebuild" | "init" | "render" | "playback"
+  where: "init" | "render" | "playback" | "rebuild"
 interface MovieOptions
   assets?: AssetSpec[]
   background?: string
@@ -625,7 +619,6 @@ interface RenderOptions
   range?: string | [number, number]
   scale?: number
   video?: { codec?: string | undefined; bitrate?: string | number | undefined; hardware?: "no-preference" | "prefer-har…
-function resolveLoader(option: LoaderOption | undefined, canvas: HTMLCanvasElement | null): HTMLElement | null
 interface ReviewOptions
   at?: string
   strict?: boolean
@@ -897,7 +890,6 @@ interface Trimmable (not exported; the keys of the types above)
 class Controller
   destroy(): void
   movie: Movie
-  options: ResolvedOptions
   setTheme(theme: ControllerTheme): void
   constructor(movie: Movie, options: ControllerOptions)
 interface ControllerOptions
@@ -957,7 +949,6 @@ class Presenter
   movie: Movie
   next(): Promise<void>
   openPresenterView(): Window | null
-  options: Required<Omit<PresenterOptions, "accent" | "onExit">> & { accent?: string | undefined; onExit?: (() => void) …
   prev(): Promise<void>
   setCover(mode: "black" | "white" | "off"): void
   start(): Promise<void>
@@ -987,7 +978,6 @@ interface StopImagesOptions
   as?: "blob" | "dataURL"
   motionBlur?: MotionBlurSpec
   onImage?: ((image: StopImage) => void)
-  pdf?: boolean
   pick?: "last" | "first"
   quality?: number
   scale?: number
@@ -1034,32 +1024,6 @@ interface Scene3DContext
   space?: SpaceNow
   view: View3D<Container3D>
   width: number
-class Scene3DSequence
-  at: number
-  awaitFrameAt(local: number): Promise<void>
-  build(): Promise<void>
-  buildFilters(): void
-  checkDeterminism(times: number[]): CanvasCheck
-  commitReuse(): void
-  destroy(): void
-  dragPlane(point: [number, number, number], plane?: DragPlane): (x: number, y: number) => DragStep | null
-  duration: number
-  intrinsicHeight: number
-  intrinsicWidth: number
-  objectNames(): string[]
-  parent: CompositionShape | null
-  pickAt(at: { x: number; y: number; }): RayHit | null
-  reuseKey(): string | null
-  root: CompositionShape
-  scope(): Scope
-  screenOf(material: unknown): { source: Sequence; at(u: number, v: number): { x: number; y: number; }; } | null
-  screenPoint(object: string): { x: number; y: number; } | null | undefined
-  showsLayers: boolean
-  spec: SequenceSpec
-  syncFrame(): void
-  target: Container<ContainerChild> | null
-  view: View3D<Container3D> | null
-  constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
 interface Scene3DSequenceSpec extends SequenceCommon
   dispose?: ((ctx: Scene3DContext) => void)
   followCamera?: boolean

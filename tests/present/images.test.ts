@@ -10,7 +10,7 @@ import { spacer } from '../../src/core/pure/PureTimeline';
 function movieWith(raw: Parameters<typeof normalizeStops>[0]) {
   const m = new Movie();
   const a = m as unknown as Record<string, any>;
-  Object.assign(a, { _initState: 'ready', totalFrames: 300, frameRate: 30, duration: 10 });
+  Object.assign(a, { _initState: 'ready', _totalFrames: 300, _frameRate: 30, _duration: 10 });
   a.timeline = createTimeline({ paused: true }).add(spacer(10));
   a._rootSequence = {}; a.app = {};
   a._awaitVideoFrames = async () => {}; a._updateSpace = () => {}; a._renderNow = () => {};
@@ -96,7 +96,7 @@ describe('exportPDF()', () => {
 
   it('is one PDF page per page of the deck (the last stop of each, fully built), as JPEG, at the canvas size', async () => {
     const { m, a, asked } = movieWith(DECK);
-    Object.assign(a, { width: 1280, height: 720 });
+    Object.assign(a, { _width: 1280, _height: 720 });
     a._captureFrame = async (frame: number, o: any) => { asked.push([frame, o]); return new Blob([JPEG], { type: 'image/jpeg' }); };
     const pdf = await exportPDF(m, { title: 'Talk' });
     expect(pdf.type).toBe('application/pdf');
@@ -111,7 +111,7 @@ describe('exportPDF()', () => {
 
   it('which: "stops" makes a page of every stop', async () => {
     const { m, a } = movieWith(DECK);
-    Object.assign(a, { width: 1280, height: 720 });
+    Object.assign(a, { _width: 1280, _height: 720 });
     a._captureFrame = async () => new Blob([JPEG], { type: 'image/jpeg' });
     const s = new TextDecoder('latin1').decode(new Uint8Array(await (await exportPDF(m, { which: 'stops' })).arrayBuffer()));
     expect(s).toMatch(/\/Count 6/);
@@ -121,7 +121,7 @@ describe('exportPDF()', () => {
     const raw = [{ at: 2, page: 'A' }, { at: 3, pdf: true }, { at: 4 }, { at: 5, page: 'B' }, { at: 6, pdf: false }, { at: 8, page: 'C', pdf: false }];     // frames 60 90 120 150 180 240
     const mk = () => {
       const r = movieWith(raw);
-      Object.assign(r.a, { width: 1280, height: 720 });
+      Object.assign(r.a, { _width: 1280, _height: 720 });
       r.a._captureFrame = async (frame: number, o: any) => { r.asked.push([frame, o]); return new Blob([JPEG], { type: 'image/jpeg' }); };
       return r;
     };

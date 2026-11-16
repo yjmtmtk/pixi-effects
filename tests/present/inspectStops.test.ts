@@ -11,7 +11,7 @@ import { spacer } from '../../src/core/pure/PureTimeline';
 function movieWith(raw: Parameters<typeof normalizeStops>[0], pixels: (frame: number) => number[]) {
   const m = new Movie();
   const a = m as unknown as Record<string, any>;
-  Object.assign(a, { _initState: 'ready', totalFrames: 300, frameRate: 30, duration: 10 });
+  Object.assign(a, { _initState: 'ready', _totalFrames: 300, _frameRate: 30, _duration: 10 });
   a.timeline = createTimeline({ paused: true }).add(spacer(10));
   a._rootSequence = {}; a.app = {};
   a._awaitVideoFrames = async () => {}; a._updateSpace = () => {}; a._renderNow = () => {};

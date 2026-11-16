@@ -52,7 +52,7 @@ describe('engine names (docs/philosophy.md: Engine names)', () => {
     const entries = Object.keys(JSON.parse(read('package.json')).exports as Record<string, unknown>);
     expect(entries).toContain('./3d');
     const names = exportedNames(read('src/3d/index.ts'));
-    expect(names).toEqual(expect.arrayContaining(['register3D', 'scene3d', 'Scene3DSequence']));
+    expect(names).toEqual(expect.arrayContaining(['register3D', 'scene3d']));
     expect(names.filter(n => ENGINE.test(n))).toEqual([]);
   });
 

@@ -1,6 +1,5 @@
 export { Movie } from './core/Movie';
 export type { Stop, StopSpec } from './core/stops';
-export { resolveLoader, dismissLoader, failLoader } from './core/loader';
 export { useMediabunny } from './core/mediabunny';
 export type { MediabunnyModule, MediabunnySource } from './core/mediabunny';
 export type { LoaderOption } from './core/loader';
@@ -63,7 +62,7 @@ export type { AnimateTextOptions, AnimateTextTween, TextPreset } from './presets
 
 export { react } from './presets/react';
 export type { ReactOptions, ReactProp } from './presets/react';
-export { audioEnvelope, computeEnvelope, bpmEnvelope } from './audio/envelope';
+export { audioEnvelope, bpmEnvelope } from './audio/envelope';
 export { musicEnvelope } from './audio/musicEnvelope';
 export { musicBuffer } from './audio/musicBuffer';
 export { musicEvents } from './audio/musicEvents';

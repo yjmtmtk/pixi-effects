@@ -198,6 +198,7 @@ export class Movie {
   private _events: Record<string, Listener[]> = {};
   private _initState: 'idle' | 'pending' | 'ready' | 'destroyed' = 'idle';
   app: Application | null = null;
+  /** @internal The timeline engine (the movie's clock). Not part of the 1.0 promise: seek with gotoFrame, play with play(). */
   timeline: Timeline | null = null;
   audioBuffer: AudioBuffer | null = null;
   /** @internal */
@@ -222,14 +223,41 @@ export class Movie {
   private _volume = 1;
   private _muted = false;
   private _loop = false;
-  isPlaying = false;
-  currentFrame = 0;
-  totalFrames = 0;
-  width = 0;
-  height = 0;
-  duration = 0;
-  frameRate = 30;
-  background = '#000000';
+  private _isPlaying = false;
+  private _currentFrame = 0;
+  private _totalFrames = 0;
+  private _width = 0;
+  private _height = 0;
+  private _duration = 0;
+  private _frameRate = 30;
+  private _background = '#000000';
+
+  // The state is read: writing it does not seek, play or resize, so a write says which call does (a module is strict: a bare getter would
+  // throw a TypeError that names nothing). `movie.currentFrame = 90` reads like `video.currentTime = t`.
+  /** The frame on screen (read-only: `await movie.gotoFrame(n)` moves it). */
+  get currentFrame(): number { return this._currentFrame; }
+  set currentFrame(_v: number) { readOnly('currentFrame', 'to move the playhead, await movie.gotoFrame(90)'); }
+  /** Whether it is playing (read-only: `play()` / `pause()`). */
+  get isPlaying(): boolean { return this._isPlaying; }
+  set isPlaying(_v: boolean) { readOnly('isPlaying', 'call movie.play() or movie.pause()'); }
+  /** How many frames the movie has: duration × frameRate (read-only). */
+  get totalFrames(): number { return this._totalFrames; }
+  set totalFrames(_v: number) { readOnly('totalFrames', 'it is duration × frameRate, set by movie.init({ duration, frameRate })'); }
+  /** The canvas width in pixels (read-only: `resize()`). */
+  get width(): number { return this._width; }
+  set width(_v: number) { readOnly('width', 'to change the size, await movie.resize(width, height)'); }
+  /** The canvas height in pixels (read-only: `resize()`). */
+  get height(): number { return this._height; }
+  set height(_v: number) { readOnly('height', 'to change the size, await movie.resize(width, height)'); }
+  /** The length in seconds (read-only). */
+  get duration(): number { return this._duration; }
+  set duration(_v: number) { readOnly('duration', 'it is set by movie.init({ duration })'); }
+  /** Frames a second (read-only). */
+  get frameRate(): number { return this._frameRate; }
+  set frameRate(_v: number) { readOnly('frameRate', 'it is set by movie.init({ frameRate })'); }
+  /** The colour behind the picture (read-only). */
+  get background(): string { return this._background; }
+  set background(_v: string) { readOnly('background', 'it is set by movie.init({ background })'); }
   private _audioContext: AudioContext | null = null;
   private _rootSequence: Sequence | null = null;
   /** The filters that take the time of the frame they draw (`grain`), collected once after the build. */
@@ -238,7 +266,7 @@ export class Movie {
   private _nominalTime: number | null = null;
   private _feedTimeFilters(): void {
     if (!this._timeFilters.length) return;
-    const t = this._nominalTime ?? this._timeOf(this.currentFrame);
+    const t = this._nominalTime ?? this._timeOf(this._currentFrame);
     for (const f of this._timeFilters) f.setTime(t);
   }
   private _rootContainer: Container | null = null;
@@ -325,8 +353,8 @@ export class Movie {
   /** Draw the poster frame on the canvas and leave the playhead where it is (frame 0): the picture before the movie plays. */
   private async _showPoster(): Promise<void> {
     if (this._posterFrame === null || !this.timeline) return;
-    const back = this.currentFrame;
-    this.currentFrame = this._posterFrame;                 // the drawing steps read the playhead
+    const back = this._currentFrame;
+    this._currentFrame = this._posterFrame;                 // the drawing steps read the playhead
     this._moving++;
     try {
       this.timeline.time(this._timeOf(this._posterFrame));
@@ -334,7 +362,7 @@ export class Movie {
       this._updateSpace();
       this._renderNow();
     } finally {
-      this.currentFrame = back;
+      this._currentFrame = back;
       this._moving--;
     }
     this._atPoster = true;
@@ -348,11 +376,11 @@ export class Movie {
   async posterImage(opts: SnapshotOptions & { as: 'dataURL' }): Promise<string>;
   async posterImage(opts: SnapshotOptions = {}): Promise<Blob | string> {
     this._requireReady('posterImage');
-    const back = this.currentFrame, wasAtPoster = this._atPoster;
+    const back = this._currentFrame, wasAtPoster = this._atPoster;
     try {
       return await (this.snapshot as (f: number, o: SnapshotOptions) => Promise<Blob | string>)(this._posterFrame ?? 0, opts);
     } finally {
-      this.currentFrame = back;                      // snapshot() moved the playhead to the poster: put it back before restoring the display
+      this._currentFrame = back;                      // snapshot() moved the playhead to the poster: put it back before restoring the display
       if (wasAtPoster) await this._showPoster();
       else await this._quietly(() => this.gotoFrame(back, true));
     }
@@ -378,13 +406,13 @@ export class Movie {
       // the size and the length: init's, or the composition's when init gives none (both, and different: init's, said)
       const sized = rootSize({ ...options, composition: options.composition as never });
       for (const w of sized.warnings) console.warn(w);
-      this.width = sized.width;
-      this.height = sized.height;
-      this.duration = sized.duration;
+      this._width = sized.width;
+      this._height = sized.height;
+      this._duration = sized.duration;
       this._initSized = options.width !== undefined || options.height !== undefined;
-      this.frameRate = options.frameRate ?? 30;
-      this.totalFrames = Math.round(this.duration * this.frameRate);
-      const poster = normalizePoster(options.poster, this.duration, this.frameRate);
+      this._frameRate = options.frameRate ?? 30;
+      this._totalFrames = Math.round(this._duration * this._frameRate);
+      const poster = normalizePoster(options.poster, this._duration, this._frameRate);
       this.poster = poster.seconds;
       this.motionBlur = resolveMotionBlur(options.motionBlur, 'movie.init()');
       this._loop = options.loop === true;
@@ -394,21 +422,21 @@ export class Movie {
       this._resized = false;
       for (const w of lintComposition(options.composition, this._vars)) console.warn(w);
       this._mixCache.set(null, null);
-      this.stops = normalizeStops(this._stopsOf(options.composition, this._vars), this.duration, this.frameRate);
+      this.stops = normalizeStops(this._stopsOf(options.composition, this._vars), this._duration, this._frameRate);
       this._posterFrame = poster.frame;
-      this.background = options.background ?? '#000000';
+      this._background = options.background ?? '#000000';
 
       this.timeline = createTimeline({ paused: true, defaults: { ease: 'none' } });
-      lengthen(this.timeline, this.duration);
+      lengthen(this.timeline, this._duration);
 
       // Try WebGPU first, fall back to WebGL on any init failure. PIXI's
       // autoDetectRenderer only checks `navigator.gpu` existence — it doesn't
       // catch device-init failures (old drivers, GPU lost, hostile origin
       // policies). We wrap and retry so those cases don't break playback.
       const baseAppOptions = {
-        width: this.width,
-        height: this.height,
-        background: this.background,
+        width: this._width,
+        height: this._height,
+        background: this._background,
         antialias: true,
         resolution: 1,
         autoDensity: false,
@@ -430,7 +458,7 @@ export class Movie {
       const root = new Container();
       root.cullable = true;
       root.cullableChildren = true;
-      root.cullArea = new Rectangle(0, 0, this.width, this.height);
+      root.cullArea = new Rectangle(0, 0, this._width, this._height);
       this.app.stage.addChild(root);
       this._rootContainer = root;
 
@@ -446,7 +474,7 @@ export class Movie {
       let assetsSeen = 0;
       await loadAssetBundle(options.assets ?? [], audioContext, p => { const n = Math.round(p * assetCount); if (n > assetsSeen) { lp.tick(n - assetsSeen); assetsSeen = n; } });
 
-      const composition = await this._construct(this._composition, this._vars, this.width, this.height, lp, this._resized || this._initSized);
+      const composition = await this._construct(this._composition, this._vars, this._width, this._height, lp, this._resized || this._initSized);
       this._rootSequence = composition;
       this._markers = this._markersOf.get(composition) ?? [];
       if (composition.target) root.addChild(composition.target);
@@ -480,7 +508,7 @@ export class Movie {
 
   /** The composition's stops in seconds: after its components and variables, a stop that names a moment (`'host@in'`) made a time. */
   private _stopsOf(composition: CompositionSpec | undefined, vars: Vars): CompositionSpec['stops'] {
-    return resolveMoments(applyVars(expandComponents(composition).spec, vars), { duration: this.duration, frameRate: this.frameRate }).spec?.stops;
+    return resolveMoments(applyVars(expandComponents(composition).spec, vars), { duration: this._duration, frameRate: this._frameRate }).spec?.stops;
   }
 
   /**
@@ -489,12 +517,12 @@ export class Movie {
    */
   private async _construct(composition: CompositionSpec | undefined, vars: Vars, width: number, height: number, lp?: LoadProgress, sizeWins = this._resized, reuse?: ReusePool): Promise<CompositionSequence> {
     // components placed first (their {params} before the movie's {vars}), then the moments by name (`at: 'host@in'`) become seconds
-    const timed = resolveMoments(applyVars(expandComponents(composition).spec, vars), { duration: this.duration, frameRate: this.frameRate });
+    const timed = resolveMoments(applyVars(expandComponents(composition).spec, vars), { duration: this._duration, frameRate: this._frameRate });
     const spec = timed.spec;
     // said once each for the movie's life: a rebuild (new variables, a new composition) says only what is new
     for (const w of timed.warnings) if (!this._saidMoments.has(w)) { this._saidMoments.add(w); console.warn(w); }
     const rootShape: CompositionShape = {
-      width, height, duration: this.duration, frameRate: this.frameRate, vars: numericVars(vars),
+      width, height, duration: this._duration, frameRate: this._frameRate, vars: numericVars(vars),
       ...(this.app?.renderer ? { renderer: this.app.renderer } : {}),
       ...(reuse ? { reuse } : {}),
       ...(lp ? { onLayerBuilt: async () => { lp.tick(); await lp.yieldIfDue(); } } : {}),
@@ -509,7 +537,7 @@ export class Movie {
           // the movie's size and length (taken from the composition at init when init gave none; after resize() the new size)
           width: sizeWins ? width : (spec.width ?? width),
           height: sizeWins ? height : (spec.height ?? height),
-          duration: this.duration,
+          duration: this._duration,
         }
       : undefined;
     await ensureFilterLibrary(seededComposition);            // pixi-filters, only when a layer names one of its filters
@@ -520,7 +548,7 @@ export class Movie {
       type: 'composition' as const,
       width,
       height,
-      duration: this.duration,
+      duration: this._duration,
       ...userComposition,
     };
     if (userComposition) carryTransitionWindows(userComposition, rootSeqSpec);
@@ -540,12 +568,12 @@ export class Movie {
     if (audios.length === 0) {
       this.audioBuffer = null; this._mixStats = null; this._mixCache.set(null, null);
     } else {
-      const baseKey = mixKey(audios, this.duration, audioContext.sampleRate);
+      const baseKey = mixKey(audios, this._duration, audioContext.sampleRate);
       const key = baseKey === null ? null : `${baseKey}|loudness:${this._loudness}`;
       const hit = this._mixCache.get(key);
       if (hit) { this.audioBuffer = hit.buffer; this._mixStats = hit.extra; status = 'reused'; }
       else {
-        this.audioBuffer = await mixdown(audios, this.duration, audioContext.sampleRate, lp ? async (done) => { lp.part(done); await lp.yieldIfDue(); } : undefined);
+        this.audioBuffer = await mixdown(audios, this._duration, audioContext.sampleRate, lp ? async (done) => { lp.part(done); await lp.yieldIfDue(); } : undefined);
         if (this.audioBuffer) cleanMix(this.audioBuffer, audios);                                                 // a NaN or an Infinity would silence or blind everything after
         const loudness = this.audioBuffer && this._loudness !== null ? await normalizeMix(this.audioBuffer, this._loudness, lp ? () => lp.yieldIfDue() : undefined) : undefined;      // before the limiter: it then has nothing to do
         this._mixStats = this.audioBuffer ? { ...limitMix(this.audioBuffer, audios), ...(loudness ? { loudness } : {}) } : null;
@@ -567,13 +595,13 @@ export class Movie {
    */
   async setVars(changes: Vars): Promise<RebuildReport> {
     this._requireReady('setVars');
-    return this.rebuild({ vars: changes }, 'vars');
+    return this._rebuild({ vars: changes }, 'vars');
   }
 
   /** Make the movie `width` x `height` pixels (the canvas, and `W` / `H` / `GW` / `GH` in every expression) and rebuild at the same time. */
   async resize(width: number, height: number): Promise<RebuildReport> {
     this._requireReady('resize');
-    return this.rebuild({ width, height }, 'resize');
+    return this._rebuild({ width, height }, 'resize');
   }
 
   /**
@@ -582,7 +610,11 @@ export class Movie {
    * emitted and the promise rejects. The sound is mixed again only when it changed (`audio: 'reused'` otherwise). Calls that arrive while a
    * rebuild runs are joined into one more rebuild (the latest values win), so a slider can call it on every move.
    */
-  async rebuild(change: RebuildOptions = {}, reason: RebuildReason = 'rebuild'): Promise<RebuildReport> {
+  async rebuild(change: RebuildOptions = {}): Promise<RebuildReport> {
+    return this._rebuild(change, 'rebuild');
+  }
+
+  private async _rebuild(change: RebuildOptions, reason: RebuildReason): Promise<RebuildReport> {
     this._requireReady('rebuild');
     warnUnknownOptions('movie.rebuild()', change, ['composition', 'vars', 'width', 'height']);
     if (this._rebuildRun) {
@@ -638,19 +670,19 @@ export class Movie {
       for (const [k, v] of [['width', change.width], ['height', change.height]] as const) {
         if (v !== undefined && !(Number.isFinite(v) && v >= 1)) throw new Error(`pixi-effects: movie.rebuild(): ${k} must be a number of pixels (1 or more), got ${JSON.stringify(v)}`);
       }
-      const width = change.width ?? this.width, height = change.height ?? this.height;
-      const sizeChanged = width !== this.width || height !== this.height;
+      const width = change.width ?? this._width, height = change.height ?? this._height;
+      const sizeChanged = width !== this._width || height !== this._height;
       const composition = change.composition ?? this._composition;
       if (change.composition !== undefined) for (const w of lintComposition(change.composition, vars)) console.warn(w);
       changed = changed || sizeChanged || change.composition !== undefined || reason === 'rebuild';
-      if (!changed) return { reason, ms: 0, audio: 'none', frame: this.currentFrame, playing: this.isPlaying, unchanged: true };
+      if (!changed) return { reason, ms: 0, audio: 'none', frame: this._currentFrame, playing: this._isPlaying, unchanged: true };
 
       // build the new composition and its sound off the stage, while the old one goes on (playing, seekable): the size and the swap come last
       reusePool = reusePoolOf(this._rootSequence as CompositionSequence | null);
       sequence = await this._construct(composition, vars, width, height, undefined, this._resized || this._initSized || sizeChanged, reusePool);
       alive();
       const timeline = createTimeline({ paused: true, defaults: { ease: 'none' } });
-      lengthen(timeline, this.duration);
+      lengthen(timeline, this._duration);
       sequence.bindTimeline(timeline);
       const hadSound = this.audioBuffer !== null;
       const audio = await this._mixSound(sequence, this._ensureAudioContext());
@@ -659,8 +691,8 @@ export class Movie {
       alive();
 
       // the swap, in one go: what the movie is doing NOW (the user may have paused, sought or played meanwhile) is what it keeps doing
-      const wasPlaying = this.isPlaying, frame = this.currentFrame, wasAtPoster = this._atPoster;
-      const oldSize = { w: this.width, h: this.height }, oldResized = this._resized;
+      const wasPlaying = this._isPlaying, frame = this._currentFrame, wasAtPoster = this._atPoster;
+      const oldSize = { w: this._width, h: this._height }, oldResized = this._resized;
       // a playing movie whose sound stays the same is not stopped at all: the frame clock and the sound go on, only the picture's tree is swapped
       const goOn = wasPlaying && !soundChanged;
       this._silent++;
@@ -668,11 +700,11 @@ export class Movie {
         if (goOn) this._cancelUntil(); else this.pause();                     // (a `playUntil()` in flight ends here too)
         if (sizeChanged) {
           try {
-            this.width = width; this.height = height; this._resized = true;
+            this._width = width; this._height = height; this._resized = true;
             app.renderer.resize(width, height);
             root.cullArea = new Rectangle(0, 0, width, height);
           } catch (e) {
-            this.width = oldSize.w; this.height = oldSize.h; this._resized = oldResized;
+            this._width = oldSize.w; this._height = oldSize.h; this._resized = oldResized;
             safeRun(() => app.renderer.resize(oldSize.w, oldSize.h));
             root.cullArea = new Rectangle(0, 0, oldSize.w, oldSize.h);
             if (wasPlaying && !goOn) this.play();
@@ -692,7 +724,7 @@ export class Movie {
         safeRun(() => oldTimeline?.kill());
         this._vars = vars;
         this._composition = composition;
-        this.stops = normalizeStops(this._stopsOf(composition, vars), this.duration, this.frameRate);
+        this.stops = normalizeStops(this._stopsOf(composition, vars), this._duration, this._frameRate);
         sequence = null;
       } finally { this._silent--; }
 
@@ -701,7 +733,7 @@ export class Movie {
         if (wasAtPoster) await this._showPoster();
         else await this._quietly(() => this.gotoFrame(frame, true));
       } catch (e) { console.warn('pixi-effects: could not draw the frame after a rebuild:', e); this._emitError('playback', e); }
-      if (wasPlaying && !goOn && this._initState === 'ready' && !this.isPlaying) { this._silent++; try { this.play(); } finally { this._silent--; } }
+      if (wasPlaying && !goOn && this._initState === 'ready' && !this._isPlaying) { this._silent++; try { this.play(); } finally { this._silent--; } }
       const report: RebuildReport = { reason, ms: Math.round((performance.now() - started) * 10) / 10, audio, frame, playing: wasPlaying };
       this.emit('rebuilt', report);
       return report;
@@ -715,12 +747,12 @@ export class Movie {
   async gotoFrame(frame: number, force = false): Promise<void> {
     if (this._initState !== 'ready') return;
     this._cancelUntil();                                                          // a seek by someone else ends a `playUntil()` in flight
-    if (!force && !this._atPoster && this.currentFrame === frame) return;      // (at the poster the canvas shows another frame)
+    if (!force && !this._atPoster && this._currentFrame === frame) return;      // (at the poster the canvas shows another frame)
     if (this._quiet > 0) return this._goto(frame);
-    const target = Math.max(0, Math.min(frame, this.totalFrames));
-    this.emit('seeking', { frame: target, totalFrames: this.totalFrames } satisfies FrameEvent);
+    const target = Math.max(0, Math.min(frame, this._totalFrames));
+    this.emit('seeking', { frame: target, totalFrames: this._totalFrames } satisfies FrameEvent);
     await this._goto(frame);
-    this.emit('seeked', { frame: this.currentFrame, totalFrames: this.totalFrames } satisfies FrameEvent);
+    this.emit('seeked', { frame: this._currentFrame, totalFrames: this._totalFrames } satisfies FrameEvent);
   }
 
   /**
@@ -729,7 +761,7 @@ export class Movie {
    */
   async redraw(): Promise<void> {
     this._requireReady('redraw');
-    await this._quietly(() => this.gotoFrame(this.currentFrame, true));
+    await this._quietly(() => this.gotoFrame(this._currentFrame, true));
   }
 
   /** Run `fn` with `seeking` / `seeked` silenced: the movie is moving its own playhead, not answering a seek. */
@@ -747,13 +779,13 @@ export class Movie {
     this._moving++;
     try {
       this._atPoster = false;
-      this.currentFrame = Math.max(0, Math.min(frame, this.totalFrames));
-      this.timeline!.time(this._timeOf(this.currentFrame));
+      this._currentFrame = Math.max(0, Math.min(frame, this._totalFrames));
+      this.timeline!.time(this._timeOf(this._currentFrame));
       await this._awaitVideoFrames();
       this._updateSpace();
       this._renderNow();
     } finally { this._moving--; }
-    this.emit('frame', { frame: this.currentFrame, totalFrames: this.totalFrames } satisfies FrameEvent);
+    this.emit('frame', { frame: this._currentFrame, totalFrames: this._totalFrames } satisfies FrameEvent);
   }
 
   /**
@@ -762,10 +794,10 @@ export class Movie {
    * (it used to be an empty one, the last frame of every export).
    */
   private _timeOf(frame: number): number {
-    return Math.min(frame / this.frameRate, Math.max(0, this.duration - END_MARGIN));
+    return Math.min(frame / this._frameRate, Math.max(0, this._duration - END_MARGIN));
   }
 
-  private async _awaitVideoFrames(t: number = this._timeOf(this.currentFrame)): Promise<void> {
+  private async _awaitVideoFrames(t: number = this._timeOf(this._currentFrame)): Promise<void> {
     if (!this._rootSequence) return;
     const collected: VideoLike[] = [];
     const clocks = new Map<VideoLike, () => number>();
@@ -794,10 +826,10 @@ export class Movie {
   async snapshot(frame?: number, opts?: SnapshotOptions & { as?: 'blob' }): Promise<Blob>;
   async snapshot(frame: number | undefined, opts: SnapshotOptions & { as: 'dataURL' }): Promise<string>;
   async snapshot(frame: number | undefined, opts: SnapshotOptions & { as: 'imageData' }): Promise<ImageData>;
-  async snapshot(frame: number = this.currentFrame, opts: SnapshotOptions = {}): Promise<Blob | string | ImageData> {
+  async snapshot(frame: number = this._currentFrame, opts: SnapshotOptions = {}): Promise<Blob | string | ImageData> {
     warnUnknownOptions('movie.snapshot()', opts, ['scale', 'type', 'quality', 'as', 'motionBlur']);
     this._requireReady('snapshot');
-    return this._captureFrame(clampFrame(frame, this.totalFrames), { scale: opts.scale ?? 1, type: opts.type ?? 'image/png', quality: opts.quality, as: opts.as ?? 'blob', motionBlur: opts.motionBlur });
+    return this._captureFrame(clampFrame(frame, this._totalFrames), { scale: opts.scale ?? 1, type: opts.type ?? 'image/png', quality: opts.quality, as: opts.as ?? 'blob', motionBlur: opts.motionBlur });
   }
 
   /**
@@ -822,8 +854,8 @@ export class Movie {
     if (mb) { source = this._blurCanvas(); await this._quietly(() => this._exposeFrame(frame, mb, source, true)); }
     else await this._quietly(() => this.gotoFrame(frame, true));
     const out = document.createElement('canvas');
-    out.width = Math.max(1, Math.round(this.width * scale));
-    out.height = Math.max(1, Math.round(this.height * scale));
+    out.width = Math.max(1, Math.round(this._width * scale));
+    out.height = Math.max(1, Math.round(this._height * scale));
     this._copyCanvas(out.getContext('2d')!, source, 0, 0, out.width, out.height);
     return out;
   }
@@ -856,14 +888,14 @@ export class Movie {
   async thumbnail(frame: number, opts: ThumbnailOptions = {}): Promise<HTMLCanvasElement | null> {
     warnUnknownOptions('movie.thumbnail()', opts, ['width', 'scale']);
     this._requireReady('thumbnail');
-    if (opts.width !== undefined && !(opts.width > 0 && opts.width <= this.width * 4)) throw new Error(`pixi-effects: movie.thumbnail(): width must be above 0 and at most ${this.width * 4} px, got ${opts.width}`);
+    if (opts.width !== undefined && !(opts.width > 0 && opts.width <= this._width * 4)) throw new Error(`pixi-effects: movie.thumbnail(): width must be above 0 and at most ${this._width * 4} px, got ${opts.width}`);
     if (opts.scale !== undefined && !(opts.scale > 0 && opts.scale <= 4)) throw new Error(`pixi-effects: movie.thumbnail(): scale must be above 0 and at most 4, got ${opts.scale}`);
     if (this.thumbnailsOff || this._moving > 0 || this._busy > 0 || this._thumbRun) return null;
-    const w = Math.max(1, Math.round(opts.width ?? (opts.scale !== undefined ? this.width * opts.scale : 160)));
-    const h = Math.max(1, Math.round(w * this.height / this.width));
+    const w = Math.max(1, Math.round(opts.width ?? (opts.scale !== undefined ? this._width * opts.scale : 160)));
+    const h = Math.max(1, Math.round(w * this._height / this._width));
     let done!: () => void;
     this._thumbRun = new Promise<void>(r => { done = r; });
-    try { return await this._drawThumbnail(clampFrame(frame, this.totalFrames), w, h); }
+    try { return await this._drawThumbnail(clampFrame(frame, this._totalFrames), w, h); }
     finally { this._thumbRun = null; done(); }
   }
 
@@ -902,19 +934,19 @@ export class Movie {
   async onionSkin(opts: OnionSkinOptions = {}): Promise<Blob | string> {
     warnUnknownOptions('movie.onionSkin()', opts, ['from', 'to', 'count', 'scale', 'as', 'motionBlur']);
     this._requireReady('onionSkin');
-    const from = opts.from ?? 0, to = opts.to ?? this.duration, count = opts.count ?? 8, scale = opts.scale ?? 1;
+    const from = opts.from ?? 0, to = opts.to ?? this._duration, count = opts.count ?? 8, scale = opts.scale ?? 1;
     if (!(Number.isInteger(count) && count >= 1 && count <= 64)) throw new Error(`pixi-effects: movie.onionSkin(): count must be a whole number from 1 to 64, got ${count}`);
-    if (!(from >= 0 && to <= this.duration + 1e-9 && (count === 1 || from < to))) throw new Error(`pixi-effects: movie.onionSkin(): from must be before to, inside the movie (0 to ${this.duration} s), got ${from} to ${to}`);
+    if (!(from >= 0 && to <= this._duration + 1e-9 && (count === 1 || from < to))) throw new Error(`pixi-effects: movie.onionSkin(): from must be before to, inside the movie (0 to ${this._duration} s), got ${from} to ${to}`);
     if (!(scale > 0 && scale <= 4)) throw new Error(`pixi-effects: movie.onionSkin(): scale must be above 0 and at most 4, got ${scale}`);
     const mb = this._blurFor(opts.motionBlur, 'movie.onionSkin()');
     const blurred = mb ? this._blurCanvas() : null;
     const out = document.createElement('canvas');
-    out.width = Math.max(1, Math.round(this.width * scale));
-    out.height = Math.max(1, Math.round(this.height * scale));
+    out.width = Math.max(1, Math.round(this._width * scale));
+    out.height = Math.max(1, Math.round(this._height * scale));
     const g = out.getContext('2d')!;
     const alphas = onionAlphas(count);
-    const frames = onionTimes(from, to, count).map(t => clampFrame(t * this.frameRate, this.totalFrames));
-    const back = this.currentFrame, wasAtPoster = this._atPoster;
+    const frames = onionTimes(from, to, count).map(t => clampFrame(t * this._frameRate, this._totalFrames));
+    const back = this._currentFrame, wasAtPoster = this._atPoster;
     try {
       for (let i = 0; i < frames.length; i++) {
         const f = frames[i]!;
@@ -943,17 +975,17 @@ export class Movie {
     const mb = this._blurFor(opts.motionBlur, 'movie.contactSheet()');
     const blurred = mb ? this._blurCanvas() : null;
     const frames = (opts.frames
-      ?? opts.times?.map(t => Math.round(t * this.frameRate))
-      ?? pickFrames(this.totalFrames, opts.count ?? 6)).map(f => clampFrame(f, this.totalFrames));
+      ?? opts.times?.map(t => Math.round(t * this._frameRate))
+      ?? pickFrames(this._totalFrames, opts.count ?? 6)).map(f => clampFrame(f, this._totalFrames));
     const LABEL_H = 26;
-    const L = sheetLayout(frames.length, opts.columns ?? 3, opts.cellWidth ?? 480, this.width, this.height, LABEL_H);
+    const L = sheetLayout(frames.length, opts.columns ?? 3, opts.cellWidth ?? 480, this._width, this._height, LABEL_H);
     const sheet = document.createElement('canvas');
     sheet.width = L.width;
     sheet.height = L.height;
     const g = sheet.getContext('2d')!;
     g.fillStyle = '#10131c';
     g.fillRect(0, 0, L.width, L.height);
-    const back = this.currentFrame, wasAtPoster = this._atPoster;
+    const back = this._currentFrame, wasAtPoster = this._atPoster;
     try {
       for (let i = 0; i < frames.length; i++) {
         const f = frames[i]!;
@@ -964,7 +996,7 @@ export class Movie {
         g.fillStyle = '#e8ecf8';
         g.font = '600 15px system-ui, sans-serif';
         g.textBaseline = 'middle';
-        g.fillText(`frame ${f}  ·  ${(f / this.frameRate).toFixed(2)}s`, x + 8, y + LABEL_H / 2);
+        g.fillText(`frame ${f}  ·  ${(f / this._frameRate).toFixed(2)}s`, x + 8, y + LABEL_H / 2);
       }
     } finally {
       if (wasAtPoster) await this._showPoster();                     // the movie is left as it was: still showing its poster
@@ -1030,24 +1062,24 @@ export class Movie {
     const canvas = this.app?.canvas as HTMLCanvasElement | undefined;
     if (!canvas) throw new Error('pixi-effects: movie.canvasPoint needs the movie\'s canvas');
     const r = canvas.getBoundingClientRect();
-    return [((event.clientX - r.left) * this.width) / (r.width || this.width), ((event.clientY - r.top) * this.height) / (r.height || this.height)];
+    return [((event.clientX - r.left) * this._width) / (r.width || this._width), ((event.clientY - r.top) * this._height) / (r.height || this._height)];
   }
 
-  async inspect(frame: number = this.currentFrame, opts: InspectOptions = { layers: 'visible' }): Promise<InspectReport> {
+  async inspect(frame: number = this._currentFrame, opts: InspectOptions = { layers: 'visible' }): Promise<InspectReport> {
     warnUnknownOptions('movie.inspect()', opts, ['layers']);
     this._requireReady('inspect');
-    const f = clampFrame(frame, this.totalFrames);
+    const f = clampFrame(frame, this._totalFrames);
     await this.gotoFrame(f, true);
-    return inspectScene(this._rootSequence as CompositionSequence, f, f / this.frameRate, { width: this.width, height: this.height }, opts);
+    return inspectScene(this._rootSequence as CompositionSequence, f, f / this._frameRate, { width: this._width, height: this._height }, opts);
   }
 
-  /** The canvas layers whose same frame is not the same picture (what `check` reports as a problem): one sentence each. */
+  /** @internal The canvas layers whose same frame is not the same picture: one sentence each (`review()` returns them, in `problems`). */
   canvasProblems(): string[] {
     this._requireReady('canvasProblems');
     return canvasProblems(this._rootSequence as CompositionSequence);
   }
 
-  /** Every canvas layer as the determinism check saw it: the moments drawn, the usual time of a draw in ms, and whether the same time gave the same picture (`check` prints it even when all pass). */
+  /** @internal Every canvas layer as the determinism check saw it (`review()` returns it, as `canvas`). */
   canvasReport(): CanvasRow[] {
     this._requireReady('canvasReport');
     return canvasReport(this._rootSequence as CompositionSequence);
@@ -1059,7 +1091,7 @@ export class Movie {
    */
   timelineData(): TimelineData {
     this._requireReady('timelineData');
-    return collectTimeline(this._rootSequence as CompositionSequence, this.duration);
+    return collectTimeline(this._rootSequence as CompositionSequence, this._duration);
   }
 
   /** The timeline as one self-contained HTML page (an inline SVG, no scripts): layers as bars on a time axis, ◆ keyframes, transition bands. Open it in a browser. */
@@ -1081,7 +1113,7 @@ export class Movie {
   /** The pictures to look at for moments such as `3.5`, `50%`, `f120`, `title@end` (comma-separated). A mistake says what could not be read. */
   resolveAt(list: string): Array<{ label: string; frame: number }> {
     this._requireReady('resolveAt');
-    return resolveAtList(list, { frameRate: this.frameRate, totalFrames: this.totalFrames, duration: this.duration, rows: this.timelineData().rows, markers: this._markers });
+    return resolveAtList(list, { frameRate: this._frameRate, totalFrames: this._totalFrames, duration: this._duration, rows: this.timelineData().rows, markers: this._markers });
   }
 
   /**
@@ -1091,11 +1123,11 @@ export class Movie {
   async review(opts: ReviewOptions = {}): Promise<ReviewReport> {
     warnUnknownOptions('movie.review()', opts, ['at', 'strict']);
     this._requireReady('review');
-    const back = this.currentFrame, wasAtPoster = this._atPoster;
+    const back = this._currentFrame, wasAtPoster = this._atPoster;
     try {
       return await reviewMovie(this, opts);
     } finally {                                                    // the movie is left as it was: still showing its poster, or back at its frame
-      this.currentFrame = back;
+      this._currentFrame = back;
       if (wasAtPoster) await this._showPoster();
       else await this._quietly(() => this.gotoFrame(back, true));
     }
@@ -1114,7 +1146,7 @@ export class Movie {
     warnUnknownOptions('movie.inspectAudio()', opts, ['window', 'scenes']);
     this._requireReady('inspectAudio');
     const scenes = opts.scenes ?? namedScenes(this.timelineData().rows);       // the scenes of the movie: named top-level compositions of a second or more
-    return analyzeAudio(this.audioBuffer, this._audioSources, this._mixStats, this.duration, { ...opts, scenes });
+    return analyzeAudio(this.audioBuffer, this._audioSources, this._mixStats, this._duration, { ...opts, scenes });
   }
 
   /**
@@ -1148,7 +1180,7 @@ export class Movie {
    * drawn, so the shapes inside it must be brought up to the playhead first: syncing only in `_renderNow` left every card showing the state of
    * the frame before (after a jump seek, a card whose children were animated showed a stale picture).
    */
-  private _updateSpace(t: number = this._timeOf(this.currentFrame)): void {
+  private _updateSpace(t: number = this._timeOf(this._currentFrame)): void {
     this._feedTimeFilters();                                       // before anything is drawn: a threeD card is drawn to its texture right here
     if (!this._rootSequence || !this.app) return;
     this._rootSequence.syncFrame();
@@ -1171,8 +1203,8 @@ export class Movie {
     const stage = this.app!.canvas as HTMLCanvasElement;
     if (this._thumbRun) await this._thumbRun;                          // (before the nominal time is set: a thumbnail has its own and clears it when done)
     this._atPoster = false;
-    const times = blurTimes(frame, this.frameRate, mb, Math.max(0, this.duration - END_MARGIN));
-    this._nominalTime = this._timeOf(Math.max(0, Math.min(frame, this.totalFrames)));
+    const times = blurTimes(frame, this._frameRate, mb, Math.max(0, this._duration - END_MARGIN));
+    this._nominalTime = this._timeOf(Math.max(0, Math.min(frame, this._totalFrames)));
     this._moving++;
     try {
       for (let k = 0; k < times.length; k++) {
@@ -1189,8 +1221,8 @@ export class Movie {
     g.globalAlpha = 1;
     if (settle) await this._goto(frame);
     else {
-      this.currentFrame = Math.max(0, Math.min(frame, this.totalFrames));
-      this.emit('frame', { frame: this.currentFrame, totalFrames: this.totalFrames } satisfies FrameEvent);
+      this._currentFrame = Math.max(0, Math.min(frame, this._totalFrames));
+      this.emit('frame', { frame: this._currentFrame, totalFrames: this._totalFrames } satisfies FrameEvent);
     }
   }
 
@@ -1211,12 +1243,12 @@ export class Movie {
   async playUntil(seconds?: number): Promise<boolean> {
     if (this._initState !== 'ready') return false;
     this._settleUntil(false);                                                    // a new target replaces the one in flight
-    if (this.currentFrame >= this.totalFrames) return false;
-    const frame = seconds === undefined ? Infinity : Math.round(seconds * this.frameRate);
-    if (frame <= this.currentFrame) { this.pause(); return false; }
-    this._until = Number.isFinite(frame) ? Math.min(frame, this.totalFrames) : null;      // a time at or past the end lands on the last frame (no 'ended'); only no time at all runs to the end
+    if (this._currentFrame >= this._totalFrames) return false;
+    const frame = seconds === undefined ? Infinity : Math.round(seconds * this._frameRate);
+    if (frame <= this._currentFrame) { this.pause(); return false; }
+    this._until = Number.isFinite(frame) ? Math.min(frame, this._totalFrames) : null;      // a time at or past the end lands on the last frame (no 'ended'); only no time at all runs to the end
     const landed = new Promise<boolean>(resolve => this._untilWaiters.push(resolve));
-    if (!this.isPlaying) this.play();
+    if (!this._isPlaying) this.play();
     return landed;
   }
 
@@ -1228,7 +1260,7 @@ export class Movie {
     this._requireReady('peek');
     return this._exclusive(async () => {
       this.pause();
-      const back = this.currentFrame, wasAtPoster = this._atPoster;
+      const back = this._currentFrame, wasAtPoster = this._atPoster;
       try { return await this._quietly(fn); }
       finally {
         if (wasAtPoster) await this._showPoster();
@@ -1262,22 +1294,22 @@ export class Movie {
 
   play(): void {
     if (this._initState !== 'ready') return;
-    if (this.currentFrame >= this.totalFrames) this.currentFrame = 0;
-    const wasPlaying = this.isPlaying;
-    this.isPlaying = true;
-    const startFrame = this.currentFrame;
-    const startTime = performance.now() - (this.currentFrame / this.frameRate * 1000);
+    if (this._currentFrame >= this._totalFrames) this._currentFrame = 0;
+    const wasPlaying = this._isPlaying;
+    this._isPlaying = true;
+    const startFrame = this._currentFrame;
+    const startTime = performance.now() - (this._currentFrame / this._frameRate * 1000);
     let inFlight = false;
     const tick = (time: number) => {
-      if (!this.isPlaying) return;
+      if (!this._isPlaying) return;
       if (inFlight) {
         this._raf = requestAnimationFrame(tick);
         return;
       }
       const elapsed = (time - startTime) / 1000;
-      const frame = Math.max(startFrame, Math.floor(elapsed * this.frameRate));        // (rAF's time is a little before `startTime`: the first tick must not land a frame back)
+      const frame = Math.max(startFrame, Math.floor(elapsed * this._frameRate));        // (rAF's time is a little before `startTime`: the first tick must not land a frame back)
       if (this._until !== null && frame >= this._until) { void this._arriveUntil(); return; }
-      if (frame <= this.totalFrames) {
+      if (frame <= this._totalFrames) {
         inFlight = true;
         this._goto(frame)
           .catch((err) => { console.warn('pixi-effects: gotoFrame failed during playback:', err); this._emitError('playback', err); })
@@ -1292,7 +1324,7 @@ export class Movie {
         const toEnd = this._untilWaiters; this._untilWaiters = []; this._until = null;     // `playUntil()` to the end: it has landed
         this.pause();
         // Final frame — also catch so the play loop never leaves an unhandled rejection.
-        this._goto(this.totalFrames).catch((err) => {
+        this._goto(this._totalFrames).catch((err) => {
           console.warn('pixi-effects: final gotoFrame failed:', err);
           this._emitError('playback', err);
         });
@@ -1309,21 +1341,21 @@ export class Movie {
       // A browser keeps the context suspended until the user has interacted with the page: start the sound when it
       // runs, from the position the movie has reached by then, instead of at a stale offset.
       this._cancelAudioStart = startWhenRunning(ctx, () => {
-        if (!this.isPlaying) return;
+        if (!this._isPlaying) return;
         this.audioSource = ctx.createBufferSource();
         this.audioSource.buffer = buffer;
         this.gainNode = ctx.createGain();
         this.gainNode.gain.value = this._muted ? 0 : this._volume;
         this.audioSource.connect(this.gainNode).connect(ctx.destination);
-        this.audioSource.start(0, Math.min(this.currentFrame / this.frameRate, buffer.duration));
+        this.audioSource.start(0, Math.min(this._currentFrame / this._frameRate, buffer.duration));
       }, typeof window !== 'undefined' ? window : undefined);
     }
     if (!wasPlaying && !this._silent) this.emit('play');
   }
 
   pause(): void {
-    const wasPlaying = this.isPlaying;
-    this.isPlaying = false;
+    const wasPlaying = this._isPlaying;
+    this._isPlaying = false;
     this._cancelAudioStart?.();
     this._cancelAudioStart = null;
     if (this._raf) {
@@ -1421,6 +1453,11 @@ const END_MARGIN = 1e-4;
  */
 let quietDepth = 0;
 let quietInstalled = false;
+/** A write to the read-only state of a movie: said, and nothing changes. */
+function readOnly(key: string, instead: string): void {
+  console.warn(`pixi-effects: movie.${key} is read-only: ${instead}`);
+}
+
 function installQuietUnbind(): void {
   if (quietInstalled) return;
   quietInstalled = true;
