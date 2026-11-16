@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+From a fresh-agent trial on 0.55.0 (Sonnet and Opus, four briefs each). All eight delivered, and none wrote a wrong name. These are what they tripped on:
+
+- **`fillRule: 'evenodd'` works as in SVG.** How deep a sub-path sits decides: inside nothing it is a piece, inside a piece it is a hole, and inside a hole it is filled again.
+  - Before, the biggest sub-path was the shape and every other one was a hole, so some pieces were lost without a word: a cup icon written as one `d` kept only its body (no handle, saucer or steam), and a phone lost the check mark in its screen.
+  - A whole icon is now one `d`. The stroke goes round every piece and every hole.
+  - A trimmed stroke keeps the holes cut in the fill.
+- **A warning when two keyframes animate the same property at the same time.** The later one takes over at its `at`, starting from the earlier one's END value, so the picture jumps. The warning names both keyframes, their spans and the property, and says what to write instead. It is not given for a `set`, after a spring, or for an overlap under 0.1 s.
+- **Seamless loops:** a `docs/dsl.md` section that `help loop`, `help seam` and `help seamless` find, and the tested recipe `seamless-loop`. They cover:
+  - periodic motion, and grain `loop: true` on a composition that holds the background;
+  - `loop: { duration }`;
+  - `check --seam`;
+  - the file size that grain costs.
+
 ## 0.55.0
 
 **Breaking: the names are settled for 1.0.** One word for each idea, the word an AI already knows (CSS, SVG, After Effects, GSAP, PixiJS, HTML media), and every old name warns with the new one (a change of meaning cannot warn: the gradient angle below; every angle this repository writes was converted).
