@@ -2,7 +2,7 @@ import type { Container } from 'pixi.js';
 import { Rectangle } from 'pixi.js';
 import { applyKeyframes, applyInitial, type PathRouters } from '../core/Timeline';
 import { buildScope, type Scope } from '../expr/Scope';
-import { createFilter, type NamedFilter } from '../filters';
+import { createFilter, grainLoop, type NamedFilter } from '../filters';
 import type { CompositionShape, SequenceSpec, AudioDescriptor } from '../types';
 import type { SpaceHost } from '../space/Layer3D';
 import type { Timeline } from '../core/timelineEngine';
@@ -54,7 +54,7 @@ export abstract class Sequence {
   abstract build(): Promise<void>;
 
   buildFilters(): void {
-    const specs = this.spec.filters ?? [];
+    const specs = (this.spec.filters ?? []).map(f => grainLoop(f, this.root.duration));
     this.filters = specs.map(createFilter);
     if (this.target && 'filters' in this.target) {
       (this.target as unknown as { filters: NamedFilter[] }).filters = this.filters;

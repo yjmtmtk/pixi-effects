@@ -38,6 +38,22 @@ function copyPlain<T>(v: T): T {
   return v;
 }
 
+/**
+ * A grain filter's `loop` in a layer: `true` is the movie's length (a clip made to loop has no jump in its grain at the seam), `{ duration: n }`
+ * any other; a number alone says the new form (it read as a count). The filter itself takes seconds.
+ */
+export function grainLoop(spec: FilterSpec, movieDuration: number): FilterSpec {
+  const f = spec as unknown as Record<string, unknown>;
+  if (typeof f.type !== 'string' || f.type.toLowerCase() !== 'grain' || !('loop' in f)) return spec;
+  const { loop, ...rest } = f;
+  if (loop === true) return { ...rest, loop: movieDuration } as unknown as FilterSpec;
+  const d = loop && typeof loop === 'object' ? (loop as { duration?: unknown }).duration : undefined;
+  if (typeof d === 'number') return { ...rest, loop: d } as unknown as FilterSpec;
+  if (typeof loop === 'number') console.warn(`pixi-effects: grain: loop: ${loop} is now loop: { duration: ${loop} } (or loop: true for the movie's length); ignored`);
+  else if (loop !== undefined && loop !== false) console.warn(`pixi-effects: grain: loop must be true (the movie's length) or { duration: seconds }, got ${JSON.stringify(loop)}; ignored`);
+  return rest as unknown as FilterSpec;
+}
+
 export function createFilter(spec: FilterSpec): NamedFilter {
   if (spec.type === 'custom') {
     const inst = (spec as CustomFilterSpec).filter;

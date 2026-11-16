@@ -218,7 +218,7 @@ return [
 
 ## One cycle written once: a loop, on stepped frames (`loop`, `frameRate`)
 
-Write one cycle of a motion and let the composition repeat it: `loop: true` repeats what happens inside (up to its last keyframe), `loop: 1.5` its first 1.5 seconds. `frameRate: 12` steps the content on 12 pictures a second (a hand-made, stop-motion feel) while the rest of the movie stays smooth. A loading spinner and a bouncing dot, each written for one second:
+Write one cycle of a motion and let the composition repeat it: `loop: true` repeats what happens inside (up to its last keyframe), `loop: { duration: 1.5 }` its first 1.5 seconds. `frameRate: 12` steps the content on 12 pictures a second (a hand-made, stop-motion feel) while the rest of the movie stays smooth. A loading spinner and a bouncing dot, each written for one second:
 
 ```js
 // @recipe loop-stepped
@@ -230,7 +230,7 @@ return {
         initial: { x: 100, y: 100, strokeColor: '#ffd166', strokeWidth: 14 },
         keyframes: [{ at: 0, to: { rotation: 360 }, duration: 1 }] },
     ] },
-    { type: 'composition', name: 'bounce', width: 200, height: 240, loop: 1, initial: { x: 740, y: 240 }, sequences: [
+    { type: 'composition', name: 'bounce', width: 200, height: 240, loop: { duration: 1 }, initial: { x: 740, y: 240 }, sequences: [
       { type: 'shape', shape: 'circle', radius: 24, initial: { x: 100, y: 200, fillColor: '#ef476f' },
         keyframes: [{ at: 0, to: { y: 60 }, duration: 0.5, ease: 'power2.out' }, { at: 0.5, to: { y: 200 }, duration: 0.5, ease: 'power2.in' }] },
     ] },

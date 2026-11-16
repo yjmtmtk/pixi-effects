@@ -105,3 +105,17 @@ describe('the movie feeds time to the filters that want it', () => {
     expect(collectTimeFilters(plain)).toEqual([]);
   });
 });
+
+describe('grain loop in a layer\'s filters: true is the movie\'s length, { duration } any other', () => {
+  it('true → the movie\'s duration; { duration: 4 } → 4; a number alone says the new form', async () => {
+    const { grainLoop } = await import('../../src/filters/index');
+    const { vi } = await import('vitest');
+    expect(grainLoop({ type: 'grain', loop: true } as never, 10)).toEqual({ type: 'grain', loop: 10 });
+    expect(grainLoop({ type: 'grain', loop: { duration: 4 } } as never, 10)).toEqual({ type: 'grain', loop: 4 });
+    expect(grainLoop({ type: 'blur', strength: 2 } as never, 10)).toEqual({ type: 'blur', strength: 2 });
+    const w = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(grainLoop({ type: 'grain', loop: 10 } as never, 10)).toEqual({ type: 'grain' });
+    expect(String(w.mock.calls[0]?.[0])).toMatch(/grain: loop: 10 is now loop: \{ duration: 10 \} \(or loop: true for the movie's length\)/);
+    w.mockRestore();
+  });
+});

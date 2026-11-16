@@ -389,14 +389,16 @@ export class CompositionSequence extends Sequence {
     const v = (this.spec as { loop?: unknown }).loop;
     if (v === undefined || v === false) return null;
     const who = describeLayer(this.spec);
-    if (v !== true && (typeof v !== 'number' || !Number.isFinite(v) || v <= 0)) { console.warn(`pixi-effects: ${who}: loop must be true or a number of seconds above 0, got ${JSON.stringify(v)}; ignored`); return null; }
-    if (typeof v === 'number') {
-      if (v >= span) { console.warn(`pixi-effects: ${who}: loop: ${v} is not shorter than the composition (${Number(span.toFixed(3))}s), so nothing repeats; ignored`); return null; }
-      return v;
+    if (typeof v === 'number') { console.warn(`pixi-effects: ${who}: loop: ${v} is now loop: { duration: ${v} } (to repeat the first ${v} s; a number alone reads as a count); ignored`); return null; }
+    const d = v && typeof v === 'object' ? (v as { duration?: unknown }).duration : undefined;
+    if (v !== true && !(typeof d === 'number' && Number.isFinite(d) && d > 0)) { console.warn(`pixi-effects: ${who}: loop must be true or { duration: seconds } (seconds above 0), got ${JSON.stringify(v)}; ignored`); return null; }
+    if (typeof d === 'number') {
+      if (d >= span) { console.warn(`pixi-effects: ${who}: loop: { duration: ${d} } is not shorter than the composition (${Number(span.toFixed(3))}s), so nothing repeats; ignored`); return null; }
+      return d;
     }
     const L = contentEnd(this.spec.sequences ?? [], span);
-    if (L !== null && L <= 1e-9) { console.warn(`pixi-effects: ${who}: loop: nothing inside has a length (no duration, no keyframes), so it cannot tell what to repeat; give the length: loop: 2`); return null; }
-    if (L === null || L >= span - 1e-9) { console.warn(`pixi-effects: ${who}: loop: what happens inside lasts the whole composition (${Number(span.toFixed(3))}s), so nothing repeats; give the length to repeat: loop: 2`); return null; }
+    if (L !== null && L <= 1e-9) { console.warn(`pixi-effects: ${who}: loop: nothing inside has a length (no duration, no keyframes), so it cannot tell what to repeat; give the length: loop: { duration: 2 }`); return null; }
+    if (L === null || L >= span - 1e-9) { console.warn(`pixi-effects: ${who}: loop: what happens inside lasts the whole composition (${Number(span.toFixed(3))}s), so nothing repeats; give the length to repeat: loop: { duration: 2 }`); return null; }
     return L;
   }
 

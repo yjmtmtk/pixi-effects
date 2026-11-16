@@ -61,8 +61,8 @@ describe('loop: the content repeats', () => {
     expect(xAt(1 + 1.5)).toBeCloseTo(50, 5);
     expect(xAt(1 + 4.25)).toBeCloseTo(25, 5);
   });
-  it('loop: 2 repeats the first 2 seconds of the content', async () => {
-    const { xAt } = await stage({ loop: 2 });
+  it('loop: { duration: 2 } repeats the first 2 seconds of the content', async () => {
+    const { xAt } = await stage({ loop: { duration: 2 } });
     expect(xAt(1 + 1.5)).toBeCloseTo(100, 5);                       // the move is over, still inside the 2 s
     expect(xAt(1 + 2.5)).toBeCloseTo(50, 5);
   });
@@ -81,13 +81,14 @@ describe('loop: the content repeats', () => {
   it('a loop with nothing measurable inside (no duration, no keyframes) is said, not a loop of 0 s', async () => {
     const still = [{ type: '__box', name: 'still' }];
     const r = await stage({ loop: true }, still);
-    expect(r.warnings).toEqual([expect.stringMatching(/loop: nothing inside has a length \(no duration, no keyframes\), so it cannot tell what to repeat; give the length: loop: 2/)]);
+    expect(r.warnings).toEqual([expect.stringMatching(/loop: nothing inside has a length \(no duration, no keyframes\), so it cannot tell what to repeat; give the length: loop: \{ duration: 2 \}/)]);
     expect(Number.isFinite(r.st.childTime(3))).toBe(true);
   });
   it('says when it cannot repeat: the content lasts the whole composition, or a loop length past the end', async () => {
     const whole = [{ type: '__box', name: 'still', duration: 6 }];
-    expect((await stage({ loop: true }, whole)).warnings[0]).toMatch(/loop: what happens inside lasts the whole composition \(6s\), so nothing repeats; give the length to repeat: loop: 2/);
-    expect((await stage({ loop: 8 })).warnings[0]).toMatch(/loop: 8 is not shorter than the composition \(6s\), so nothing repeats/);
-    expect((await stage({ loop: 'yes' })).warnings[0]).toMatch(/loop must be true or a number of seconds/);
+    expect((await stage({ loop: true }, whole)).warnings[0]).toMatch(/loop: what happens inside lasts the whole composition \(6s\), so nothing repeats; give the length to repeat: loop: \{ duration: 2 \}/);
+    expect((await stage({ loop: { duration: 8 } })).warnings[0]).toMatch(/loop: \{ duration: 8 \} is not shorter than the composition \(6s\), so nothing repeats/);
+    expect((await stage({ loop: 2 })).warnings[0]).toMatch(/loop: 2 is now loop: \{ duration: 2 \} \(to repeat the first 2 s; a number alone reads as a count\)/);
+    expect((await stage({ loop: 'yes' })).warnings[0]).toMatch(/loop must be true or \{ duration: seconds \}/);
   });
 });

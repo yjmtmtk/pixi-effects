@@ -569,10 +569,10 @@ export interface CompositionSequenceSpec extends SequenceCommon {
    */
   frameRate?: number;
   /**
-   * The content repeats: `true` repeats what happens inside (up to the end of its last layer or keyframe), a number repeats its first that
-   * many seconds. Its sounds play again each time round.
+   * The content repeats: `true` repeats what happens inside (up to the end of its last layer or keyframe), `{ duration: 2 }` repeats its
+   * first 2 seconds. Its sounds play again each time round.
    */
-  loop?: boolean | number;
+  loop?: boolean | { duration: number };
   /**
    * Named moments of this composition, in its own seconds (negative: from its end): `{ in: 0.6, out: 2.4 }`. Layers anywhere name them in
    * their `at`: `'host@in'` from outside (on their own clock, through `speed` and `time`), `'@in'` from inside. `check --at host@in` too.
