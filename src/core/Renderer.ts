@@ -99,12 +99,12 @@ async function exportAudioOnly(movie: Movie, options: RenderOptions, fmt: AudioF
   const output = new M.Output({ format: container, target: new M.BufferTarget() });
   const source = new M.AudioBufferSource({ codec: codec as never, ...(fmt === 'wav' ? {} : { bitrate: bitrateOf(M, options.audio?.bitrate) }) });
   output.addAudioTrack(source);
-  movie.emit('progress', { progress: 0, frame: range.fromFrame, totalFrames: movie.totalFrames });
+  movie.emit('renderprogress', { progress: 0, frame: range.fromFrame, totalFrames: movie.totalFrames });
   await output.start();
   await source.add(audio);
   await source.close();
   await output.finalize();
-  movie.emit('progress', { progress: 100, frame: range.toFrame, totalFrames: movie.totalFrames });
+  movie.emit('renderprogress', { progress: 1, frame: range.toFrame, totalFrames: movie.totalFrames });
   return new Blob([output.target.buffer as ArrayBuffer], { type: output.format.mimeType });
 }
 
@@ -196,10 +196,10 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
       const isKey = rel === 0 || rel % keyframeIntervalFrames === 0;
       const addOpts = isKey ? { keyFrame: true } : undefined;
       await canvasSource.add(rel / movie.frameRate, 1 / movie.frameRate, addOpts);
-      const progress = Math.floor((rel / count) * 100);
-      movie.emit('progress', { progress, frame, totalFrames: movie.totalFrames });
+      const progress = Math.floor((rel / count) * 1000) / 1000;
+      movie.emit('renderprogress', { progress, frame, totalFrames: movie.totalFrames });
     }
-    movie.emit('progress', { progress: 100, frame: range.toFrame, totalFrames: movie.totalFrames });   // the frames are [from, to): the last one drawn is 99 %, the finished file is 100
+    movie.emit('renderprogress', { progress: 1, frame: range.toFrame, totalFrames: movie.totalFrames });   // the frames are [from, to): the last one drawn is below 1, the finished file is 1
     await canvasSource.close();
     await output.finalize();
     if (mb) await movie.gotoFrame(range.toFrame - 1, true);          // the stage shows the last exported frame itself, not its last sample

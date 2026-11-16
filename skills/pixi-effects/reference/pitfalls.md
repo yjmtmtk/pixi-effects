@@ -13,7 +13,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 5. **Sound effects need no file at all:** `{ type: 'audio', sfx: 'pop', at }` — the layer lasts exactly as long as the sound. **Audio length of a FILE.** Omit `duration` on a one-shot clip: the layer lasts exactly as long as the file (nothing to measure; the only sample file is `examples/_assets/bgm.mp3`, 6 s). `loop: true` with no `duration` lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true` (`bgm.mp3` is 6 s) and warns. Volume fades work like any keyframe: `volume: 0` + `{ at: 0, to: { volume: v }, duration: 2 }` + `{ at: -2, to: { volume: 0 }, duration: 2 }` (the last 2 s only; `set` is a jump). *(fixed: volume keyframes used to ramp from the previous keyframe's end, so the music faded across the whole piece)*
 6. **Snap times to the frame grid (`Math.round(t*30)/30`) when two things must stay locked** (a bar and its label). Drive both from one JS easing function with per-frame `set` keyframes rather than mixing a tween with computed positions. *(docs)*
 7. **Pick eases on purpose.** `expo.in` stays tiny until the very end (a "flood" circle never reaches the corners — use a bigger radius and `power2.in`). A zoom transition with `power2.out` looks like a cut because the incoming scene is nearly opaque after 40 %. Default is linear. *(docs)*
-8. **`render()` runs in roughly real time** (6 s of 720p ≈ 6 s). Listen to `movie.on('progress', e => e.progress)` (0–100). *(docs)*
+8. **`render()` runs in roughly real time** (6 s of 720p ≈ 6 s). Listen to `movie.on('renderprogress', e => e.progress)` (0 to 1). *(docs)*
 
 ## Layout and anchors
 

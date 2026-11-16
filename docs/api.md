@@ -294,7 +294,7 @@ interface RenderOptions {
 
 **Audio codec fallback:** unless you name `audio.codec`, the first codec this browser can actually encode is used (mp4: `aac`, then `opus`, `mp3`, `flac`; webm: `opus`, `vorbis`). Chrome on Linux has no AAC encoder, so there an mp4 with sound carries Opus and a warning says so (before, the export failed with a message about encoder configurations). A codec you name is never swapped: if it cannot be encoded the error says which one would work.
 
-Returns a `Blob` whose `type` is the container's MIME (e.g. `video/mp4`). Emits `'progress'` repeatedly during the render.
+Returns a `Blob` whose `type` is the container's MIME (e.g. `video/mp4`). Emits `'renderprogress'` (`progress` 0 to 1) once per encoded frame.
 
 The renderer also forces a keyframe every ~2 seconds so the resulting file scrubs efficiently in standard players.
 
@@ -383,7 +383,7 @@ movie.off(event, fn): this
 | `'frame'`   | `{ frame: number; totalFrames: number }`          | every `gotoFrame` (so once per playback frame too)    |
 | `'play'`    | none                                              | when `play()` actually transitions from paused        |
 | `'pause'`   | none                                              | when `pause()` actually transitions from playing      |
-| `'progress'`| `{ progress: number; frame: number; totalFrames: number }` | during `render()`, once per encoded frame    |
+| `'renderprogress'`| `{ progress: number; frame: number; totalFrames: number }` | during `render()`, once per encoded frame; `progress` 0 to 1 |
 | `'loadprogress'` | `{ stage: 'assets' \| 'build' \| 'sound' \| 'frames'; loaded: number; total: number; progress: number }` | during `init()`, after each asset and each layer built, once the sound is mixed; `progress` is 0 to 1 for the whole init. The page's `.pe-loader` already shows it; `movie.loadStages` gives the milliseconds per stage afterwards |
 | `'seeking'` / `'seeked'` | `{ frame, totalFrames }` (the frame it lands on) | a `gotoFrame()` to another frame starts / has finished. NOT emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()` |
 | `'ended'`   | none                                              | playback ran off the end (after `'pause'`); pausing by hand does not emit it |

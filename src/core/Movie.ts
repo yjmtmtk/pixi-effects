@@ -184,7 +184,8 @@ export interface OnionSkinOptions {
 }
 
 export interface FrameEvent { frame: number; totalFrames: number }
-export interface ProgressEvent { progress: number; frame: number; totalFrames: number }
+/** How far `render()` is: `progress` 0 to 1 (as `loadprogress`), the frame just encoded and the movie's frame count. */
+export interface RenderProgressEvent { progress: number; frame: number; totalFrames: number }
 /** `volumechange`: the values after the change. */
 export interface VolumeEvent { volume: number; muted: boolean }
 /** `loopchange`: the value of `movie.loop` after the change. */
@@ -312,7 +313,8 @@ export class Movie {
   /** `movie.loop` changed (set by the page, the bar's loop button or `init({ loop })` is not a change). */
   on(event: 'loopchange', fn: (e: LoopEvent) => void): this;
   on(event: 'error', fn: (e: MovieErrorEvent) => void): this;
-  on(event: 'progress', fn: (e: ProgressEvent) => void): this;
+  /** How far `render()` is: `progress` 0 to 1, once per encoded frame. */
+  on(event: 'renderprogress', fn: (e: RenderProgressEvent) => void): this;
   /** How far `init()` is while it builds the movie: `{ stage: 'assets' | 'build' | 'sound' | 'frames', loaded, total, progress }`, `progress` 0 to 1. The page's `.pe-loader` shows it by itself. */
   on(event: 'loadprogress', fn: (e: LoadProgressState) => void): this;
   /** A `rebuild()` (a `setVars()` or a `resize()` too) finished: what it was and what it cost. */
@@ -320,6 +322,12 @@ export class Movie {
   on(event: 'play', fn: () => void): this;
   on(event: 'pause', fn: () => void): this;
   on(event: string, fn: Listener): this {
+    if (!MOVIE_EVENTS.includes(event)) {
+      const guess = event === 'progress' ? null : suggestName(event, MOVIE_EVENTS);
+      console.warn(event === 'progress'
+        ? `pixi-effects: movie.on('progress'): the render's progress is 'renderprogress' (progress 0 to 1, as 'loadprogress')`
+        : `pixi-effects: movie.on('${event}'): no such event${guess ? ` — did you mean '${guess}'?` : ''} (events: ${MOVIE_EVENTS.join(', ')})`);
+    }
     (this._events[event] ??= []).push(fn);
     if (event === 'ready' && this._initState === 'ready') {
       try { fn(); } catch (e) { console.warn('pixi-effects: ready listener threw:', e); }
@@ -1453,6 +1461,9 @@ const END_MARGIN = 1e-4;
  */
 let quietDepth = 0;
 let quietInstalled = false;
+/** The events a movie emits (`movie.on`). */
+const MOVIE_EVENTS: readonly string[] = ['ready', 'frame', 'seeking', 'seeked', 'play', 'pause', 'ended', 'volumechange', 'loopchange', 'error', 'renderprogress', 'loadprogress', 'rebuilt'];
+
 /** A write to the read-only state of a movie: said, and nothing changes. */
 function readOnly(key: string, instead: string): void {
   console.warn(`pixi-effects: movie.${key} is read-only: ${instead}`);

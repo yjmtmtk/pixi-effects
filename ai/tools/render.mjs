@@ -139,7 +139,7 @@ const kb = n => (n >= 1048576 ? `${(n / 1048576).toFixed(2)} MB` : `${Math.max(1
 /** The page's side: render, and PUT the Blob to our server (so a long video never goes through base64). */
 const renderScript = (format, quality, videoCodec, audioCodec, motionBlur, shutter, allStops, part = {}, videoBitrate = null) => `(() => {
   window.__r = { state: 'running', progress: 0 };
-  movie.on('progress', e => { window.__r.progress = e.progress; });
+  movie.on('renderprogress', e => { window.__r.progress = Math.round(e.progress * 100); });
   (async () => {
     try {
       const video = { ${[videoBitrate ? `bitrate: ${JSON.stringify(/^\d+(\.\d+)?$/.test(videoBitrate) ? Number(videoBitrate) : videoBitrate)}` : part.draft && !part.qualityGiven ? null : `bitrate: ${JSON.stringify(quality)}`, videoCodec ? `codec: ${JSON.stringify(videoCodec)}` : null].filter(Boolean).join(', ')} };

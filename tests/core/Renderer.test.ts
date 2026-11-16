@@ -268,8 +268,8 @@ describe('Renderer — encode loop', () => {
     expect(local.gotoFrame.map((c) => c.frame)).toEqual(Array.from({ length: 30 }, (_, i) => 60 + i));
     expect(calls.canvasSourceAdds[0]!.t).toBe(0);
     expect(calls.canvasSourceAdds[29]!.t).toBeCloseTo(29 / 30, 10);
-    const progress = local.emit.filter((e) => e.event === 'progress').map((e) => (e.data as { progress: number }).progress);
-    expect(progress[0]).toBe(0); expect(progress[progress.length - 1]).toBe(100);
+    const progress = local.emit.filter((e) => e.event === 'renderprogress').map((e) => (e.data as { progress: number }).progress);
+    expect(progress[0]).toBe(0); expect(progress[progress.length - 1]).toBe(1);
     expect((calls.canvasSourceAdds[0]!.opts as { keyFrame?: true }).keyFrame).toBe(true);        // the first frame of the file is a keyframe
   });
 
@@ -315,13 +315,13 @@ describe('Renderer — encode loop', () => {
   it('emits "progress" once per frame with rounded percent', async () => {
     const { movie, local } = fakeMovie({ totalFrames: 4 });
     await exportFrames(asMovie(movie));
-    const progress = local.emit.filter((e) => e.event === 'progress').map((e) => e.data);
+    const progress = local.emit.filter((e) => e.event === 'renderprogress').map((e) => e.data);
     expect(progress).toEqual([
       { progress: 0,   frame: 0, totalFrames: 4 },
-      { progress: 25,  frame: 1, totalFrames: 4 },
-      { progress: 50,  frame: 2, totalFrames: 4 },
-      { progress: 75,  frame: 3, totalFrames: 4 },
-      { progress: 100, frame: 4, totalFrames: 4 },             // after the last frame: the finished file
+      { progress: 0.25,  frame: 1, totalFrames: 4 },
+      { progress: 0.5,  frame: 2, totalFrames: 4 },
+      { progress: 0.75,  frame: 3, totalFrames: 4 },
+      { progress: 1, frame: 4, totalFrames: 4 },             // after the last frame: the finished file
     ]);
   });
 });

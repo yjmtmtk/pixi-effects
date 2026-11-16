@@ -20,3 +20,18 @@ describe('the state of a movie is read-only, and writing it says what to call', 
     warn.mockRestore();
   });
 });
+
+describe('movie.on names an event it does not have', () => {
+  it('the render progress is renderprogress (0..1, as loadprogress); a typo gets a guess', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const movie = new Movie();
+    movie.on('progress' as never, () => {});
+    movie.on('redy' as never, () => {});
+    movie.on('renderprogress', () => {});
+    const said = warn.mock.calls.map(c => String(c[0]));
+    warn.mockRestore();
+    expect(said[0]).toMatch(/movie\.on\('progress'\): the render's progress is 'renderprogress' \(progress 0 to 1, as 'loadprogress'\)/);
+    expect(said[1]).toMatch(/movie\.on\('redy'\): no such event — did you mean 'ready'\?/);
+    expect(said).toHaveLength(2);
+  });
+});

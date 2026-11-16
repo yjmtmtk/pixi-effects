@@ -411,8 +411,9 @@ export class Controller {
     };
     this.onProgress = ({ progress, frame, totalFrames }) => {
       if (!this.isExporting || !this.exportFillEl || !this.exportTextEl) return;
-      this.exportFillEl.style.width = `${progress}%`;
-      this.exportTextEl.textContent = `${progress}% (${frame} / ${totalFrames} frames)`;
+      const pct = Math.round(progress * 100);
+      this.exportFillEl.style.width = `${pct}%`;
+      this.exportTextEl.textContent = `${pct}% (${frame} / ${totalFrames} frames)`;
     };
     this.onRebuilt = () => { this.refreshStops(); this.previewCache.clear(); };
     this.movie.on('ready', this.onReady);
@@ -420,7 +421,7 @@ export class Controller {
     this.movie.on('frame', this.onFrame);
     this.movie.on('play', this.onPlay);
     this.movie.on('pause', this.onPause);
-    this.movie.on('progress', this.onProgress);
+    this.movie.on('renderprogress', this.onProgress);
   }
 
   /** The stops of a presentation as marks on the seek bar, and the Present button. */
@@ -1096,7 +1097,7 @@ export class Controller {
     if (this.onFrame) { this.movie.off('frame', this.onFrame); this.onFrame = null; }
     if (this.onPlay) { this.movie.off('play', this.onPlay); this.onPlay = null; }
     if (this.onPause) { this.movie.off('pause', this.onPause); this.onPause = null; }
-    if (this.onProgress) { this.movie.off('progress', this.onProgress); this.onProgress = null; }
+    if (this.onProgress) { this.movie.off('renderprogress', this.onProgress); this.onProgress = null; }
     if (this.onWrapPointerMove) {
       this.wrapper.removeEventListener('pointermove', this.onWrapPointerMove);
       this.onWrapPointerMove = null;

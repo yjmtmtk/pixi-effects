@@ -155,7 +155,7 @@ describe('Controller — mounting', () => {
     expect(() => movie.emit('ready')).not.toThrow();
     expect(() => movie.emit('frame', { frame: 1, totalFrames: 10 })).not.toThrow();
     expect(() => movie.emit('pause')).not.toThrow();
-    expect(() => movie.emit('progress', { progress: 50, frame: 5, totalFrames: 10 })).not.toThrow();
+    expect(() => movie.emit('renderprogress', { progress: 0.5, frame: 5, totalFrames: 10 })).not.toThrow();
   });
 
   it('destroy removes wrapper-level pointermove/mouseleave listeners (when not wrapped here)', () => {
@@ -544,7 +544,7 @@ describe('Controller — export', () => {
     const ctrl = new Controller(movie, { canvas });
     movie.emit('ready');
     openPopoverAndConfirm(canvas);
-    movie.emit('progress', { progress: 42, frame: 84, totalFrames: 200 });
+    movie.emit('renderprogress', { progress: 0.42, frame: 84, totalFrames: 200 });
     const fill = document.querySelector('.mc-export-fill') as HTMLDivElement;
     const text = document.querySelector('.mc-export-text') as HTMLDivElement;
     expect(fill.style.width).toBe('42%');

@@ -349,7 +349,7 @@ class Movie
   on(event: "volumechange", fn: (e: VolumeEvent) => void): Movie
   on(event: "loopchange", fn: (e: LoopEvent) => void): Movie
   on(event: "error", fn: (e: MovieErrorEvent) => void): Movie
-  on(event: "progress", fn: (e: ProgressEvent) => void): Movie
+  on(event: "renderprogress", fn: (e: RenderProgressEvent) => void): Movie
   on(event: "loadprogress", fn: (e: LoadProgressState) => void): Movie
   on(event: "rebuilt", fn: (e: RebuildReport) => void): Movie
   on(event: "play", fn: () => void): Movie
@@ -564,10 +564,6 @@ interface PolygonShapeSpec extends ShapeBase, Trimmable
   open?: boolean
   points: [PropValue, PropValue][]
   shape: "polygon"
-interface ProgressEvent
-  frame: number
-  progress: number
-  totalFrames: number
 type Props = Record<string, PropValue>
 type PropValue = number | string
 function rand(seed: number): number
@@ -619,6 +615,10 @@ interface RenderOptions
   range?: string | [number, number]
   scale?: number
   video?: { codec?: string | undefined; bitrate?: string | number | undefined; hardware?: "no-preference" | "prefer-har…
+interface RenderProgressEvent
+  frame: number
+  progress: number
+  totalFrames: number
 interface ReviewOptions
   at?: string
   strict?: boolean

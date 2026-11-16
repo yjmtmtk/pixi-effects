@@ -78,7 +78,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('motion blu
       const sheet = await cdp.eval(`movie.contactSheet({ count: 3, as: 'dataURL', motionBlur: 4 }).then(u => u.startsWith('data:image/png') && u.length)`);
       expect(sheet).toBeGreaterThan(1000);
       const r = await cdp.eval(`(async () => {
-        let events = 0; movie.on('progress', () => events++);
+        let events = 0; movie.on('renderprogress', () => events++);
         const blob = await movie.render({ format: 'mp4', motionBlur: { samples: 3, shutter: 0.5 } });
         return { size: blob.size, events, frame: movie.currentFrame, total: movie.totalFrames };
       })()`);

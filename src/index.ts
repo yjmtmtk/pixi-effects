@@ -12,7 +12,7 @@ export type {
   MovieOptions,
   RenderOptions,
   FrameEvent,
-  ProgressEvent,
+  RenderProgressEvent,
   VolumeEvent,
   LoopEvent,
   MovieErrorEvent,
