@@ -25,7 +25,7 @@ const describeDiff = (d: CanvasCheck['differs'][number]): string =>
 
 /**
  * Every canvas layer of a movie, drawn in two orders at a few moments of its life with one draw thrown away first, the pictures compared. A layer whose same frame is not the
- * same picture is `ok: false` with a sentence that names the moments and how much differs. Run by `check` and the Playground through `movie.review()`.
+ * same picture is `ok: false` with a sentence that names the moments and how much differs. Run by `check` through `movie.review()`.
  */
 export function canvasReport(root: CompositionSequence): CanvasRow[] {
   const out: CanvasRow[] = [];

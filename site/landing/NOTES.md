@@ -18,7 +18,7 @@ Code panels stay dark in both themes (they are "monitors"); the page chrome flip
 
 The page shows what the library can do and that one sentence to an AI is enough. Everything an AI reads lives on `for-ai.html`; there is no Guide, no comparison, no music lab and no tour.
 
-0. **Top bar**: wordmark, the four entrances (Gallery, Interactive, Playground, For AI), theme button.
+0. **Top bar**: wordmark, the four entrances (Gallery, Interactive, For AI), theme button.
 1. **Hero**: headline, one sentence of lede, the reel (played live from the published page), the two films (`ink-and-paper`, `light-as-material`, played live the same way) and the composition panel with the real minimal snippet and its plotted timeline.
 2. **01 One sentence**: the sentence an AI is told, with endings that swap and a Copy button. The heart of the page.
 3. **02 Gallery**: 43 pieces; a real piece plays on a click, a masonry of 12 posters opens each piece in a dialog.

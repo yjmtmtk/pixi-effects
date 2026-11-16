@@ -1,6 +1,6 @@
 # The pixi-effects site
 
-The GitHub Pages site is four entrances that share one look: **Home** (the landing page), **Gallery**, **Interactive**, **Playground**, and **For AI** (the one page for AI). It shows what the library can do; everything an AI reads lives in `docs/` and `skills/`.
+The GitHub Pages site is four entrances that share one look: **Home** (the landing page), **Gallery**, **Interactive**, and **For AI** (the one page for AI). It shows what the library can do; everything an AI reads lives in `docs/` and `skills/`.
 This folder holds what they share. The rest of each page lives next to its own content.
 
 ## Where things are
@@ -11,7 +11,6 @@ This folder holds what they share. The rest of each page lives next to its own c
 | Gallery | `/examples/gallery/` | `examples/gallery/index.html` + `pieces.json` (pieces: `<id>.html`) | `examples/gallery/gallery.css` |
 | Interactive | `/examples/interactive/` | `examples/interactive/index.html` + the sample pages | inline |
 | For AI | `/for-ai.html` | `for-ai.html` (repository root); the recipe list is generated (`recipe-list` region) | `site/landing/landing.css` |
-| Playground | `/examples/playground.html` | `examples/playground.html` | inline (an app, not a document) |
 
 **Preview the whole site: `npm run site`.** It builds exactly what Pages serves (`scripts/stage-site.mjs`, the same script the workflow runs) into `_site/` and serves it on http://127.0.0.1:8080/. Run it again to pick up changes.
 The repository root is also the site root, but the staged copy is the truth: `stage-site.mjs` copies a list (never `tests/films`).

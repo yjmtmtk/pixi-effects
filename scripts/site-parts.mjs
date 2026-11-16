@@ -9,7 +9,6 @@ export const AUTHOR_X = 'https://x.com/t_yjm';
 export const NAV = [
   { id: 'gallery', label: 'Gallery', href: 'examples/gallery/' },
   { id: 'interactive', label: 'Interactive', href: 'examples/interactive/' },
-  { id: 'playground', label: 'Playground', href: 'examples/playground.html' },
   { id: 'forai', label: 'For AI', href: 'for-ai.html' },
 ];
 

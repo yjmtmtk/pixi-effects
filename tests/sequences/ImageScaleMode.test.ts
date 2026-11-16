@@ -33,7 +33,7 @@ describe('image scaleMode', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/hero.*scaleMode.*"crisp".*"nearest".*"linear"/));
   });
 
-  it('a layer that does not ask gets the asset\'s own mode back: the same spec draws the same picture whatever was built before it (a rebuild, a Playground re-run)', async () => {
+  it('a layer that does not ask gets the asset\'s own mode back: the same spec draws the same picture whatever was built before it (a rebuild, a page that runs it again)', async () => {
     await new ImageSequence({ type: 'image', asset: 'sprite', scaleMode: 'nearest' } as unknown as LayerSpec, comp, comp).build();
     expect(source().scaleMode).toBe('nearest');
     await new ImageSequence({ type: 'image', asset: 'sprite' } as unknown as LayerSpec, comp, comp).build();

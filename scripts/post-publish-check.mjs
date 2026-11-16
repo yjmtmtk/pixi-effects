@@ -13,13 +13,11 @@ import { spawnSync, execFileSync } from 'node:child_process';
 
 const version = process.argv[2] ?? JSON.parse(readFileSync('package.json', 'utf8')).version;
 const FILES = ['index.js', 'controller.js', 'present.js', '3d.js', 'loader.css', ...readdirSync('dist').filter(f => /^(music|blendModes)-.*\.js$/.test(f))];
-/** The tests that load the released library from the CDN (and the one that checks the Playground's saved page), by file and name. */
+/** The tests that load the released library from the CDN, by file and name. */
 export const CDN_TESTS = [
   ['tests/site/landing.test.ts'],
   ['tests/tools/chatTemplate.test.ts'],
-  ['tests/playground/doc.test.ts'],
   ['tests/tools/check.test.ts', '-t', 'first-video'],
-  ['tests/tools/playground.test.ts', '-t', 'Save HTML'],
 ];
 
 let failed = false;

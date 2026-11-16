@@ -313,7 +313,7 @@ export function reapStaleChrome(tmp = os.tmpdir()) {
   return result;
 }
 
-/** Start a private headless Chrome. `extraArgs`: more command-line flags (the tests use it for `--enable-features=WebMCP`). */
+/** Start a private headless Chrome. `extraArgs`: more command-line flags (a test that needs a browser feature switched on passes it here). */
 export async function launchChrome(chrome, userDataDir, extraArgs = []) {
   reapStaleChrome();                                                           // what an earlier run left behind (its owner is gone) goes first
   try { fs.writeFileSync(path.join(userDataDir, OWNER_FILE), String(process.pid)); } catch { /* a profile that cannot be marked is simply never swept */ }
@@ -543,7 +543,7 @@ export async function runCheck(opts, log = console.log) {
     Object.assign(report, { width: info.width, height: info.height, frameRate: info.frameRate, totalFrames: info.totalFrames, duration: info.duration, hasAudio: info.hasAudio, backend: info.backend });
     if (report.logs.length) report.problems.push(`${report.logs.length} console warning(s) / error(s) — each says what to change`);
 
-    // the library reviews the movie (layout over the whole timeline, fonts, sound): the same call the Playground and the WebMCP tools make
+    // the library reviews the movie (layout over the whole timeline, fonts, sound): the same call a page can make itself (`movie.review()`)
     if (!info.hasReview) throw new Error("this page's pixi-effects is older than the check tool: use 0.18 or newer (the version in the page's import map)");
 
     // a mistake in --at or --onion is a usage error: say so now, not after the slow work

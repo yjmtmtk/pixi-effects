@@ -12,14 +12,6 @@
       ]
     },
     {
-      "file": "examples/playground.html",
-      "current": "playground",
-      "parts": [
-        "head",
-        "header"
-      ]
-    },
-    {
       "file": "examples/gallery/index.html",
       "current": "gallery"
     },
