@@ -41,7 +41,7 @@ export const USAGE = `usage:
 
 const JSON_OPT = { flag: '--json', help: 'the same facts as JSON on stdout' };
 const FORCE_OPT = { flag: '--force', help: 'replace the output file if it exists' };
-const CHROME_OPT = { flag: '--chrome', value: 'PATH', help: 'the Chrome / Chromium to use (or CHROME_PATH)' };
+const CHROME_OPT = { flag: '--chrome', value: 'PATH', help: 'the Chrome / Chromium to use (or set CHROME_PATH)' };
 /** Each command: its words, its options (with the kind of value: a number is read as one), and its --help. */
 const COMMANDS = {
   probe: { usage: '<file|url> [options]', positional: ['file'], about: 'what is in a video or audio file: container, duration, tracks, codecs, size, notes (a .glb / .gltf model: its clips and size); no ffmpeg, no browser', options: [

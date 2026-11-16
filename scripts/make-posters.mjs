@@ -15,7 +15,7 @@ const ROOT = path.resolve(here, '..');
 
 export async function makePosters({ root = ROOT, only = null, scale = 0.5, log = console.log } = {}) {
   const chrome = findChrome();
-  if (!chrome) throw new Error('Chrome / Chromium not found: install it, or set CHROME=/path/to/chrome');
+  if (!chrome) throw new Error('Chrome / Chromium not found: install it, or set CHROME_PATH=/path/to/chrome');
   if (!fs.existsSync(path.join(root, 'dist/index.js'))) throw new Error('dist/ is missing: run `npm run build` first (the pieces load the local build)');
   const dir = path.join(root, GALLERY_DIR);
   const ids = fs.readdirSync(dir).filter(f => f.endsWith('.html') && f !== 'index.html').map(f => f.slice(0, -5)).sort();

@@ -76,3 +76,16 @@ describe('the contract is written where an agent reads it', () => {
     expect(skill).toMatch(/2[^\n]*command line is wrong/);
   });
 });
+
+describe('the Chrome path: one environment variable, CHROME_PATH', () => {
+  it('no help and no message names CHROME= any more', async () => {
+    const { readFileSync } = await import('node:fs');
+    for (const f of ['README.md', 'docs/media.md', 'skills/pixi-effects/SKILL.md', 'skills/pixi-effects/reference/cheatsheet.md', 'AGENTS.md']) {
+      expect(readFileSync(join(root, f), 'utf8'), f).not.toMatch(/\bCHROME=|\$CHROME\b/);
+    }
+    for (const f of ['ai/tools/check.mjs', 'ai/tools/render.mjs', 'ai/tools/mediaBrowser.mjs', 'ai/tools/media.mjs', 'scripts/make-posters.mjs']) {
+      expect(readFileSync(join(root, f), 'utf8'), f).not.toMatch(/CHROME=(PATH|\/)|or CHROME\b(?!_)/);
+    }
+    for (const cmd of ['check', 'render', 'frames']) expect(cli([cmd, '--help']).stdout, cmd).toMatch(/CHROME_PATH/);
+  });
+});

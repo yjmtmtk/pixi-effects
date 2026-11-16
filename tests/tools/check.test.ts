@@ -26,13 +26,23 @@ describe('check.mjs — pure helpers', () => {
     expect(() => tool.parseArgs(['p.html', '--frames'])).toThrow(/needs a value/);
   });
 
+  it('findChrome: CHROME alone is not read (one name for every command: CHROME_PATH, as chrome-launcher and Lighthouse) and one line says the new name', () => {
+    const said: string[] = [];
+    const say = (s: string) => said.push(s);
+    expect(tool.findChrome({ CHROME: '/x/chrome' }, (p: string) => p === '/x/chrome', 'linux', say)).toBeNull();
+    expect(said).toEqual(['CHROME is now CHROME_PATH (CHROME=/x/chrome is not read)']);
+    said.length = 0;
+    expect(tool.findChrome({ CHROME: '/x/old', CHROME_PATH: '/x/chrome' }, (p: string) => p === '/x/chrome', 'linux', say)).toBe('/x/chrome');
+    expect(said).toEqual([]);
+  });
+
   it('parseArgs: --strict', () => {
     expect(tool.parseArgs(['p.html', '--strict']).strict).toBe(true);
     expect(tool.parseArgs(['p.html']).strict).toBe(false);
   });
 
-  it('findChrome: $CHROME wins, then the usual places; null when there is none', () => {
-    expect(tool.findChrome({ CHROME: '/x/chrome' }, (p: string) => p === '/x/chrome', 'linux')).toBe('/x/chrome');
+  it('findChrome: $CHROME_PATH wins, then the usual places; null when there is none', () => {
+    expect(tool.findChrome({ CHROME_PATH: '/x/chrome' }, (p: string) => p === '/x/chrome', 'linux')).toBe('/x/chrome');
     expect(tool.findChrome({}, (p: string) => p === '/usr/bin/chromium', 'linux')).toBe('/usr/bin/chromium');
     expect(tool.findChrome({}, (p: string) => p.includes('Google Chrome.app'), 'darwin')).toContain('Google Chrome');
     expect(tool.findChrome({}, () => false, 'linux')).toBeNull();

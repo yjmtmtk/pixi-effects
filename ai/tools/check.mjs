@@ -10,7 +10,7 @@
  * decodes again: video size / length, audio length, loudness per second, silence. Output goes to `check-out/<name>/` (`--out DIR` writes straight into DIR, with no <name>/ inside it)
  * (`sheet.png`, `<name>.<format>`, `report.json`; a presentation with `stops` also gets `stops.png`, one picture per stop) and a short summary is printed. Exit code 0 = nothing to fix, 1 = problems, 2 = the command line is wrong.
  *
- * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or --chrome PATH / CHROME=PATH). No npm dependencies.
+ * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or --chrome PATH / CHROME_PATH). No npm dependencies.
  * The page must follow skills/pixi-effects/template.html: it exposes `window.movie` and sets `window.__ready = true` (and `window.__logs`).
  *
  * Options: `pixi-effects check --help` lists every one (they are SPEC below, read by args.mjs as every command reads its line).
@@ -65,9 +65,14 @@ export function formatLoadStages(stages) {
   return names.map(k => `${k} ${sec(stages[k])}${k === slowest ? ' (slowest)' : ''}`).join(' · ');
 }
 
-/** Chrome / Chromium executable: $CHROME, then the usual install paths. Null if none is found. */
-export function findChrome(env = process.env, exists = fs.existsSync, platform = process.platform) {
-  if (env.CHROME && exists(env.CHROME)) return env.CHROME;
+/**
+ * Chrome / Chromium executable: $CHROME_PATH (the name chrome-launcher and Lighthouse read), then the usual install paths. Null if none is found.
+ * The old name CHROME is not read: when it is set without CHROME_PATH, `say` gets one line with the new name.
+ */
+let saidChrome = false;
+export function findChrome(env = process.env, exists = fs.existsSync, platform = process.platform, say = (line) => { if (!saidChrome) { saidChrome = true; console.error(line); } }) {
+  if (env.CHROME_PATH && exists(env.CHROME_PATH)) return env.CHROME_PATH;
+  if (env.CHROME && !env.CHROME_PATH) say(`CHROME is now CHROME_PATH (CHROME=${env.CHROME} is not read)`);
   const candidates = platform === 'darwin'
     ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge']
     : platform === 'win32'
@@ -99,7 +104,7 @@ export const SPEC = {
     { flag: '--webgl', help: 'draw with WebGL, as a browser without WebGPU does (PE_BACKEND=webgl does the same)' },
     { flag: '--timeout', value: 'SECONDS', help: 'give up after that long (default 240)' },
     { flag: '--root', value: 'DIR', help: 'the folder served (default: the nearest folder above the page with dist/)' },
-    { flag: '--chrome', value: 'PATH', help: 'the Chrome / Chromium to use (or CHROME=PATH)' },
+    { flag: '--chrome', value: 'PATH', help: 'the Chrome / Chromium to use (or set CHROME_PATH)' },
   ],
   renamed: {},
 };
@@ -445,7 +450,7 @@ export async function runCheck(opts, log = console.log) {
   const outDir = path.resolve(opts.out ?? path.join('check-out', name));
   fs.mkdirSync(outDir, { recursive: true });
   const chrome = opts.chrome ?? findChrome();
-  if (!chrome) throw new Error('Chrome / Chromium not found: install it, or set CHROME=/path/to/chrome (or --chrome PATH)');
+  if (!chrome) throw new Error('Chrome / Chromium not found: install it, or set CHROME_PATH=/path/to/chrome (or --chrome PATH)');
   const root = path.resolve(opts.root ?? findRoot(path.dirname(pagePath)));
   if (!pagePath.startsWith(root)) throw new UsageError(`the page must be inside the server root (${root}); use --root`);
   const deadline = Date.now() + opts.timeout * 1000;
@@ -537,11 +542,11 @@ export async function runCheck(opts, log = console.log) {
     if (opts.at) {
       // the page's error is returned as a value: thrown, it would arrive with the page's stack trace
       const r = JSON.parse(await cdp.eval(`(() => { try { return JSON.stringify({ at: movie.resolveAt(${JSON.stringify(opts.at)}) }); } catch (e) { return JSON.stringify({ error: String(e && e.message || e) }); } })()`));
-      if (r.error) throw new Error(r.error.replace(/^pixi-effects: /, ''));
+      if (r.error) throw new UsageError(r.error.replace(/^pixi-effects: /, ''));
       atList = r.at;
     }
-    if (opts.crop && (opts.crop.x + opts.crop.width > info.width || opts.crop.y + opts.crop.height > info.height)) throw new Error(`--crop ${opts.crop.x},${opts.crop.y},${opts.crop.width},${opts.crop.height} goes past the canvas (${info.width}×${info.height})`);
-    if (opts.onion && opts.onion[1] > info.duration + 1e-9) throw new Error(`--onion ${opts.onion[0]}:${opts.onion[1]} goes past the end: the movie is ${info.duration} s`);
+    if (opts.crop && (opts.crop.x + opts.crop.width > info.width || opts.crop.y + opts.crop.height > info.height)) throw new UsageError(`--crop ${opts.crop.x},${opts.crop.y},${opts.crop.width},${opts.crop.height} goes past the canvas (${info.width}×${info.height})`);
+    if (opts.onion && opts.onion[1] > info.duration + 1e-9) throw new UsageError(`--onion ${opts.onion[0]}:${opts.onion[1]} goes past the end: the movie is ${info.duration} s`);
 
     const rv = await cdp.eval(`movie.review(${JSON.stringify({ strict: !!opts.strict })})`);
     const layoutProblems = rv.problems.filter(g => g.kind !== 'canvas'), canvasProblems = rv.problems.filter(g => g.kind === 'canvas');

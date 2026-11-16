@@ -8,7 +8,7 @@
  * (the contract of skills/pixi-effects/template.html), runs `movie.render()` in the page and streams the file to disk. Nothing is decoded or
  * reviewed: that is `pixi-effects check`'s job. Use this one to produce the file (a script, CI, a batch).
  *
- * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or CHROME=PATH / --chrome PATH). No npm dependencies.
+ * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or CHROME_PATH / --chrome PATH). No npm dependencies.
  * Exit code: 0 = the file was written, 1 = the page or the render failed (no file), 2 = bad usage.
  *
  * Options: `pixi-effects render --help` lists every one (they are SPEC below, read by args.mjs as every command reads its line).
@@ -70,7 +70,7 @@ export const SPEC = {
     { flag: '--webgl', help: 'draw with WebGL, as a browser without WebGPU does (PE_BACKEND=webgl does the same)' },
     { flag: '--timeout', value: 'SECONDS', help: 'give up after that long (default 900)' },
     { flag: '--root', value: 'DIR', help: 'the folder served (default: the nearest folder above the page with dist/)' },
-    { flag: '--chrome', value: 'PATH', help: 'the Chrome / Chromium to use (or CHROME=PATH)' },
+    { flag: '--chrome', value: 'PATH', help: 'the Chrome / Chromium to use (or set CHROME_PATH)' },
   ],
   renamed: { '--fail-on-warn': '--strict (the same word as in check: a warning, or anything it would only list, fails the run)' },
 };
@@ -210,7 +210,7 @@ export async function runRender(opts, log = console.log, progress = () => {}) {
   if (!fs.existsSync(pagePath)) throw new Error(`page not found: ${opts.page}`);
   const out = path.resolve(opts.out ?? defaultOutput(pagePath, opts.format));
   const chrome = opts.chrome ?? findChrome();
-  if (!chrome) throw new Error('Chrome / Chromium not found: install it, or set CHROME=/path/to/chrome (or --chrome PATH)');
+  if (!chrome) throw new Error('Chrome / Chromium not found: install it, or set CHROME_PATH=/path/to/chrome (or --chrome PATH)');
   const root = path.resolve(opts.root ?? findRoot(path.dirname(pagePath)));
   if (!pagePath.startsWith(root)) throw new UsageError(`the page must be inside the server root (${root}); use --root`);
   fs.mkdirSync(path.dirname(out), { recursive: true });
