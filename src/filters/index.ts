@@ -2,6 +2,7 @@ import type { Filter } from 'pixi.js';
 import type { FilterSpec, CustomFilterSpec } from '../types';
 import { ChromaKeyFilter } from './ChromaKey';
 import { createNamedFilter } from './named';
+import { isPlain } from '../core/isPlain';
 
 interface FilterCtor {
   new (params: Record<string, unknown>): Filter;
@@ -32,7 +33,7 @@ function looksLikePixiFilter(x: unknown): x is Filter {
  */
 function copyPlain<T>(v: T): T {
   if (Array.isArray(v)) return v.map(copyPlain) as unknown as T;
-  if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+  if (isPlain(v)) {
     return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, copyPlain(x)])) as T;
   }
   return v;

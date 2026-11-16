@@ -1,5 +1,6 @@
 import { RESERVED_NAMES, type VarValue } from './vars';
 import { suggestName } from './options';
+import { isPlain as isPlainObject } from './isPlain';
 import { describeLayer } from './lint';
 import type { LayerSpec } from '../types';
 
@@ -20,7 +21,7 @@ type Plain = Record<string, unknown>;
 const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const TOKEN = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 const NUMBER = /^\s*[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?\s*$/i;
-const isPlain = (v: unknown): v is Plain => !!v && typeof v === 'object' && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
+const isPlain = (v: unknown): v is Plain => isPlainObject(v);
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Every string in a value (a definition), at any depth. */
