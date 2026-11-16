@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>山水 · 水墨</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/loader.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=block" />
+  <style>
+    body { background: #1b1814; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(1280px, 100%); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="墨"></div>
+  </div>
+
+  <script>
+    window.__logs = [];
+    let group = '';
+    const text = (a) => { if (typeof a[0] === 'string' && a[0].includes('%')) { let i = 1; a = [a[0].replace(/%([csdifoO])/g, (_, f) => f === 'c' ? (i++, '') : String(a[i++])), ...a.slice(i)]; } return a.map(x => (x && x.message) || String(x)).join(' '); };
+    const gc = console.groupCollapsed.bind(console), ge = console.groupEnd.bind(console);
+    console.groupCollapsed = (...a) => { group = text(a); gc(...a); };
+    console.groupEnd = () => { group = ''; ge(); };
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + (group ? group + ' — ' : '') + text(a)); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/controller.js",
+      "pixi-effects/present":    "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/present.js"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie, ease, noise, noise2, random } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 15;
+    const FONT = 'Ma Shan Zheng';
+    const TAU = Math.PI * 2;
+    const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+    const ramp = (t, a, b) => clamp01((t - a) / (b - a));
+    const smooth = v => v * v * (3 - 2 * v);
+    const fbm2 = (x, y, seed, oct = 3) => { let s = 0, a = 0.5, f = 1; for (let i = 0; i < oct; i++) { s += a * noise2(x * f, y * f, seed + i * 17); a *= 0.5; f *= 2; } return s; };
+
+    // ── Story beats (seconds) ─────────────────────────────────────────
+    const DROP_AT = 0.6;                  // the ink drop lands
+    const C = { x: 430, y: 350 };         // where it lands: the main peak grows out of it
+    const BLEED_AT = 1.7;                 // the wash starts turning into mountains
+    const BOAT_AT = 5.9;                  // the splash droplet blooms into a boat
+    const BOAT = { x: 640, y: 606 };
+    const WRITE_AT = 8.6;                 // calligraphy starts
+    const SEAL_AT = 14.0;
+
+    // ── Ink helpers ───────────────────────────────────────────────────
+    const INK = '22,20,24';
+    // a closed blot with a ragged, fibrous edge: radius r, squashed by ry, edge wandering with t
+    function blotPath(g, cx, cy, r, { ry = 1, seed = 1, t = 0, rough = 1 } = {}) {
+      const N = 220;
+      g.beginPath();
+      for (let i = 0; i <= N; i++) {
+        const a = i / N * TAU, c = Math.cos(a), s = Math.sin(a);
+        const e = 1 / Math.sqrt(c * c + (s / ry) * (s / ry));
+        const n = rough * (0.15 * noise2(c * 1.6 + 0.12 * t, s * 1.6, seed)
+                + 0.07 * noise2(c * 5, s * 5 + 0.05 * t, seed + 1)
+                + 0.035 * noise2(c * 24, s * 24, seed + 2));
+        const rr = r * e * (1 + n);
+        const x = cx + c * rr, y = cy + s * rr;
+        i ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.closePath();
+    }
+
+    // ── Paper (宣纸) ──────────────────────────────────────────────────
+    const paper = {
+      type: 'canvas', name: 'paper', width: W, height: H,
+      setup(info) {
+        const c = info.canvas(W, H), g = c.getContext('2d');
+        const img = g.createImageData(W, H), d = img.data;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          const v = 0.05 * fbm2(x / 220, y / 220, 3) + 0.022 * noise2(x / 6, y / 6, 9) + 0.012 * noise2(x / 1.7, y / 1.7, 13);
+          const i = (y * W + x) * 4;
+          d[i] = 240 * (1 + v); d[i + 1] = 232 * (1 + v); d[i + 2] = 214 * (1 + v * 1.1); d[i + 3] = 255;
+        }
+        g.putImageData(img, 0, 0);
+        const rnd = random(77);                       // paper fibres
+        for (let k = 0; k < 1400; k++) {
+          const x = rnd() * W, y = rnd() * H, a = rnd() * TAU, L = 6 + rnd() * 26;
+          g.strokeStyle = rnd() < 0.5 ? 'rgba(255,252,240,0.18)' : 'rgba(150,130,100,0.07)';
+          g.lineWidth = 0.6 + rnd() * 0.8;
+          g.beginPath(); g.moveTo(x, y);
+          g.quadraticCurveTo(x + Math.cos(a) * L * 0.5 + (rnd() - 0.5) * 6, y + Math.sin(a) * L * 0.5 + (rnd() - 0.5) * 6, x + Math.cos(a) * L, y + Math.sin(a) * L);
+          g.stroke();
+        }
+        const vg = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, W * 0.75);
+        vg.addColorStop(0, 'rgba(120,95,60,0)'); vg.addColorStop(1, 'rgba(110,85,50,0.30)');
+        g.fillStyle = vg; g.fillRect(0, 0, W, H);
+        return { c };
+      },
+      draw(ctx, t, info) { ctx.drawImage(info.state.c, 0, 0); },
+    };
+
+    // ── Mountains (painted once, revealed by the spreading wash) ──────
+    const RANGES = [
+      { strength: 0.24, fall: 110, base: 600, seed: 11, far: true,  peaks: [[640, 235, 290], [910, 465, 180], [1200, 515, 220], [160, 360, 200]] },
+      { strength: 0.50, fall: 140, base: 620, seed: 23, far: false, peaks: [[300, 280, 240], [760, 385, 200], [1070, 545, 170]] },
+      { strength: 0.93, fall: 175, base: 640, seed: 37, far: false, peaks: [[430, 190, 225], [215, 345, 160], [630, 330, 180], [60, 430, 170], [860, 490, 140]] },
+    ];
+    function ridgeOf(R, x) {
+      let y = R.base;
+      R.peaks.forEach(([cx, top, w], k) => {
+        const hgt = R.base - top, side = k % 2 ? 1 : -1;
+        // the peak, a lower shoulder on one side and a small knoll on the other: no two summits alike
+        for (const [ox, hs, ws] of [[0, 1, 1], [side * 0.48, 0.58, 0.42], [-side * 0.62, 0.3, 0.3]]) {
+          const dx = x - (cx + ox * w), ww = w * ws * (dx < 0 ? 0.86 + 0.1 * (k % 3) : 1.14 - 0.1 * (k % 3));
+          const e = 1 - Math.abs(dx) / ww;
+          if (e > 0) y = Math.min(y, R.base - hgt * hs * Math.pow(smooth(e), 0.85 + 0.12 * (k % 3)));
+        }
+      });
+      return y + 20 * fbm2(x / 130, 0.5, R.seed, 3) + 7 * fbm2(x / 32, 1.5, R.seed + 2, 3) + 2.2 * noise(x / 5, R.seed + 5);
+    }
+    function paintRanges(ranges, info) {
+      const c = info.canvas(W, H), g = c.getContext('2d');
+      const img = g.createImageData(W, H), d = img.data;
+      const D = new Float32Array(W * H);
+      for (const R of ranges) {
+        for (let x = 0; x < W; x++) {
+          const ry = ridgeOf(R, x);
+          const y0 = Math.max(0, Math.floor(ry - 2)), y1 = Math.min(H - 1, Math.ceil(ry + R.fall * 4));
+          for (let y = y0; y <= y1; y++) {
+            const dd = y - ry;
+            if (dd < -1.2) continue;
+            const streak = 0.5 + 0.5 * noise2(x / 4.5, y / 48, R.seed + 3);            // 披麻皴: vertical brush streaks
+            const blotch = fbm2(x / 90, y / 90, R.seed + 7, 2);
+            let a = R.strength * (0.52 * Math.exp(-Math.max(dd, 0) / R.fall) + 0.48 * Math.exp(-Math.max(dd, 0) / 13));
+            a *= 0.66 + 0.34 * streak + 0.18 * blotch;
+            if (dd < 0) a *= 1 + dd / 1.2;                                                 // antialiased ridge
+            a *= clamp01((700 - y) / 150);                                                  // mist at the foot
+            const i = y * W + x;
+            D[i] = a + D[i] * (1 - a);
+          }
+        }
+      }
+      const col = ranges[0].far ? [78, 84, 94] : [24, 22, 26];
+      for (let i = 0; i < W * H; i++) {
+        const a = clamp01(D[i]);
+        d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = a * 255;
+      }
+      g.putImageData(img, 0, 0);
+      return c;
+    }
+    const bleedRadius = (t, start, dur) => 1380 * ease('power2.out')(ramp(t, start, start + dur));
+    const mountains = {
+      type: 'canvas', name: 'mountains', width: W, height: H,
+      setup(info) {
+        return {
+          far: paintRanges(RANGES.filter(r => r.far), info),
+          near: paintRanges(RANGES.filter(r => !r.far), info),
+          s: info.canvas(W, H),
+        };
+      },
+      draw(ctx, t, info) {
+        const { far, near, s } = info.state, g = s.getContext('2d');
+        const wet = 1 - ramp(t, 6.0, 9.0);
+        const reveal = (img, start, dur, seed, alpha) => {
+          const r = bleedRadius(t, start, dur);
+          if (r <= 1) return;
+          g.clearRect(0, 0, W, H);
+          g.globalCompositeOperation = 'source-over';
+          g.filter = 'blur(12px)'; g.fillStyle = '#fff';
+          blotPath(g, C.x, C.y, r, { ry: 0.55, seed, t }); g.fill();
+          g.filter = 'none'; g.globalCompositeOperation = 'source-in';
+          g.drawImage(img, 0, 0);
+          g.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = alpha; ctx.drawImage(s, 0, 0); ctx.globalAlpha = 1;
+        };
+        // wet paper: the wash darkens the paper a touch and leaves a tide line, then dries
+        const rw = bleedRadius(t, BLEED_AT, 5.2);
+        if (rw > 1 && wet > 0) {
+          ctx.save();
+          ctx.filter = 'blur(10px)'; ctx.fillStyle = `rgba(120,100,70,${0.07 * wet})`;
+          blotPath(ctx, C.x, C.y, rw * 1.04, { ry: 0.55, seed: 41, t }); ctx.fill();
+          ctx.filter = 'blur(2px)'; ctx.strokeStyle = `rgba(70,58,44,${0.16 * wet})`; ctx.lineWidth = 2.5; ctx.stroke();
+          ctx.restore();
+        }
+        reveal(far, BLEED_AT + 1.0, 5.6, 51, ramp(t, BLEED_AT + 1.0, BLEED_AT + 4.0));
+        reveal(near, BLEED_AT, 5.2, 41, 1);
+      },
+    };
+
+    // ── The ink drop and its splash ───────────────────────────────────
+    const rndS = random(7);
+    const SPLASH = Array.from({ length: 8 }, () => ({ a: rndS() * TAU, d: 120 + rndS() * 150, s: 2.5 + rndS() * 5.5, seed: Math.floor(rndS() * 1000) }));
+    const FIBRES = Array.from({ length: 90 }, (_, i) => ({ a: (i + rndS()) / 90 * TAU, l: 0.08 + rndS() * 0.32, w: 0.5 + rndS() * 0.9 }));
+    const drop = {
+      type: 'canvas', name: 'drop', width: W, height: H,
+      draw(ctx, t) {
+        if (t < 0.15) return;
+        if (t < DROP_AT) {                                            // falling toward the paper: shrinks as it lands
+          const k = ramp(t, 0.15, DROP_AT);
+          ctx.fillStyle = `rgba(${INK},${0.25 * k})`;
+          ctx.beginPath(); ctx.ellipse(C.x + 14 * (1 - k), C.y + 22 * (1 - k), 9 + 9 * (1 - k), 6 + 6 * (1 - k), 0, 0, TAU); ctx.fill();   // its shadow
+          ctx.fillStyle = `rgba(${INK},${k})`;
+          ctx.beginPath(); ctx.arc(C.x, C.y, 7 + 13 * (1 - k) * (1 - k), 0, TAU); ctx.fill();
+          return;
+        }
+        const tt = t - DROP_AT;
+        const fade = 1 - smooth(ramp(t, 2.0, 4.4));
+        if (fade <= 0) return;
+        const r = 8 + 92 * (1 - Math.exp(-tt * 1.25));
+        const rh = r * (1.15 + 0.5 * (1 - Math.exp(-tt * 0.8)));
+        ctx.save();
+        ctx.globalAlpha = fade;
+        // halo: the pale water that runs ahead of the pigment
+        ctx.filter = 'blur(6px)'; ctx.fillStyle = `rgba(${INK},0.16)`;
+        blotPath(ctx, C.x, C.y, rh, { seed: 8, t: tt * 3, rough: 1.6 }); ctx.fill();
+        // fibres: ink creeping along the paper's fibres
+        ctx.filter = 'blur(0.6px)'; ctx.strokeStyle = `rgba(${INK},0.22)`;
+        for (const f of FIBRES) {
+          ctx.lineWidth = f.w;
+          ctx.beginPath();
+          ctx.moveTo(C.x + Math.cos(f.a) * r * 0.92, C.y + Math.sin(f.a) * r * 0.92);
+          ctx.lineTo(C.x + Math.cos(f.a + 0.04) * r * (1 + f.l), C.y + Math.sin(f.a + 0.04) * r * (1 + f.l));
+          ctx.stroke();
+        }
+        // core: dense in the middle, a darker rim where pigment piles up
+        ctx.filter = 'blur(2px)';
+        const gr = ctx.createRadialGradient(C.x, C.y, 0, C.x, C.y, r * 1.1);
+        gr.addColorStop(0, `rgba(${INK},0.95)`); gr.addColorStop(0.55, `rgba(${INK},0.80)`);
+        gr.addColorStop(0.85, `rgba(${INK},0.88)`); gr.addColorStop(1, `rgba(${INK},0.5)`);
+        ctx.fillStyle = gr;
+        blotPath(ctx, C.x, C.y, r, { seed: 5, t: tt * 2 }); ctx.fill();
+        // splash droplets
+        ctx.filter = 'blur(1px)'; ctx.fillStyle = `rgba(${INK},0.9)`;
+        const fly = ease('power3.out')(clamp01(tt / 0.14));
+        for (const p of SPLASH) {
+          const rr = p.s * (1 + 0.7 * (1 - Math.exp(-tt * 2)));
+          blotPath(ctx, C.x + Math.cos(p.a) * p.d * fly, C.y + Math.sin(p.a) * p.d * fly, rr, { seed: p.seed, rough: 1.4 }); ctx.fill();
+        }
+        ctx.restore();
+      },
+    };
+
+    // ── Mist drifting along the mountain feet ─────────────────────────
+    const mist = {
+      type: 'canvas', name: 'mist', width: W, height: H,
+      setup(info) {
+        const c = info.canvas(1700, H), g = c.getContext('2d'), rnd = random(19);
+        g.filter = 'blur(34px)';
+        for (const band of [[520, 70, 0.75], [445, 40, 0.5], [365, 30, 0.35]]) {
+          for (let k = 0; k < 9; k++) {
+            g.fillStyle = `rgba(242,235,219,${band[2] * (0.6 + 0.4 * rnd())})`;
+            g.beginPath(); g.ellipse(rnd() * 1700, band[0] + (rnd() - 0.5) * band[1], 140 + rnd() * 220, band[1] * (0.5 + 0.5 * rnd()), 0, 0, TAU); g.fill();
+          }
+        }
+        return { c };
+      },
+      draw(ctx, t, info) {
+        ctx.globalAlpha = smooth(ramp(t, 3.2, 7.0));
+        ctx.drawImage(info.state.c, -120 - t * 13, 0);
+      },
+    };
+
+    // ── The boat (an old fisherman alone on the cold river) ───────────
+    function paintBoat(info) {
+      const c = info.canvas(300, 170), g = c.getContext('2d');
+      const ox = 150, oy = 100;
+      g.translate(ox, oy);
+      g.lineCap = 'round'; g.lineJoin = 'round';
+      // reflection
+      g.save(); g.scale(1, -0.45); g.translate(0, -26);
+      g.globalAlpha = 0.18; drawHull(g); g.restore();
+      g.globalAlpha = 1;
+      // rod and line
+      g.strokeStyle = `rgba(${INK},0.85)`; g.lineWidth = 1.6;
+      g.beginPath(); g.moveTo(26, -16); g.quadraticCurveTo(62, -42, 104, -50); g.stroke();
+      g.strokeStyle = `rgba(${INK},0.4)`; g.lineWidth = 0.8;
+      g.beginPath(); g.moveTo(104, -50); g.quadraticCurveTo(108, -18, 110, 10); g.stroke();
+      // canopy (篷): a low woven arch, paler than the hull, with a few ribs
+      g.fillStyle = `rgba(${INK},0.55)`;
+      g.beginPath(); g.moveTo(-44, -5); g.bezierCurveTo(-42, -19, -4, -21, 2, -5); g.closePath(); g.fill();
+      g.strokeStyle = `rgba(${INK},0.75)`; g.lineWidth = 1;
+      for (const rx of [-34, -24, -14, -5]) { g.beginPath(); g.moveTo(rx, -5); g.lineTo(rx + 1, -16 + Math.abs(rx + 20) * 0.12); g.stroke(); }
+      // fisherman: straw cape, a conical hat sitting on it
+      g.fillStyle = `rgba(${INK},0.92)`;
+      g.beginPath(); g.moveTo(13, -4); g.quadraticCurveTo(15, -17, 22, -21); g.quadraticCurveTo(29, -16, 31, -4); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(8, -19); g.quadraticCurveTo(22, -24, 36, -19); g.lineTo(22, -31); g.closePath(); g.fill();
+      drawHull(g);
+      return c;
+    }
+    function drawHull(g) {
+      g.fillStyle = `rgba(${INK},0.95)`;
+      g.beginPath();
+      g.moveTo(-74, -10);
+      g.bezierCurveTo(-46, 12, 40, 14, 70, -12);
+      g.bezierCurveTo(40, -2, -40, -1, -74, -10);
+      g.fill();
+    }
+    const WATER = [[612, 120, 520, 1.4], [636, 260, 470, 1.1], [664, 60, 380, 0.9], [694, 420, 560, 0.8]];
+    const boat = {
+      type: 'canvas', name: 'boat', width: W, height: H,
+      setup(info) { return { sprite: paintBoat(info), s: info.canvas(W, H) }; },
+      draw(ctx, t, info) {
+        if (t < DROP_AT) return;
+        const { sprite, s } = info.state, g = s.getContext('2d');
+        const drift = Math.max(0, t - BOAT_AT);
+        const bx = BOAT.x - 3.2 * drift, by = BOAT.y + 1.6 * Math.sin(drift * 1.4);
+        // the splash droplet that flew this far
+        const fly = ease('power3.out')(clamp01((t - DROP_AT) / 0.16));
+        const dx = C.x + (BOAT.x - C.x) * fly, dy = C.y + (BOAT.y - C.y) * fly;
+        const bloom = ramp(t, BOAT_AT, BOAT_AT + 1.1);
+        const dotFade = 1 - ramp(t, BOAT_AT + 0.3, BOAT_AT + 1.2);
+        if (dotFade > 0) {
+          ctx.save(); ctx.filter = 'blur(1px)'; ctx.fillStyle = `rgba(${INK},${0.9 * dotFade})`;
+          blotPath(ctx, dx, dy, 6 + 22 * ease('power2.out')(bloom), { seed: 61, t: t * 2, rough: 1.5 }); ctx.fill(); ctx.restore();
+        }
+        // water lines brushed in under the boat
+        ctx.save(); ctx.lineCap = 'round';
+        WATER.forEach(([y, x0, len, w], i) => {
+          const p = ease('power2.inOut')(ramp(t, BOAT_AT + 0.3 + i * 0.25, BOAT_AT + 1.6 + i * 0.25));
+          if (p <= 0) return;
+          // one tapered filled stroke (no overlapping segments, so no beads)
+          const N = 60, top = [], bot = [];
+          for (let k = 0; k <= N; k++) {
+            const u = k / N * p, x = x0 + len * u, yy = y + 3 * noise(u * 4 + t * 0.15, i);
+            const hw = 0.5 * w * (0.25 + 1.75 * Math.pow(Math.sin(Math.PI * u), 0.7)) * (k === N ? 0.4 : 1);
+            top.push([x, yy - hw]); bot.push([x, yy + hw]);
+          }
+          ctx.fillStyle = `rgba(${INK},${0.24 - i * 0.035})`;
+          ctx.beginPath(); top.forEach(([x, yy], k) => k ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy));
+          for (let k = bot.length - 1; k >= 0; k--) ctx.lineTo(bot[k][0], bot[k][1]);
+          ctx.closePath(); ctx.fill();
+        });
+        ctx.restore();
+        if (bloom <= 0) return;
+        // the boat appears inside its own little bleed
+        g.clearRect(0, 0, W, H);
+        g.filter = 'blur(5px)'; g.fillStyle = '#fff';
+        blotPath(g, dx, dy - 8, 150 * ease('power2.out')(bloom), { ry: 0.7, seed: 63, t: t * 2 }); g.fill();
+        g.filter = 'none'; g.globalCompositeOperation = 'source-in';
+        g.drawImage(sprite, bx - 150, by - 100);
+        g.globalCompositeOperation = 'source-over';
+        ctx.drawImage(s, 0, 0);
+        // ripples
+        ctx.save(); ctx.lineCap = 'round';
+        for (let i = 0; i < 3; i++) {
+          const ph = drift * 0.9 + i * 0.7, L = 30 + 14 * i + 6 * Math.sin(ph);
+          ctx.strokeStyle = `rgba(${INK},${(0.34 - i * 0.08) * bloom})`; ctx.lineWidth = 1.6 - i * 0.35;
+          ctx.beginPath(); ctx.moveTo(bx - 20 - L, by + 12 + i * 6); ctx.lineTo(bx + 10 + L * 0.6, by + 12 + i * 6); ctx.stroke();
+        }
+        ctx.restore();
+      },
+    };
+
+    // ── Calligraphy 山水, written stroke by stroke ────────────────────
+    // Each stroke is the brush's centre line in a 10×10 grid over the glyph's box (box B, font size 0.9B, centred).
+    // Every ink pixel of the glyph belongs to the nearest stroke and is uncovered when the brush passes it.
+    const BOX = 260;
+    const GLYPHS = [
+      { ch: '山', cx: 1062, cy: 228, strokes: [
+        { d: 0.50, pts: [[4.7, 2.1], [4.6, 5.0], [4.5, 7.5], [4.4, 8.3]] },
+        { d: 0.62, pts: [[2.2, 5.0], [1.5, 7.0], [1.7, 8.1], [2.6, 7.7], [3.6, 7.4], [4.6, 7.25], [5.8, 7.2], [7.1, 7.25]] },
+        { d: 0.18, pts: [[2.85, 6.0], [3.7, 6.75]] },
+        { d: 0.45, pts: [[7.8, 5.4], [8.15, 6.6], [7.7, 7.9]] },
+      ] },
+      { ch: '水', cx: 1062, cy: 470, strokes: [
+        { d: 0.66, pts: [[4.35, 1.4], [4.35, 5.0], [4.3, 8.0], [4.1, 8.8], [3.6, 8.4], [3.0, 8.0]] },
+        { d: 0.62, pts: [[1.8, 5.4], [2.8, 4.8], [3.85, 4.4], [3.6, 5.4], [2.8, 6.8], [1.9, 7.8], [1.1, 8.6]] },
+        { d: 0.34, pts: [[7.0, 2.8], [6.0, 4.0], [5.2, 4.8]] },
+        { d: 0.62, pts: [[5.3, 5.1], [6.0, 6.2], [7.2, 7.2], [8.9, 7.75]] },
+      ] },
+    ];
+    // timeline of strokes
+    const STROKES = [];
+    { let tt = WRITE_AT;
+      GLYPHS.forEach((G, gi) => {
+        if (gi) tt += 0.3;
+        G.strokes.forEach((s, si) => { STROKES.push({ g: gi, si, at: tt, d: s.d }); tt += s.d + 0.12; });
+      });
+      window.__writeEnd = tt;
+    }
+    const calligraphy = {
+      type: 'canvas', name: 'calligraphy', width: W, height: H,
+      async setup(info) {
+        const glyphs = GLYPHS.map((G, gi) => {
+          const c = info.canvas(BOX, BOX), g = c.getContext('2d');
+          g.fillStyle = '#000'; g.font = `${BOX * 0.9}px "${FONT}"`; g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillText(G.ch, BOX / 2, BOX / 2);
+          const src = g.getImageData(0, 0, BOX, BOX).data;
+          const k = BOX / 10;
+          const strokes = G.strokes.map(s => {
+            const p = s.pts.map(([x, y]) => [x * k, y * k]);
+            const segs = []; let acc = 0;
+            for (let i = 0; i < p.length - 1; i++) { const L = Math.hypot(p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1]); segs.push({ a: p[i], b: p[i + 1], L, s0: acc }); acc += L; }
+            return { segs, len: acc };
+          });
+          const pix = [];
+          for (let y = 0; y < BOX; y++) for (let x = 0; x < BOX; x++) {
+            const al = src[(y * BOX + x) * 4 + 3];
+            if (al < 4) continue;
+            let best = 1e9, bs = 0, bu = 0;
+            strokes.forEach((S, si) => {
+              for (const sg of S.segs) {
+                const vx = sg.b[0] - sg.a[0], vy = sg.b[1] - sg.a[1];
+                const q = clamp01(((x - sg.a[0]) * vx + (y - sg.a[1]) * vy) / (sg.L * sg.L));
+                const dd = Math.hypot(x - sg.a[0] - vx * q, y - sg.a[1] - vy * q);
+                if (dd < best) { best = dd; bs = si; bu = sg.s0 + q * sg.L; }
+              }
+            });
+            const grain = 0.9 + 0.1 * noise2(x / 3.5, y / 3.5, 90 + gi);
+            pix.push(y * BOX + x, al * grain, bs, bu);
+          }
+          return { pix, strokes, out: info.canvas(BOX, BOX) };
+        });
+        return { glyphs };
+      },
+      draw(ctx, t, info) {
+        if (t < WRITE_AT) return;
+        const inOut = ease('sine.inOut');
+        info.state.glyphs.forEach((G, gi) => {
+          const prog = G.strokes.map((S, si) => {
+            const st = STROKES.find(s => s.g === gi && s.si === si);
+            return -5 + inOut(ramp(t, st.at, st.at + st.d)) * (S.len + 10);   // -5 … len+5: no half-lit pixels at either end
+          });
+          if (prog.every(p => p <= 0)) return;
+          const g = G.out.getContext('2d');
+          const img = g.createImageData(BOX, BOX), d = img.data;
+          const P = G.pix;
+          for (let i = 0; i < P.length; i += 4) {
+            const f = clamp01((prog[P[i + 2]] - P[i + 3]) / 7 + 0.5);
+            if (f <= 0) continue;
+            const o = P[i] * 4;
+            d[o] = 18; d[o + 1] = 16; d[o + 2] = 18; d[o + 3] = P[i + 1] * f;
+          }
+          g.putImageData(img, 0, 0);
+          const ox = GLYPHS[gi].cx - BOX / 2, oy = GLYPHS[gi].cy - BOX / 2;
+          ctx.save();
+          ctx.filter = 'blur(3px)'; ctx.globalAlpha = 0.22; ctx.drawImage(G.out, ox, oy);      // the wet bleed around fresh ink
+          ctx.filter = 'blur(0.4px)'; ctx.globalAlpha = 1; ctx.drawImage(G.out, ox, oy);
+          ctx.restore();
+        });
+      },
+    };
+
+    // ── Seal ──────────────────────────────────────────────────────────
+    const seal = {
+      type: 'composition', name: 'seal', width: 52, height: 52, at: SEAL_AT, blendMode: 'multiply',
+      initial: { x: 1062, y: 636, pivotX: 26, pivotY: 26, alpha: 0 },
+      keyframes: [{ at: 0, from: { alpha: 0, scale: 1.35 }, to: { alpha: 0.9, scale: 1 }, duration: 0.2, ease: 'power2.in' }],
+      layers: [
+        { type: 'shape', shape: 'rect', width: 50, height: 50, cornerRadius: 5, initial: { x: 26, y: 26, fill: '#b02a20' } },
+        { type: 'text', name: 'seal-text', text: '墨\n韵', style: { fontFamily: FONT, fontSize: 21, lineHeight: 21, fill: '#ffffff', align: 'center' },
+          initial: { x: 26, y: 27, anchorX: 0.5, anchorY: 0.5 } },
+      ],
+    };
+
+    // ── Sound: guzheng-like plucks in D pentatonic, a low drone, ink and brush ──
+    const BPM = 64, BEAT = 60 / BPM;
+    const seq = (items) => items.map(([n, l]) => `${n}:${l}`).join(' ');
+    const gliss = (notes, each) => notes.map(n => [n, each]);
+    const trem = (n, count, each) => Array.from({ length: count }, () => [n, each]);
+    const melodyItems = [
+      ['_', 0.36], ...gliss(['a3', 'b3', 'd4', 'e4', 'f#4', 'a4', 'b4'], 0.04), ['d5', 1.36],      // the drop lands on d5
+      ['b4', 0.5], ['a4', 0.5], ['f#4', 1],
+      ['e4', 0.5], ['f#4', 0.5], ['a4', 1.5], ['b4', 0.5],
+      ['d5', 0.75], ['b4', 0.25], ['a4', 1], ['_', 0.25],
+      ['f#4', 0.5], ['a4', 0.5], ['b4', 1],
+      ['e5', 1], ...trem('d5', 8, 0.125),
+      ['b4', 0.5], ['a4', 1],
+      ...gliss(['a4', 'b4', 'd5', 'e5', 'f#5', 'a5', 'b5'], 0.035), ['d6', 1.2],
+    ];
+    const melody = seq(melodyItems);
+    const music = {
+      bpm: BPM, reverb: 0.5, seed: 3,
+      tracks: [
+        { inst: 'pluck', vol: 0.95, pan: 0.1, tone: 0.75, reverb: 0.6, notes: melody },
+        { inst: 'pluck', vol: 0.6, pan: -0.2, tone: 0.45, reverb: 0.5, strum: 0.03,
+          notes: '_:0.64 [d3 a3]:3.36 a2:4 [b2 f#3]:4 e3:2.8 _:0.25 [d2 a2 d3]:1' },
+        { inst: 'pad', vol: [[0, 0], [3, 0.22], [14, 0.22], [16, 0]], tone: 0.3, attack: 2, release: 2, notes: '[d2 a2]:16' },
+      ],
+    };
+    const strokeSfx = STROKES.map((s, i) => ({ type: 'audio', name: `brush${i}`, at: Math.max(0, s.at - 0.08), volume: 0.55,
+      sfx: { preset: 'swoosh', pitch: -7, brightness: -0.85, seed: i + 1 } }));
+
+    const layers = [
+      { type: 'composition', name: 'scene', width: W, height: H,
+        initial: { x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2 },
+        keyframes: [{ at: 0, from: { scale: 1 }, to: { scale: 1.04 }, duration: DURATION, ease: 'sine.inOut' }],
+        layers: [paper, mountains, mist, drop, boat, calligraphy, seal] },
+      { type: 'audio', name: 'guzheng', at: 0, volume: 0.9, music },
+      { type: 'audio', name: 'drip', at: DROP_AT, volume: 0.9, sfx: { preset: 'pop', pitch: -3, brightness: -0.4 } },
+      { type: 'audio', name: 'drip2', at: BOAT_AT, volume: 0.45, sfx: { preset: 'pop', pitch: 4, brightness: -0.5, seed: 2 } },
+      ...strokeSfx,
+      { type: 'audio', name: 'stamp', at: SEAL_AT + 0.18, volume: 0.45, sfx: { preset: 'hit', pitch: 6, brightness: -0.7 } },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await document.fonts.load(`200px "${FONT}"`, '山水墨韵');
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 14.6,
+        loudness: -16,
+        background: '#efe7d5',
+        composition: { layers },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

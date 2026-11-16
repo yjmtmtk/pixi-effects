@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ネオン商店街 — OPEN</title>
+  <title>夜の商店街 — OPEN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@800;900&display=block" />
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@800&display=block" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/loader.css" />
   <style>
-    body { background: #05040a; margin: 0; padding: 16px; }
-    .stage { position: relative; width: min(420px, 100%); margin: 0 auto; }
+    body { background: #05060d; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    .stage { position: relative; width: min(420px, 100%); }
     .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
   </style>
 </head>
@@ -49,346 +49,246 @@
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js" />
 
   <script type="module">
-    import { Movie, splitText, particles } from 'pixi-effects';
+    import { Movie, splitText, measureText, random } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
 
     const W = 1080, H = 1920, FPS = 30, DURATION = 15;
-    const BPM = 96, B = 60 / BPM;            // one beat = 0.625 s, a bar = 2.5 s
-    const T_OPEN = 16 * B;                   // 10.0 s: the downbeat of bar 5, OPEN flashes
+    const BPM = 96, BEAT = 60 / BPM;              // 0.625 s; a bar = 2.5 s, the movie = 6 bars = 24 beats
     const FONT = '"M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif';
-    await document.fonts.load(`900 120px "M PLUS Rounded 1c"`, 'ネオン商店街中華そば喫茶ルナ居酒屋BAROPEN');
-    await document.fonts.load(`800 120px "M PLUS Rounded 1c"`, 'ネオン商店街中華そば喫茶ルナ居酒屋BAROPEN');
 
-    // ---------- helpers ----------
-    const hex = (c) => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
-    const rgba = (c, a) => { const [r, g, b] = hex(c); return `rgba(${r},${g},${b},${a})`; };
-    const pale = (c, k = 0.55) => '#' + hex(c).map(v => Math.round(v + (255 - v) * k).toString(16).padStart(2, '0')).join('');
-
-    // neon tube flicker on ignition: a few hard on/off steps, then steady
-    const IGNITE = [[0, 1], [0.04, 0.12], [0.08, 0.9], [0.13, 0.3], [0.19, 1]];
-    const igniteKeys = (dt = 0) => IGNITE.map(([t, a]) => ({ at: dt + t, set: { alpha: a } }));
-    // a later "bad tube" stutter
-    const stutterKeys = (dt) => [[0, 0.25], [0.05, 1], [0.11, 0.2], [0.16, 0.85], [0.3, 0.35], [0.36, 1]].map(([t, a]) => ({ at: dt + t, set: { alpha: a } }));
-
-    // one neon glyph: an unlit glass tube (always there) + the lit tube (from t0) with a coloured glow
-    function neonGlyph({ name, ch, x, y, size, color, t0, weight = 800, rotation = 0, stutter = [], anchor = 0.5 }) {
-      const base = { fontFamily: FONT, fontSize: size, fontWeight: String(weight), padding: 40 };
-      const off = {
-        type: 'text', name: name + '-off', text: ch,
-        style: { ...base, fill: '#1b1422', stroke: { color: '#3a2c44', width: Math.round(size * 0.05), join: 'round' } },
-        initial: { x, y, anchorX: anchor, anchorY: 0.5, rotation },
-      };
-      const on = {
-        type: 'text', name, text: ch, at: t0, duration: DURATION - t0,
-        style: { ...base, fill: pale(color, 0.72), stroke: { color, width: Math.round(size * 0.07), join: 'round' } },
-        initial: { x, y, anchorX: anchor, anchorY: 0.5, rotation, alpha: 0 },
-        filters: [{ type: 'glow', name: 'g', color, distance: Math.round(size * 0.3), outerStrength: 4, innerStrength: 0.8, quality: 0.15 }],
-        keyframes: [...igniteKeys(0), ...stutter.flatMap(s => stutterKeys(s - t0))],
-      };
-      return [off, on];
-    }
-
-    // a sign's back panel (dark box with a metal rim)
-    const panel = (name, x, y, w, h, r = 22) => ({
-      type: 'shape', name, shape: 'rect', width: w, height: h, cornerRadius: r,
-      initial: { x, y, fill: '#0b0812', stroke: '#2e2538', strokeWidth: 6 },
-    });
-
-    // the light a sign throws around itself: grows with each letter that comes on
-    function spill(name, x, y, w, h, color, times, max = 0.55) {
-      const n = times.length;
-      return {
-        type: 'shape', name, shape: 'ellipse', radiusX: w / 2, radiusY: h / 2, blendMode: 'add',
-        fillGradient: { type: 'radial', stops: [[0, rgba(color, 0.55)], [0.45, rgba(color, 0.18)], [1, rgba(color, 0)]] },
-        initial: { x, y, alpha: 0 },
-        keyframes: times.map((t, i) => ({ at: t, to: { alpha: max * (i + 1) / n }, duration: 0.2, ease: 'power2.out' })),
-      };
-    }
-
-    // ---------- timing (all on the 96 bpm grid) ----------
-    const ARCH = { text: 'ネオン商店街', color: '#4fd8ff', y: 300, size: 128, pitch: 148 };
-    const archT = [...ARCH.text].map((_, i) => (1 + i) * B);                        // quarter notes, beats 1–6
-    const LEFT = { text: '中華そば', color: '#ff6a3d', x: 150 };
-    const RIGHT = { text: '喫茶ルナ', color: '#b98cff', x: 930 };
-    const VERT_Y0 = 610, VERT_STEP = 140, VERT_SIZE = 116;
-    const leftT = [0, 1, 2, 3].map(j => (7 + j) * B);                               // eighths, alternating L / R
-    const rightT = [0, 1, 2, 3].map(j => (7.5 + j) * B);
-    const BAR = { text: 'BAR', color: '#ffd23f', x: 400, y: 860, size: 76 };
-    const IZA = { text: '居酒屋', color: '#59ff8a', x: 680, y: 965, size: 64 };
-    const barT = [0, 1, 2].map(j => (11 + j * 0.5) * B);
-    const izaT = [0, 1, 2].map(j => (12.5 + j * 0.5) * B);
-    const OPEN = { text: 'OPEN', color: '#ff2f86', x: 540, y: 1400, size: 300 };
-    const openT = [0, 1, 2, 3].map(j => (14 + j * 0.5) * B);                        // 8.75 … 9.69 s
-
-    // ---------- the street (drawn once, in setup) ----------
-    const VP = { x: 540, y: 1180 };
-    function drawStreet(ctx) {
-      // sky
-      let g = ctx.createLinearGradient(0, 0, 0, VP.y);
-      g.addColorStop(0, '#04030b'); g.addColorStop(0.7, '#120a24'); g.addColorStop(1, '#2a1238');
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, VP.y + 40);
-      // the far end of the street: a warm haze
-      g = ctx.createRadialGradient(VP.x, VP.y - 30, 0, VP.x, VP.y - 30, 260);
-      g.addColorStop(0, 'rgba(255,150,110,0.45)'); g.addColorStop(1, 'rgba(255,150,110,0)');
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      // road
-      g = ctx.createLinearGradient(0, VP.y, 0, H);
-      g.addColorStop(0, '#1a1022'); g.addColorStop(0.25, '#0d0912'); g.addColorStop(1, '#07060b');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.moveTo(VP.x - 40, VP.y); ctx.lineTo(VP.x + 40, VP.y); ctx.lineTo(W + 200, H); ctx.lineTo(-200, H); ctx.closePath(); ctx.fill();
-      // wet road: soft vertical smears of far-away lights
-      const smears = [['#ff8a5c', 470, 0.18], ['#4fd8ff', 520, 0.12], ['#ffd23f', 575, 0.14], ['#b98cff', 610, 0.12]];
-      for (const [c, x, a] of smears) {
-        g = ctx.createLinearGradient(0, VP.y, 0, VP.y + 420);
-        g.addColorStop(0, rgba(c, a)); g.addColorStop(1, rgba(c, 0));
-        ctx.fillStyle = g; ctx.fillRect(x - 7, VP.y + 4, 14, 420);
-      }
-      // building walls on both sides, in perspective, cut into shop fronts
-      const depths = [0, 0.33, 0.55, 0.7, 0.8, 0.87, 0.92, 0.955, 0.98];
-      for (const side of [-1, 1]) {
-        const edgeX = side < 0 ? 0 : W;
-        const lerp = (a, b, t) => a + (b - a) * t;
-        const P = (d, top) => ({ x: lerp(edgeX, VP.x + side * 70, d), y: top ? lerp(-60, VP.y - 230, d) : lerp(H + 60, VP.y + 30, d) });
-        for (let i = 0; i < depths.length - 1; i++) {
-          const a0 = P(depths[i], true), a1 = P(depths[i + 1], true), b0 = P(depths[i], false), b1 = P(depths[i + 1], false);
-          ctx.fillStyle = i % 2 ? '#120d1a' : '#17111f';
-          ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y); ctx.lineTo(b1.x, b1.y); ctx.lineTo(b0.x, b0.y); ctx.closePath(); ctx.fill();
-          // shutter / shop window in the lower half
-          const m = (p, q, t) => ({ x: lerp(p.x, q.x, t), y: lerp(p.y, q.y, t) });
-          const s0 = m(a0, b0, 0.55), s1 = m(a1, b1, 0.55), e0 = m(a0, b0, 0.92), e1 = m(a1, b1, 0.92);
-          const lit = (i + (side > 0 ? 1 : 0)) % 3 === 1;
-          ctx.fillStyle = lit ? 'rgba(255,170,90,0.22)' : '#1d1726';
-          ctx.beginPath(); ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y); ctx.lineTo(e1.x, e1.y); ctx.lineTo(e0.x, e0.y); ctx.closePath(); ctx.fill();
-          if (!lit) {                      // shutter slats
-            ctx.strokeStyle = 'rgba(80,70,95,0.5)'; ctx.lineWidth = Math.max(1, 3 * (1 - depths[i]));
-            for (let k = 1; k < 9; k++) { const u = m(s0, e0, k / 9), v = m(s1, e1, k / 9); ctx.beginPath(); ctx.moveTo(u.x, u.y); ctx.lineTo(v.x, v.y); ctx.stroke(); }
-          }
-          // edge between two shops
-          ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = Math.max(1, 6 * (1 - depths[i]));
-          ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(b0.x, b0.y); ctx.stroke();
-        }
-      }
-      // a string of paper lanterns on each side, converging on the far end
-      for (const side of [-1, 1]) {
-        for (let k = 0; k < 9; k++) {
-          const d = 0.12 + k * 0.1;
-          const x = (side < 0 ? 0 : W) + ((VP.x + side * 40) - (side < 0 ? 0 : W)) * d;
-          const y = 470 + (VP.y - 260 - 470) * d;
-          const r = 34 * (1 - d) + 4;
-          const lg = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
-          lg.addColorStop(0, 'rgba(255,90,60,0.35)'); lg.addColorStop(1, 'rgba(255,90,60,0)');
-          ctx.fillStyle = lg; ctx.fillRect(x - r * 3, y - r * 3, r * 6, r * 6);
-          ctx.fillStyle = '#c8402e'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 1.25, 0, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = 'rgba(255,200,150,0.35)'; ctx.beginPath(); ctx.ellipse(x, y, r * 0.5, r * 1.1, 0, 0, Math.PI * 2); ctx.fill();
-        }
-      }
-      // overhead wires
-      ctx.strokeStyle = 'rgba(10,8,14,0.9)'; ctx.lineWidth = 3;
-      for (const [y0, sag] of [[520, 90], [600, 60]]) { ctx.beginPath(); ctx.moveTo(0, y0); ctx.quadraticCurveTo(W / 2, y0 + sag, W, y0 - 20); ctx.stroke(); }
-    }
-
-    // ---------- layers ----------
-    const world = [];
-    world.push({
-      type: 'canvas', name: 'street', width: W, height: H,
-      setup: (info) => { const c = info.canvas(W, H); drawStreet(c.getContext('2d')); return c; },
-      draw: (ctx, t, info) => ctx.drawImage(info.state, 0, 0),
-      initial: { x: 0, y: 0 },
-    });
-
-    // light thrown by the signs (under the panels)
-    world.push(
-      spill('arch-spill', 540, ARCH.y, 1300, 620, ARCH.color, archT, 0.6),
-      spill('left-spill', LEFT.x, 820, 520, 1000, LEFT.color, leftT, 0.55),
-      spill('right-spill', RIGHT.x, 820, 520, 1000, RIGHT.color, rightT, 0.55),
-      spill('bar-spill', BAR.x, BAR.y, 380, 240, BAR.color, barT, 0.5),
-      spill('iza-spill', IZA.x, IZA.y, 400, 230, IZA.color, izaT, 0.5),
-      // the same colours, reflected on the wet road
-      spill('road-left', 260, 1500, 360, 900, LEFT.color, leftT, 0.28),
-      spill('road-right', 820, 1500, 360, 900, RIGHT.color, rightT, 0.28),
-    );
-
-    // arch sign
-    world.push(panel('arch-panel', 540, ARCH.y, 980, 240, 28));
-    world.push({ type: 'shape', name: 'arch-wire-l', shape: 'rect', width: 6, height: 200, initial: { x: 120, y: 80, fill: '#1a1520' } });
-    world.push({ type: 'shape', name: 'arch-wire-r', shape: 'rect', width: 6, height: 200, initial: { x: 960, y: 80, fill: '#1a1520' } });
-    [...ARCH.text].forEach((ch, i) => world.push(...neonGlyph({
-      name: 'arch-' + i, ch, size: ARCH.size, color: ARCH.color, t0: archT[i],
-      x: 540 + (i - 2.5) * ARCH.pitch, y: ARCH.y,
-      stutter: i === 4 ? [6.1, 12.4] : [],                      // 店 has a tired tube
-    })));
-
-    // vertical signs
-    for (const [S, T] of [[LEFT, leftT], [RIGHT, rightT]]) {
-      world.push(panel(S.text + '-panel', S.x, 820, 200, 600, 20));
-      [...S.text].forEach((ch, j) => world.push(...neonGlyph({
-        name: (S === LEFT ? 'left-' : 'right-') + j, ch, size: VERT_SIZE, color: S.color, t0: T[j],
-        x: S.x, y: VERT_Y0 + j * VERT_STEP,
-        stutter: S === RIGHT && j === 3 ? [13.3] : [],
-      })));
-    }
-
-    // small far signs
-    const smallSign = (S, T, key, padW) => {
-      world.push(panel(key + '-panel', S.x, S.y, padW, S.size * 1.5, 14));
-      const pitch = S.size * (key === 'bar' ? 0.78 : 1.02);
-      [...S.text].forEach((ch, j) => world.push(...neonGlyph({
-        name: key + '-' + j, ch, size: S.size, color: S.color, t0: T[j], weight: 900,
-        x: S.x + (j - (S.text.length - 1) / 2) * pitch, y: S.y,
-      })));
-    };
-    smallSign(BAR, barT, 'bar', 240);
-    smallSign(IZA, izaT, 'iza', 250);
-
-    // ---------- OPEN ----------
-    const openStyle = { fontFamily: FONT, fontSize: OPEN.size, fontWeight: '900', padding: 40 };
-    const pieces = splitText(OPEN.text, openStyle, { by: 'chars', x: 0, y: 0, align: 'center' });
-    const openLayers = [];
-    // the OPEN frame: a rounded neon tube around the word
-    const FRAME_W = 940, FRAME_H = 400;
-    openLayers.push({
-      type: 'shape', name: 'open-backing', shape: 'rect', width: FRAME_W + 40, height: FRAME_H + 40, cornerRadius: 60, parent: 'openRig',
-      initial: { x: 0, y: 0, fill: '#0a0710', stroke: '#2a2232', strokeWidth: 6 },
-    });
-    openLayers.push(spill('open-spill', 0, 0, 1500, 1000, OPEN.color, [T_OPEN], 0.9));
-    openLayers[openLayers.length - 1].parent = 'openRig';
-    openLayers.push({
-      type: 'shape', name: 'open-frame-off', shape: 'rect', width: FRAME_W, height: FRAME_H, cornerRadius: 46, parent: 'openRig',
-      initial: { x: 0, y: 0, fill: 'rgba(0,0,0,0)', fillAlpha: 0, stroke: '#3a2c44', strokeWidth: 10 },
-    });
-    openLayers.push({
-      type: 'shape', name: 'open-frame', shape: 'rect', width: FRAME_W, height: FRAME_H, cornerRadius: 46, parent: 'openRig',
-      at: T_OPEN, duration: DURATION - T_OPEN,
-      initial: { x: 0, y: 0, fillAlpha: 0, fill: '#000000', stroke: pale(OPEN.color, 0.5), strokeWidth: 10, alpha: 0 },
-      filters: [{ type: 'glow', name: 'g', color: OPEN.color, distance: 40, outerStrength: 3, innerStrength: 1, quality: 0.15 }],
-      keyframes: igniteKeys(0),
-    });
-    // the word: per letter, measured with the real font; centred on the rig
-    const totalW = pieces.reduce((m, p) => Math.max(m, p.x + p.width), 0) - Math.min(...pieces.map(p => p.x));
-    const minX = Math.min(...pieces.map(p => p.x));
-    pieces.forEach((p, j) => {
-      const cx = p.x - minX - totalW / 2 + p.width / 2;
-      const [off, on] = neonGlyph({ name: 'open-' + j, ch: p.text, size: OPEN.size, color: OPEN.color, t0: openT[j], weight: 900, x: cx, y: 6 });
-      off.parent = 'openRig'; on.parent = 'openRig';
-      on.filters[0].distance = 46;
-      // at the downbeat every letter blazes, then breathes
-      on.keyframes.push(
-        { at: T_OPEN - openT[j], to: { 'filters.g.outerStrength': 9 }, duration: 0.12, ease: 'power2.out' },
-        { at: T_OPEN - openT[j] + 0.12, to: { 'filters.g.outerStrength': 5 }, duration: 0.9, ease: 'power2.out' },
-        { at: T_OPEN - openT[j] + 1.2, to: { 'filters.g.outerStrength': 6.5 }, duration: 2 * B, ease: 'sine.inOut', repeat: 3, yoyo: true },
-      );
-      openLayers.push(off, on);
-    });
-    world.push({
-      type: 'null', name: 'openRig', initial: { x: OPEN.x, y: OPEN.y, scale: 1 },
-      keyframes: [
-        { at: T_OPEN, to: { scale: 1.08 }, duration: 0.1, ease: 'power2.out' },
-        { at: T_OPEN + 0.1, to: { scale: 1 }, duration: 0.9, ease: 'elastic.out(1,0.45)' },
-      ],
-    });
-    world.push(...openLayers);
-
-    // OPEN reflected on the wet road
-    world.push({
-      type: 'text', name: 'open-reflection', text: OPEN.text, at: T_OPEN, duration: DURATION - T_OPEN,
-      style: { ...openStyle, fill: OPEN.color },
-      initial: { x: OPEN.x, y: 1790, anchorX: 0.5, anchorY: 0.5, scaleY: -0.5, alpha: 0 },
-      filters: [{ type: 'blur', strength: 14 }],
-      keyframes: [{ at: 0, to: { alpha: 0.32 }, duration: 0.3, ease: 'power2.out' }],
-    });
-
-    // sparks + flash on the downbeat
-    world.push(...particles({
-      name: 'sparks', count: 70, at: T_OPEN, emit: 0, life: [0.7, 1.5], area: { x: OPEN.x, y: OPEN.y, width: 900, height: 360 },
-      angle: [-160, -20], speed: [180, 620], gravity: 900, drag: 0.6, size: [3, 6], scale: [1, 0.2], fade: { out: 0.5 },
-      colors: ['#ffffff', '#ffd0e6', OPEN.color], shape: 'circle', blendMode: 'add', seed: 7,
-    }));
-
-    const layers = [
-      { type: 'shape', name: 'bg', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: '#05040a' } },
-      // the whole street drifts toward us very slowly
-      {
-        type: 'composition', name: 'world', width: W, height: H, layers: world,
-        initial: { x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2, scale: 1 },
-        keyframes: [
-          { at: 0, to: { scale: 1.035 }, duration: T_OPEN, ease: 'sine.inOut' },
-          { at: T_OPEN, to: { scale: 1.06 }, duration: DURATION - T_OPEN, ease: 'power2.out' },
-        ],
-      },
-      // drizzle in front of everything
-      {
-        type: 'canvas', name: 'rain', width: W, height: H, initial: { x: 0, y: 0 }, seed: 3,
-        setup: (info) => Array.from({ length: 160 }, () => ({ x: info.random() * (W + 300), y: info.random() * H, v: 1500 + info.random() * 900, l: 26 + info.random() * 40, a: 0.08 + info.random() * 0.16 })),
-        draw: (ctx, t, info) => {
-          ctx.lineWidth = 2; ctx.lineCap = 'round';
-          for (const d of info.state) {
-            const y = (d.y + d.v * t) % (H + 100) - 50;
-            const x = d.x - 0.18 * (d.y + d.v * t) % (W + 300);
-            ctx.strokeStyle = `rgba(190,200,255,${d.a})`;
-            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - d.l * 0.18, y + d.l); ctx.stroke();
-          }
-        },
-      },
-      // the flash
-      {
-        type: 'shape', name: 'flash', shape: 'rect', width: W, height: H, at: T_OPEN, duration: 0.8, blendMode: 'add',
-        initial: { x: W / 2, y: H / 2, fill: '#ff7ab8', alpha: 0 },
-        keyframes: [{ at: 0, to: { alpha: 0.38 }, duration: 0.05 }, { at: 0.05, to: { alpha: 0 }, duration: 0.7, ease: 'power2.out' }],
-      },
-      // vignette
-      {
-        type: 'shape', name: 'vignette', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2 },
-        fillGradient: { type: 'radial', stops: [[0, 'rgba(0,0,0,0)'], [0.6, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.6)']], radius: 0.75 },
-      },
+    // ── signs (data) ────────────────────────────────────────────────
+    // order = the order they light up
+    const SIGNS = [
+      { name: 'arch',   text: '月見通り商店街', x: 540, y: 330, size: 96,  color: '#ffb547', horizontal: true },
+      { name: 'ramen',  text: 'ラーメン',       x: 150, y: 860, size: 118, color: '#ff3d6e' },
+      { name: 'kissa',  text: '喫茶',           x: 362, y: 800, size: 78,  color: '#6dff8a' },
+      { name: 'izakaya',text: '居酒屋',         x: 930, y: 830, size: 118, color: '#3de6ff' },
+      { name: 'kosho',  text: '古書',           x: 718, y: 790, size: 78,  color: '#c58bff' },
     ];
+    const OPEN = { text: 'OPEN', x: 540, y: 1430, size: 270, color: '#ff3fb4', frame: '#ffd84a' };
 
-    // ---------- sound ----------
-    // every tube that comes on: a short electric "bzzt"
-    const allT = [...archT, ...leftT, ...rightT, ...barT, ...izaT, ...openT].sort((a, b) => a - b);
-    allT.forEach((t, i) => layers.push({
-      type: 'audio', name: 'bzz-' + i, at: t, duration: 0.16, volume: 0.35,
-      sfx: { seed: i, voices: [
-        { wave: 'square', freq: 120, filter: { type: 'bandpass', freq: 1100, q: 3 }, envelope: 'fall', gain: 0.55 },
-        { wave: 'noise', filter: { type: 'highpass', freq: 5000 }, envelope: 'fall', gain: 0.25 },
-      ] },
-    }));
-    layers.push({ type: 'audio', name: 'riser', sfx: 'riser', at: T_OPEN - 2 * B, duration: 2 * B, volume: 1.6 });
-    layers.push({ type: 'audio', name: 'impact', sfx: { preset: 'hit', brightness: -0.2 }, at: T_OPEN, volume: 0.7 });
+    const hex = (c) => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+    const mix = (a, b, t) => { const A = hex(a), B = hex(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
+    const core = (c) => mix(c, '#ffffff', 0.62);   // the hot white-ish core of a lit tube
+    const dim  = (c) => mix(c, '#0b0a14', 0.86);   // an unlit tube
 
-    // the tune: a bell note on every letter, then the OPEN jingle on bar 5
+    await document.fonts.load(`800 120px ${FONT}`, SIGNS.map(s => s.text).join('') + OPEN.text);
+
+    // ── timing: every letter on an eighth note ─────────────────────
+    const letters = [];            // { sign, piece, t }
+    let beat = 3;                  // first letter at beat 3 (1.875 s)
+    for (const s of SIGNS) {
+      const style = { fontFamily: FONT, fontWeight: '800', fontSize: s.size };
+      const pieces = s.horizontal
+        ? splitText(s.text, style, { by: 'chars', x: s.x, y: s.y - s.size * 0.62, align: 'center' })
+            .map(p => ({ ...p, cx: p.x + p.width / 2, cy: s.y, rotation: 0 }))
+        : splitText(s.text, { ...style, lineHeight: s.size * 1.12 }, { by: 'chars', vertical: true, x: s.x + s.size / 2, y: s.y, align: 'center' });
+      s.pieces = pieces;
+      s.start = beat * BEAT;
+      for (const p of pieces) { letters.push({ sign: s, piece: p, t: beat * BEAT, beat }); beat += 0.5; }
+      beat += 0.5;                 // a breath between signs
+    }
+    const OPEN_BEATS = [16, 17, 18, 19];          // O P E N on the beats of bar 5
+    const BLAZE = 20 * BEAT;                       // 12.5 s: bar 6, the whole sign blazes
+
+    // a neon tube switching on: a fast stutter, then steady
+    const flickerOn = (t, peak = 1) => [
+      { at: t,        to: { alpha: peak },        duration: 0.03 },
+      { at: t + 0.05, to: { alpha: peak * 0.15 }, duration: 0.03 },
+      { at: t + 0.11, to: { alpha: peak },        duration: 0.02 },
+      { at: t + 0.17, to: { alpha: peak * 0.35 }, duration: 0.03 },
+      { at: t + 0.24, to: { alpha: peak },        duration: 0.06 },
+    ];
+    const glow = (name, color, dist, strength) => ({ type: 'glow', name, color, distance: dist, outerStrength: strength, innerStrength: 0.4, quality: 0.25 });
+    const pad = (n) => ({ x: -n, y: -n, width: n * 2, height: n * 2 });
+
+    // ── background: sky, buildings, street ─────────────────────────
+    const R = random(7);
+    const bg = [
+      { type: 'shape', name: 'sky', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2 },
+        fillGradient: { stops: [[0, '#05040f'], [0.45, '#140c2c'], [0.78, '#1d1030'], [1, '#07060d']] } },
+    ];
+    // a few stars
+    for (let i = 0; i < 40; i++) {
+      bg.push({ type: 'shape', shape: 'circle', radius: 1 + R() * 1.6,
+        initial: { x: R() * W, y: R() * 520, fill: '#c9c4ff', alpha: 0.25 + R() * 0.5 } });
+    }
+    // buildings left & right (receding)
+    const buildings = [
+      { x: 90,  w: 260, top: 470, c: '#0f0c1d' }, { x: 990, w: 260, top: 500, c: '#0f0c1d' },
+      { x: 330, w: 190, top: 610, c: '#151129' }, { x: 750, w: 190, top: 600, c: '#151129' },
+      { x: 450, w: 110, top: 760, c: '#1a1530' }, { x: 630, w: 110, top: 750, c: '#1a1530' },
+    ];
+    for (const b of buildings) {
+      const h = 1700 - b.top;
+      bg.push({ type: 'shape', shape: 'rect', width: b.w, height: h, initial: { x: b.x, y: b.top + h / 2, fill: b.c } });
+      // windows: some warm, most dark
+      const cols = Math.floor(b.w / 60), rows = Math.floor(h / 90);
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        if (R() > 0.22) continue;
+        bg.push({ type: 'shape', shape: 'rect', width: 22, height: 30,
+          initial: { x: b.x - b.w / 2 + 30 + c * 60 + 10, y: b.top + 50 + r * 90, fill: R() > 0.5 ? '#ffcf7a' : '#7aa8ff', alpha: 0.18 + R() * 0.2 } });
+      }
+    }
+    // the street, wet
+    bg.push({ type: 'shape', name: 'street', shape: 'rect', width: W, height: 300, initial: { x: W / 2, y: 1770 },
+      fillGradient: { stops: [[0, '#120c1e'], [1, '#040308']] } });
+    bg.push({ type: 'shape', shape: 'line', from: [0, 1622], to: [W, 1622], initial: { stroke: '#2a2140', strokeWidth: 3 } });
+
+    // ── signs ───────────────────────────────────────────────────────
+    const signLayers = [];
+    for (const s of SIGNS) {
+      const n = s.pieces.length;
+      const boxW = s.horizontal ? measureText(s.text, { fontFamily: FONT, fontWeight: '800', fontSize: s.size }).width + 90 : s.size * 1.55;
+      const boxH = s.horizontal ? s.size * 1.7 : n * s.size * 1.12 + s.size * 0.7;
+      // board (dark plate behind the tubes)
+      signLayers.push({ type: 'shape', name: `${s.name}-board`, shape: 'rect', width: boxW, height: boxH, cornerRadius: 20,
+        initial: { x: s.x, y: s.y, fill: '#0d0a16', stroke: dim(s.color), strokeWidth: 5 } });
+      // frame tube, lights with the first letter
+      signLayers.push({ type: 'shape', name: `${s.name}-frame`, shape: 'rect', width: boxW - 22, height: boxH - 22, cornerRadius: 14,
+        initial: { x: s.x, y: s.y, fill: 'none', stroke: core(s.color), strokeWidth: 4, alpha: 0 },
+        filters: [glow('g', s.color, 16, 2.6)],
+        filterArea: { x: -boxW / 2 - 40, y: -boxH / 2 - 40, width: boxW + 80, height: boxH + 80 },
+        keyframes: flickerOn(s.start - 0.02) });
+    }
+    for (const L of letters) {
+      const s = L.sign, p = L.piece;
+      const style = { fontFamily: FONT, fontWeight: '800', fontSize: s.size, padding: 12 };
+      const base = { x: p.cx, y: p.cy, anchorX: 0.5, anchorY: 0.5, rotation: p.rotation || 0 };
+      signLayers.push({ type: 'text', name: `${s.name}-off-${p.index}`, text: p.text,
+        style: { ...style, fill: dim(s.color), stroke: { color: mix(s.color, '#0b0a14', 0.72), width: 3 } }, initial: base });
+      signLayers.push({ type: 'text', name: `${s.name}-${p.index}`, text: p.text,
+        style: { ...style, fill: core(s.color), stroke: { color: s.color, width: Math.round(s.size / 16) } },
+        initial: { ...base, alpha: 0 },
+        filters: [glow('g', s.color, 20, 2.3)], filterArea: pad(s.size * 1.3),
+        keyframes: [
+          ...flickerOn(L.t),
+          // every sign breathes once when OPEN blazes
+          { at: BLAZE, to: { 'filters.g.outerStrength': 5 }, duration: 0.08 },
+          { at: BLAZE + 0.1, to: { 'filters.g.outerStrength': 3 }, duration: 1.2, ease: 'power2.out' },
+        ] });
+    }
+
+    // ── OPEN ───────────────────────────────────────────────────────
+    const oStyle = { fontFamily: FONT, fontWeight: '800', fontSize: OPEN.size, letterSpacing: 18 };
+    const oPieces = splitText(OPEN.text, oStyle, { by: 'chars', x: OPEN.x, y: OPEN.y - OPEN.size * 0.62, align: 'center' });
+    const oW = measureText(OPEN.text, oStyle).width + 120, oH = OPEN.size * 1.45;
+    const openLayers = [];
+    // the reflection on the wet street (drawn first, under everything of the sign)
+    const reflY = 1622 * 2 - OPEN.y + 10;
+    openLayers.push({ type: 'shape', name: 'open-board', shape: 'rect', width: oW, height: oH, cornerRadius: 34,
+      initial: { x: OPEN.x, y: OPEN.y, fill: '#0c0814', stroke: dim(OPEN.frame), strokeWidth: 6 } });
+    openLayers.push({ type: 'shape', name: 'open-frame', shape: 'rect', width: oW - 34, height: oH - 34, cornerRadius: 26,
+      initial: { x: OPEN.x, y: OPEN.y, fill: 'none', stroke: core(OPEN.frame), strokeWidth: 7, alpha: 0 },
+      filters: [glow('g', OPEN.frame, 26, 3)],
+      filterArea: { x: -oW / 2 - 60, y: -oH / 2 - 60, width: oW + 120, height: oH + 120 },
+      keyframes: [
+        ...flickerOn(OPEN_BEATS[0] * BEAT - 0.3),
+        { at: BLAZE, to: { 'filters.g.outerStrength': 7 }, duration: 0.06 },
+        { at: BLAZE + 0.1, to: { 'filters.g.outerStrength': 3.5 }, duration: 1.4, ease: 'power2.out' },
+      ] });
+    oPieces.forEach((p, i) => {
+      const t = OPEN_BEATS[i] * BEAT;
+      const pos = { x: p.x + p.width / 2, y: OPEN.y };
+      const blaze = [
+        { at: BLAZE, to: { 'filters.g.outerStrength': 8, scale: 1.08 }, duration: 0.06 },
+        { at: BLAZE + 0.1, to: { 'filters.g.outerStrength': 4, scale: 1 }, duration: 1.2, ease: 'power3.out' },
+      ];
+      // a little life after the blaze: the E stutters once
+      const stutter = p.text === 'E' ? [
+        { at: 14.0, to: { alpha: 0.2 }, duration: 0.03 }, { at: 14.06, to: { alpha: 1 }, duration: 0.03 },
+        { at: 14.14, to: { alpha: 0.45 }, duration: 0.03 }, { at: 14.2, to: { alpha: 1 }, duration: 0.05 },
+      ] : [];
+      openLayers.push({ type: 'text', name: `open-off-${p.text}`, text: p.text,
+        style: { ...oStyle, letterSpacing: 0, padding: 16, fill: 'rgba(0,0,0,0)', stroke: { color: mix(OPEN.color, '#0b0a14', 0.8), width: 14 } },
+        initial: { ...pos, anchorX: 0.5, anchorY: 0.5 } });
+      openLayers.push({ type: 'text', name: `open-${p.text}`, text: p.text,
+        style: { ...oStyle, letterSpacing: 0, padding: 16, fill: 'rgba(0,0,0,0)', stroke: { color: core(OPEN.color), width: 14 } },
+        initial: { ...pos, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        filters: [glow('g', OPEN.color, 30, 3)], filterArea: pad(OPEN.size * 1.2),
+        keyframes: [...flickerOn(t), ...blaze, ...stutter] });
+      // reflection: upside down, blurred, faint, on the street
+      openLayers.unshift({ type: 'text', name: `refl-${p.text}`, text: p.text,
+        style: { ...oStyle, letterSpacing: 0, padding: 16, fill: 'rgba(0,0,0,0)', stroke: { color: OPEN.color, width: 18 } },
+        initial: { x: pos.x, y: reflY, anchorX: 0.5, anchorY: 0.5, scaleY: -0.75, alpha: 0 },
+        filters: [{ type: 'blur', strength: 10 }], filterArea: pad(OPEN.size * 1.2),
+        keyframes: [...flickerOn(t, 0.32), { at: BLAZE, to: { alpha: 0.55 }, duration: 0.06 }, { at: BLAZE + 0.1, to: { alpha: 0.32 }, duration: 1.2 }] });
+    });
+    // the reflection board glow under OPEN
+    openLayers.unshift({ type: 'shape', name: 'refl-pool', shape: 'ellipse', radiusX: 520, radiusY: 120,
+      initial: { x: OPEN.x, y: 1760, alpha: 0 },
+      fillGradient: { type: 'radial', stops: [[0, 'rgba(255,63,180,0.45)'], [1, 'rgba(255,63,180,0)']] },
+      keyframes: [{ at: OPEN_BEATS[0] * BEAT, to: { alpha: 0.6 }, duration: 2 }, { at: BLAZE, to: { alpha: 1 }, duration: 0.1 }, { at: BLAZE + 0.1, to: { alpha: 0.75 }, duration: 1.5 }] });
+
+    // a soft flash of the whole frame on the blaze
+    const flash = { type: 'shape', name: 'flash', shape: 'rect', width: W, height: H, blendMode: 'add',
+      initial: { x: W / 2, y: H / 2, fill: '#ff6fc8', alpha: 0 },
+      keyframes: [{ at: BLAZE, to: { alpha: 0.22 }, duration: 0.05 }, { at: BLAZE + 0.06, to: { alpha: 0 }, duration: 0.9, ease: 'power2.out' }] };
+    // vignette
+    const vignette = { type: 'shape', name: 'vignette', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2 },
+      fillGradient: { type: 'radial', stops: [[0.55, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.65)']] } };
+
+    // the whole street, with a slow push in
+    const street = { type: 'composition', name: 'street', width: W, height: H,
+      initial: { x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2, scale: 1.0, alpha: 0 },
+      keyframes: [
+        { at: 0, to: { alpha: 1 }, duration: 1.2, ease: 'power1.out' },
+        { at: 0, to: { scale: 1.07 }, duration: DURATION, ease: 'sine.inOut' },
+      ],
+      layers: [...bg, ...signLayers, ...openLayers] };
+
+    // ── sound ──────────────────────────────────────────────────────
+    // each letter: a neon tick (click + a low electric buzz)
+    const sounds = [];
+    const buzz = (at, vol = 0.5, pitch = 0) => [
+      { type: 'audio', at, sfx: { preset: 'click', pitch: pitch - 4, brightness: -0.2 }, volume: vol },
+      { type: 'audio', at, duration: 0.22, volume: vol * 0.55, sfx: { voices: [{ wave: 'square', freq: 120, filter: { type: 'lowpass', freq: [1400, 300] }, envelope: 'fall', pan: [0, 0] }] } },
+    ];
+    letters.forEach(L => sounds.push(...buzz(L.t, 0.45)));
+    OPEN_BEATS.forEach(b => sounds.push(...buzz(b * BEAT, 0.8, -3)));
+    sounds.push({ type: 'audio', at: BLAZE - 1.25, duration: 1.25, sfx: { preset: 'riser', brightness: 0.2 }, volume: 0.55 });
+    sounds.push({ type: 'audio', at: BLAZE, sfx: { preset: 'chime', pitch: 0 }, volume: 0.9 });
+    sounds.push({ type: 'audio', at: BLAZE, sfx: { preset: 'hit', brightness: -0.4 }, volume: 0.5 });
+
+    // the music: a pluck note per letter (A minor pentatonic, climbing per sign), then the jingle
+    const SCALE = ['a4', 'c5', 'd5', 'e5', 'g5', 'a5', 'c6'];
+    let pl = '_:3', last = 3;
+    SIGNS.forEach((s, si) => {
+      letters.filter(L => L.sign === s).forEach((L, k) => {
+        if (L.beat > last) pl += ` _:${L.beat - last}`;
+        pl += ` ${SCALE[Math.min(SCALE.length - 1, (k + si) % SCALE.length)]}:0.5`;
+        last = L.beat + 0.5;
+      });
+    });
+    pl += ` _:${24 - last}`;
     const music = {
-      bpm: BPM, reverb: 0.3, seed: 2,
+      bpm: BPM, reverb: 0.32, swing: 0,
       tracks: [
-        { inst: 'bell', vol: 0.6, reverb: 0.5, notes:
-          '_:1 e5 g5 a5 c6 a5 g5 ' +                                       // ネ オ ン 商 店 街 (beats 1–6)
-          'c5:0.5 e5:0.5 d5:0.5 g5:0.5 e5:0.5 a5:0.5 g5:0.5 c6:0.5 ' +       // 中 喫 華 茶 そ ル ば ナ (7–10.5)
-          'e5:0.5 g5:0.5 a5:0.5 g5:0.5 a5:0.5 c6:0.5 ' +                     // B A R 居 酒 屋 (11–13.5)
-          'd6:0.5 e6:0.5 f6:0.5 g6:0.5 ' +                                   // O P E N (14–15.5)
-          'c6:0.5 g5:0.25 c6:0.25 e6:0.5 g6:0.5 c7:3' },                     // jingle (16–21)
-        { inst: 'musicbox', vol: 0.45, notes: '_:16 [c6 e6 g6]:0.5 _:0.25 g5:0.25 c6:0.5 e6:0.5 [g6 c7]:3' },
-        { inst: 'pad', vol: [[0, 0.25], [14, 0.45], [16, 0.55], [23, 0.2]], attack: 0.6, release: 1.5, notes: 'Am7:4 Fmaj7:4 Dm7:4 G7sus4:2 G7:2 Cmaj9:7' },
-        { inst: 'bass', vol: 0.6, notes: 'a1:4 f1:4 d2:4 g1:4 c2:2 _:0.5 c2:0.5 g1:1 c2:3' },
+        { inst: 'pad',   vol: [[0, 0], [4, 0.45], [16, 0.5], [20, 0.75]], attack: 0.8, release: 1.5,
+          notes: 'Am7:4 Fmaj7:4 Am7:4 Fmaj7:4 | Dm7:2 G7sus4:2 | Cmaj9:4' },
+        { inst: 'pluck', vol: 0.55, pan: 0.15, reverb: 0.5, notes: pl },
+        { inst: 'bass',  vol: 0.85, notes: '_:8 a1:2 _:2 f1:2 _:2 | d2:1 d2:1 g1:1 g1:1 | c2:4' },
+        // the jingle: one note per OPEN letter, then the sign blazes on C
+        { inst: 'bell',  vol: 0.95, reverb: 0.6, ring: 2,
+          notes: '_:16 g4:1 c5:1 e5:1 g5:1 | c6:0.5 g5:0.25 c6:0.25 e6:3' },
+        { inst: 'musicbox', vol: 0.5, pan: -0.2, notes: '_:20 [c5 e5 g5]:0.5 _:0.5 [e5 g5 c6]:0.5 _:0.5 [g5 c6 e6]:2' },
       ],
-      drums: [
-        { from: 4, to: 14, hat: '..x...x...x...x.' },
-        { from: 14, to: 16, hat: 'x.x.x.x.', snare: '..x.xxxx' },
-        { from: 16, to: 17, kick: 'x...', crash: 'x...' },
-      ],
+      drums: [{ from: 16, kick: 'x...x...x...x...x...............', hat: '..x...x...x...x.................', snare: '................x...............' }],
     };
-    layers.push({ type: 'audio', name: 'music', at: 0, volume: 0.9, music });
+    sounds.push({ type: 'audio', name: 'music', at: 0, music, volume: 1 });
 
-    // ---------- movie ----------
     const movie = new Movie();
     window.movie = movie;
-    new Controller(movie, { canvas: document.getElementById('stage') });
+    new Controller(movie, { canvas: document.getElementById('stage'), theme: { accent: '#ff3fb4' } });
+
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS,
-        poster: T_OPEN + 0.8,
-        background: '#05040a',
+        poster: 13.5,
+        background: '#05040f',
         loudness: -16,
-        composition: { layers },
+        composition: { layers: [street, vignette, flash, ...sounds] },
       });
       window.__ready = true;
     } catch (e) {

@@ -12,10 +12,10 @@
     "message": "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型（1080×1920）15秒。夜の商店街のネオン看板の文字が一つずつ点灯していき、最後に「OPEN」が大きく光る。短いジングル付き。"
   },
   {
-    "id": "bubble-tea",
+    "id": "shanshui-ink",
     "lang": "zh",
     "kind": "one",
-    "message": "用 https://github.com/yjmtmtk/pixi-effects 做一个视频：12 秒，一杯珍珠奶茶在柔和的灯光下慢慢旋转，珍珠浮起来，最后出现店名「云朵茶屋」和“今日开业”，配上轻快的音乐。"
+    "message": "用 https://github.com/yjmtmtk/pixi-effects 做一个视频：15 秒，水墨风：墨滴在宣纸上晕开，变成远山和小船，最后书法字一笔一笔写出「山水」，配古筝。"
   },
   {
     "id": "lluvia-ciudades",

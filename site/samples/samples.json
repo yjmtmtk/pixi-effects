@@ -27,24 +27,24 @@
       "page": "neon-shotengai.html",
       "poster": "poster.jpg",
       "alt": "A vertical night street where neon signs light up one by one, then a big pink OPEN.",
-      "minutes": 6,
-      "runs": 1,
+      "minutes": 8,
+      "runs": 3,
       "model": "Claude Opus",
       "version": "1.0.0"
     },
     {
-      "id": "bubble-tea",
+      "id": "shanshui-ink",
       "kind": "one",
       "lang": "zh",
-      "title": "Bubble tea opening",
+      "title": "山水 ink wash",
       "messages": [
-        "用 https://github.com/yjmtmtk/pixi-effects 做一个视频：12 秒，一杯珍珠奶茶在柔和的灯光下慢慢旋转，珍珠浮起来，最后出现店名「云朵茶屋」和“今日开业”，配上轻快的音乐。"
+        "用 https://github.com/yjmtmtk/pixi-effects 做一个视频：15 秒，水墨风：墨滴在宣纸上晕开，变成远山和小船，最后书法字一笔一笔写出「山水」，配古筝。"
       ],
-      "page": "bubble-tea.html",
+      "page": "shanshui.html",
       "poster": "poster.jpg",
-      "alt": "A cup of bubble tea turns in soft light, pearls rise, and the shop name 云朵茶屋 appears with “today we open”.",
-      "minutes": 6,
-      "runs": 1,
+      "alt": "An ink-wash painting: a drop of ink spreads into misty mountains, a fishing boat drifts, and the characters 山水 are brushed in stroke by stroke.",
+      "minutes": 12,
+      "runs": 3,
       "model": "Claude Opus",
       "version": "1.0.0"
     },
@@ -89,7 +89,7 @@
         "Use https://github.com/yjmtmtk/pixi-effects to make a video: a 15-second launch teaser for a coffee-ordering app called Brewly.",
         "Warmer colours, please, and let the phone screen show an order being placed.",
         "Slow the ending down and finish on the logo with “Download free”.",
-    "The corners of the phone screen stick out past the phone's rounded frame. Please fix that."
+        "The corners of the phone screen stick out past the phone's rounded frame. Please fix that."
       ],
       "page": "brewly-teaser.html",
       "poster": "poster.jpg",
