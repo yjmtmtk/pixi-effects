@@ -34,9 +34,9 @@ Loads assets, builds the composition tree, mixes audio, and renders frame 0.
 
 ```ts
 interface MovieOptions {
-  width?:      number;              // canvas pixels  (default 1920)
+  width?:      number;              // canvas pixels  (default: the composition's width, else 1920; written in both places and different: this one wins, and it is said)
   height?:     number;              // canvas pixels  (default 1080)
-  duration?:   number;              // seconds         (default 10)
+  duration?:   number;              // seconds         (default: the composition's duration, else 10)
   frameRate?:  number;              // fps             (default 30)
   background?: string;              // CSS color hex   (default '#000000')
   canvas?:     HTMLCanvasElement;   // existing canvas to render into; otherwise PixiJS creates one

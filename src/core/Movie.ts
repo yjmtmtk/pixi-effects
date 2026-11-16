@@ -26,6 +26,7 @@ import { normalizeVars, applyVars, numericVars, lintVars, type Vars } from './va
 import { expandComponents } from './components';
 import { resolveMoments, type MarkerTime } from './moments';
 import { lintTransitions } from './transitionLint';
+import { rootSize } from './rootSize';
 import { mixKey, MixCache } from './mixCache';
 import { startWhenRunning, audioIsBlocked } from './startWhenRunning';
 import { normalizePoster } from './poster';
@@ -249,6 +250,8 @@ export class Movie {
   /** the markers of each built tree, taken over when that tree goes on stage (a rebuild that fails keeps the old ones) */
   private _markersOf = new WeakMap<object, MarkerTime[]>();
   private _saidMoments = new Set<string>();
+  /** init gave the size: it wins over a size the composition names (said when they differ) */
+  private _initSized = false;
   private _declared = new Set<string>();
   /** The composition as the author wrote it (before `{name}` is replaced): a rebuild starts from it. */
   private _composition: CompositionSpec | undefined;
@@ -372,9 +375,13 @@ export class Movie {
     this._loudness = options.loudness === undefined || options.loudness === false ? null : options.loudness;
     this._initState = 'pending';
     try {
-      this.width = options.width ?? 1920;
-      this.height = options.height ?? 1080;
-      this.duration = options.duration ?? 10;
+      // the size and the length: init's, or the composition's when init gives none (both, and different: init's, said)
+      const sized = rootSize({ ...options, composition: options.composition as never });
+      for (const w of sized.warnings) console.warn(w);
+      this.width = sized.width;
+      this.height = sized.height;
+      this.duration = sized.duration;
+      this._initSized = options.width !== undefined || options.height !== undefined;
       this.frameRate = options.frameRate ?? 30;
       this.totalFrames = Math.round(this.duration * this.frameRate);
       const poster = normalizePoster(options.poster, this.duration, this.frameRate);
@@ -439,7 +446,7 @@ export class Movie {
       let assetsSeen = 0;
       await loadAssetBundle(options.assets ?? [], audioContext, p => { const n = Math.round(p * assetCount); if (n > assetsSeen) { lp.tick(n - assetsSeen); assetsSeen = n; } });
 
-      const composition = await this._construct(this._composition, this._vars, this.width, this.height, lp);
+      const composition = await this._construct(this._composition, this._vars, this.width, this.height, lp, this._resized || this._initSized);
       this._rootSequence = composition;
       this._markers = this._markersOf.get(composition) ?? [];
       if (composition.target) root.addChild(composition.target);
@@ -494,9 +501,10 @@ export class Movie {
     const seededComposition = spec
       ? {
           ...spec,
+          // the movie's size and length (taken from the composition at init when init gave none; after resize() the new size)
           width: sizeWins ? width : (spec.width ?? width),
           height: sizeWins ? height : (spec.height ?? height),
-          duration: spec.duration ?? this.duration,
+          duration: this.duration,
         }
       : undefined;
     await ensureFilterLibrary(seededComposition);            // pixi-filters, only when a layer names one of its filters
@@ -634,7 +642,7 @@ export class Movie {
 
       // build the new composition and its sound off the stage, while the old one goes on (playing, seekable): the size and the swap come last
       reusePool = reusePoolOf(this._rootSequence as CompositionSequence | null);
-      sequence = await this._construct(composition, vars, width, height, undefined, this._resized || sizeChanged, reusePool);
+      sequence = await this._construct(composition, vars, width, height, undefined, this._resized || this._initSized || sizeChanged, reusePool);
       alive();
       const timeline = createTimeline({ paused: true, defaults: { ease: 'none' } });
       lengthen(timeline, this.duration);
