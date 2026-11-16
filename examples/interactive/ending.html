@@ -141,7 +141,7 @@
       choices.dataset.wait = 'true';
       state.path = k;
       await movie.setVars({ path: k, jingle: jingleOf(k) });
-      await movie.gotoFrame(choiceFrame, true);
+      await movie.gotoFrame(choiceFrame);
       movie.play();
     };
     ENDINGS.forEach((e, k) => { choices.append(Object.assign(document.createElement('button'), { textContent: `${e.icon} ${e.name}`, onclick: () => choose(k) })); });
@@ -155,7 +155,7 @@
       choices.dataset.wait = frame === choiceFrame && state.path < 0 ? 'false' : 'true';
     });
     movie.on('frame', ({ frame }) => {
-      if (movie.isPlaying && state.path < 0 && last < choiceFrame && frame >= choiceFrame) { atFork(); movie.gotoFrame(choiceFrame, true); }
+      if (movie.isPlaying && state.path < 0 && last < choiceFrame && frame >= choiceFrame) { atFork(); movie.gotoFrame(choiceFrame); }
       if (movie.isPlaying && last >= choiceFrame && frame < choiceFrame && state.path >= 0) { state.path = -1; movie.setVars({ path: -1, jingle: 'pop' }).catch(console.error); }   // the loop came round
       last = frame;
     });

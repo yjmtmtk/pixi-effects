@@ -305,7 +305,7 @@ Per-letter / per-word / per-line animation in one call: `...animateText(text, st
 const movie = new Movie();
 await movie.init({ canvas, width, height, duration, frameRate, background, assets, composition });
 movie.play(); movie.pause();
-await movie.gotoFrame(n, true);                 // seek (frames; 30 fps => t = n/30)
+await movie.gotoFrame(n);                       // seek (frames; 30 fps => t = n/30); await movie.redraw() draws the same frame again
 const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time. `format: 'wav'` / `'ogg'` writes only the movie's SOUND (a `music` score as an audio file). `video: { codec: 'hevc' | 'av1' | 'vp9' | 'avc', bitrate: '8M', hardware, keyFrameInterval }` (a codec this browser cannot encode names the one that works). Part of it: `range: [2, 5]` (seconds) or `range: 'title'` (a top-level layer's span; picture and sound); `scale: 0.5` / `draft: true` (half size, low quality, no motion blur: a smaller file, not a faster drawing). Fast motion: `movie.init({ motionBlur: true })` (8 samples, 180° shutter; or a number / { samples: 2–64, shutter: 0–1 }) blurs render / snapshot / contactSheet, not live playback; a render takes `samples`× as long
 movie.on('renderprogress', e => e.progress /* 0–1 */);
 await movie.setVars({ shift: 40 });              // declared variables → build again, same frame, sound mixed again only if it changed. `resize(w, h)`, `rebuild({ composition, vars, width, height })`; `movie.on('rebuilt', report => …)`; `movie.vars`
@@ -2237,7 +2237,7 @@ return [
 
 `movie.pick(x, y)` answers "what is drawn under this point, at the frame on screen" with no hit-testing code of yours: a flat layer by its own shape, a `threeD` card by its projected quad, a `scene3d` layer by a ray (the hit says which object: `hit.scene3d.object`). `movie.canvasPoint(event)` turns a pointer event into canvas pixels, whatever size the canvas is shown at. Name the layers you want to react to: `only` / `ignore` take layer names (or paths; a group's name stands for everything in it). A `scene3d` layer covers its whole picture but only what the ray meets is a hit: elsewhere the layers below are hit (the title, the background).
 
-An interactive page is the template with three changes: no `Controller` (it adds a player bar), `movie.loop = true` or `movie.pause()` as the page needs, and a handler on the canvas. A text that changes on a click is a **variable** (`{title}` in the text, `vars: { title }`, then `movie.setVars({ title })`: it rebuilds at the same frame, and a paused movie stays paused); `at` and `duration` are not variables. A **reaction** is a short animation: put its keyframes on the layer, seek to its start and play (`await movie.gotoFrame(0, true); movie.play()`); a movie that is not looping stops at its end by itself.
+An interactive page is the template with three changes: no `Controller` (it adds a player bar), `movie.loop = true` or `movie.pause()` as the page needs, and a handler on the canvas. A text that changes on a click is a **variable** (`{title}` in the text, `vars: { title }`, then `movie.setVars({ title })`: it rebuilds at the same frame, and a paused movie stays paused); `at` and `duration` are not variables. A **reaction** is a short animation: put its keyframes on the layer, seek to its start and play (`await movie.gotoFrame(0); movie.play()`); a movie that is not looping stops at its end by itself.
 
 ```js
 // @docs-only pick-click
@@ -4607,15 +4607,15 @@ If audio sources exist, schedules them on the AudioContext at the appropriate of
 
 Stops the rAF loop and any playing audio. Emits `'pause'` only when the previous state was playing (so calling `pause()` on an already-paused movie is a no-op for listeners).
 
-### `movie.gotoFrame(frame, force?): Promise<void>`
+### `movie.gotoFrame(frame): Promise<void>`
 
 ```ts
-gotoFrame(frame: number, force?: boolean): Promise<void>
+gotoFrame(frame: number): Promise<void>
 ```
 
 Seeks to a specific frame. Pauses if currently playing? **No** — does not change `isPlaying`. Updates `timeline.time()`, awaits any video frame readiness, renders, and emits `'frame'`.
 
-`force=true` skips the early-return when the requested frame equals `currentFrame`. Use it after a composition rebuild.
+A seek to the frame already on screen does nothing; to draw it again (something the page reads changed), `await movie.redraw()`.
 
 ### `movie.playUntil(seconds?): Promise<boolean>`
 

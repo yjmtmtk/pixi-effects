@@ -752,6 +752,10 @@ export class Movie {
     }
   }
 
+  /** Show frame `frame` (0 … totalFrames): a seek, with `seeking` / `seeked`. To draw the frame on screen again (something the page reads changed), `redraw()`. */
+  gotoFrame(frame: number): Promise<void>;
+  /** @internal `force`: draw it even when it is the frame on screen (the library's own seeks). */
+  gotoFrame(frame: number, force: boolean): Promise<void>;
   async gotoFrame(frame: number, force = false): Promise<void> {
     if (this._initState !== 'ready') return;
     this._cancelUntil();                                                          // a seek by someone else ends a `playUntil()` in flight

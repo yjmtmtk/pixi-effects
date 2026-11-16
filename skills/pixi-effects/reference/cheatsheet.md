@@ -179,7 +179,7 @@ Per-letter / per-word / per-line animation in one call: `...animateText(text, st
 const movie = new Movie();
 await movie.init({ canvas, width, height, duration, frameRate, background, assets, composition });
 movie.play(); movie.pause();
-await movie.gotoFrame(n, true);                 // seek (frames; 30 fps => t = n/30)
+await movie.gotoFrame(n);                       // seek (frames; 30 fps => t = n/30); await movie.redraw() draws the same frame again
 const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time. `format: 'wav'` / `'ogg'` writes only the movie's SOUND (a `music` score as an audio file). `video: { codec: 'hevc' | 'av1' | 'vp9' | 'avc', bitrate: '8M', hardware, keyFrameInterval }` (a codec this browser cannot encode names the one that works). Part of it: `range: [2, 5]` (seconds) or `range: 'title'` (a top-level layer's span; picture and sound); `scale: 0.5` / `draft: true` (half size, low quality, no motion blur: a smaller file, not a faster drawing). Fast motion: `movie.init({ motionBlur: true })` (8 samples, 180° shutter; or a number / { samples: 2–64, shutter: 0–1 }) blurs render / snapshot / contactSheet, not live playback; a render takes `samples`× as long
 movie.on('renderprogress', e => e.progress /* 0–1 */);
 await movie.setVars({ shift: 40 });              // declared variables → build again, same frame, sound mixed again only if it changed. `resize(w, h)`, `rebuild({ composition, vars, width, height })`; `movie.on('rebuilt', report => …)`; `movie.vars`

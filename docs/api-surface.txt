@@ -328,7 +328,7 @@ class Movie
   destroy(): Promise<void>
   duration: number
   frameRate: number
-  gotoFrame(frame: number, force?: boolean): Promise<void>
+  gotoFrame(frame: number): Promise<void>
   height: number
   hover(opts?: HoverOptions): () => void
   init(options?: MovieOptions): Promise<void>

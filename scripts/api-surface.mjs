@@ -56,7 +56,7 @@ export async function surface() {
   const optional = (sym) => ((sym.flags & ts.SymbolFlags.Optional) !== 0 ? '?' : '');
   const callSig = (sym, decl) => {
     const t = checker.getTypeOfSymbolAtLocation(sym, decl);
-    const sigs = t.getCallSignatures();
+    const sigs = t.getCallSignatures().filter(s => !(s.declaration && ts.getJSDocTags(s.declaration).some(g => g.tagName.text === 'internal')));     // an @internal overload is not shipped (stripInternal)
     return sigs.map(s => short(checker.signatureToString(s, undefined, ts.TypeFormatFlags.NoTruncation), 160));
   };
 

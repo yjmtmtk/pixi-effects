@@ -54,7 +54,7 @@ export const BRIDGE_SOURCE = `
     status: function () { return status(); },
     play: function () { need().play(); return status(); },
     pause: function () { need().pause(); return status(); },
-    seek: function (a) { return need().gotoFrame(a.frame, true).then(status); },
+    seek: function (a) { return need().gotoFrame(a.frame).then(status); },
     review: function (a) { return need().review({ at: a.at, strict: !!a.strict }).then(function (r) { r.logs = (window.__logs || []).slice(); return r; }); },
     look: function (a) {
       var m = need();

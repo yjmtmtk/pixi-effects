@@ -63,15 +63,15 @@ If audio sources exist, schedules them on the AudioContext at the appropriate of
 
 Stops the rAF loop and any playing audio. Emits `'pause'` only when the previous state was playing (so calling `pause()` on an already-paused movie is a no-op for listeners).
 
-### `movie.gotoFrame(frame, force?): Promise<void>`
+### `movie.gotoFrame(frame): Promise<void>`
 
 ```ts
-gotoFrame(frame: number, force?: boolean): Promise<void>
+gotoFrame(frame: number): Promise<void>
 ```
 
 Seeks to a specific frame. Pauses if currently playing? **No** — does not change `isPlaying`. Updates `timeline.time()`, awaits any video frame readiness, renders, and emits `'frame'`.
 
-`force=true` skips the early-return when the requested frame equals `currentFrame`. Use it after a composition rebuild.
+A seek to the frame already on screen does nothing; to draw it again (something the page reads changed), `await movie.redraw()`.
 
 ### `movie.playUntil(seconds?): Promise<boolean>`
 

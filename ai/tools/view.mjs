@@ -207,7 +207,7 @@ export function viewerHtml({ pageUrl, title }) {
     wanted = clamp(Math.round(f), 0, movie.totalFrames);
     if (busy) return;
     busy = true;
-    try { while (wanted !== null) { const n = wanted; wanted = null; await movie.gotoFrame(n, true); } } finally { busy = false; }
+    try { while (wanted !== null) { const n = wanted; wanted = null; await movie.gotoFrame(n); } } finally { busy = false; }
   }
   const seekTime = t => seekFrame(t * movie.frameRate);
 
