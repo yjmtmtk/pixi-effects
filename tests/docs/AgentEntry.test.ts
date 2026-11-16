@@ -44,4 +44,8 @@ describe('"Use https://github.com/yjmtmtk/pixi-effects to make a video" works as
     const files: string[] = JSON.parse(read('package.json')).files ?? [];
     expect(files.some(f => f === 'ai' || f.startsWith('ai/'))).toBe(true);
   });
+
+  it('no AI-facing entry calls the library experimental or pre-1.0 (1.0 is stable; breaking changes only in a new major version)', () => {
+    for (const p of ['README.md', 'AGENTS.md', 'skills/pixi-effects/SKILL.md', 'ai/CHAT.md']) expect(read(p), p).not.toMatch(/experimental|pre-1\.0|pre 1\.0/i);
+  });
 });

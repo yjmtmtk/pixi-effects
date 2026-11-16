@@ -1,6 +1,6 @@
 # pixi-effects
 
-> **Status**: experimental — current release `0.56.0`. The API may still change between minor versions; see the [CHANGELOG](./CHANGELOG.md) for what each release changed.
+> **Status**: stable — current release `0.56.0`. From 1.0 on, a breaking change comes only in a new major version (semver); see the [CHANGELOG](./CHANGELOG.md) for what each release changed.
 
 **[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 43 pieces written as plain data by AI models · **[For AI →](https://yjmtmtk.github.io/pixi-effects/for-ai.html)** · what an AI reads and runs.
 

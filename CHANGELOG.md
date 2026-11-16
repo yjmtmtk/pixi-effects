@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**1.0: the API is frozen.** The names settled in 0.55.0 are the 1.0 names (the freeze table: `docs/superpowers/specs/2026-11-16-api-freeze-1.0.md`). From here, a breaking change comes only in a new major version.
+
+- **The Playground is removed** (the page, its WebMCP tools for agents in a browser, and its tests). A chat AI hands the page over and the person checks it (`ai/CHAT.md`). In Claude Code, Cursor or Codex, `npx pixi-effects check` does the checking.
+
 ## 0.56.0
 
 From a fresh-agent trial on 0.55.0 (Sonnet and Opus, four briefs each). All eight delivered, and none wrote a wrong name. These are what they tripped on:
