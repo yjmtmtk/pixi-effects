@@ -25,6 +25,7 @@ import { warnUnknownOptions, suggestName } from './options';
 import { normalizeVars, applyVars, numericVars, lintVars, type Vars } from './vars';
 import { expandComponents } from './components';
 import { resolveMoments, type MarkerTime } from './moments';
+import { lintTransitions } from './transitionLint';
 import { mixKey, MixCache } from './mixCache';
 import { startWhenRunning, audioIsBlocked } from './startWhenRunning';
 import { normalizePoster } from './poster';
@@ -1481,5 +1482,5 @@ function countLayers(spec: { sequences?: unknown[] } | undefined): number {
 /** What the composition says about its components and its variables (said once, when it is given: not on every rebuild). */
 function lintComposition(composition: CompositionSpec | undefined, vars: Vars): string[] {
   const { spec, warnings } = expandComponents(composition, Object.keys(vars));
-  return [...warnings, ...lintVars(spec, vars)];
+  return [...warnings, ...lintVars(spec, vars), ...lintTransitions(applyVars(spec, vars))];
 }
