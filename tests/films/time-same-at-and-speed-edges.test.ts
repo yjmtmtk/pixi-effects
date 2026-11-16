@@ -16,10 +16,10 @@ import { runFilms, withFilm, type Film } from './support/withFilm';
 //     the comment of Channel.segs: "sorted by (start, creation order)"; the comment of `prepare`: "a `to` (and a `set`) starts where the segment before it ended";
 //     docs/superpowers/specs/2026-10-10-pure-timeline-design.md: "ordered by start time (creation order breaks a tie)". Keyframes are created in the order of
 //     the list (src/core/Timeline.ts applyKeyframes walks the list; code, no comment says it). So, at equal `at`, the one listed LATER writes x from 0.5 s,
-//     starting from the end value of the one listed before it:
-//       [A, B]: x 40 until 0.5 s, then 160 + 120 (t − 0.5) to 1.5 s (a jump 40 → 160 at frame 15), 280 after.
-//       [B, A]: x 40 until 0.5 s, then 280 − 120 (t − 0.5) to 1.5 s (a jump 40 → 280 at frame 15), 160 after.
-//     Pinned as the source says, and reported as a doc-gap ("written backwards they play the same" is not true at equal `at`).
+//     starting from where x is at that moment (since 0.55.x; before, from the end value of the one listed before it, a jump):
+//       [A, B]: x 40 until 0.5 s, then 40 + 240 (t − 0.5) to 1.5 s, 280 after.
+//       [B, A]: x 40 until 0.5 s, then 40 + 120 (t − 0.5) to 1.5 s, 160 after.
+//     Pinned as the source says ("written backwards they play the same" is not true at equal `at`: the list decides; docs/dsl.md says so).
 //
 // (2) 'clock', a composition at COMP_AT (default 0, ?compAt=) for 2 s of OUTER time, with `speed` SPEED (default 2, ?speed=), holding 'life': a green
 //     40 x 40 rect, at: 1, duration: 1 (composition seconds), initial x 60, y 130, and a keyframe { at: 0, to: { x: 260 }, duration: 1, ease: 'none' }.
@@ -44,7 +44,7 @@ const clamp01 = (u: number) => Math.min(1, Math.max(0, u));
 function tieX(t: number, order: 'list' | 'reverse'): number {
   if (t < 0.5) return 40;
   const p = clamp01((t - 0.5) / 1);
-  return order === 'list' ? 160 + 120 * p : 280 - 120 * p;
+  return order === 'list' ? 40 + 240 * p : 40 + 120 * p;          // the later-listed one, from where x is at 0.5 s (40): no jump
 }
 
 /** 'life' at frame f: its centre x, or null when it is not alive (docs/dsl.md: composition seconds, u = speed × (t − compAt)). */
@@ -71,14 +71,14 @@ runFilms('Time: two keyframes on one property with the same `at`', () => {
       }, { query: order === 'reverse' ? 'tie=reverse' : '' });
     }, 120_000);
 
-    it(`listed ${order === 'list' ? '[A, B]' : '[B, A]'}: from the shared at the LATER-listed keyframe writes x, from the earlier-listed one's end (the source comment's rule)`, async () => {
+    it(`listed ${order === 'list' ? '[A, B]' : '[B, A]'}: from the shared at the LATER-listed keyframe writes x, from where x is then (40): no jump`, async () => {
       await withFilm('time-same-at-and-speed-edges', async (film) => {
         const got = await read(film, 'tie');
         for (const f of FRAMES) expect(got[f]!.cx, `order ${order}, frame ${f} (${(f / 30).toFixed(3)} s): x ${tieX(f / 30, order).toFixed(2)}`).toBeCloseTo(tieX(f / 30, order), 2);
-        const jump = order === 'list' ? 160 : 280, end = order === 'list' ? 280 : 160;
-        expect(await px(film, 15, jump, 40), `frame 15 (0.5 s): a jump to the earlier-listed one's end, ${jump}`).toEqual(RED);
-        expect(await px(film, 15, 40, 40), 'frame 15: not where both start "from whatever the property is at at" (40)').toEqual(BLACK);
-        expect(await px(film, 30, (jump + end) / 2, 40), `frame 30 (1 s): half way from ${jump} to ${end}`).toEqual(RED);
+        const end = order === 'list' ? 280 : 160, other = order === 'list' ? 160 : 280;
+        expect(await px(film, 15, 40, 40), 'frame 15 (0.5 s): where both start "from whatever the property is at at" (40)').toEqual(RED);
+        expect(await px(film, 15, other, 40), `frame 15: no jump to the earlier-listed one's end, ${other}`).toEqual(BLACK);
+        expect(await px(film, 30, (40 + end) / 2, 40), `frame 30 (1 s): half way from 40 to ${end}`).toEqual(RED);
         expect(await px(film, 89, end, 40), `frame 89: the later-listed one's end, ${end}`).toEqual(RED);
       }, { query: order === 'reverse' ? 'tie=reverse' : '' });
     }, 120_000);

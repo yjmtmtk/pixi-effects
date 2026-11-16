@@ -366,8 +366,9 @@ export class PureTimeline {
    * on the segments of a property only:
    * - a `from` / `fromTo` shows its start from the moment it is built, so a `to` that comes first starts at the start of the
    *   `from` built last, else at the property's own value;
-   * - a `to` (and a `set`) starts where the segment before it ended;
-   * - a `from` ends where the segment before it ended, or, with none before, where the property was when it was built;
+   * - a `to` (and a `set`) starts where the property is when it starts: where the segment before it ended, or, when it starts while that
+   *   segment still runs, where that segment is at that moment (it takes over without a jump; since 0.55.x, "from whatever the property is at `at`");
+   * - a `from` ends where the property is when it starts, in the same way, or, with none before, where the property was when it was built;
    * - before the first segment the property shows that segment's start.
    */
   private prepare(ch: Channel): void {
@@ -380,7 +381,11 @@ export class PureTimeline {
     let cur = latest ? latest.from0! : ch.base0.v;
     const base = cur;
     let first = true;
+    let prev: Segment | null = null;
     for (const s of ch.segs) {
+      // a segment that starts while the one before still runs takes over from where that one is then, not from its end
+      // (starts and lengths are kept to seven decimals each: an exact hand-over can differ by 1e-7, and is not an overlap)
+      if (prev && s.start < prev.start + totalOf(prev) - 1e-6) { const r = ratioAt(prev, s.start); cur = mix(prev, r, over); }
       const before = cur;
       s.from = s.from0; s.to = s.to0; s.toRel = s.toRel0;
       if (s.fnTo) {
@@ -396,6 +401,7 @@ export class PureTimeline {
       if (first) ch.pre = s.fnTo ? before : s.from;
       cur = endValue(s);
       first = false;
+      prev = s;
     }
   }
 
@@ -527,6 +533,11 @@ function ratioAt(s: Segment, t: number): number {
   let p = within >= s.dur ? 1 : within <= 0 ? 0 : within / s.dur;
   if (s.yoyo && i % 2 === 1) p = 1 - p;
   return s.ease(p);
+}
+
+/** How long a segment runs, its repeats and the pauses between them included. */
+function totalOf(s: Segment): number {
+  return s.dur * (s.repeat + 1) + s.repeatDelay * s.repeat;
 }
 
 /** At the end the value is exact: where a yoyo that repeats an odd number of times ends up, or the `to`. */

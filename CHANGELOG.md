@@ -8,7 +8,11 @@ From a fresh-agent trial on 0.55.0 (Sonnet and Opus, four briefs each). All eigh
   - Before, the biggest sub-path was the shape and every other one was a hole, so some pieces were lost without a word: a cup icon written as one `d` kept only its body (no handle, saucer or steam), and a phone lost the check mark in its screen.
   - A whole icon is now one `d`. The stroke goes round every piece and every hole.
   - A trimmed stroke keeps the holes cut in the fill.
-- **A warning when two keyframes animate the same property at the same time.** The later one takes over at its `at`, starting from the earlier one's END value, so the picture jumps. The warning names both keyframes, their spans and the property, and says what to write instead. It is not given for a `set`, after a spring, or for an overlap under 0.1 s.
+- **Behaviour change: a keyframe that starts while another keyframe of the same property still runs takes over from where the property IS, without a jump.**
+  - Before, it started from the earlier one's END value, so the picture jumped. In the trial, a label told to dim while it was still fading back in came out wrong. Seven gallery pieces did the same with a short accent written on top of a slow drift.
+  - This is what `docs/dsl.md` always said: "from whatever the property is at `at`". It is also what GSAP played forward does, and what After Effects users expect.
+  - Two keyframes with the same `at`: the one listed later still wins, and it now starts from the value at that moment.
+  - Keyframes that do not overlap are unchanged; the GSAP parity tests still pass.
 - **Seamless loops:** a `docs/dsl.md` section that `help loop`, `help seam` and `help seamless` find, and the tested recipe `seamless-loop`. They cover:
   - periodic motion, and grain `loop: true` on a composition that holds the background;
   - `loop: { duration }`;

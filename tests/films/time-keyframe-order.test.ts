@@ -19,11 +19,9 @@ import { runFilms, withFilm, type Film } from './support/withFilm';
 //   x = 40 up to 0.5 s; 40 + 120 (t − 0.5) to 1.5 s; 160 until 2 s; 160 + 240 (t − 2) to 2.5 s; 280 after.
 //   (Were the list order the order of play, [B, A] would run B first from 40 and A from 280: x 220 at frame 30, not 100.)
 //
-// Overlapping (?overlap=1). The public documents promise nothing precise: dsl.md's "from whatever the property is at `at`" would start B at 100
-// (A half way at 1 s), with no word on which of the two writes x while both run. The source comment is the only precise text:
-// from 1 s on B alone writes x ("the last segment that has started"), starting "where the segment before it ended", A's end value 160:
-//   x = A's line until 1 s (96 at frame 29), then 160 + 120 (t − 1) to 2 s (a jump from 96 to 160 at frame 30), 280 after.
-// Both readings agree before 1 s and from 2 s on; that part is pinned as promised by both, the middle as the source comment says (and reported as a doc-gap).
+// Overlapping (?overlap=1). docs/dsl.md: a `to` tweens "from whatever the property is at `at`", and from B's `at` the later-starting one alone writes x
+// (since 0.55.x; before, B started from A's END value, 160, and the picture jumped): B starts at 100 (A half way at 1 s):
+//   x = A's line until 1 s (96 at frame 29), then 100 + 180 (t − 1) to 2 s (no jump), 280 after.
 
 const FRAMES = Array.from({ length: 90 }, (_, f) => f);
 const clamp01 = (u: number) => Math.min(1, Math.max(0, u));
@@ -36,7 +34,7 @@ function apart(t: number): number {
 /** The centre x at time t with B starting at 1 s inside A: B alone from 1 s, from A's end (160). */
 function overlapping(t: number): number {
   if (t < 1) return 40 + 120 * clamp01((t - 0.5) / 1);
-  return 160 + 120 * clamp01((t - 1) / 1);
+  return 100 + 180 * clamp01((t - 1) / 1);                           // B from where A is at 1 s (100): no jump
 }
 
 const RED = [255, 0, 0];
@@ -87,14 +85,14 @@ runFilms('Time: two keyframes on one property that overlap (the second starts wh
       }, { query: `overlap=1&order=${order}` });
     }, 120_000);
 
-    it(`listed in ${order} order: from B's start the later-starting keyframe alone writes x, from A's END value (the source comment's rule)`, async () => {
+    it(`listed in ${order} order: from B's start the later-starting keyframe alone writes x, from where A is then (100): no jump`, async () => {
       await withFilm('time-keyframe-order', async (film) => {
         const got = await read(film);
         expectCentres(got, overlapping, `overlap, order=${order}, while both run and after A`, FRAMES.filter((f) => f >= 30 && f < 60));
         expect(await px(film, 29, 96), 'frame 29 (0.967 s): A at 96').toEqual(RED);
-        expect(await px(film, 30, 160), 'frame 30 (1 s): B starts from A\'s end, 160').toEqual(RED);
-        expect(await px(film, 30, 100), 'frame 30: not from where A stood at 1 s (100)').toEqual(BLACK);
-        expect(await px(film, 45, 220), 'frame 45 (1.5 s): B half way from 160 to 280').toEqual(RED);
+        expect(await px(film, 30, 100), 'frame 30 (1 s): B starts from where A stood at 1 s, 100').toEqual(RED);
+        expect(await px(film, 30, 160), 'frame 30: not from A\'s end (160): no jump').toEqual(BLACK);
+        expect(await px(film, 45, 190), 'frame 45 (1.5 s): B half way from 100 to 280').toEqual(RED);
       }, { query: `overlap=1&order=${order}` });
     }, 120_000);
   }
