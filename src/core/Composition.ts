@@ -15,7 +15,8 @@ import { buildScope } from '../expr/Scope';
 import type { SequenceSpec, CompositionShape, TextSequenceSpec } from '../types';
 import { layerAt } from './layerAt';
 import { describeLayer } from './lint';
-import { guessType, guessShape, SHAPE_NAMES, LAYER_TYPES } from './layerKeys';
+import { SHAPE_NAMES, LAYER_TYPES } from './layerKeys';
+import { guessType, guessShape } from './typeGuess';
 
 let _CompositionSequence: typeof import('../sequences/Composition').CompositionSequence | null = null;
 async function getCompositionSequence() {
