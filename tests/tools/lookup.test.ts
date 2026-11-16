@@ -176,7 +176,7 @@ describe('new --size WxH --duration S: the page starts at the size and length as
     expect(readFileSync(lookup.newPage('plain', { cwd: dir, root }).file, 'utf8')).toContain('const W = 1280, H = 720, FPS = 30, DURATION = 6;');
     for (const bad of [['--size', '1080'], ['--size', '0x720'], ['--size', '9000x9000'], ['--duration', '0'], ['--duration', 'long'], ['--duration', '0x10'], ['--duration', '-5'], ['--size']]) {
       const r = cli(['new', 'bad', ...bad], dir);
-      expect(r.status, bad.join(' ')).toBe(bad.length === 1 ? 2 : 1);              // a missing value is the reader's: exit 2
+      expect(r.status, bad.join(' ')).toBe(2);                                      // the command line is wrong
       expect(r.stderr).toMatch(/--size 1920x1080|--duration 12|--duration takes|--size needs a value/);
       expect(existsSync(join(dir, 'bad.html'))).toBe(false);
     }

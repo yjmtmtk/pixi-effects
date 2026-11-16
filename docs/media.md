@@ -4,7 +4,7 @@ Six commands for an AI agent (or a person) who is handed a video or a sound and 
 
 **If ffmpeg is installed and the job is a long transcode, use ffmpeg.** It is faster at that, and it does far more. These commands are for the other cases: no ffmpeg, a quick look, and answers shaped for an agent: structured output (`--json`), the real times of a cut, and no flag-order traps.
 
-Exit code: **0** done · **1** a problem (the file, the browser, the job as asked) · **2** usage. Every command prints a short report, or the same facts as JSON with `--json`. A file argument is a path or an `http(s)` URL. A mistake is one sentence that names the file and what to do, never a stack trace.
+Exit code (the same for every `pixi-effects` command): **0** done · **1** a problem (the file, the browser, the job as asked) · **2** the command line is wrong (an unknown option, a bad value, a missing argument). `pixi-effects <command> --help` lists every option of one. Every command prints a short report, or the same facts as JSON with `--json`. A file argument is a path or an `http(s)` URL. A mistake is one sentence that names the file and what to do, never a stack trace.
 
 ## Media
 

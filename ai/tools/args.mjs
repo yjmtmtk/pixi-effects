@@ -101,10 +101,10 @@ export function missing(spec, what) {
   return new UsageError(`${spec.name}: needs ${what} (pixi-effects ${spec.name} --help lists every option)`);
 }
 
-/** The end of a command that failed: one sentence on stderr, and the exit code (2 for a usage mistake). */
+/** The end of a command that failed: one sentence on stderr, and the exit code (2 for a usage mistake, 1 for anything else: no Chrome, a timeout, a page that is missing). */
 export function exitWith(e, name) {
   const text = String(e?.message ?? e).replace(new RegExp(`^${name}: `), '');
   if (e instanceof UsageError) { console.error(`pixi-effects ${name}: ${text}`); process.exit(2); }
   console.error(`pixi-effects ${name} failed: ${text}`);
-  process.exit(2);
+  process.exit(1);
 }

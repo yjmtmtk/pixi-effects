@@ -212,7 +212,7 @@ export async function runRender(opts, log = console.log, progress = () => {}) {
   const chrome = opts.chrome ?? findChrome();
   if (!chrome) throw new Error('Chrome / Chromium not found: install it, or set CHROME=/path/to/chrome (or --chrome PATH)');
   const root = path.resolve(opts.root ?? findRoot(path.dirname(pagePath)));
-  if (!pagePath.startsWith(root)) throw new Error(`the page must be inside the server root (${root}); use --root`);
+  if (!pagePath.startsWith(root)) throw new UsageError(`the page must be inside the server root (${root}); use --root`);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   const part = out + '.part';
   const deadline = Date.now() + opts.timeout * 1000;

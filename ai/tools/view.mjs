@@ -328,7 +328,7 @@ export async function startViewer(opts) {
   const pagePath = path.resolve(opts.page);
   if (!fs.existsSync(pagePath)) throw new Error(`page not found: ${opts.page}`);
   const root = path.resolve(opts.root ?? findRoot(path.dirname(pagePath)));
-  if (!pagePath.startsWith(root)) throw new Error(`the page must be inside the server root (${root}); use --root`);
+  if (!pagePath.startsWith(root)) throw new UsageError(`the page must be inside the server root (${root}); use --root`);
   const rel = path.relative(root, pagePath).split(path.sep).join('/');
   const pageUrl = '/' + rel + (opts.query ? '?' + opts.query : '');
   const title = path.basename(pagePath).replace(/\.[^.]+$/, '');

@@ -447,7 +447,7 @@ export async function runCheck(opts, log = console.log) {
   const chrome = opts.chrome ?? findChrome();
   if (!chrome) throw new Error('Chrome / Chromium not found: install it, or set CHROME=/path/to/chrome (or --chrome PATH)');
   const root = path.resolve(opts.root ?? findRoot(path.dirname(pagePath)));
-  if (!pagePath.startsWith(root)) throw new Error(`the page must be inside the server root (${root}); use --root`);
+  if (!pagePath.startsWith(root)) throw new UsageError(`the page must be inside the server root (${root}); use --root`);
   const deadline = Date.now() + opts.timeout * 1000;
   const left = () => { if (Date.now() > deadline) throw new Error(`timed out after ${opts.timeout} s`); };
 

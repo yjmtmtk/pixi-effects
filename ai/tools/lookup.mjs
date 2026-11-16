@@ -154,9 +154,9 @@ export function formatHelp(hits, word, root = PACKAGE_ROOT) {
 
 /** <name>.html from the template, titled with the name, its CDN pins set to this package's version. Throws if the file exists (without `force`). */
 export function newPage(name, { cwd = process.cwd(), root = PACKAGE_ROOT, force = false, size = null, duration = null } = {}) {
-  if (size && !(Number.isInteger(size.width) && Number.isInteger(size.height) && size.width >= 16 && size.height >= 16 && size.width <= 8192 && size.height <= 8192)) throw new Error('--size takes WIDTHxHEIGHT in pixels (16 to 8192), for example --size 1920x1080');
-  if (duration !== null && !(Number.isFinite(duration) && duration > 0 && duration <= 3600)) throw new Error('--duration takes seconds (more than 0, up to 3600), for example --duration 12');
-  if (!name || !String(name).trim()) throw new Error('give the page a name: pixi-effects new my-video');
+  if (size && !(Number.isInteger(size.width) && Number.isInteger(size.height) && size.width >= 16 && size.height >= 16 && size.width <= 8192 && size.height <= 8192)) throw new UsageError('--size takes WIDTHxHEIGHT in pixels (16 to 8192), for example --size 1920x1080');
+  if (duration !== null && !(Number.isFinite(duration) && duration > 0 && duration <= 3600)) throw new UsageError('--duration takes seconds (more than 0, up to 3600), for example --duration 12');
+  if (!name || !String(name).trim()) throw new UsageError('give the page a name: pixi-effects new my-video');
   const raw = String(name).trim();
   const base = path.basename(raw).replace(/\.html?$/i, '');
   const dir = path.dirname(raw);
@@ -257,7 +257,7 @@ export function runLookup(cmd, args, { cwd = process.cwd(), root = PACKAGE_ROOT 
     }
     const name = rest[0];
     if (!name) return fail('give the page a name: pixi-effects new my-video [--size 1920x1080] [--duration 12] [--force]', 2);
-    if (bad) return fail(`pixi-effects new: ${bad}`);
+    if (bad) return fail(`pixi-effects new: ${bad}`, 2);
     try {
       const { file } = newPage(name, { cwd, root, force, size, duration });
       const f = shownPath(file, cwd);
@@ -268,7 +268,7 @@ export function runLookup(cmd, args, { cwd = process.cwd(), root = PACKAGE_ROOT 
         `      npx pixi-effects check ${f}    review it: warnings, layout, sound, a contact sheet, a real export`,
         '      npx pixi-effects recipe        tested pieces to copy  ·  npx pixi-effects help <word>',
       ].join('\n'));
-    } catch (e) { return fail(`pixi-effects new: ${e.message}`); }
+    } catch (e) { return fail(`pixi-effects new: ${e.message}`, e instanceof UsageError ? 2 : 1); }
   }
   return fail(`unknown command ${cmd}`, 2);
 }
