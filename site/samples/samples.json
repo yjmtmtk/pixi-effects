@@ -17,17 +17,17 @@
       "version": "1.0.0"
     },
     {
-      "id": "natsumatsuri",
+      "id": "receipt-app",
       "kind": "one",
       "lang": "ja",
-      "title": "夏祭り fireworks",
+      "title": "レシート撮るだけ app promo",
       "messages": [
-        "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型（1080×1920）15秒。夏祭りの告知：夜空に花火が次々と上がり、提灯が揺れ、最後に「夏祭り 8.15」が大きく出る。太鼓の音付き。"
+        "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型（1080×1920）15秒。家計簿アプリの新機能『レシート撮るだけ』の告知：スマホでレシートを撮ると金額が自動で飛んできてグラフが伸びる。"
       ],
-      "page": "natsumatsuri.html",
+      "page": "receipt-snap.html",
       "poster": "poster.jpg",
-      "alt": "A vertical summer-festival night: rows of red lanterns, fireworks bursting one after another, and 夏祭り 8.15 glowing at the end.",
-      "minutes": 5,
+      "alt": "A vertical app promo: a phone scans a receipt, the total flies into a spending chart and the bars grow, then レシート撮るだけ in big type.",
+      "minutes": 9,
       "runs": 3,
       "model": "Claude Opus",
       "version": "1.0.0"

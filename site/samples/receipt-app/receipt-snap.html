@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>レシート撮るだけ — 新機能告知 (1080×1920 / 15s)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/loader.css" />
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(420px, 100%); margin: 0 auto; }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1080" height="1920"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script>
+    window.__logs = [];
+    let group = '';
+    const text = (a) => { if (typeof a[0] === 'string' && a[0].includes('%')) { let i = 1; a = [a[0].replace(/%([csdifoO])/g, (_, f) => f === 'c' ? (i++, '') : String(a[i++])), ...a.slice(i)]; } return a.map(x => (x && x.message) || String(x)).join(' '); };
+    const gc = console.groupCollapsed.bind(console), ge = console.groupEnd.bind(console);
+    console.groupCollapsed = (...a) => { group = text(a); gc(...a); };
+    console.groupEnd = () => { group = ''; ge(); };
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + (group ? group + ' — ' : '') + text(a)); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/controller.js"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie, followPath, particles, random } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1080, H = 1920, FPS = 30, DURATION = 15;
+    const BEAT = 60 / 96;                       // 96 bpm: a bar = 2.5 s, every cut sits on a bar line
+    const JP = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif';
+    const C = {
+      ink: '#1E2A3A', sub: '#6B7785', green: '#19B37A', yellow: '#FFE15A', warm: '#FFF4E4',
+      coral: '#E85D4A', light: '#EEF6F1', paper: '#FFFFFF', line: '#D9DEE4',
+    };
+    const CAT = [
+      { label: '食費',   color: '#19B37A', base: 4200 },
+      { label: '外食',   color: '#FF8A3D', base: 1800 },
+      { label: '日用品', color: '#4C8DF6', base: 900 },
+    ];
+    const RECEIPTS = [
+      { shop: 'スーパーみどり', date: '2026/11/17 18:42', cat: 0, total: 3280,
+        items: [['牛乳', 238], ['食パン', 178], ['鶏むね肉', 598], ['お米 5kg', 1998], ['たまご', 268]] },
+      { shop: 'CAFE こもれび', date: '2026/11/18 12:15', cat: 1, total: 1450,
+        items: [['カフェラテ', 520], ['サンドイッチ', 680], ['クッキー', 250]] },
+      { shop: 'ドラッグ ハル', date: '2026/11/19 20:03', cat: 2, total: 2160,
+        items: [['シャンプー', 798], ['歯みがき粉', 298], ['ティッシュ', 398], ['洗剤', 666]] },
+    ];
+    const yen = n => '¥' + n.toLocaleString('en-US');
+    const T = (s, size, fill, weight = '800') => ({ fontFamily: JP, fontSize: size, fill, fontWeight: weight });
+    const BG = (fill, at, duration, extra = {}) => ({ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', at, duration, initial: { x: 'GW/2', y: 'GH/2', fill, ...extra.initial }, keyframes: extra.keyframes || [] });
+    const rise = (dy = 50, d = 0.5) => ({ at: 0, from: { alpha: 0, y: `+=${dy}` }, duration: d, ease: 'power3.out' });
+    const layers = [];
+    const add = (...l) => layers.push(...l);
+    const centerText = (name, text, y, style, at, duration, kfs = []) => ({
+      type: 'text', name, text, at, duration, style,
+      initial: { x: W / 2, y, anchorX: 0.5, anchorY: 0.5 }, keyframes: kfs,
+    });
+
+    // ───────────── Scene 1 (0 – 2.5): receipts pile up — "entering them by hand is a chore"
+    const S1_END = 2.6;
+    add(BG(C.warm, 0, S1_END));
+    const rnd = random(7);
+    for (let i = 0; i < 11; i++) {
+      const x = 170 + rnd() * 740, y = 1180 + rnd() * 330, rot = (rnd() - 0.5) * 50, at = 0.05 + i * 0.07;
+      const n = 'pile' + i;
+      add({ type: 'null', name: n, at, duration: S1_END - at,
+        initial: { x, y: -300, rotation: rot - 30 },
+        keyframes: [{ at: 0, to: { y, rotation: rot }, duration: 0.55, ease: 'back.out(1.2)' }] });
+      add({ type: 'shape', shape: 'rect', parent: n, at, duration: S1_END - at, width: 190, height: 290, cornerRadius: 6,
+        initial: { x: 0, y: 0, fill: C.paper, stroke: '#E6DCC8', strokeWidth: 3 } });
+      [-90, -50, -20, 10, 40, 95].forEach((ly, k) => add({ type: 'shape', shape: 'rect', parent: n, at, duration: S1_END - at,
+        width: k === 5 ? 110 : 130 - (k % 2) * 40, height: k === 5 ? 16 : 9, cornerRadius: 4,
+        initial: { x: k === 5 ? 20 : -10, y: ly, fill: k === 5 ? '#9AA3AE' : '#D5D9DE' } }));
+    }
+    add(centerText('hook1', '毎回のレシート入力、', 520, T('', 76, C.ink), 0.3, S1_END - 0.3, [rise(40)]));
+    add(centerText('hook2', 'めんどくさい…', 660, T('', 116, C.coral, '900'), 0.75, S1_END - 0.75,
+      [{ at: 0, from: { alpha: 0, scale: 1.4 }, to: { alpha: 1, scale: 1 }, duration: 0.35, ease: 'back.out(2)' },
+       { at: 0.6, to: { rotation: -2 }, duration: 0.12, repeat: 3, yoyo: true }]));
+
+    // ───────────── Scene 2 (2.5 – 5): the feature name slams in on green
+    const S2 = 2.5, S2_END = 5.2;
+    add({ type: 'shape', shape: 'circle', name: 'flood1', radius: 0, at: 2.15, duration: S2_END - 2.15,
+      initial: { x: W / 2, y: 900, fill: C.green },
+      keyframes: [{ at: 0, to: { radius: 1500 }, duration: 0.4, ease: 'power3.in' }] });
+    const s2out = (at) => ({ at: 4.6 - at, to: { alpha: 0, y: '-=120' }, duration: 0.3, ease: 'power2.in' });
+    add(centerText('newTag', '家計簿アプリに新機能', 720, T('', 54, '#FFFFFF', '700'), S2 + 0.05, S2_END - S2,
+      [rise(30, 0.4), s2out(S2 + 0.05)]));
+    add(centerText('title1', 'レシート', 920, T('', 200, '#FFFFFF', '900'), S2, S2_END - S2,
+      [{ at: 0, from: { scale: 2.4, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.2, ease: 'expo.out' }, s2out(S2)]));
+    add(centerText('title2', '撮るだけ', 1150, T('', 230, C.yellow, '900'), S2 + BEAT / 2, S2_END - S2 - BEAT / 2,
+      [{ at: 0, from: { scale: 2.4, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.2, ease: 'expo.out' }, s2out(S2 + BEAT / 2)]));
+    // NEW badge
+    add({ type: 'null', name: 'newBadge', at: S2 + BEAT * 1.5, duration: S2_END - S2 - BEAT * 1.5,
+      initial: { x: 820, y: 790, rotation: 12 },
+      keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 'auto', ease: 'spring.bouncy' }, s2out(S2 + BEAT * 1.5)] });
+    add({ type: 'shape', shape: 'rect', parent: 'newBadge', width: 170, height: 70, cornerRadius: 35, at: S2 + BEAT * 1.5, duration: S2_END - S2 - BEAT * 1.5,
+      initial: { x: 0, y: 0, fill: C.coral } });
+    add({ type: 'text', text: 'NEW', parent: 'newBadge', at: S2 + BEAT * 1.5, duration: S2_END - S2 - BEAT * 1.5,
+      style: { fontFamily: 'Arial Black, Arial, sans-serif', fontSize: 40, fill: '#FFFFFF', fontWeight: '900' },
+      initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } });
+    add(centerText('sub2', '撮れば、金額は自動で入力。', 1370, T('', 54, '#FFFFFF', '700'), S2 + BEAT * 2, S2_END - S2 - BEAT * 2,
+      [rise(30, 0.4), s2out(S2 + BEAT * 2)]));
+
+    // ───────────── Scene 3 (5 – 12.5): phone → shutter → amount flies → bar grows
+    const S3 = 4.55, S3_END = 12.9;
+    add(BG(C.light, S3, S3_END - S3, { keyframes: [{ at: 0, from: { y: H * 1.5 }, to: { y: H / 2 }, duration: 0.4, ease: 'power3.out' }] }));
+
+    // phone (a null rig, slides up)
+    const PX = 540, PY = 690, PW = 440, PH = 860, SW = 404, SH = 824;
+    const PH_AT = 4.9, PH_D = S3_END - PH_AT;
+    const B = [5.625, 7.5, 9.375];             // shutter moments (on the beat)
+    add({ type: 'null', name: 'phone', at: PH_AT, duration: PH_D, initial: { x: 0, y: 0 },
+      keyframes: [{ at: 0, from: { y: 1400 }, to: { y: 0 }, duration: 0.55, ease: 'power3.out' }] });
+    const P = (spec) => add({ parent: 'phone', at: PH_AT, duration: PH_D, ...spec });
+    P({ type: 'shape', shape: 'rect', width: PW + 16, height: PH + 16, cornerRadius: 70, initial: { x: PX, y: PY + 14, fill: '#1E2A3A', alpha: 0.12 } });
+    P({ type: 'shape', shape: 'rect', width: PW, height: PH, cornerRadius: 64, initial: { x: PX, y: PY, fill: '#1E2A3A' } });
+    P({ type: 'shape', shape: 'rect', width: SW, height: SH, cornerRadius: 46, initial: { x: PX, y: PY, fill: '#3A4150' } });
+    P({ type: 'shape', shape: 'rect', width: 110, height: 30, cornerRadius: 15, initial: { x: PX, y: PY - SH / 2 + 30, fill: '#11161F' } });
+    P({ type: 'text', text: 'レシートを撮影', style: T('', 26, '#FFFFFF', '700'), initial: { x: PX, y: PY - SH / 2 + 82, anchorX: 0.5, anchorY: 0.5, alpha: 0.85 } });
+    P({ type: 'shape', shape: 'circle', radius: 50, initial: { x: PX, y: PY + SH / 2 - 70, fill: '#000000', fillAlpha: 0, stroke: '#FFFFFF', strokeWidth: 6 } });
+    P({ type: 'shape', shape: 'circle', name: 'shutter', radius: 38, initial: { x: PX, y: PY + SH / 2 - 70, fill: '#FFFFFF' },
+      keyframes: B.map(b => ({ at: b - PH_AT, from: { scale: 0.75 }, to: { scale: 1 }, duration: 0.3, ease: 'back.out(3)' })) });
+    // viewfinder corners
+    const FX0 = PX - 170, FX1 = PX + 170, FY0 = PY - 300, FY1 = PY + 290, L = 46;
+    const corners = `M ${FX0} ${FY0 + L} L ${FX0} ${FY0} L ${FX0 + L} ${FY0} M ${FX1 - L} ${FY0} L ${FX1} ${FY0} L ${FX1} ${FY0 + L} ` +
+                    `M ${FX1} ${FY1 - L} L ${FX1} ${FY1} L ${FX1 - L} ${FY1} M ${FX0 + L} ${FY1} L ${FX0} ${FY1} L ${FX0} ${FY1 - L}`;
+
+    // the screen as a mask for what lives "inside" the phone
+    add({ type: 'shape', shape: 'rect', name: 'screenMask', width: SW, height: SH, cornerRadius: 46, at: 5.1, duration: S3_END - 5.1,
+      initial: { x: PX, y: PY, fill: '#FFFFFF' } });
+
+    // receipts as compositions (local coordinates 300 × 540)
+    const RW = 300, RH = 540;
+    const dashes = (y) => { let d = ''; for (let x = 18; x < RW - 18; x += 16) d += `M ${x} ${y} L ${x + 8} ${y} `; return d; };
+    const receiptComp = (r, i) => {
+      const IN = B[i] - 0.5, life = (i < 2 ? B[i + 1] - 0.5 + 0.45 : S3_END) - IN;
+      const kids = [
+        { type: 'shape', shape: 'rect', width: RW, height: RH, cornerRadius: 6, initial: { x: RW / 2, y: RH / 2, fill: C.paper } },
+        { type: 'text', text: r.shop, style: T('', 30, C.ink, '800'), initial: { x: RW / 2, y: 50, anchorX: 0.5, anchorY: 0.5 } },
+        { type: 'text', text: r.date, style: T('', 17, C.sub, '500'), initial: { x: RW / 2, y: 90, anchorX: 0.5, anchorY: 0.5 } },
+        { type: 'shape', shape: 'path', d: dashes(118), initial: { stroke: '#B8BFC8', strokeWidth: 2 } },
+        ...r.items.flatMap(([name, p], k) => [
+          { type: 'text', text: name, style: T('', 20, '#3B4654', '500'), initial: { x: 24, y: 152 + k * 38, anchorY: 0.5 } },
+          { type: 'text', text: yen(p), style: T('', 20, '#3B4654', '500'), initial: { x: RW - 24, y: 152 + k * 38, anchorX: 1, anchorY: 0.5 } },
+        ]),
+        { type: 'shape', shape: 'path', d: dashes(338), initial: { stroke: '#B8BFC8', strokeWidth: 2 } },
+        { type: 'text', text: '合計', style: T('', 28, C.ink, '800'), initial: { x: 24, y: 388, anchorY: 0.5 } },
+        { type: 'text', text: yen(r.total), style: T('', 42, C.ink, '900'), initial: { x: RW - 24, y: 388, anchorX: 1, anchorY: 0.5 } },
+        // "detected" box that draws itself around the total
+        { type: 'shape', shape: 'rect', width: 190, height: 66, cornerRadius: 14, trimEnd: 0, strokeJoin: 'round', at: B[i] + 0.4 - IN,
+          initial: { x: RW - 24 - 82, y: 388, stroke: C.green, strokeWidth: 5, fill: C.green, fillAlpha: 0 },
+          keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.22, ease: 'power2.out' }, { at: 0.2, to: { fillAlpha: 0.16 }, duration: 0.2 }] },
+        ...[...Array(26)].map((_, k) => ({ type: 'shape', shape: 'rect', width: (k * 7) % 3 + 2, height: 52,
+          initial: { x: 62 + k * 7, y: 470, fill: '#2C3440' } })),
+        { type: 'text', text: 'ありがとうございました', style: T('', 15, C.sub, '500'), initial: { x: RW / 2, y: 515, anchorX: 0.5, anchorY: 0.5 } },
+      ];
+      return { type: 'composition', name: 'receipt' + i, width: RW, height: RH, at: IN, duration: life, mask: 'screenMask', layers: kids,
+        initial: { x: PX, y: PY - 10, pivotX: RW / 2, pivotY: RH / 2, rotation: [-3, 2, -1.5][i] },
+        keyframes: [
+          { at: 0, from: { y: PY + 820 }, to: { y: PY - 10 }, duration: 0.42, ease: 'power3.out' },
+          ...(i < 2 ? [{ at: life - 0.45, to: { y: PY - 900 }, duration: 0.42, ease: 'power3.in' }] : []),
+        ] };
+    };
+    RECEIPTS.forEach((r, i) => add(receiptComp(r, i)));
+
+    // viewfinder corners (over the receipt), scan beam, flash
+    add({ type: 'shape', shape: 'path', name: 'finder', d: corners, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round', at: 5.15, duration: S3_END - 5.15,
+      initial: { stroke: '#FFFFFF', strokeWidth: 7, pivotX: PX, pivotY: PY, x: PX, y: PY },
+      keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.4, ease: 'power2.out' },
+        ...B.map(b => ({ at: b - 5.15, from: { scale: 1.06 }, to: { scale: 1 }, duration: 0.3, ease: 'power2.out' }))] });
+    B.forEach((b, i) => {
+      add({ type: 'shape', shape: 'rect', name: 'scanGlow' + i, width: SW, height: 60, at: b + 0.05, duration: 0.42, mask: 'screenMask',
+        initial: { x: PX, y: FY0, fill: C.green, alpha: 0.22 },
+        keyframes: [{ at: 0, to: { y: FY1 }, duration: 0.4, ease: 'sine.inOut' }] });
+      add({ type: 'shape', shape: 'rect', name: 'scan' + i, width: SW, height: 6, at: b + 0.05, duration: 0.42, mask: 'screenMask',
+        initial: { x: PX, y: FY0, fill: '#5BF0B2' },
+        keyframes: [{ at: 0, to: { y: FY1 }, duration: 0.4, ease: 'sine.inOut' }] });
+      add({ type: 'shape', shape: 'rect', name: 'flash' + i, width: SW, height: SH, cornerRadius: 46, at: b, duration: 0.35,
+        initial: { x: PX, y: PY, fill: '#FFFFFF', alpha: 0.95 },
+        keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.35, ease: 'power2.out' }] });
+    });
+
+    // chart card
+    const CH_AT = 5.0, CH_D = S3_END - CH_AT;
+    const CX = 540, CY = 1460, CW = 920, CHH = 520;
+    const BASE = 1650, MAXH = 260, SCALE = 8000;
+    const BX = [270, 540, 810];
+    add({ type: 'null', name: 'chart', at: CH_AT, duration: CH_D, initial: { x: 0, y: 0 },
+      keyframes: [{ at: 0.15, from: { y: 700 }, to: { y: 0 }, duration: 0.55, ease: 'power3.out' }] });
+    const K = (spec) => add({ parent: 'chart', at: CH_AT, duration: CH_D, ...spec });
+    K({ type: 'shape', shape: 'rect', width: CW, height: CHH, cornerRadius: 40, initial: { x: CX, y: CY + 12, fill: '#1E2A3A', alpha: 0.08 } });
+    K({ type: 'shape', shape: 'rect', width: CW, height: CHH, cornerRadius: 40, initial: { x: CX, y: CY, fill: '#FFFFFF' } });
+    K({ type: 'text', text: '今週の支出', style: T('', 34, C.sub, '700'), initial: { x: CX - CW / 2 + 50, y: CY - CHH / 2 + 62, anchorY: 0.5 } });
+    const LAND = B.map(b => b + 1.25);
+    let run = CAT.reduce((s, c) => s + c.base, 0);
+    const TOT = 0.6;                            // the total appears once the card has landed
+    K({ type: 'text', name: 'total', at: CH_AT + TOT, duration: CH_D - TOT, text: '¥{value}', format: { grouping: true }, style: T('', 64, C.ink, '900'),
+      initial: { x: CX + CW / 2 - 50, y: CY - CHH / 2 + 62, anchorX: 1, anchorY: 0.5, value: 0 },
+      keyframes: [
+        { at: 0, to: { value: run }, duration: 0.8, ease: 'power3.out' },
+        ...RECEIPTS.flatMap((r, i) => { run += r.total; return [
+          { at: LAND[i] - CH_AT - TOT, to: { value: run }, duration: 0.5, ease: 'power3.out' },
+          { at: LAND[i] - CH_AT - TOT, from: { scale: 1.18 }, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2)' },
+          { at: LAND[i] - CH_AT - TOT, from: { fill: C.green }, to: { fill: C.ink }, duration: 0.8 },
+        ]; }),
+      ] });
+    K({ type: 'shape', shape: 'line', from: [CX - CW / 2 + 50, CY - CHH / 2 + 115], to: [CX + CW / 2 - 50, CY - CHH / 2 + 115], initial: { stroke: '#E4E8EC', strokeWidth: 3 } });
+    K({ type: 'shape', shape: 'line', from: [CX - CW / 2 + 70, BASE], to: [CX + CW / 2 - 70, BASE], initial: { stroke: '#CBD2D9', strokeWidth: 3 } });
+    const hOf = v => MAXH * v / SCALE;
+    CAT.forEach((c, i) => {
+      const r = RECEIPTS.find(r => r.cat === i), ri = RECEIPTS.indexOf(r);
+      const v1 = c.base + r.total, h0 = hOf(c.base), h1 = hOf(v1), land = LAND[ri] - CH_AT;
+      K({ type: 'shape', shape: 'rect', name: 'bar' + i, width: 150, height: 0, cornerRadius: 18, anchorY: 1,
+        initial: { x: BX[i], y: BASE, fill: c.color },
+        keyframes: [
+          { at: 0.65 + i * 0.08, to: { height: h0 }, duration: 0.7, ease: 'power3.out' },
+          { at: land, to: { height: h1 }, duration: 0.55, ease: 'back.out(1.8)' },
+        ] });
+      K({ type: 'text', name: 'val' + i, text: '¥{value}', format: { grouping: true }, style: T('', 34, C.ink, '800'),
+        initial: { x: BX[i], y: BASE - 14, anchorX: 0.5, anchorY: 1, value: 0 },
+        keyframes: [
+          { at: 0.65 + i * 0.08, to: { value: c.base, y: BASE - h0 - 14 }, duration: 0.7, ease: 'power3.out' },
+          { at: land, to: { value: v1, y: BASE - h1 - 14 }, duration: 0.55, ease: 'back.out(1.8)' },
+        ] });
+      K({ type: 'text', text: c.label, style: T('', 32, C.sub, '700'), initial: { x: BX[i], y: BASE + 18, anchorX: 0.5, anchorY: 0 } });
+    });
+
+    // amount chips flying from the receipt total to their bar
+    RECEIPTS.forEach((r, i) => {
+      const c = CAT[r.cat], start = B[i] + BEAT, dur = LAND[i] - start;
+      const sx = PX + 60, sy = PY + 108, ex = BX[r.cat], ey = BASE - hOf(c.base) - 60;
+      const d = `M ${sx} ${sy} Q ${(sx + ex) / 2 + (ex < sx ? 160 : -160)} ${sy - 260} ${ex} ${ey}`;
+      const n = 'chip' + i;
+      add({ type: 'null', name: n, at: start, duration: dur + 0.15, initial: { x: sx, y: sy },
+        keyframes: [
+          ...followPath({ d, duration: dur, ease: 'power2.in', samplesPerSecond: 30 }),
+          { at: 0, from: { scale: 0.3 }, to: { scale: 1.15 }, duration: 0.2, ease: 'back.out(2.5)' },
+          { at: dur - 0.2, to: { scale: 0.6 }, duration: 0.2, ease: 'power2.in' },
+          { at: dur, to: { alpha: 0 }, duration: 0.12 },
+        ] });
+      const label = yen(r.total), FS = 50, pw = label.length * FS * 0.62 + 56;
+      add({ type: 'shape', shape: 'rect', parent: n, at: start, duration: dur + 0.15, width: pw, height: 88, cornerRadius: 44,
+        initial: { x: 0, y: 0, fill: c.color, stroke: '#FFFFFF', strokeWidth: 5 } });
+      add({ type: 'text', parent: n, text: label, at: start, duration: dur + 0.15, style: T('', FS, '#FFFFFF', '900'),
+        initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } });
+      // "+¥" pops above the bar when it lands
+      add({ type: 'text', name: 'plus' + i, text: '+' + label, at: LAND[i], duration: 1.1, style: T('', 40, c.color, '900'),
+        initial: { x: ex, y: BASE - hOf(c.base + r.total) - 80, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0, scale: 0.6 }, to: { alpha: 1, scale: 1, y: '-=40' }, duration: 0.35, ease: 'back.out(2)' },
+                    { at: 0.75, to: { alpha: 0, y: '-=30' }, duration: 0.35 }] });
+    });
+    add(...particles({ name: 'spark', count: 36, at: LAND[2] + 0.05, life: [0.6, 1.0], area: { x: 820, y: CY - CHH / 2 + 62 },
+      speed: [220, 620], gravity: 600, size: [5, 10], shape: 'star', scale: [1, 0.3], colors: [C.yellow, C.green, '#FF8A3D'], fade: { out: 0.4 }, seed: 3 }));
+
+    // captions over scene 3
+    const caps = [
+      [5.1, LAND[0] - 0.05, 'レシートを撮るだけで'],
+      [LAND[0], LAND[2] - 0.05, '金額が飛んで、グラフが伸びる'],
+      [LAND[2], S3_END - 0.4, '手入力は、もういらない。'],
+    ];
+    caps.forEach(([a, b, s], i) => add(centerText('cap' + i, s, 165, T('', i === 2 ? 66 : 60, C.ink, '900'), a, b - a,
+      [{ at: 0, from: { alpha: 0, y: 195 }, to: { alpha: 1, y: 165 }, duration: 0.35, ease: 'power3.out' }])));
+
+    // ───────────── Scene 4 (12.5 – 15): end card
+    const S4 = 12.3;
+    add({ type: 'shape', shape: 'circle', name: 'flood2', radius: 0, at: S4, duration: DURATION - S4,
+      initial: { x: 820, y: CY - CHH / 2 + 62, fill: C.green },
+      keyframes: [{ at: 0, to: { radius: 2100 }, duration: 0.45, ease: 'power3.in' }] });
+    const E = 12.5 + BEAT / 2;
+    add(centerText('endKicker', '家計簿アプリに新機能', 640, T('', 54, '#FFFFFF', '700'), E, DURATION - E, [rise(30, 0.45)]));
+    add(centerText('end1', 'レシート', 840, T('', 190, '#FFFFFF', '900'), E + 0.1, DURATION - E - 0.1,
+      [{ at: 0, from: { alpha: 0, scale: 0.7 }, to: { alpha: 1, scale: 1 }, duration: 'auto', ease: 'spring.snappy' }]));
+    add(centerText('end2', '撮るだけ', 1060, T('', 220, C.yellow, '900'), E + 0.25, DURATION - E - 0.25,
+      [{ at: 0, from: { alpha: 0, scale: 0.7 }, to: { alpha: 1, scale: 1 }, duration: 'auto', ease: 'spring.snappy' }]));
+    add(centerText('endSub', '撮れば、金額もグラフも自動。', 1270, T('', 52, '#FFFFFF', '700'), E + 0.5, DURATION - E - 0.5, [rise(30, 0.45)]));
+    const CTA = E + 0.9;
+    add({ type: 'null', name: 'cta', at: CTA, duration: DURATION - CTA, initial: { x: W / 2, y: 1500 },
+      keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 'auto', ease: 'spring.bouncy' },
+                  { at: 0.9, to: { scale: 1.05 }, duration: BEAT, ease: 'sine.inOut', repeat: 1, yoyo: true }] });
+    add({ type: 'shape', shape: 'rect', parent: 'cta', width: 640, height: 128, cornerRadius: 64, at: CTA, duration: DURATION - CTA,
+      initial: { x: 0, y: 8, fill: '#0E7E55' } });
+    add({ type: 'shape', shape: 'rect', parent: 'cta', width: 640, height: 128, cornerRadius: 64, at: CTA, duration: DURATION - CTA,
+      initial: { x: 0, y: 0, fill: '#FFFFFF' } });
+    add({ type: 'text', parent: 'cta', text: '今すぐアップデート', at: CTA, duration: DURATION - CTA, style: T('', 54, C.green, '900'),
+      initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } });
+
+    // ───────────── Sound: a bright 6-bar tune (96 bpm = 15 s) + sfx on the picture
+    add({ type: 'audio', name: 'music', at: 0, volume: 0.5, music: {
+      bpm: 96, reverb: 0.2, seed: 4,
+      tracks: [
+        { inst: 'keys', vol: 0.6, strum: 0.01, notes: 'Fmaj7:4 G:4 Em7:4 Am7:4 Fmaj7:2 G:2 Cmaj7:4' },
+        { inst: 'bass', vol: 0.8, notes: 'f2:1.5 _:0.5 f2:1 c3:1 | g2:1.5 _:0.5 g2:1 d3:1 | e2:1.5 _:0.5 e2:1 b2:1 | a2:1.5 _:0.5 a2:1 e2:1 | f2:2 g2:2 | c2:4' },
+        { inst: 'pluck', vol: 0.5, pan: 0.2, notes: '_:4 | b4:0.5 d5:0.5 g5:1 d5:1 b4:1 | e5:0.5 g5:0.5 b5:1 g5:1 e5:1 | c5:0.5 e5:0.5 a5:1 e5:1 c5:1 | a4:0.5 c5:0.5 f5:1 b4:0.5 d5:0.5 g5:1 | e5:1 g5:1 c6:2' },
+      ],
+      drums: [{ from: 4, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' }],
+    } });
+    const sfx = (s, at, volume = 0.8) => add({ type: 'audio', sfx: s, at, volume });
+    sfx('swoosh', 0.0, 0.5);
+    sfx({ preset: 'pop', pitch: -3 }, 0.3, 0.6);
+    sfx({ preset: 'pop', pitch: -6 }, 0.75, 0.8);
+    add({ type: 'audio', sfx: 'riser', at: S2 - 1.0, duration: 1.0, volume: 0.45 });
+    sfx('hit', S2, 0.9);
+    sfx({ preset: 'hit', pitch: 3 }, S2 + BEAT / 2, 0.8);
+    sfx({ preset: 'pop', pitch: 5 }, S2 + BEAT * 1.5, 0.7);
+    sfx('swoosh', S3 - 0.05, 0.6);
+    B.forEach((b, i) => {
+      sfx({ preset: 'swipe', seed: i }, b - 0.5, 0.35);
+      sfx({ preset: 'click', pitch: -4, seed: i }, b, 0.9);
+      sfx({ preset: 'beep', pitch: 7 }, b + 0.4, 0.35);
+      sfx({ preset: 'swoosh', pitch: 2 + i, seed: i }, b + BEAT - 0.06, 0.55);
+      sfx({ preset: 'coin', pitch: i * 2 }, LAND[i], 0.7);
+    });
+    sfx({ preset: 'chime', pitch: 5 }, LAND[2] + 0.1, 0.5);
+    sfx('swoosh', S4 + 0.1, 0.6);
+    sfx('chime', E, 0.7);
+    sfx({ preset: 'pop', pitch: 4 }, CTA, 0.7);
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 14.2,
+        loudness: -16,
+        background: C.warm,
+        composition: { layers },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>
