@@ -653,10 +653,10 @@ export const SOUND_MAX_SECONDS = 600;
 
 function soundText(r, file, waveform) {
   const dbText = (n) => (n === null || n === undefined ? 'n/a' : String(n));
-  const span = (w) => `${round(w.from, 2)}–${round(w.to, 2)} s (${w.rmsDb.toFixed(1)} dBFS rms)`;
+  const span = (w) => `${round(w.start, 2)}–${round(w.end, 2)} s (${w.rmsDb.toFixed(1)} dBFS rms)`;
   const L = [`${file}`, `  ${r.duration} s · ${r.sampleRate} Hz · ${r.channels} ch`,
     `  loudness  ${dbText(r.loudness.integratedLufs)} LUFS · true peak ${dbText(r.loudness.truePeakDb)} dBTP · peak ${dbText(r.peakDb)} dBFS · ${r.loudness.clippedSamples} sample(s) at full scale`];
-  L.push(`  silences  ${r.loudness.silences.length ? r.loudness.silences.slice(0, 6).map(q => `${round(q.from, 1)}–${round(q.to, 1)} s`).join(', ') + (r.loudness.silences.length > 6 ? `, … (${r.loudness.silences.length})` : '') : 'none (nothing quieter than −60 dBFS for a second or more)'}`);
+  L.push(`  silences  ${r.loudness.silences.length ? r.loudness.silences.slice(0, 6).map(q => `${round(q.start, 1)}–${round(q.end, 1)} s`).join(', ') + (r.loudness.silences.length > 6 ? `, … (${r.loudness.silences.length})` : '') : 'none (nothing quieter than −60 dBFS for a second or more)'}`);
   if (r.loudest) L.push(`  loudest   ${span(r.loudest)}`, `  quietest  ${span(r.quietest)}   (rows of ${r.window} s)`);
   const step = Math.max(1, Math.ceil(r.windows.length / 16));
   L.push(`  level     ${r.windows.filter((_, i) => i % step === 0).map(w => w.rmsDb.toFixed(1)).join(' ')} dBFS rms, every ${round(step * r.window, 2)} s from 0`);
@@ -681,7 +681,7 @@ commands.sound = async ({ file, opts }, io, env = {}) => {
   const window = opts.window ?? Math.max(1, probe.duration / 120);                  // a row per second for a short file, at most ~120 rows for a long one; --window sets it
   const r = await withBrowser({ chrome: opts.chrome, inputs, outDir, requestLog: env.requestLog }, ({ call }) => call('sound', { id: 's1', waveform: !!opts.waveform, window }));
   const rows = r.windows;
-  const span = (w) => w && { from: round(w.t, 3), to: round(Math.min(w.t + window, r.duration), 3), rmsDb: w.rmsDb };
+  const span = (w) => w && { start: round(w.t, 3), end: round(Math.min(w.t + window, r.duration), 3), rmsDb: w.rmsDb };
   const loudest = rows.length ? rows.reduce((best, w) => (w.rmsDb > best.rmsDb ? w : best), rows[0]) : null;
   const quietest = rows.length ? rows.reduce((best, w) => (w.rmsDb < best.rmsDb ? w : best), rows[0]) : null;
   const lufs = r.loudness.integratedLufs;

@@ -57,7 +57,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('sound: lou
       writeTone(join(dir, 'gap.wav'), -20, 6, { at: 2, for: 2 });
       const j = JSON.parse((await run(['sound', join(dir, 'gap.wav'), '--json'])).out);
       expect(j.loudness.silences).toHaveLength(1);
-      expect(j.loudness.silences[0].from).toBeCloseTo(2, 0);
+      expect(j.loudness.silences[0].start).toBeCloseTo(2, 0);
       expect(j.windows.length).toBeLessThanOrEqual(8);
       const quiet = j.windows.filter((w: any) => w.rmsDb < -60).length;
       expect(quiet).toBeGreaterThanOrEqual(1);
@@ -101,8 +101,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('sound: lou
       expect(j.reference.webTargetLufs).toEqual([-16, -14]);
       expect(j.reference.luToTarget).toBeCloseTo(-14 - j.loudness.integratedLufs, 1);
       expect(j.reference.headroomDb).toBeCloseTo(-1 - j.loudness.truePeakDb, 1);
-      expect(j.loudest.from).toBeLessThan(3);                                          // the tone, not the gap
-      expect(j.quietest.from).toBeGreaterThanOrEqual(2.5);
+      expect(j.loudest.start).toBeLessThan(3);                                          // the tone, not the gap
+      expect(j.quietest.start).toBeGreaterThanOrEqual(2.5);
       expect((await run(['sound', join(dir, 'g.wav'), '--window', '0'])).code).toBe(2);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }, 90_000);

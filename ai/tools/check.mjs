@@ -413,10 +413,10 @@ const waveformScript = (audio, duration) => `(() => {
   if (a.scenes.length > 1 && a.scenes.length <= 16) {
     let lastLabel = -1e9;
     a.scenes.forEach(s => {
-      g.strokeStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.moveTo(x(s.from), T - 8); g.lineTo(x(s.from), H - B); g.stroke();
-      if (x(s.from) - lastLabel < 70) return;                                    // scenes that start together share one label
-      lastLabel = x(s.from);
-      g.fillStyle = '#e8ecf8'; g.fillText(s.name.slice(0, 18), x(s.from) + 3, T - 10, Math.max(20, x(s.to) - x(s.from) - 6));
+      g.strokeStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.moveTo(x(s.start), T - 8); g.lineTo(x(s.start), H - B); g.stroke();
+      if (x(s.start) - lastLabel < 70) return;                                    // scenes that start together share one label
+      lastLabel = x(s.start);
+      g.fillStyle = '#e8ecf8'; g.fillText(s.name.slice(0, 18), x(s.start) + 3, T - 10, Math.max(20, x(s.end) - x(s.start) - 6));
     });
   }
   a.cues.forEach((q, i) => { g.fillStyle = '#ff5a3c'; g.fillRect(x(q.t) - 1, H - B + 2, 2, 8); if (a.cues.length <= 40) g.fillText(String(i + 1), x(q.t) - 3, H - B + 20); });

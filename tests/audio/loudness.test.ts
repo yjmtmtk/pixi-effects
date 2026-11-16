@@ -82,7 +82,7 @@ describe('findSilences', () => {
     const sr = 1000, x = new Float32Array(10 * sr);
     for (let i = 0; i < 2 * sr; i++) x[i] = 0.5;                       // sound 0-2 s, silence 2-6 s, sound 6-7 s, silence 7-10 s
     for (let i = 6 * sr; i < 7 * sr; i++) x[i] = 0.5;
-    expect(findSilences([x], sr, { minLength: 1 })).toEqual([{ from: 2, to: 6 }, { from: 7, to: 10 }]);
-    expect(findSilences([x], sr, { minLength: 3.5 })).toEqual([{ from: 2, to: 6 }]);
+    expect(findSilences([x], sr, { minLength: 1 })).toEqual([{ start: 2, end: 6 }, { start: 7, end: 10 }]);
+    expect(findSilences([x], sr, { minLength: 3.5 })).toEqual([{ start: 2, end: 6 }]);
   });
 });

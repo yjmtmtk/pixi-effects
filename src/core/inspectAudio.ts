@@ -57,9 +57,9 @@ export interface AudioReport {
   /** Problems worth fixing: limiting, clipping, a true peak above 0 dBTP, inaudible layers, sounds cut off by the end of the movie. Read this first. */
   issues: string[];
   /** The mix as a whole (ITU-R BS.1770 loudness; `integratedLufs` is null for a mix shorter than 0.4 s or with nothing above −70 LUFS). */
-  loudness: { integratedLufs: number | null; truePeakDb: number; clippedSamples: number; silences: Array<{ from: number; to: number }> };
+  loudness: { integratedLufs: number | null; truePeakDb: number; clippedSamples: number; silences: Array<{ start: number; end: number }> };
   /** The same measure for each scene (`silent`: nothing above −60 dBFS). */
-  scenes: Array<{ name: string; from: number; to: number; lufs: number | null; peakDb: number; silent: boolean }>;
+  scenes: Array<{ name: string; start: number; end: number; lufs: number | null; peakDb: number; silent: boolean }>;
   /** When each sound starts: what a waveform marks. */
   cues: Array<{ t: number; name: string }>;
   /** Advice, not faults: a mix that is quiet or loud for web video, little headroom, silent stretches. */
@@ -251,13 +251,13 @@ export function analyzeAudio(
       notes.push(`a limiter took up to ${asked.limiterDb} dB off the loudest peak (at ${asked.limiterAt} s, where ${playingAt(asked.limiterAt ?? 0)} play) so that the mix reaches ${asked.target} LUFS without passing -1 dBTP: if that sound should hit harder, lower what plays under it`);
     }
   }
-  for (const q of silences.slice(0, 3)) notes.push(`the mix is silent from ${q.from} s to ${q.to} s (${Math.round((q.to - q.from) * 10) / 10} s)`);
+  for (const q of silences.slice(0, 3)) notes.push(`the mix is silent from ${q.start} s to ${q.end} s (${Math.round((q.end - q.start) * 10) / 10} s)`);
   if (silences.length > 3) notes.push(`and ${silences.length - 3} more silent stretch(es) (loudness.silences lists them all)`);
   const sceneList = (opts.scenes && opts.scenes.length ? opts.scenes : [{ name: 'movie', start: 0, end: movieDuration }]).map(sc => {
     const a = Math.max(0, Math.round(sc.start * sr)), b = Math.min(mix.length, Math.round(sc.end * sr));
     const part = chans.map(c => c.subarray(a, Math.max(a, b)));
     const m = measureLoudness(part, sr, { truePeak: false });                    // the true peak is the slow part and is only wanted for the whole mix
-    return { name: sc.name, from: sc.start, to: sc.end, lufs: m.integratedLufs, peakDb: m.samplePeakDb, silent: m.samplePeakDb < -60 };
+    return { name: sc.name, start: sc.start, end: sc.end, lufs: m.integratedLufs, peakDb: m.samplePeakDb, silent: m.samplePeakDb < -60 };
   });
 
   return {

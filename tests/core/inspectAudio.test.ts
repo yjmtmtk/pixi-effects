@@ -198,7 +198,7 @@ describe('analyzeAudio — a layer made inaudible by its own volume, and a sane 
     it('without scenes the whole movie is one scene', () => {
       const r = analyzeAudio(stereo(2, hum(0.1)), [], { peak: 0.1, peakAt: 0 }, 2);
       expect(r.scenes).toHaveLength(1);
-      expect([r.scenes[0]!.from, r.scenes[0]!.to]).toEqual([0, 2]);
+      expect([r.scenes[0]!.start, r.scenes[0]!.end]).toEqual([0, 2]);
     });
 
     it('lists when each sound starts (the cues the waveform ticks)', () => {
@@ -317,8 +317,8 @@ describe('inspectSound: the sound of ANY file, measured with the code `check` us
     const r = inspectSound(tone(-20, 6, { at: 2, for: 2 }));
     expect([r.duration, r.sampleRate, r.channels]).toEqual([6, SR, 2]);
     expect(r.loudness.silences).toHaveLength(1);
-    expect(r.loudness.silences[0]!.from).toBeCloseTo(2, 1);
-    expect(r.loudness.silences[0]!.to).toBeCloseTo(4, 1);
+    expect(r.loudness.silences[0]!.start).toBeCloseTo(2, 1);
+    expect(r.loudness.silences[0]!.end).toBeCloseTo(4, 1);
     const clean = inspectSound(tone(-20));
     expect(clean.loudness.silences).toEqual([]);
     expect(clean.loudness.clippedSamples).toBe(0);

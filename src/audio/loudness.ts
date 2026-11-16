@@ -93,15 +93,15 @@ export function measureLoudness(channels: Float32Array[], sampleRate: number, op
 }
 
 /** Runs of at least `minLength` seconds where every channel stays below `thresholdDb` (default -60 dBFS). */
-export function findSilences(channels: Float32Array[], sampleRate: number, opts: { minLength?: number; thresholdDb?: number } = {}): Array<{ from: number; to: number }> {
+export function findSilences(channels: Float32Array[], sampleRate: number, opts: { minLength?: number; thresholdDb?: number } = {}): Array<{ start: number; end: number }> {
   const min = Math.round((opts.minLength ?? 1) * sampleRate), limit = 10 ** ((opts.thresholdDb ?? -60) / 20);
-  const n = channels[0]?.length ?? 0, out: Array<{ from: number; to: number }> = [];
+  const n = channels[0]?.length ?? 0, out: Array<{ start: number; end: number }> = [];
   let start = -1;
   const quiet = (i: number): boolean => channels.every(c => Math.abs(c[i]!) < limit);
   for (let i = 0; i <= n; i++) {
     const q = i < n && quiet(i);
     if (q && start < 0) start = i;
-    if (!q && start >= 0) { if (i - start >= min) out.push({ from: Math.round(start / sampleRate * 1000) / 1000, to: Math.round(i / sampleRate * 1000) / 1000 }); start = -1; }
+    if (!q && start >= 0) { if (i - start >= min) out.push({ start: Math.round(start / sampleRate * 1000) / 1000, end: Math.round(i / sampleRate * 1000) / 1000 }); start = -1; }
   }
   return out;
 }

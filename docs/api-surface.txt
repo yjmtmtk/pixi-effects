@@ -58,12 +58,12 @@ interface AudioReport
   cues: { t: number; name: string; }[]
   duration: number
   issues: string[]
-  loudness: { integratedLufs: number | null; truePeakDb: number; clippedSamples: number; silences: { from: number; to: nu…
+  loudness: { integratedLufs: number | null; truePeakDb: number; clippedSamples: number; silences: { start: number; end: …
   notes: string[]
   peakAt: number
   peakDb: number
   sampleRate: number
-  scenes: { name: string; from: number; to: number; lufs: number | null; peakDb: number; silent: boolean; }[]
+  scenes: { name: string; start: number; end: number; lufs: number | null; peakDb: number; silent: boolean; }[]
   sources: AudioSourceReport[]
   windows: { t: number; rmsDb: number; peakDb: number; brightnessHz: number; }[]
 type AudioSequenceSpec = AudioAssetSpec | AudioSfxSpec | AudioMusicSpec
@@ -719,7 +719,7 @@ interface SoundMeasure
 interface SoundReport
   channels: number
   duration: number
-  loudness: { integratedLufs: number | null; truePeakDb: number; clippedSamples: number; silences: { from: number; to: nu…
+  loudness: { integratedLufs: number | null; truePeakDb: number; clippedSamples: number; silences: { start: number; end: …
   notes: string[]
   peakDb: number
   sampleRate: number
