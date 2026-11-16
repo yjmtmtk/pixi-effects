@@ -15,7 +15,7 @@
  *
  * Needs: Node >= 18. A browser (the default one is opened; --no-open prints the address instead). The page must follow
  * skills/pixi-effects/template.html (`window.movie`, `window.__ready = true`) and use a pixi-effects that has `movie.timelineSvg()` (0.7+).
- * Options: --port N (default: a free one) · --no-open · --query "a=1" (added to the page URL) · --root DIR (default: the nearest folder above the page with dist/)
+ * Options: `pixi-effects view --help` lists every one (SPEC below).
  */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -23,25 +23,35 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { findRoot, serve } from './check.mjs';
+import { readArgs, helpText, missing, exitWith, UsageError } from './args.mjs';
 
 export const VIEWER = '/__viewer';
 
-export const USAGE = 'usage: node ai/tools/view.mjs <page.html> [--port N] [--no-open] [--query a=1] [--root DIR]';
+export const SPEC = {
+  name: 'view',
+  usage: '<page.html> [options]',
+  about: 'look at a page with its timeline in your browser: scrub, step, see what changed (Ctrl-C stops it)',
+  options: [
+    { flag: '--port', value: 'N', help: 'the port to serve on (default: a free one)' },
+    { flag: '--no-open', help: 'print the address instead of opening the browser' },
+    { flag: '--query', value: '"a=1&b=2"', help: 'added to the page address' },
+    { flag: '--root', value: 'DIR', help: 'the folder served (default: the nearest folder above the page with dist/)' },
+  ],
+};
+export const USAGE = helpText(SPEC);
 
 export function parseViewArgs(argv) {
   const o = { page: null, port: 0, open: true, query: null, root: null };
-  const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--help' || a === '-h') o.help = true;
-    else if (a === '--port') o.port = Math.max(0, Math.round(Number(need(i++, a))) || 0);
+  const r = readArgs(argv, SPEC);
+  if (r.help) return { ...o, help: true };
+  for (const { flag: a, value: v } of r.options) {
+    if (a === '--port') o.port = Math.max(0, Math.round(Number(v)) || 0);
     else if (a === '--no-open') o.open = false;
-    else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
-    else if (a === '--root') o.root = need(i++, a);
-    else if (a.startsWith('-')) throw new Error(`unknown option ${a} (see the header of view.mjs)`);
-    else if (!o.page) o.page = a;
-    else throw new Error(`unexpected argument ${a}`);
+    else if (a === '--query') o.query = v.replace(/^\?/, '');
+    else if (a === '--root') o.root = v;
   }
+  if (r.positional.length > 1) throw new UsageError(`view: unexpected argument ${r.positional[1]} (one page at a time; a path with spaces needs quotes)`);
+  o.page = r.positional[0] ?? null;
   return o;
 }
 
@@ -318,7 +328,7 @@ export async function startViewer(opts) {
   const pagePath = path.resolve(opts.page);
   if (!fs.existsSync(pagePath)) throw new Error(`page not found: ${opts.page}`);
   const root = path.resolve(opts.root ?? findRoot(path.dirname(pagePath)));
-  if (!pagePath.startsWith(root)) throw new Error(`the page must be inside the server root (${root}); use --root`);
+  if (!pagePath.startsWith(root)) throw new UsageError(`the page must be inside the server root (${root}); use --root`);
   const rel = path.relative(root, pagePath).split(path.sep).join('/');
   const pageUrl = '/' + rel + (opts.query ? '?' + opts.query : '');
   const title = path.basename(pagePath).replace(/\.[^.]+$/, '');
@@ -347,15 +357,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
   try {
     const opts = parseViewArgs(process.argv.slice(2));
     if (opts.help) { console.log(USAGE); process.exit(0); }
-    if (!opts.page) {
-      console.error(USAGE);
-      process.exit(2);
-    }
+    if (!opts.page) throw missing(SPEC, 'the page to look at: pixi-effects view my-video.html');
     const { url } = await startViewer(opts);
     console.log(`timeline view: ${url}   (Ctrl-C to stop)`);
     if (opts.open) openBrowser(url);
   } catch (e) {
-    console.error(`pixi-effects view failed: ${e.message}`);
-    process.exit(2);
+    exitWith(e, 'view');
   }
 }

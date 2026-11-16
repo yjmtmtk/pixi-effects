@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readArgs, helpText, UsageError } from './args.mjs';
 
 export const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const RECIPES = 'skills/pixi-effects/reference/recipes.md';
@@ -153,9 +154,9 @@ export function formatHelp(hits, word, root = PACKAGE_ROOT) {
 
 /** <name>.html from the template, titled with the name, its CDN pins set to this package's version. Throws if the file exists (without `force`). */
 export function newPage(name, { cwd = process.cwd(), root = PACKAGE_ROOT, force = false, size = null, duration = null } = {}) {
-  if (size && !(Number.isInteger(size.width) && Number.isInteger(size.height) && size.width >= 16 && size.height >= 16 && size.width <= 8192 && size.height <= 8192)) throw new Error('--size takes WIDTHxHEIGHT in pixels (16 to 8192), for example --size 1920x1080');
-  if (duration !== null && !(Number.isFinite(duration) && duration > 0 && duration <= 3600)) throw new Error('--duration takes seconds (more than 0, up to 3600), for example --duration 12');
-  if (!name || !String(name).trim()) throw new Error('give the page a name: pixi-effects new my-video');
+  if (size && !(Number.isInteger(size.width) && Number.isInteger(size.height) && size.width >= 16 && size.height >= 16 && size.width <= 8192 && size.height <= 8192)) throw new UsageError('--size takes WIDTHxHEIGHT in pixels (16 to 8192), for example --size 1920x1080');
+  if (duration !== null && !(Number.isFinite(duration) && duration > 0 && duration <= 3600)) throw new UsageError('--duration takes seconds (more than 0, up to 3600), for example --duration 12');
+  if (!name || !String(name).trim()) throw new UsageError('give the page a name: pixi-effects new my-video');
   const raw = String(name).trim();
   const base = path.basename(raw).replace(/\.html?$/i, '');
   const dir = path.dirname(raw);
@@ -181,11 +182,31 @@ const shownPath = (file, cwd) => { const r = path.relative(cwd, file); return r.
 
 export const LOOKUP_COMMANDS = ['recipe', 'help', 'new', 'quickstart'];
 
+/** The command line of each lookup command, and its --help. */
+export const LOOKUP_SPECS = {
+  new: { name: 'new', usage: '<name> [options]', about: "<name>.html from the template, pinned to this package's version (1280x720, 6 s unless asked)", options: [
+    { flag: '--size', value: 'WxH', help: 'the size of the video in pixels, for example 1080x1920 (default 1280x720)' },
+    { flag: '--duration', value: 'S', help: 'its length in seconds (default 6)' },
+    { flag: '--force', help: 'replace <name>.html if it exists' },
+  ] },
+  recipe: { name: 'recipe', usage: '[id]', about: 'the tested recipes (id and title); with an id (or a unique part of one), that recipe with its code', options: [] },
+  help: { name: 'help', usage: '<word …>', about: 'the sections of the docs about a word (mask, threeD, keyframes, music …); to look up an option, end the options first: pixi-effects help -- --range', options: [] },
+  quickstart: { name: 'quickstart', usage: '', about: 'the first page to read (2 KB): the workflow and the rules that cause most failures', options: [] },
+};
+
 /** Run one of the commands: { code, stdout, stderr } (nothing is printed here). */
 export function runLookup(cmd, args, { cwd = process.cwd(), root = PACKAGE_ROOT } = {}) {
   const ok = (stdout) => ({ code: 0, stdout: stdout.endsWith('\n') ? stdout : stdout + '\n', stderr: '' });
   const fail = (stderr, code = 1) => ({ code, stdout: '', stderr: stderr.endsWith('\n') ? stderr : stderr + '\n' });
+  const spec = LOOKUP_SPECS[cmd];
+  if (!spec) return fail(`unknown command ${cmd}`, 2);
+  let line;
+  try { line = readArgs(args, spec); }
+  catch (e) { if (e instanceof UsageError) return fail(`pixi-effects ${e.message}`, 2); throw e; }
+  if (line.help) return ok(helpText(spec));
+  args = line.positional;
   if (cmd === 'quickstart') {
+    if (args.length) return fail(`pixi-effects quickstart: takes no word (got "${args[0]}")`, 2);
     const md = readIf(path.join(root, QUICKSTART));
     return md ? ok(md) : fail(`the quickstart is missing from this package (${QUICKSTART})`);
   }
@@ -222,27 +243,21 @@ export function runLookup(cmd, args, { cwd = process.cwd(), root = PACKAGE_ROOT 
     return ok(formatHelp(hits, word, root).join('\n'));
   }
   if (cmd === 'new') {
-    const force = args.includes('--force');
-    const rest = [];
+    const force = line.options.some(o => o.flag === '--force');
+    const rest = args;
     let size = null, duration = null, bad = null;
-    for (let i = 0; i < args.length; i++) {
-      const a = args[i];
-      if (a === '--force') continue;
-      if (/^-/.test(a) && !/^--(size|duration)(=|$)/.test(a)) { bad = `unknown option ${a.split('=')[0]} (accepted: --size WxH, --duration S, --force)`; continue; }
-      const m = /^(--size|--duration)(?:=(.*))?$/.exec(a);
-      if (!m) { rest.push(a); continue; }
-      const value = m[2] !== undefined ? m[2] : args[++i];
-      if (m[1] === '--size') {
+    for (const { flag, value } of line.options) {
+      if (flag === '--size') {
         const w = /^(\d+)x(\d+)$/i.exec(value ?? '');
         if (w) size = { width: Number(w[1]), height: Number(w[2]) }; else bad = '--size takes WIDTHxHEIGHT in pixels (16 to 8192), for example --size 1920x1080';
-      } else {
+      } else if (flag === '--duration') {
         duration = /^\d+(\.\d+)?$/.test(value ?? '') ? Number(value) : NaN;                     // plain decimal digits: Number('0x10') is 16
         if (!Number.isFinite(duration)) bad = '--duration takes seconds, for example --duration 12';
       }
     }
     const name = rest[0];
     if (!name) return fail('give the page a name: pixi-effects new my-video [--size 1920x1080] [--duration 12] [--force]', 2);
-    if (bad) return fail(`pixi-effects new: ${bad}`);
+    if (bad) return fail(`pixi-effects new: ${bad}`, 2);
     try {
       const { file } = newPage(name, { cwd, root, force, size, duration });
       const f = shownPath(file, cwd);
@@ -253,7 +268,7 @@ export function runLookup(cmd, args, { cwd = process.cwd(), root = PACKAGE_ROOT 
         `      npx pixi-effects check ${f}    review it: warnings, layout, sound, a contact sheet, a real export`,
         '      npx pixi-effects recipe        tested pieces to copy  ·  npx pixi-effects help <word>',
       ].join('\n'));
-    } catch (e) { return fail(`pixi-effects new: ${e.message}`); }
+    } catch (e) { return fail(`pixi-effects new: ${e.message}`, e instanceof UsageError ? 2 : 1); }
   }
   return fail(`unknown command ${cmd}`, 2);
 }

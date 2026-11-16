@@ -4,7 +4,7 @@ Six commands for an AI agent (or a person) who is handed a video or a sound and 
 
 **If ffmpeg is installed and the job is a long transcode, use ffmpeg.** It is faster at that, and it does far more. These commands are for the other cases: no ffmpeg, a quick look, and answers shaped for an agent: structured output (`--json`), the real times of a cut, and no flag-order traps.
 
-Exit code: **0** done · **1** a problem (the file, the browser, the job as asked) · **2** usage. Every command prints a short report, or the same facts as JSON with `--json`. A file argument is a path or an `http(s)` URL. A mistake is one sentence that names the file and what to do, never a stack trace.
+Exit code (the same for every `pixi-effects` command): **0** done · **1** a problem (the file, the browser, the job as asked) · **2** the command line is wrong (an unknown option, a bad value, a missing argument). `pixi-effects <command> --help` lists every option of one. Every command prints a short report, or the same facts as JSON with `--json`. A file argument is a path or an `http(s)` URL. A mistake is one sentence that names the file and what to do, never a stack trace.
 
 ## Media
 
@@ -117,7 +117,7 @@ npx pixi-effects audio footage.mp4 -o sound.m4a
 npx pixi-effects frames footage.mp4 --at 0.5,50%,end --sheet -o looks
 ```
 
-`frames <file> [--at <list>] [--size 480] [--sheet] [-o dir]`: a PNG of the frame at each time, named by time (`01-0.50s.png`), and with `--sheet` one **contact sheet** (`sheet.png`: every frame with its time under it) so a whole clip is one picture to look at. `--at` takes seconds (`3.5`), a percentage (`50%`), a frame (`f120`), `start`, `end` (the last frame) and `every:2s`, separated by commas (`--at every:2s,end`; with a space, quote the whole value: `--at "every 2s"`); the default is `0,25%,50%,75%,end`. At most 60 frames. `--size` is the width in pixels (default 480; a smaller video is not enlarged). A rotated video comes out the way up it is shown. A time past the end of the file is refused with the length of the file; a time before the first frame (a video that starts at 0.5 s, which `probe` says) gives the first frame; `end` and `%` are of the VIDEO, not of a longer sound. Pictures with the same names in an existing folder are replaced and nothing else in it is touched or removed.
+`frames <file> [--at <list>] [--width 480] [--sheet] [-o dir]`: a PNG of the frame at each time, named by time (`01-0.50s.png`), and with `--sheet` one **contact sheet** (`sheet.png`: every frame with its time under it) so a whole clip is one picture to look at. `--at` takes seconds (`3.5`), a percentage (`50%`), a frame (`f120`), `start`, `end` (the last frame) and `every:2s`, separated by commas (`--at every:2s,end`; with a space, quote the whole value: `--at "every 2s"`); the default is `0,25%,50%,75%,end`. At most 60 frames. `--width` is the width in pixels (default 480; a smaller video is not enlarged). A rotated video comes out the way up it is shown. A time past the end of the file is refused with the length of the file; a time before the first frame (a video that starts at 0.5 s, which `probe` says) gives the first frame; `end` and `%` are of the VIDEO, not of a longer sound. Pictures with the same names in an existing folder are replaced and nothing else in it is touched or removed.
 
 The words are the ones `check --at` uses where they overlap (seconds, `%`, `f120`), so a time you read off one works in the other.
 

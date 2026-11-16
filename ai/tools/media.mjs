@@ -8,7 +8,7 @@
  *                                                                        and it says the real times; --exact re-encodes so the start is the frame asked for
  *   npx pixi-effects audio  <file|url> -o <out.m4a> [--force] [--json]  the sound of a file, copied out (no re-encode): .m4a for AAC, .webm for Opus, .mka for any
  *   npx pixi-effects concat <a> <b> [<c> …] -o <out> [--force] [--json] join clips by copy (no re-encode): they must have the same codecs, shown size, rotation and sound; it says where each clip starts
- *   npx pixi-effects frames <file|url> [--at 1,3.5,50%,f120,end,"every 2s"] [--size 480] [--sheet] [-o dir] [--json]
+ *   npx pixi-effects frames <file|url> [--at 1,3.5,50%,f120,end,"every 2s"] [--width 480] [--sheet] [-o dir] [--json]
  *                                                                        PNGs of the frames at those times (default: 0, 25%, 50%, 75%, end), and a contact sheet
  *   npx pixi-effects sound  <file|url> [--waveform] [-o dir] [--json]    loudness (LUFS), true peak, clipping, silences, level over time; a waveform picture
  *
@@ -23,38 +23,57 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gltfText, isGltfFile, probeGltf } from './gltfProbe.mjs';
+import { readArgs, helpText, nearest, UsageError } from './args.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(HERE, '../..');
 
-export class UsageError extends Error { constructor(message) { super(message); this.name = 'UsageError'; this.exitCode = 2; } }
+export { UsageError };
 
 export const USAGE = `usage:
-  pixi-effects probe  <file|url> [--keyframes] [--json]
+  pixi-effects probe  <file|url> [--keyframes] [--expect LIST] [--json]
   pixi-effects trim   <file|url> <start> <end> -o <out> [--exact] [--force] [--json]
   pixi-effects audio  <file|url> -o <out.m4a> [--force] [--json]
   pixi-effects concat <a> <b> [<c> …] -o <out> [--force] [--json]
-  pixi-effects frames <file|url> [--at 1,3.5,50%,f120,end] [--size 480] [--sheet] [-o dir] [--json]
-  pixi-effects sound  <file|url> [--waveform] [-o dir] [--json]`;
+  pixi-effects frames <file|url> [--at 1,3.5,50%,f120,end] [--width 480] [--sheet] [-o dir] [--json]
+  pixi-effects sound  <file|url> [--waveform] [--window S] [-o dir] [--json]
+(every option of one: pixi-effects <command> --help)`;
 
-/** How each command reads its command line: the positional words, and each option with the kind of value it takes. */
+const JSON_OPT = { flag: '--json', help: 'the same facts as JSON on stdout' };
+const FORCE_OPT = { flag: '--force', help: 'replace the output file if it exists' };
+const CHROME_OPT = { flag: '--chrome', value: 'PATH', help: 'the Chrome / Chromium to use (or set CHROME_PATH)' };
+/** Each command: its words, its options (with the kind of value: a number is read as one), and its --help. */
 const COMMANDS = {
-  probe:  { positional: ['file'], flags: { '--keyframes': 'bool', '--expect': 'str', '--json': 'bool' } },
-  trim:   { positional: ['file', 'start', 'end'], flags: { '-o': 'str', '--out': 'str', '--exact': 'bool', '--force': 'bool', '--json': 'bool', '--chrome': 'str' } },
-  audio:  { positional: ['file'], flags: { '-o': 'str', '--out': 'str', '--force': 'bool', '--json': 'bool' } },
-  concat: { positional: ['file', 'file'], variadic: true, flags: { '-o': 'str', '--out': 'str', '--force': 'bool', '--json': 'bool' } },
-  frames: { positional: ['file'], flags: { '--at': 'str', '--size': 'num', '--sheet': 'bool', '-o': 'str', '--out': 'str', '--json': 'bool', '--chrome': 'str' } },
-  sound:  { positional: ['file'], flags: { '--waveform': 'bool', '--window': 'num', '-o': 'str', '--out': 'str', '--json': 'bool', '--chrome': 'str' } },
+  probe: { usage: '<file|url> [options]', positional: ['file'], about: 'what is in a video or audio file: container, duration, tracks, codecs, size, notes (a .glb / .gltf model: its clips and size); no ffmpeg, no browser', options: [
+    { flag: '--keyframes', help: 'list the key frames of the video track (where a copy can cut)' },
+    { flag: '--expect', value: 'LIST', help: 'what the file must be, for example "1080x1920,30fps,h264,aac,<=60s": exit 1 when it is not' },
+    JSON_OPT] },
+  trim: { usage: '<file|url> <start> <end> -o <out> [options]', positional: ['file', 'start', 'end'], about: 'cut [start, end] (seconds, or 1:02.5) by copy when it can (no re-encode) and say the real times', options: [
+    { flag: '--out', short: '-o', value: 'FILE', help: 'the file to write (needed)' },
+    { flag: '--exact', help: 're-encode so the start is the frame asked for (uses Chrome)' },
+    FORCE_OPT, JSON_OPT, CHROME_OPT] },
+  audio: { usage: '<file|url> -o <out.m4a> [options]', positional: ['file'], about: 'the sound of a file, copied out (no re-encode): .m4a for AAC, .webm for Opus, .mka for any', options: [
+    { flag: '--out', short: '-o', value: 'FILE', help: 'the file to write (needed)' },
+    FORCE_OPT, JSON_OPT] },
+  concat: { usage: '<a> <b> [<c> …] -o <out> [options]', positional: ['file', 'file'], variadic: true, about: 'join clips by copy (no re-encode): the same codecs, shown size, rotation and sound; it says where each clip starts', options: [
+    { flag: '--out', short: '-o', value: 'FILE', help: 'the file to write (needed)' },
+    FORCE_OPT, JSON_OPT] },
+  frames: { usage: '<file|url> [options]', positional: ['file'], renamed: { '--size': '--width (the width of each picture in pixels; --size is WxH in the other commands)' }, about: 'PNGs of the frames at those times (default 0, 25%, 50%, 75%, end), and a contact sheet (uses Chrome)', options: [
+    { flag: '--at', value: 'LIST', help: 'the times: 1, 3.5, 50%, f120, start, end, every:2s (a list with commas)' },
+    { flag: '--width', value: 'N', kind: 'num', help: 'the width of each picture in pixels (default 480; the height follows)' },
+    { flag: '--sheet', help: 'also one contact sheet of them all, with their times' },
+    { flag: '--out', short: '-o', value: 'DIR', help: 'the folder to write into (default <name>-frames)' },
+    JSON_OPT, CHROME_OPT] },
+  sound: { usage: '<file|url> [options]', positional: ['file'], about: 'loudness (LUFS), true peak, clipping, silences, level over time (uses Chrome)', options: [
+    { flag: '--waveform', help: 'also a picture of the waveform' },
+    { flag: '--window', value: 'S', kind: 'num', help: 'the width of a level row in seconds (0.05 to 60; default: about 120 rows)' },
+    { flag: '--out', short: '-o', value: 'DIR', help: 'the folder for the waveform picture' },
+    JSON_OPT, CHROME_OPT] },
 };
+for (const [name, c] of Object.entries(COMMANDS)) c.name = name;
 export const MEDIA_COMMANDS = Object.keys(COMMANDS);
-
-function distance(a, b) {
-  const m = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
-  for (let j = 1; j <= b.length; j++) m[0][j] = j;
-  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) m[i][j] = Math.min(m[i - 1][j] + 1, m[i][j - 1] + 1, m[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-  return m[a.length][b.length];
-}
-const nearest = (word, list) => { const best = list.map(k => [k, distance(word, k)]).sort((x, y) => x[1] - y[1])[0]; return best && best[1] <= 2 ? best[0] : null; };
+/** The --help of one media command. */
+export const mediaHelp = (command) => helpText(COMMANDS[command]);
 
 /** `12.5`, `1:02.5` (m:ss) or `1:02:03` (h:mm:ss) → seconds. */
 export function parseTime(text, what = 'a time') {
@@ -70,27 +89,15 @@ export function parseMediaArgs(argv) {
   const [command, ...rest] = argv;
   const spec = COMMANDS[command];
   if (!spec) throw new UsageError(`unknown command "${command ?? ''}"${command && nearest(command, MEDIA_COMMANDS) ? `; did you mean "${nearest(command, MEDIA_COMMANDS)}"?` : ''}`);
-  const words = [], opts = {};
-  for (let i = 0; i < rest.length; i++) {
-    const a = rest[i];
-    if (a.startsWith('-') && a.length > 1 && !/^-\d/.test(a)) {
-      const kind = spec.flags[a];
-      if (!kind) {
-        const guess = nearest(a, Object.keys(spec.flags));
-        throw new UsageError(`${command}: unknown option ${a}${guess ? `; did you mean ${guess}?` : ''} (options: ${Object.keys(spec.flags).join(' ')})`);
-      }
-      const key = a.replace(/^-+/, '');
-      if (kind === 'bool') opts[key] = true;
-      else {
-        const v = rest[++i];
-        if (v === undefined) throw new UsageError(`${command}: ${a} needs a value`);
-        opts[key] = kind === 'num' ? Number(v) : v;
-        if (kind === 'num' && !Number.isFinite(opts[key])) throw new UsageError(`${command}: ${a} must be a number, got "${v}"`);
-      }
-    } else words.push(a);
+  const r = readArgs(rest, spec);
+  if (r.help) return { command, help: true };
+  const words = r.positional, opts = {};
+  for (const { flag, value } of r.options) {
+    const o = spec.options.find(x => x.flag === flag);
+    const key = flag === '--out' ? 'o' : flag.replace(/^-+/, '');
+    opts[key] = o.kind === 'num' ? Number(value) : value;
+    if (o.kind === 'num' && !Number.isFinite(opts[key])) throw new UsageError(`${command}: ${flag} must be a number, got "${value}"`);
   }
-  if (opts.out && opts.o === undefined) opts.o = opts.out;
-  delete opts.out;
   if (command === 'frames' && /^every$/i.test(opts.at ?? '')) throw new UsageError('frames: --at every needs its step in the same argument: write --at every:2s (or quote it: --at "every 2s"), also inside a list: --at "every:2s,end"');
   if (words.length < spec.positional.length) throw new UsageError(`${command}: needs ${spec.variadic ? `at least ${spec.positional.length} files` : spec.positional.map(p => `<${p}>`).join(' ')}${words.length ? ` (got ${words.length})` : ''}`);
   if (words.length > spec.positional.length && !spec.variadic) throw new UsageError(`${command}: unexpected "${words[spec.positional.length]}" (a path with spaces needs quotes)`);
@@ -475,14 +482,21 @@ commands.trim = async ({ file, opts }, io, env = {}) => {
 
 /** Runs a media command line; resolves to the exit code (0 done, 1 a problem, 2 usage). */
 export async function runMedia(argv, io = defaultIo, env = {}) {
+  const usage = (e) => {
+    const cmd = MEDIA_COMMANDS.includes(argv[0]) ? argv[0] : null;
+    const text = cmd && !e.message.startsWith(`${cmd}: `) ? `${cmd}: ${e.message}` : e.message;
+    io.err(`pixi-effects ${text}${/--help/.test(text) ? '' : `\n${cmd ? `pixi-effects ${cmd} --help lists every option` : USAGE}`}`);
+    return 2;
+  };
   let parsed;
   try { parsed = parseMediaArgs(argv); }
-  catch (e) { if (e instanceof UsageError) { io.err(`pixi-effects: ${e.message}\n${USAGE}`); return 2; } throw e; }
+  catch (e) { if (e instanceof UsageError) return usage(e); throw e; }
+  if (parsed.help) { io.log(mediaHelp(parsed.command)); return 0; }
   const run = commands[parsed.command];
   if (!run) { io.err(`pixi-effects ${parsed.command}: not available in this build`); return 1; }
   try { return await run(parsed, io, env); }
   catch (e) {
-    if (e instanceof UsageError) { io.err(`pixi-effects: ${e.message}\n${USAGE}`); return 2; }
+    if (e instanceof UsageError) return usage(e);
     io.err(`pixi-effects ${parsed.command}: ${e && e.message ? e.message : String(e)}`);       // a sentence, never a stack
     return 1;
   }
@@ -622,7 +636,7 @@ commands.frames = async ({ file, opts }, io, env = {}) => {
   if (fs.existsSync(outDir) && !fs.statSync(outDir).isDirectory()) throw new Error(`${outDir} is a file, not a folder: frames writes its pictures into a folder (-o <folder>)`);
   const { withBrowser } = await import(pathToFileURL(path.join(HERE, 'mediaBrowser.mjs')).href);
   const inputs = new Map([['f1', isUrl(file) ? file : path.resolve(file)]]);
-  const r = await withBrowser({ chrome: opts.chrome, inputs, outDir, requestLog: env.requestLog }, ({ call }) => call('frames', { id: 'f1', times, size: opts.size ?? 480, sheet: !!opts.sheet }));
+  const r = await withBrowser({ chrome: opts.chrome, inputs, outDir, requestLog: env.requestLog }, ({ call }) => call('frames', { id: 'f1', times, size: opts.width ?? 480, sheet: !!opts.sheet }));
   const report = { file, duration: probe.duration, outDir, frames: r.frames.map(f => ({ ...f, path: path.join(outDir, f.file) })), sheet: r.sheet };
   if (opts.json) io.log(JSON.stringify(report, null, 2));
   else {

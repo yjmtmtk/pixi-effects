@@ -26,6 +26,11 @@ describe('the media commands: the command line', () => {
     expect(() => media.parseTime('a lot')).toThrow(/seconds/);
   });
 
+  it('frames --width N is the width of each picture; the old --size (WxH everywhere else) says the new name', async () => {
+    expect(media.parseMediaArgs(['frames', 'a.mp4', '--width', '160']).opts.width).toBe(160);
+    expect(() => media.parseMediaArgs(['frames', 'a.mp4', '--size', '160'])).toThrow(/--size is now --width/);
+  });
+
   it('a usage mistake is exit code 2 with a sentence (no file, a missing -o, an unknown option with a guess, a path with spaces unquoted)', async () => {
     const lines: string[] = [];
     const io = { log: (s: string) => lines.push(s), err: (s: string) => lines.push(s) };

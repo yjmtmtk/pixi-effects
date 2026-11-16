@@ -44,7 +44,8 @@
         "types": "./dist/3d.d.cts",
         "default": "./dist/3d.cjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

@@ -6,14 +6,16 @@
  *   npx pixi-effects render my-video.html -o my-video.mp4           export the file
  *   npx pixi-effects view   my-video.html                           open it in a browser with a timeline
  *
- * Everything after the command goes to the tool unchanged (`check.mjs`, `render.mjs`, `view.mjs`; their own headers list every option), and so do the
- * exit code and the output. It is the package's only bin (the older `pixi-effects-check|render|view` are gone).
+ * Everything after the command goes to the tool unchanged (`check.mjs`, `render.mjs`, `view.mjs`, `media.mjs`, `lookup.mjs`), and so do the exit code and the output.
+ * Every command reads its line the same way (args.mjs): `pixi-effects <command> --help` lists every option. `pixi-effects --version` prints the version.
+ * It is the package's only bin (the older `pixi-effects-check|render|view` are gone).
  */
 import { spawn } from 'node:child_process';
-import { realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runLookup, LOOKUP_COMMANDS } from './lookup.mjs';
+import { EXIT_CODES, nearest as nearestOf } from './args.mjs';
 
 const MEDIA = ['probe', 'trim', 'frames', 'sound', 'audio', 'concat'];          // footage tools: one file, `media.mjs`, which gets the command word too
 
@@ -32,29 +34,35 @@ const USAGE = `usage:
   pixi-effects quickstart                                   the first page to read (2 KB): the workflow and the rules that cause most failures
   pixi-effects recipe [id]                                  the tested recipes; with an id, one of them with its code
   pixi-effects help   <word>                                the docs about a word (mask, threeD, keyframes, music …)
-(every option of a command is listed in the header of its file: node_modules/pixi-effects/ai/tools/<command>.mjs)`;
+every option of a command: pixi-effects <command> --help · the version: pixi-effects --version
+${EXIT_CODES}`;
 
 function nearest(word) {
-  const d = (a, b) => { const m = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]); for (let j = 1; j <= b.length; j++) m[0][j] = j;
-    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) m[i][j] = Math.min(m[i - 1][j] + 1, m[i][j - 1] + 1, m[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return m[a.length][b.length]; };
-  const best = [...Object.keys(TOOLS), ...MEDIA, ...LOOKUP_COMMANDS].map(k => [k, d(word, k)]).sort((x, y) => x[1] - y[1])[0];
-  return best[1] <= 2 ? best[0] : null;
+  const all = [...Object.keys(TOOLS), ...MEDIA, ...LOOKUP_COMMANDS];
+  return nearestOf(word, all);
+}
+
+/** The version of this package (`pixi-effects --version`). */
+export function version() {
+  return JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json'), 'utf8')).version;
 }
 
 /** Which tool a command line asks for: `{ tool, args }`, or `{ usage }` (no command / --help), or `{ error }`. */
 export function route(argv) {
   const [cmd, ...args] = argv;
   if (!cmd || cmd === '--help' || cmd === '-h') return { usage: USAGE };
+  if (cmd === '--version' || cmd === '-v') return { version: version() };
   if (TOOLS[cmd]) return { tool: TOOLS[cmd], args };
   if (MEDIA.includes(cmd)) return { tool: 'media.mjs', args: [cmd, ...args] };
   if (LOOKUP_COMMANDS.includes(cmd)) return { inline: cmd, args };
   const guess = /\.html?$/i.test(cmd) ? 'check' : nearest(cmd);
-  return { error: `pixi-effects: unknown command "${cmd}"${guess ? `; did you mean "${guess}"?` : ''} The commands are: ${[...Object.keys(TOOLS), ...MEDIA, ...LOOKUP_COMMANDS].join(', ')}.\n${USAGE}` };
+  return { error: `pixi-effects: unknown command "${cmd}"${guess ? `; did you mean "${guess}"?` : '.'} The commands are: ${[...Object.keys(TOOLS), ...MEDIA, ...LOOKUP_COMMANDS].join(', ')}.\n${USAGE}` };
 }
 
 const self = fileURLToPath(import.meta.url);
 if (process.argv[1] && realpathSync(resolve(process.argv[1])) === realpathSync(self)) {
   const r = route(process.argv.slice(2));
+  if (r.version) { console.log(r.version); process.exit(0); }
   if (r.usage) { console.log(r.usage); process.exit(process.argv.length > 2 ? 0 : 2); }
   if (r.error) { console.error(r.error); process.exit(2); }
   if (r.inline) {

@@ -19,11 +19,32 @@ const onCdn = await fetch(`https://cdn.jsdelivr.net/npm/pixi-effects@${version}/
 
 describe('check.mjs — pure helpers', () => {
   it('parseArgs: a page, options with values, and a clear error for a typo', () => {
-    const o = tool.parseArgs(['my.html', '--frames', '6', '--formats', 'mp4,webm', '--no-export', '--timeout', '90', '--out', 'o']);
+    const o = tool.parseArgs(['my.html', '--frames', '6', '--format', 'mp4,webm', '--no-export', '--timeout', '90', '--out', 'o']);
     expect(o).toMatchObject({ page: 'my.html', frames: 6, formats: ['mp4', 'webm'], export: false, timeout: 90, out: 'o' });
     expect(tool.parseArgs(['p.html']).formats).toEqual(['mp4']);
     expect(() => tool.parseArgs(['p.html', '--fast'])).toThrow(/unknown option --fast/);
     expect(() => tool.parseArgs(['p.html', '--frames'])).toThrow(/needs a value/);
+  });
+
+  it('findChrome: CHROME alone is not read (one name for every command: CHROME_PATH, as chrome-launcher and Lighthouse) and one line says the new name', () => {
+    const said: string[] = [];
+    const say = (s: string) => said.push(s);
+    expect(tool.findChrome({ CHROME: '/x/chrome' }, (p: string) => p === '/x/chrome', 'linux', say)).toBeNull();
+    expect(said).toEqual(['CHROME is now CHROME_PATH (CHROME=/x/chrome is not read)']);
+    said.length = 0;
+    expect(tool.findChrome({ CHROME: '/x/old', CHROME_PATH: '/x/chrome' }, (p: string) => p === '/x/chrome', 'linux', say)).toBe('/x/chrome');
+    expect(said).toEqual([]);
+  });
+
+  it('parseArgs: the names of render (--format, -o); the old --formats says the new one; --out is a folder, not a video', () => {
+    expect(tool.parseArgs(['p.html', '--format', 'webm']).formats).toEqual(['webm']);
+    expect(tool.parseArgs(['p.html', '-o', 'dir']).out).toBe('dir');
+    expect(tool.parseArgs(['p.html', '-o=dir']).out).toBe('dir');
+    expect(() => tool.parseArgs(['p.html', '--formats', 'mp4'])).toThrow(/--formats is now --format/);
+    for (const v of ['x.mp4', 'out/clip.WEBM', 'a.mov']) {
+      expect(() => tool.parseArgs(['p.html', '--out', v]), v).toThrow(/--out is a folder/);
+    }
+    expect(() => tool.parseArgs(['p.html', '-o', 'x.mp4'])).toThrow(/pixi-effects render p\.html -o x\.mp4/);
   });
 
   it('parseArgs: --strict', () => {
@@ -31,8 +52,8 @@ describe('check.mjs — pure helpers', () => {
     expect(tool.parseArgs(['p.html']).strict).toBe(false);
   });
 
-  it('findChrome: $CHROME wins, then the usual places; null when there is none', () => {
-    expect(tool.findChrome({ CHROME: '/x/chrome' }, (p: string) => p === '/x/chrome', 'linux')).toBe('/x/chrome');
+  it('findChrome: $CHROME_PATH wins, then the usual places; null when there is none', () => {
+    expect(tool.findChrome({ CHROME_PATH: '/x/chrome' }, (p: string) => p === '/x/chrome', 'linux')).toBe('/x/chrome');
     expect(tool.findChrome({}, (p: string) => p === '/usr/bin/chromium', 'linux')).toBe('/usr/bin/chromium');
     expect(tool.findChrome({}, (p: string) => p.includes('Google Chrome.app'), 'darwin')).toContain('Google Chrome');
     expect(tool.findChrome({}, () => false, 'linux')).toBeNull();
@@ -66,6 +87,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     ], { timeout: 170_000 });                                  // a non-zero exit would reject
     expect(stdout).toContain('RESULT: OK');
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(report.version).toBe(1);                                              // report.json is a contract: version, ok, problems, files, exports, logs, audio
+    expect(Object.keys(report).slice(0, 2)).toEqual(['version', 'page']);
     expect(report.ok).toBe(true);
     expect(report.problems).toEqual([]);
     expect(report.logs).toEqual([]);

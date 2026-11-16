@@ -19,7 +19,7 @@ describe('check.parseArgs: --help', () => {
     expect(check.parseArgs(['--help']).help).toBe(true);
     expect(check.parseArgs(['-h']).help).toBe(true);
     expect(check.parseArgs(['p.html']).help).toBe(false);
-    expect(check.USAGE).toMatch(/usage: node ai\/tools\/check\.mjs <page\.html>.*--at/);
+    expect(check.USAGE).toMatch(/usage: pixi-effects check <page\.html>[\s\S]*--at/);
   });
 });
 
