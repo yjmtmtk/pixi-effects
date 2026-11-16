@@ -126,7 +126,7 @@ describe('expandSpans: the text layer becomes one group of ordinary text layers'
   });
 
   it('keys of a text that a group cannot carry are said, not dropped silently: fillGradient, format, colorSpace', () => {
-    expandSpans({ type: 'text', spans: ['A'], style, fillGradient: { angle: 0, stops: [[0, '#f00'], [1, '#00f']] }, format: { decimals: 1 }, colorSpace: 'oklab' } as never, warn);
+    expandSpans({ type: 'text', spans: ['A'], style, fillGradient: { angle: 90, stops: [[0, '#f00'], [1, '#00f']] }, format: { decimals: 1 }, colorSpace: 'oklab' } as never, warn);
     const m = said.find(x => /do not apply to a spans layer/.test(x))!;
     expect(m).toMatch(/fillGradient/);
     expect(m).toMatch(/format/);

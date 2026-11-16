@@ -89,12 +89,12 @@ export default function chapter(P) {
         keyframes: [{ at: 0.6, to: { endAngle: 270 }, duration: 1.3, ease: 'power2.inOut' }] },
       // the mark: a disc that grows, then morphs into a four-point star while its gradient turns
       { type: 'shape', shape: 'path', name: 'mark', d: disc, morphTo: star, at: 1.9, duration: 5.1, colorSpace: 'oklch',
-        fillGradient: { type: 'linear', angle: 45, stops: [[0, C.red], [0.4, C.red], [1, C.gold]] },
+        fillGradient: { type: 'linear', angle: 135, stops: [[0, C.red], [0.4, C.red], [1, C.gold]] },
         initial: { pivotX: CX, pivotY: CY, x: 'GW*5/16', y: 'GH/2', scale: 0, rotation: -45, morph: 0 },
         keyframes: [
           { at: 0, to: { scale: 1 }, duration: 0.55, ease: 'power3.out' },
           { at: 0.75, to: { morph: 1, rotation: 0 }, duration: 1.25, ease: 'power2.inOut' },
-          { at: 0.5, to: { fillGradient: { angle: 315 } }, duration: 3.6, ease: 'sine.inOut' },
+          { at: 0.5, to: { fillGradient: { angle: 405 } }, duration: 3.6, ease: 'sine.inOut' },
         ] },
       // the display word, rising through a slot cut by an inline mask
       { type: 'text', name: 'word', text: 'SHAPES', style: wordStyle, at: 1.2, duration: 5.8,

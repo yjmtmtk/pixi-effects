@@ -259,7 +259,7 @@
 
       // the horizon: revealed by a soft-edged matte that slides left → right
       { type: 'shape', shape: 'rect', name: 'brushWipe', anchorX: 0, width: 1800, height: 120,
-        fillGradient: { angle: 0, stops: [[0, '#ffffff'], [0.5, '#ffffff'], [0.535, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,0)']] },
+        fillGradient: { angle: 90, stops: [[0, '#ffffff'], [0.5, '#ffffff'], [0.535, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,0)']] },
         initial: { x: LINE_X0 - STROKE_PAD - 963, y: HORIZON },
         keyframes: [{ at: T.stroke, to: { x: LINE_X0 + LINE_LEN + STROKE_PAD - 900 }, duration: 2.0, ease: 'power2.inOut' }] },
       { type: 'image', asset: 'stroke', name: 'horizon', mask: 'brushWipe',

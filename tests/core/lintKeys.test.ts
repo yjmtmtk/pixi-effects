@@ -116,7 +116,7 @@ describe('lintKeys: animatable property names (initial, set, to, from)', () => {
     expect(warns({ type: 'image', asset: 'a', keyframes: [{ at: 0, to: { 'filters.g.amount': 1, 'scene3d.box.x': 2 }, duration: 1 }] })).toEqual([]);
   });
   it("fillGradient's own mistakes are said by its own check, not twice", () => {
-    expect(warns({ type: 'shape', shape: 'rect', width: 1, height: 1, fillGradient: { stops: [[0, '#fff'], [1, '#000']] }, keyframes: [{ at: 0, to: { gradientAngle: 90, fillGradient: { angle: 1 } }, duration: 1 }] })).toEqual([]);
+    expect(warns({ type: 'shape', shape: 'rect', width: 1, height: 1, fillGradient: { stops: [[0, '#fff'], [1, '#000']] }, keyframes: [{ at: 0, to: { gradientAngle: 90, fillGradient: { angle: 91 } }, duration: 1 }] })).toEqual([]);
   });
   it('is said once per key, even if many keyframes repeat it', () => {
     const kf = Array.from({ length: 5 }, (_, i) => ({ at: i, to: { alhpa: 1 }, duration: 1 }));

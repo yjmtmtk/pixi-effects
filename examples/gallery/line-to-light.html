@@ -240,7 +240,7 @@
     const reach = Math.hypot(c1[0] - c0[0], c1[1] - c0[1]) + 360;
     // the light pours in: a soft-edged matte slides from the window down the beam (not drawn itself)
     seq.push({ type: 'shape', shape: 'rect', name: 'beam-matte', at: T.light, duration: DURATION - T.light, width: 2400, height: 1600,
-      fillGradient: { type: 'linear', angle: 0, stops: [[0, '#ffffff'], [0.48, '#ffffff'], [0.52, '#000000'], [1, '#000000']] },
+      fillGradient: { type: 'linear', angle: 90, stops: [[0, '#ffffff'], [0.48, '#ffffff'], [0.52, '#000000'], [1, '#000000']] },
       initial: { x: c0[0] - ux * 120, y: c0[1] - uy * 120, rotation: beamAngle },
       keyframes: [{ at: 0, to: { x: c0[0] + ux * reach, y: c0[1] + uy * reach }, duration: 1.3, ease: 'power2.inOut' }] });
     // The patch drifts as the sun climbs. Its new shape is an affine image of the old one (a shear of the floor that keeps
@@ -276,7 +276,7 @@
         const shaftAt = o => closed(hull([...winPts, ...patchAt(o)]));
         seq.push({ type: 'shape', shape: 'path', name: 'sun-shaft', at: T.light, duration: DURATION - T.light,
           d: shaftAt(SUN0), morphTo: shaftAt(SUN1), morphPoints: 1024, blendMode: 'add', mask: { layer: 'beam-matte', channel: 'luma' },
-          fillGradient: { type: 'linear', angle: beamAngle, stops: [[0, 'rgba(242,196,111,0.4)'], [0.75, 'rgba(242,196,111,0.05)'], [1, 'rgba(242,196,111,0)']] },
+          fillGradient: { type: 'linear', angle: (beamAngle) + 90, stops: [[0, 'rgba(242,196,111,0.4)'], [0.75, 'rgba(242,196,111,0.05)'], [1, 'rgba(242,196,111,0)']] },
           keyframes: [{ at: 0, to: { morph: 1 }, duration: T.settle - T.light, ease: 'sine.inOut' }] });
         // dust in the beam: points inside the light volume, drifting slowly
         const r = random(20);

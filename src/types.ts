@@ -391,7 +391,7 @@ export interface TextSequenceSpec extends SequenceCommon {
   colorSpace?: 'rgb' | 'oklab' | 'oklch';
   /**
    * A gradient fill for the letters (like a shape's `fillGradient`; replaces `style.fill`). Animatable: a keyframe's
-   * `to: { fillGradient: { angle: 200, stops: [...] } }` (the same number of stops). The text is re-rasterised on every change.
+   * `to: { fillGradient: { angle: 290, stops: [...] } }` (the same number of stops). The text is re-rasterised on every change.
    */
   fillGradient?: GradientSpec;
 }
@@ -748,7 +748,7 @@ export interface GradientSpec {
   type?: 'linear' | 'radial';
   /** Colour stops, `[offset 0–1, colour]` or `{ offset, color }`. At least two. */
   stops: Array<[number, string | number] | { offset: number; color: string | number }>;
-  /** linear: direction in degrees — 0 = left → right, 90 = top → bottom (default). */
+  /** linear: the way the colours run, in degrees as CSS `linear-gradient` — 0 = to the top, 90 = to the right, 180 = to the bottom (default). */
   angle?: number;
   /** radial: centre in 0–1 of the bounds. Default `[0.5, 0.5]`. */
   center?: [number, number];

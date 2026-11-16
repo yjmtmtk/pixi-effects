@@ -12,7 +12,7 @@ export default function chapter(P) {
     sequences: [
       P.bg(C.ink),
       { type: 'shape', shape: 'rect', name: 'sky', width: 1920, height: 1080, anchorX: 0, anchorY: 0,
-        fillGradient: { type: 'linear', angle: 90, stops: [[0, C.ink], [0.24, HAZE], [1, HAZE]] }, initial: { x: 0, y: 0 } },
+        fillGradient: { type: 'linear', angle: 180, stops: [[0, C.ink], [0.24, HAZE], [1, HAZE]] }, initial: { x: 0, y: 0 } },
       { type: 'light', name: 'ambient', kind: 'ambient', initial: { intensity: 0.15, color: '#8a9ac0' } },
       { type: 'light', name: 'lamp', kind: 'spot', castsShadows: true,
         initial: { x: 260, y: FLOOR - 400, z: 560, lookAtX: 820, lookAtY: FLOOR, lookAtZ: -700, coneAngle: 60, coneFeather: 0.6, intensity: 0, color: LAMP, shadowDarkness: 0.9, shadowDiffusion: 16 },

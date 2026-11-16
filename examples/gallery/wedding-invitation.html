@@ -179,7 +179,7 @@
     // gold rule grows from its centre with soft ends; a diamond pops in the middle over a cream gap
     sequences.push(
       { type: 'shape', shape: 'rect', name: 'rule', width: 0, height: 1.6, at: T.rule, initial: { x: CX, y: Y.rule },
-        fillGradient: { angle: 0, stops: [[0, rgba(GOLD, 0)], [0.14, GOLD], [0.86, GOLD], [1, rgba(GOLD, 0)]] },
+        fillGradient: { angle: 90, stops: [[0, rgba(GOLD, 0)], [0.14, GOLD], [0.86, GOLD], [1, rgba(GOLD, 0)]] },
         keyframes: [{ at: 0, to: { width: 330 }, duration: 1.1, ease: 'power3.out' }] },
       { type: 'shape', shape: 'rect', name: 'rule-gap', width: 18, height: 18, at: T.diamond, initial: { x: CX, y: Y.rule, rotation: 45, fillColor: CREAM, scale: 0 },
         keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.5, ease: 'back.out(1.4)' }] },
@@ -225,7 +225,7 @@
 
     // ---- closing flourish: a soft light sheen sweeps across the card during the hold (screened, masked to the card) ----
     sequences.push({ type: 'shape', shape: 'rect', name: 'sheen', width: 240, height: 1900, at: T.sheen, duration: 1.9, blendMode: 'screen',
-      fillGradient: { angle: 0, stops: [[0, 'rgba(255,250,240,0)'], [0.5, 'rgba(255,250,240,0.42)'], [1, 'rgba(255,250,240,0)']] },
+      fillGradient: { angle: 90, stops: [[0, 'rgba(255,250,240,0)'], [0.5, 'rgba(255,250,240,0.42)'], [1, 'rgba(255,250,240,0)']] },
       initial: { x: -260, y: CY, rotation: 18 },
       keyframes: [{ at: 0, to: { x: W + 260 }, duration: 1.8, ease: 'power2.inOut' }],
       mask: { type: 'shape', shape: 'rect', width: CARD_W, height: CARD_H, initial: { x: CX, y: CY, fillColor: '#ffffff' } } });

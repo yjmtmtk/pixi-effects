@@ -13,12 +13,12 @@ function normalizedStops(g: GradientSpec): Array<{ offset: number; color: string
 
 /**
  * PixiJS `FillGradient` options for a LINEAR `fillGradient` (local space: 0–1 across the shape's own
- * bounds, so it follows the shape's size). `angle` in degrees: 0 = left → right, 90 = top → bottom
- * (default, like CSS `to bottom`); the line passes through the centre and spans corner to corner.
+ * bounds, so it follows the shape's size). `angle` in degrees as in CSS `linear-gradient`: the way the colours run, 0 = to the top,
+ * 90 = to the right, 180 = to the bottom (default); the line passes through the centre and spans corner to corner.
  */
 export function gradientOptions(g: GradientSpec): Record<string, unknown> {
   const colorStops = normalizedStops(g);
-  const a = ((g.angle ?? 90) * Math.PI) / 180;
+  const a = (((g.angle ?? 180) - 90) * Math.PI) / 180;       // CSS degrees (0 = up, clockwise) → the canvas angle (0 = right)
   const dx = Math.cos(a), dy = Math.sin(a);
   const h = (Math.abs(dx) + Math.abs(dy)) / 2;            // half-extent so the line reaches the corners
   return {

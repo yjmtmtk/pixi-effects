@@ -119,7 +119,7 @@ export default function chapter(P) {
   const phase = (B0 - 4 * Math.floor(B0 / 4)) * SPB;           // where in its bar this chapter starts: the envelope's bar starts on ours
   const playhead = [
     { type: 'shape', shape: 'rect', name: 'ph-glow', width: 90, height: 620, anchorX: 0.5, anchorY: 0,
-      initial: { x: PH, y: 292, fillGradient: { angle: 0, stops: [[0, 'rgba(255,90,54,0)'], [0.5, 'rgba(255,90,54,0.55)'], [1, 'rgba(255,90,54,0)']] } },
+      initial: { x: PH, y: 292, fillGradient: { angle: 90, stops: [[0, 'rgba(255,90,54,0)'], [0.5, 'rgba(255,90,54,0.55)'], [1, 'rgba(255,90,54,0)']] } },
       keyframes: P.react(env, { duration: D, audioOffset: phase, props: { alpha: { base: 0.15, amount: 0.85, band: 'bass', beats: true, decay: 0.22 } } }) },
     { type: 'shape', shape: 'rect', name: 'ph-line', width: 4, height: 620, anchorX: 0.5, anchorY: 0, initial: { x: PH, y: 292, fillColor: C.red },
       keyframes: changes.flatMap(e => [                        // a flash on every bar line where the chord changes (the sfx hit lands here)
@@ -174,7 +174,7 @@ export default function chapter(P) {
       ...Object.entries(LANE).filter(([n]) => n !== 'lead').map(([n, y]) => ({ type: 'shape', shape: 'rect', name: `hair-${n}`, width: X1 - X0, height: 2,
         anchorX: 0, anchorY: 0.5, initial: { x: X0, y: y + 40, fillColor: C.bone, alpha: 0.06 } })),
       { type: 'shape', shape: 'rect', name: 'roll-window', width: X1 - X0, height: 640, anchorX: 0, anchorY: 0,
-        initial: { x: X0, y: 284, fillGradient: { angle: 0, stops: [[0, 'rgba(255,255,255,0)'], [0.06, 'rgba(255,255,255,1)'], [0.94, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']] } } },
+        initial: { x: X0, y: 284, fillGradient: { angle: 90, stops: [[0, 'rgba(255,255,255,0)'], [0.06, 'rgba(255,255,255,1)'], [0.94, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']] } } },
       { type: 'composition', name: 'roll', width: 6000, height: 1080, mask: { layer: 'roll-window', channel: 'alpha' },
         initial: { x: 0, y: 0 }, keyframes: [{ at: 0, to: { x: -(D / SPB) * PXB }, duration: D, ease: 'none' }], sequences: roll },
       ...names,

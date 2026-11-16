@@ -213,7 +213,7 @@
 
     // warm light from the shop window spilling onto the wet pavement
     L.push({ type: 'shape', shape: 'rect', name: 'shopLight', width: W, height: 330, blendMode: 'add',
-      fillGradient: { type: 'linear', angle: 90, stops: [[0, 'rgba(240,180,108,0.30)'], [0.45, 'rgba(240,180,108,0.10)'], [1, 'rgba(240,180,108,0)']] },
+      fillGradient: { type: 'linear', angle: 180, stops: [[0, 'rgba(240,180,108,0.30)'], [0.45, 'rgba(240,180,108,0.10)'], [1, 'rgba(240,180,108,0)']] },
       initial: { x: W / 2, y: AWN_B + 165, alpha: 0.75 },
       keyframes: [{ at: T.rainStop, to: { alpha: 1 }, duration: 2.5, ease: 'sine.inOut' }] });
 
@@ -318,7 +318,7 @@
     }
     // after the rain: the light warms the whole street a little
     L.push({ type: 'shape', shape: 'rect', name: 'afterglow', width: W, height: H, blendMode: 'add', at: T.rainStop,
-      fillGradient: { type: 'linear', angle: 90, stops: [[0, 'rgba(240,170,100,0.16)'], [0.5, 'rgba(240,170,100,0.05)'], [1, 'rgba(240,170,100,0.02)']] },
+      fillGradient: { type: 'linear', angle: 180, stops: [[0, 'rgba(240,170,100,0.16)'], [0.5, 'rgba(240,170,100,0.05)'], [1, 'rgba(240,170,100,0.02)']] },
       initial: { x: W / 2, y: H / 2, alpha: 0 },
       keyframes: [{ at: 0, to: { alpha: 1 }, duration: 2.4, ease: 'sine.inOut' }] });
 

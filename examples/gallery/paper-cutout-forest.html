@@ -388,7 +388,7 @@
 
     const sequences = [
       { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
-        fillGradient: { angle: 90, stops: [[0, P.skyTop], [0.3, P.skyMid], [0.55, P.skyWarm], [0.72, P.skyHorizon], [1, P.skyHorizon]] } },
+        fillGradient: { angle: 180, stops: [[0, P.skyTop], [0.3, P.skyMid], [0.55, P.skyWarm], [0.72, P.skyHorizon], [1, P.skyHorizon]] } },
       { type: 'camera', name: 'cam', keyframes: [{ at: 0, from: { x: W / 2 - 90, y: H / 2 + 26 }, to: { x: W / 2 + 90, y: H / 2 - 26 }, duration: DURATION, ease: 'sine.inOut' }] },
       // --- the diorama (all threeD, farthest first in the array; depth sorting does the rest)
       stars, moonGlow, moon, ...clouds,

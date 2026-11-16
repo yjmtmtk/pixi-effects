@@ -26,7 +26,7 @@ const PATCH_KEYS = ['type', 'angle', 'center', 'innerRadius', 'radius', 'stops']
 export function gradStateFrom(g: GradientSpec): GradState {
   return {
     type: g.type ?? 'linear',
-    angle: g.angle ?? 90,
+    angle: g.angle ?? 180,
     center: [...(g.center ?? [0.5, 0.5])] as [number, number],
     innerRadius: g.innerRadius ?? 0,
     radius: g.radius ?? 0.5,
@@ -53,7 +53,7 @@ export function mergeGrad(base: GradState, patch: unknown): GradState {
   return out;
 }
 
-const objectHint = "a keyframe's fillGradient must be an object like { angle: 200, stops: [[0, '#f00'], [1, '#00f']] }";
+const objectHint = "a keyframe's fillGradient must be an object like { angle: 290, stops: [[0, '#f00'], [1, '#00f']] }";
 
 /**
  * The mistakes a keyframe can make with `fillGradient`, said ONCE when the layer is built (not in a tween's `onStart`, which runs again
@@ -156,7 +156,7 @@ export class GradientPainter {
     if (g.type === 'radial') {
       paintRadial(ctx as unknown as RadialCtx, s, { stops: g.stops.map(x => [x.offset, x.color] as [number, string]), center: g.center, innerRadius: g.innerRadius, radius: g.radius });
     } else {
-      const a = (g.angle * Math.PI) / 180, dx = Math.cos(a), dy = Math.sin(a);
+      const a = ((g.angle - 90) * Math.PI) / 180, dx = Math.cos(a), dy = Math.sin(a);   // CSS degrees, as gradientOptions
       const h = (Math.abs(dx) + Math.abs(dy)) / 2;      // the same line as gradientOptions: through the centre, corner to corner
       const grad = ctx.createLinearGradient((0.5 - dx * h) * s, (0.5 - dy * h) * s, (0.5 + dx * h) * s, (0.5 + dy * h) * s);
       for (const st of g.stops) grad.addColorStop(Math.min(1, Math.max(0, st.offset)), st.color);

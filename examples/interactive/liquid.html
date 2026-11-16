@@ -59,7 +59,7 @@
         ];
       });
       return { sequences: [
-        { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, fillGradient: { angle: 90, stops: [[0, '#0f1424'], [1, '#1b1033']] } },
+        { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, fillGradient: { angle: 180, stops: [[0, '#0f1424'], [1, '#1b1033']] } },
         { type: 'shape', shape: 'circle', name: 'orb', radius: `${u}*${tall ? 0.28 : 0.22}`, initial: { x: tall ? 'GW*0.8' : 'GW*0.82', y: tall ? 'GH*0.12' : 'GH*0.26' }, fillGradient: { stops: [[0, '#6aa8ff'], [1, '#a06bff']] },
           keyframes: [{ at: 0, to: { y: tall ? 'GH*0.15' : 'GH*0.3' }, duration: 2, ease: 'sine.inOut', repeat: 3, yoyo: true }] },
         { type: 'text', name: 'title', text: 'Liquid layout', at: 0.1, style: { fontFamily: FONT, fontSize: `${u}*${tall ? 0.11 : 0.1}`, fontWeight: '800', fill: '#ffffff' },

@@ -14,7 +14,7 @@ beforeEach(() => { vi.restoreAllMocks(); });
 describe('gradient state', () => {
   it('gradStateFrom fills the defaults and turns numeric colours into CSS strings', () => {
     const s = gradStateFrom({ stops: [[0, 0xff0000], { offset: 1, color: '#00f' }] });
-    expect(s).toMatchObject({ type: 'linear', angle: 90, center: [0.5, 0.5], innerRadius: 0, radius: 0.5 });
+    expect(s).toMatchObject({ type: 'linear', angle: 180, center: [0.5, 0.5], innerRadius: 0, radius: 0.5 });
     expect(s.stops).toEqual([{ offset: 0, color: '#ff0000' }, { offset: 1, color: '#00f' }]);
   });
   it('mergeGrad replaces only the keys of the patch, never mutates the base, and ignores what cannot be tweened', () => {
@@ -118,7 +118,7 @@ describe('validateGradientKeyframes: said once, at build, with what to write', (
   });
   it('a type change, and a gradient that is not an object', () => {
     expect(warns(kf({ fillGradient: { type: 'radial' } }))[0]).toMatch(/type cannot change over time/);
-    expect(warns(kf({ fillGradient: 'red' }))[0]).toMatch(/must be an object like \{ angle: 200, stops/);
+    expect(warns(kf({ fillGradient: 'red' }))[0]).toMatch(/must be an object like \{ angle: 290, stops/);
   });
   it('no starting gradient', () => {
     expect(warns({ keyframes: [{ at: 0, to: { fillGradient: { angle: 9 } } }] })[0]).toMatch(/give it a fillGradient first/);

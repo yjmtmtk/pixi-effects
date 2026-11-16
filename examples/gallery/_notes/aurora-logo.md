@@ -69,7 +69,7 @@ Model: fable   Cycles: 2 (run → one batch of fixes → run; a third run only f
 // @recipe sunrise-mark
 const CX = 640, CY = 300, R = 84, HAIR_Y = CY + 28, GAP = 5, ICE = '#9fd6e6', CHAMP = '#e6cfa7';
 const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
-const disc = { angle: 90, stops: [[0, ICE], [0.3, ICE], [0.8, CHAMP], [1, CHAMP]] };
+const disc = { angle: 180, stops: [[0, ICE], [0.3, ICE], [0.8, CHAMP], [1, CHAMP]] };
 const segY = HAIR_Y - GAP, half = Math.sqrt(R * R - (segY - CY) ** 2);            // the upper circular segment, as an SVG path
 const upper = `M ${CX - half} ${segY} A ${R} ${R} 0 1 1 ${CX + half} ${segY} Z`;
 return [
@@ -79,16 +79,16 @@ return [
     keyframes: [{ at: 0, to: { y: CY }, duration: 1.7, ease: 'power3.out' }],
     mask: { type: 'shape', shape: 'rect', width: 400, height: HAIR_Y - GAP, anchorY: 0, initial: { x: CX, y: 0, fillColor: '#fff' } } },
   // the reflection: the same disc masked below the line; the alpha lives in the gradient (bounds are the WHOLE disc: the sliver is 0.64 → 1)
-  { type: 'shape', shape: 'circle', radius: R, at: 2, fillGradient: { angle: 90, stops: [[0, rgba(CHAMP, 0.5)], [0.64, rgba(CHAMP, 0.5)], [1, rgba(CHAMP, 0)]] },
+  { type: 'shape', shape: 'circle', radius: R, at: 2, fillGradient: { angle: 180, stops: [[0, rgba(CHAMP, 0.5)], [0.64, rgba(CHAMP, 0.5)], [1, rgba(CHAMP, 0)]] },
     initial: { x: CX, y: CY, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1, ease: 'sine.inOut' }],
     mask: { type: 'shape', shape: 'rect', width: 400, height: 120, anchorY: 0, initial: { x: CX, y: HAIR_Y + GAP, fillColor: '#fff' } } },
   // a glint sweeps the disc, confined to the upper segment by a path mask
   { type: 'shape', shape: 'rect', width: 64, height: 300, at: 2.2, duration: 1.3,
-    fillGradient: { angle: 0, stops: [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(255,255,255,0.55)'], [1, 'rgba(255,255,255,0)']] },
+    fillGradient: { angle: 90, stops: [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(255,255,255,0.55)'], [1, 'rgba(255,255,255,0)']] },
     initial: { x: CX - 150, y: CY, rotation: 22 }, keyframes: [{ at: 0, to: { x: CX + 150 }, duration: 1.2, ease: 'power2.inOut' }],
     mask: { type: 'shape', shape: 'path', d: upper, initial: { fillColor: '#fff' } } },
   // the horizon hairline opens from the centre; a gradient with transparent ends keeps the ends soft at every width
-  { type: 'shape', shape: 'rect', width: 0, height: 2, fillGradient: { angle: 0, stops: [[0, rgba(CHAMP, 0)], [0.18, CHAMP], [0.82, CHAMP], [1, rgba(CHAMP, 0)]] },
+  { type: 'shape', shape: 'rect', width: 0, height: 2, fillGradient: { angle: 90, stops: [[0, rgba(CHAMP, 0)], [0.18, CHAMP], [0.82, CHAMP], [1, rgba(CHAMP, 0)]] },
     initial: { x: CX, y: HAIR_Y, alpha: 0.8 }, keyframes: [{ at: 0, to: { width: 420 }, duration: 1.2, ease: 'power3.out' }] },
 ];
 ```
@@ -106,6 +106,6 @@ return [{
   initial: { x: CX, y: CY, pivotX: AC, pivotY: AC, rotation: -34, alpha: 0 },      // pivot = the circle centre; x,y = where it sits
   keyframes: [{ at: 0, to: { rotation: 0, alpha: 1 }, duration: 1.5, ease: 'power3.out' }],
   sequences: [{ type: 'shape', shape: 'polygon', points: pts,
-    fillGradient: { angle: 0, stops: [[0, 'rgba(159,214,230,0)'], [0.28, '#9fd6e6'], [0.72, '#e6cfa7'], [1, 'rgba(230,207,167,0)']] } }],
+    fillGradient: { angle: 90, stops: [[0, 'rgba(159,214,230,0)'], [0.28, '#9fd6e6'], [0.72, '#e6cfa7'], [1, 'rgba(230,207,167,0)']] } }],
 }];
 ```

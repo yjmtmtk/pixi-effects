@@ -20,10 +20,13 @@ describe('gradientOptions', () => {
     expect(o.textureSpace).toBe('local');
   });
 
-  it('linear angle: 0 = left to right; 45 reaches the corners', () => {
-    const lr = gradientOptions({ angle: 0, stops: [[0, '#000'], [1, '#fff']] }) as any;
-    expect([lr.start.x, lr.start.y, lr.end.x, lr.end.y].map(n => +n.toFixed(6))).toEqual([0, 0.5, 1, 0.5]);
-    const d = gradientOptions({ angle: 45, stops: [[0, '#000'], [1, '#fff']] }) as any;
+  it('linear angle as CSS: 90 = to the right, 180 = to the bottom (the default), 0 = to the top; 135 reaches the corners', () => {
+    const at = (g: object) => { const o = gradientOptions({ stops: [[0, '#000'], [1, '#fff']], ...g }) as any; return [o.start.x, o.start.y, o.end.x, o.end.y].map((n: number) => +n.toFixed(6)); };
+    expect(at({ angle: 90 })).toEqual([0, 0.5, 1, 0.5]);
+    expect(at({})).toEqual([0.5, 0, 0.5, 1]);
+    expect(at({ angle: 180 })).toEqual([0.5, 0, 0.5, 1]);
+    expect(at({ angle: 0 })).toEqual([0.5, 1, 0.5, 0]);
+    const d = gradientOptions({ angle: 135, stops: [[0, '#000'], [1, '#fff']] }) as any;
     expect(d.start.x).toBeCloseTo(0, 6); expect(d.start.y).toBeCloseTo(0, 6);
     expect(d.end.x).toBeCloseTo(1, 6);   expect(d.end.y).toBeCloseTo(1, 6);
   });

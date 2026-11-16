@@ -55,7 +55,7 @@ export default function chapter(P) {
     ],
   };
   const fade = (name, y, stops) => ({ type: 'shape', shape: 'rect', name, width: 1728, height: 150, anchorX: 0, anchorY: 0, at: 0, duration: 5.6,
-    fillGradient: { type: 'linear', angle: 90, stops }, initial: { x: X0, y } });
+    fillGradient: { type: 'linear', angle: 180, stops }, initial: { x: X0, y } });
   const readHead = { type: 'shape', shape: 'rect', name: 'read-head', width: 1728, height: LH + 8, anchorX: 0, anchorY: 0.5, at: 0, duration: 3.5,
     initial: { x: X0, y: 540, fillColor: C.ink2, alpha: 0 }, keyframes: [{ at: 0.6, to: { alpha: 1 }, duration: 0.4 }, { at: 3.25, to: { alpha: 0 }, duration: 0.2 }] };
   const linesLabel = { type: 'text', name: 'lines-label', text: `${num(lineCount)} lines`, style: { fontSize: 34, fill: C.dim, fontFamily: F.mono, letterSpacing: 2 },

@@ -326,12 +326,12 @@ function (lib, facts) {
           keyframes: [{ at: 0.6, to: { endAngle: 270 }, duration: 1.3, ease: 'power2.inOut' }] },
         // the mark: a disc that grows, then morphs into a four-point star while its gradient turns
         { type: 'shape', shape: 'path', name: 'mark', d: disc, morphTo: star, at: 1.9, duration: 5.1, colorSpace: 'oklch',
-          fillGradient: { type: 'linear', angle: 45, stops: [[0, C.red], [0.4, C.red], [1, C.gold]] },
+          fillGradient: { type: 'linear', angle: 135, stops: [[0, C.red], [0.4, C.red], [1, C.gold]] },
           initial: { pivotX: CX, pivotY: CY, x: 'GW*5/16', y: 'GH/2', scale: 0, rotation: -45, morph: 0 },
           keyframes: [
             { at: 0, to: { scale: 1 }, duration: 0.55, ease: 'power3.out' },
             { at: 0.75, to: { morph: 1, rotation: 0 }, duration: 1.25, ease: 'power2.inOut' },
-            { at: 0.5, to: { fillGradient: { angle: 315 } }, duration: 3.6, ease: 'sine.inOut' },
+            { at: 0.5, to: { fillGradient: { angle: 405 } }, duration: 3.6, ease: 'sine.inOut' },
           ] },
         // the display word, rising through a slot cut by an inline mask
         { type: 'text', name: 'word', text: 'SHAPES', style: wordStyle, at: 1.2, duration: 5.8,
@@ -415,7 +415,7 @@ function (lib, facts) {
       sequences: [
         P.bg(C.ink),
         { type: 'shape', shape: 'rect', name: 'sky', width: 1920, height: 1080, anchorX: 0, anchorY: 0,
-          fillGradient: { type: 'linear', angle: 90, stops: [[0, C.ink], [0.24, HAZE], [1, HAZE]] }, initial: { x: 0, y: 0 } },
+          fillGradient: { type: 'linear', angle: 180, stops: [[0, C.ink], [0.24, HAZE], [1, HAZE]] }, initial: { x: 0, y: 0 } },
         { type: 'light', name: 'ambient', kind: 'ambient', initial: { intensity: 0.15, color: '#8a9ac0' } },
         { type: 'light', name: 'lamp', kind: 'spot', castsShadows: true,
           initial: { x: 260, y: FLOOR - 400, z: 560, lookAtX: 820, lookAtY: FLOOR, lookAtZ: -700, coneAngle: 60, coneFeather: 0.6, intensity: 0, color: LAMP, shadowDarkness: 0.9, shadowDiffusion: 16 },
@@ -499,7 +499,7 @@ function (lib, facts) {
   
         // (2) A LUMA MATTE: a wide gradient, white behind and black ahead, slides in right after the band: the word fills in for good, softly
         { type: 'shape', shape: 'rect', name: 'fade', width: 3800, height: 700, anchorX: 1, anchorY: 0.5,
-          fillGradient: { angle: 0, stops: [[0, '#ffffff'], [0.8, '#ffffff'], [1, '#000000']] },
+          fillGradient: { angle: 90, stops: [[0, '#ffffff'], [0.8, '#ffffff'], [1, '#000000']] },
           initial: { x: 300, y: CY },
           keyframes: [{ at: 1.4, to: { x: 2500 }, duration: 1.8, ease: 'power1.inOut' }] },
         { type: 'text', name: 'word-luma', mask: { layer: 'fade', channel: 'luma' }, text: 'MATTE', style: { ...word, fill: C.red }, initial: wordAt },
@@ -522,7 +522,7 @@ function (lib, facts) {
             { at: 3.4, to: { x: 1180, y: 380 }, duration: 2.4, ease: 'power2.inOut' },
           ] },
         { type: 'shape', shape: 'rect', name: 'streak', width: 4600, height: 300, blendMode: 'screen',
-          fillGradient: { angle: 90, stops: [[0, 'rgba(255,209,102,0)'], [0.5, 'rgba(255,209,102,0.38)'], [1, 'rgba(255,209,102,0)']] },
+          fillGradient: { angle: 180, stops: [[0, 'rgba(255,209,102,0)'], [0.5, 'rgba(255,209,102,0.38)'], [1, 'rgba(255,209,102,0)']] },
           initial: { x: 1500, y: -40, rotation: -24, alpha: 0 },
           keyframes: [
             { at: 3.6, to: { alpha: 1 }, duration: 0.5, ease: 'power2.out' },
@@ -1036,7 +1036,7 @@ function (lib, facts) {
     const phase = (B0 - 4 * Math.floor(B0 / 4)) * SPB;           // where in its bar this chapter starts: the envelope's bar starts on ours
     const playhead = [
       { type: 'shape', shape: 'rect', name: 'ph-glow', width: 90, height: 620, anchorX: 0.5, anchorY: 0,
-        initial: { x: PH, y: 292, fillGradient: { angle: 0, stops: [[0, 'rgba(255,90,54,0)'], [0.5, 'rgba(255,90,54,0.55)'], [1, 'rgba(255,90,54,0)']] } },
+        initial: { x: PH, y: 292, fillGradient: { angle: 90, stops: [[0, 'rgba(255,90,54,0)'], [0.5, 'rgba(255,90,54,0.55)'], [1, 'rgba(255,90,54,0)']] } },
         keyframes: P.react(env, { duration: D, audioOffset: phase, props: { alpha: { base: 0.15, amount: 0.85, band: 'bass', beats: true, decay: 0.22 } } }) },
       { type: 'shape', shape: 'rect', name: 'ph-line', width: 4, height: 620, anchorX: 0.5, anchorY: 0, initial: { x: PH, y: 292, fillColor: C.red },
         keyframes: changes.flatMap(e => [                        // a flash on every bar line where the chord changes (the sfx hit lands here)
@@ -1091,7 +1091,7 @@ function (lib, facts) {
         ...Object.entries(LANE).filter(([n]) => n !== 'lead').map(([n, y]) => ({ type: 'shape', shape: 'rect', name: `hair-${n}`, width: X1 - X0, height: 2,
           anchorX: 0, anchorY: 0.5, initial: { x: X0, y: y + 40, fillColor: C.bone, alpha: 0.06 } })),
         { type: 'shape', shape: 'rect', name: 'roll-window', width: X1 - X0, height: 640, anchorX: 0, anchorY: 0,
-          initial: { x: X0, y: 284, fillGradient: { angle: 0, stops: [[0, 'rgba(255,255,255,0)'], [0.06, 'rgba(255,255,255,1)'], [0.94, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']] } } },
+          initial: { x: X0, y: 284, fillGradient: { angle: 90, stops: [[0, 'rgba(255,255,255,0)'], [0.06, 'rgba(255,255,255,1)'], [0.94, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']] } } },
         { type: 'composition', name: 'roll', width: 6000, height: 1080, mask: { layer: 'roll-window', channel: 'alpha' },
           initial: { x: 0, y: 0 }, keyframes: [{ at: 0, to: { x: -(D / SPB) * PXB }, duration: D, ease: 'none' }], sequences: roll },
         ...names,
@@ -1293,7 +1293,7 @@ function (lib, facts) {
       ],
     };
     const fade = (name, y, stops) => ({ type: 'shape', shape: 'rect', name, width: 1728, height: 150, anchorX: 0, anchorY: 0, at: 0, duration: 5.6,
-      fillGradient: { type: 'linear', angle: 90, stops }, initial: { x: X0, y } });
+      fillGradient: { type: 'linear', angle: 180, stops }, initial: { x: X0, y } });
     const readHead = { type: 'shape', shape: 'rect', name: 'read-head', width: 1728, height: LH + 8, anchorX: 0, anchorY: 0.5, at: 0, duration: 3.5,
       initial: { x: X0, y: 540, fillColor: C.ink2, alpha: 0 }, keyframes: [{ at: 0.6, to: { alpha: 1 }, duration: 0.4 }, { at: 3.25, to: { alpha: 0 }, duration: 0.2 }] };
     const linesLabel = { type: 'text', name: 'lines-label', text: `${num(lineCount)} lines`, style: { fontSize: 34, fill: C.dim, fontFamily: F.mono, letterSpacing: 2 },

@@ -192,7 +192,7 @@
         keyframes,
         sequences: [
           rect({ name: 'slab', width: DOOR_W, height: DOOR_H, initial: { x: DOOR_W / 2, y: DOOR_H / 2 },
-            fillGradient: { angle: 0, stops: left ? [[0, '#121110'], [0.8, DOOR], [1, '#26231f']] : [[0, '#26231f'], [0.2, DOOR], [1, '#121110']] } }),
+            fillGradient: { angle: 90, stops: left ? [[0, '#121110'], [0.8, DOOR], [1, '#26231f']] : [[0, '#26231f'], [0.2, DOOR], [1, '#121110']] } }),
           rect({ name: 'frame', width: DOOR_W - 240, height: DOOR_H - 240, initial: { x: DOOR_W / 2, y: DOOR_H / 2, strokeColor: STONE, strokeWidth: 2, strokeAlpha: 0.1 } }),
           rect({ name: 'rail', width: DOOR_W - 240, height: 2, initial: { x: DOOR_W / 2, y: DOOR_H * 0.3, fillColor: STONE, fillAlpha: 0.07 } }),
           { type: 'shape', shape: 'circle', name: 'pull', radius: 17, initial: { x: left ? DOOR_W - 110 : 110, y: DOOR_H / 2 + 40, strokeColor: STONE, strokeWidth: 2, strokeAlpha: 0.22, fillColor: '#0c0b0a', fillAlpha: 0.6 } },
@@ -284,7 +284,7 @@
     // the floor spill: light from the gap lying on the ground toward us
     S.push({ type: 'shape', shape: 'polygon', name: 'spill', threeD: true, blendMode: 'add', at: 6, duration: 14.5,
       points: [[956, G.FOOT], [964, G.FOOT], [1110, G.FOOT + 1200], [810, G.FOOT + 1200]],
-      fillGradient: { angle: 90, stops: [[0, LIGHT_A(0.42)], [0.25, LIGHT_A(0.1)], [1, LIGHT_A(0)]] },
+      fillGradient: { angle: 180, stops: [[0, LIGHT_A(0.42)], [0.25, LIGHT_A(0.1)], [1, LIGHT_A(0)]] },
       initial: { pivotX: 960, pivotY: G.FOOT, x: 960, y: G.FOOT, rotationX: 90 },
       keyframes: [...fadeKF(0.4, 2.5, 12.6, 1.6)] });
     S.push(rect({ name: 'floor-line', threeD: true, at: 6, duration: 15, width: 5200, height: 2, initial: { x: W / 2, y: G.FOOT, fillColor: STONE, fillAlpha: 0.22 },
@@ -322,7 +322,7 @@
 
     // a soft ink floor under the type while the gates sweep past it
     S.push(rect({ name: 'type-floor', at: 17.6, duration: SILENCE - 17.6 - 0.1, width: W, height: 420, initial: { x: W / 2, y: H - 210 },
-      fillGradient: { angle: 90, stops: [[0, 'rgba(14,13,11,0)'], [0.45, 'rgba(14,13,11,0.82)'], [1, 'rgba(14,13,11,0.95)']] }, keyframes: fadeKF(0, 1.0, -1.2, 1.0) }));
+      fillGradient: { angle: 180, stops: [[0, 'rgba(14,13,11,0)'], [0.45, 'rgba(14,13,11,0.82)'], [1, 'rgba(14,13,11,0.95)']] }, keyframes: fadeKF(0, 1.0, -1.2, 1.0) }));
     S.push(...label('ii', 'THE GATE', beat(9), 17.4));
     S.push(...essay('It is not an absence.', beat(10), 10.1));
     S.push(...essay('It is where the light\ncomes through.', beat(14), 16.9, { y: 800, styleFor: p => (p.text === 'light' ? { fill: LIGHT } : { fill: PAPER }) }));
@@ -427,7 +427,7 @@
     // ── the doors close: the hairline we began with ─────────────────────
     const CLOSE = 45, MEET = beat(62);              // 46.5
     const slideDoor = (side) => rect({ name: 'close-' + side, at: CLOSE, duration: DURATION - CLOSE, width: 960, height: H + 20, anchorX: side === 'l' ? 1 : 0,
-      initial: { x: side === 'l' ? 0 : W, y: H / 2 }, fillGradient: { angle: 0, stops: side === 'l' ? [[0, '#121110'], [0.8, DOOR], [1, '#26231f']] : [[0, '#26231f'], [0.2, DOOR], [1, '#121110']] },
+      initial: { x: side === 'l' ? 0 : W, y: H / 2 }, fillGradient: { angle: 90, stops: side === 'l' ? [[0, '#121110'], [0.8, DOOR], [1, '#26231f']] : [[0, '#26231f'], [0.2, DOOR], [1, '#121110']] },
       keyframes: [{ at: 0, to: { x: side === 'l' ? W / 2 - 2 : W / 2 + 2 }, duration: MEET - CLOSE, ease: 'power3.inOut' }, { at: -0.9, to: { alpha: 0 }, duration: 0.7, ease: 'sine.inOut' }] });
     S.push(slideDoor('l'), slideDoor('r'));
     S.push(rect({ name: 'end-line', at: MEET - 0.1, duration: DURATION - MEET + 0.1, width: 4, height: H, initial: { x: W / 2, y: H / 2, fillColor: LIGHT },

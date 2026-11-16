@@ -57,7 +57,7 @@
     // ---------- palette: warm paper, one ink, one muted, ONE brand gradient (indigo → pink) and two tints of it ----------
     const C = { bg: '#FAF7F2', ink: '#1F1B3A', muted: '#8B86A6', card: '#FFFFFF', screen: '#F5F3FA', track: '#ECE8F6',
                 a: '#5E5CE6', b: '#F25CA2', tintA: '#E6E5FB', tintB: '#FCE3EF' };
-    const BRAND = { angle: 25, stops: [[0, C.a], [1, C.b]] };
+    const BRAND = { angle: 115, stops: [[0, C.a], [1, C.b]] };
     const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
 
     // ---------- timeline (seconds, composition time) ----------

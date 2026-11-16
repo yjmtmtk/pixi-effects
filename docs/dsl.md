@@ -480,7 +480,7 @@ Fill a shape with a gradient instead of `fillColor` (top level or in `initial`).
 ```ts
 { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
   fillGradient: { stops: [[0, '#1b2a6b'], [0.6, '#7b3fe4'], [1, '#ff6a88']] } }                // linear, top → bottom
-{ ..., fillGradient: { angle: 0, stops: [[0, '#00f5a0'], [1, '#00d9f5']] } }                    // left → right
+{ ..., fillGradient: { angle: 90, stops: [[0, '#00f5a0'], [1, '#00d9f5']] } }                    // left → right
 { ..., fillGradient: { type: 'radial', radius: 0.75, stops: [[0.45, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.7)']] } }   // vignette
 ```
 
@@ -488,18 +488,18 @@ Fill a shape with a gradient instead of `fillColor` (top level or in `initial`).
 
 ```ts
 { type: 'shape', shape: 'rect', width: 560, height: 420, initial: { x: 520, y: 540 }, colorSpace: 'oklch',
-  fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
-  keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 360, stops: [[0, '#00e5ff'], [1, '#ffd60a']] } } }] }
+  fillGradient: { angle: 90, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
+  keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 450, stops: [[0, '#00e5ff'], [1, '#ffd60a']] } } }] }
 { type: 'text', text: 'GRADIENT', style: { fontSize: 200, fontWeight: '900' }, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
-  fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
-  keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 180 } } }] }
+  fillGradient: { angle: 90, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
+  keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 270 } } }] }
 ```
 
 | Field | Notes |
 |---|---|
 | `type` | `'linear'` (default) or `'radial'` |
 | `stops` | at least two: `[offset 0–1, colour]` or `{ offset, color }` |
-| `angle` | linear: degrees, `0` = left → right, `90` = top → bottom (default) |
+| `angle` | linear: the way the colours run, in degrees as CSS `linear-gradient`: `0` = to the top, `90` = to the right, `180` = to the bottom (default). Not the arc's convention (0° = 3 o'clock) |
 | `center`, `innerRadius`, `radius` | radial: centre in 0–1 (default `[0.5, 0.5]`), inner radius (default 0), outer radius (default 0.5); an ellipse on a non-square shape |
 
 #### `colorSpace`

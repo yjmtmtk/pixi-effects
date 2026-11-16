@@ -255,7 +255,7 @@
     PLANETS.forEach((p, i) => {
       const ringed = !!p.ring, cw = ringed ? NR * 5 : NR * 2 + 8, ch = NR * 2 + 8, cx = cw / 2, cy = ch / 2;
       const ROT = ringed ? -16 : 0;
-      const fill = p.bands ? { angle: 90, stops: JUP } : p.ring ? { angle: 90, stops: SAT }
+      const fill = p.bands ? { angle: 180, stops: JUP } : p.ring ? { angle: 180, stops: SAT }
         : { type: 'radial', center: [0.42, 0.4], radius: 0.7, stops: p.base.map((c, k) => [k / (p.base.length - 1), c]) };
       const shadeRot = t => { const [x, y] = posAt(p, t); return Math.atan2(y - CY, x - CX) / DEG - ROT; };
       let prev = null;
@@ -269,7 +269,7 @@
       if (p.bands) kids.push({ type: 'shape', shape: 'ellipse', radiusX: NR * 0.2, radiusY: NR * 0.11, initial: { x: cx + NR * 0.28, y: cy + NR * 0.3, fillColor: '#c46a46', fillAlpha: 0.85 } });
       kids.push({ type: 'shape', shape: 'circle', radius: NR + 1, name: p.id + '-shade',
         initial: { x: cx, y: cy, ...shade.initial }, keyframes: shade.keyframes,
-        fillGradient: { angle: 0, stops: [[0, 'rgba(3,5,12,0)'], [0.42, 'rgba(3,5,12,0.05)'], [0.7, 'rgba(3,5,12,0.75)'], [1, 'rgba(3,5,12,0.92)']] } });
+        fillGradient: { angle: 90, stops: [[0, 'rgba(3,5,12,0)'], [0.42, 'rgba(3,5,12,0.05)'], [0.7, 'rgba(3,5,12,0.75)'], [1, 'rgba(3,5,12,0.92)']] } });
       if (ringed) kids.push(...ringBand(true));
       const pos = sampled(t => { const [x, y, z] = posAt(p, t); return { x, y, z }; }, 0, DURATION, 0.1);
       seqs.push({ type: 'composition', name: 'planet-' + p.id, threeD: true, width: cw, height: ch,
@@ -294,7 +294,7 @@
 
     // a fact card per stop (screen-aligned 2D type to the right of the planet), over a soft scrim that keeps it legible
     STOPS.forEach(s => seqs.push({ type: 'shape', shape: 'rect', name: s.id + '-scrim', width: 700, height: H, at: s.arrive - 0.6, duration: s.depart - s.arrive + 0.9,
-      initial: { x: W - 350, y: H / 2, alpha: 0 }, fillGradient: { angle: 0, stops: [[0, 'rgba(3,5,11,0)'], [0.35, 'rgba(3,5,11,0.55)'], [1, 'rgba(3,5,11,0.7)']] },
+      initial: { x: W - 350, y: H / 2, alpha: 0 }, fillGradient: { angle: 90, stops: [[0, 'rgba(3,5,11,0)'], [0.35, 'rgba(3,5,11,0.55)'], [1, 'rgba(3,5,11,0.7)']] },
       keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6, ease: 'power2.out' }, { at: -0.5, to: { alpha: 0 }, duration: 0.5, ease: 'power2.in' }] }));
     // the fact card per stop (screen-aligned 2D type to the right of the planet)
     const LX = 740;

@@ -51,7 +51,7 @@
       canvas, width: 320, height: 180, duration: 2, frameRate: 30, background: '#102040',
       composition: { sequences: [
         { type: 'shape', shape: 'rect', name: 'ramp', width: 320, height: 40, initial: { x: 160, y: 20 },
-          fillGradient: { angle: 0, stops: [[0, '#ff9a3c'], [1, '#3c5bff']] } },
+          fillGradient: { angle: 90, stops: [[0, '#ff9a3c'], [1, '#3c5bff']] } },
         { type: 'shape', shape: 'circle', name: 'soft', radius: 30, initial: { x: 60, y: 110, fillColor: '#ffd166' }, filters: [{ type: 'blur', strength: 6 }],
           keyframes: [{ at: 0, to: { x: 260 }, duration: 2, ease: 'none' }] },
         { type: 'shape', shape: 'rect', name: 'glowing', width: 40, height: 40, initial: { x: 160, y: 120, fillColor: '#80e0ff' }, filters: [{ type: 'glow', outerStrength: 3, color: '#ffd166' }],

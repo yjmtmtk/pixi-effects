@@ -194,7 +194,7 @@
       const angle = Math.atan2(y1 - y0, x1 - x0) * 180 / Math.PI;
       return {
         type: 'shape', shape: 'rect', name, at, duration: 0.75, width: len, height: 2,
-        fillGradient: { angle: 0, stops: [[0, 'rgba(255,255,255,0)'], [1, '#ffffff']] },
+        fillGradient: { angle: 90, stops: [[0, 'rgba(255,255,255,0)'], [1, '#ffffff']] },
         initial: { x: x0, y: y0, rotation: angle, alpha: 0 },
         keyframes: [
           { at: 0, to: { x: x1, y: y1 }, duration: 0.7, ease: 'power1.in' },
@@ -323,7 +323,7 @@
     const kSun = K(Z_SUN), kStars = K(Z_STARS);
     const sequences = [
       // sky (2D, no parallax needed for a gradient)
-      fullRect({ name: 'sky', fillGradient: { angle: 90, stops: [[0, C.skyTop], [0.3, C.skyMid], [0.52, C.skyLow], [0.61, C.skyHot], [1, C.skyHot]] } }),
+      fullRect({ name: 'sky', fillGradient: { angle: 180, stops: [[0, C.skyTop], [0.3, C.skyMid], [0.52, C.skyLow], [0.61, C.skyHot], [1, C.skyHot]] } }),
 
       // ── one consecutive block of threeD layers: drawn farthest-first, parallax from the camera drift ──
       { type: 'camera', name: 'cam', initial: { fov: FOV },
@@ -345,12 +345,12 @@
       ridge('ridge-near', Z_NEAR, HORIZON, 6, 46, 48, [[520, 78, 150], [1120, 62, 130], [140, 48, 110]], C.ridgeNear, C.cyan, 0.8),
       // ground plane and grid at z = 0
       { type: 'shape', shape: 'rect', name: 'ground', threeD: true, width: 1400, height: 320, anchorY: 0,
-        fillGradient: { angle: 90, stops: [[0, C.groundTop], [0.3, '#0d0426'], [1, C.groundDeep]] },
+        fillGradient: { angle: 180, stops: [[0, C.groundTop], [0.3, '#0d0426'], [1, C.groundDeep]] },
         initial: { x: 'GW/2', y: HORIZON, z: 0 } },
       ...Array.from({ length: N_LINES }, (_, i) => gridRow(i + 1)),
       ...Array.from({ length: 25 }, (_, i) => gridColumn(i - 12)),
       { type: 'shape', shape: 'rect', name: 'horizon-haze', threeD: true, width: 1400, height: 96, anchorY: 0,
-        fillGradient: { angle: 90, stops: [[0, 'rgba(255,45,149,0.6)'], [0.35, 'rgba(120,20,110,0.35)'], [1, 'rgba(58,13,108,0)']] },
+        fillGradient: { angle: 180, stops: [[0, 'rgba(255,45,149,0.6)'], [0.35, 'rgba(120,20,110,0.35)'], [1, 'rgba(58,13,108,0)']] },
         initial: { x: 'GW/2', y: HORIZON, z: 0 } },
       { type: 'shape', shape: 'rect', name: 'horizon-line', threeD: true, width: 1400, height: 2,
         initial: { x: 'GW/2', y: HORIZON, z: 0, fillColor: C.pink } },

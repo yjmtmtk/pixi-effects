@@ -650,7 +650,7 @@
         keyframes: [{ at: 0.6 + i * 0.2, to: { fillAlpha: 0.22 - i * 0.08 }, duration: 1.2 }] }));
       // the sweep: a matte shared by the lockup and its rule (its right edge is soft)
       seqs.push({ type: 'shape', shape: 'rect', name: 'sweep', width: W * 2, height: H, anchorX: 0, anchorY: 0, initial: { x: -W * 2 + 100, y: 0 },
-        fillGradient: { type: 'linear', angle: 0, stops: [[0, '#ffffff'], [0.86, '#ffffff'], [1, 'rgba(255,255,255,0)']] },
+        fillGradient: { type: 'linear', angle: 90, stops: [[0, '#ffffff'], [0.86, '#ffffff'], [1, 'rgba(255,255,255,0)']] },
         keyframes: [{ at: 0.15, to: { x: 0 }, duration: 1.5, ease: 'power2.inOut' }] });
       const TS = thin(176, { letterSpacing: 58, ...glowText(CYAN_HI, 18, 0.35) });
       seqs.push({ type: 'text', name: 'lockup', text: 'PIXI-EFFECTS', mask: 'sweep', style: TS, initial: { x: W / 2 + 29, y: 470, anchorX: 0.5, anchorY: 0.5 },

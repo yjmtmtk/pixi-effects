@@ -55,7 +55,7 @@ export default function chapter(P) {
 
       // (2) A LUMA MATTE: a wide gradient, white behind and black ahead, slides in right after the band: the word fills in for good, softly
       { type: 'shape', shape: 'rect', name: 'fade', width: 3800, height: 700, anchorX: 1, anchorY: 0.5,
-        fillGradient: { angle: 0, stops: [[0, '#ffffff'], [0.8, '#ffffff'], [1, '#000000']] },
+        fillGradient: { angle: 90, stops: [[0, '#ffffff'], [0.8, '#ffffff'], [1, '#000000']] },
         initial: { x: 300, y: CY },
         keyframes: [{ at: 1.4, to: { x: 2500 }, duration: 1.8, ease: 'power1.inOut' }] },
       { type: 'text', name: 'word-luma', mask: { layer: 'fade', channel: 'luma' }, text: 'MATTE', style: { ...word, fill: C.red }, initial: wordAt },
@@ -78,7 +78,7 @@ export default function chapter(P) {
           { at: 3.4, to: { x: 1180, y: 380 }, duration: 2.4, ease: 'power2.inOut' },
         ] },
       { type: 'shape', shape: 'rect', name: 'streak', width: 4600, height: 300, blendMode: 'screen',
-        fillGradient: { angle: 90, stops: [[0, 'rgba(255,209,102,0)'], [0.5, 'rgba(255,209,102,0.38)'], [1, 'rgba(255,209,102,0)']] },
+        fillGradient: { angle: 180, stops: [[0, 'rgba(255,209,102,0)'], [0.5, 'rgba(255,209,102,0.38)'], [1, 'rgba(255,209,102,0)']] },
         initial: { x: 1500, y: -40, rotation: -24, alpha: 0 },
         keyframes: [
           { at: 3.6, to: { alpha: 1 }, duration: 0.5, ease: 'power2.out' },
