@@ -61,7 +61,7 @@
     ];
     window.__layer = (over = {}) => LIGHTS ? ({ type: 'scene3d', name: 'world', followCamera: true, followLights: true, setup: lightSetup, update, destroy, ...over }) : ({ type: 'scene3d', name: 'world', ...(q.get('reuse') === '0' ? { reuse: false } : {}), ...(q.get('late') === '1' ? { keyframes: [{ at: 2, to: { 'scene3d.cube.position.y': 9 }, duration: 0.01 }] } : {}), ...(VIEWSET ? { keyframes: [{ at: 1, to: { 'scene3d.view.exposure': 0.6 }, duration: 1 }] } : {}), width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update, destroy, ...over });
     window.__text = { type: 'text', name: 'label', text: '{label}', style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 160, y: 24, anchorX: 0.5, anchorY: 0.5 } };
-    window.__screen = { type: 'composition', name: 'screen', width: 200, height: 200, sequences: [
+    window.__screen = { type: 'composition', name: 'screen', width: 200, height: 200, layers: [
       { type: 'shape', shape: 'rect', width: 200, height: 200, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#203040' } },
       { type: 'text', text: '{label}', style: { fontSize: 120, fill: '#ffcc33', fontWeight: '900' }, initial: { x: 100, y: 100, anchorX: 0.5, anchorY: 0.5 } } ] };
     window.__sequences = () => LIGHTS ? [...window.__lights, window.__text, window.__layer()] : SCREEN ? [window.__screen, window.__text, window.__layer()] : [window.__text, window.__layer()];
@@ -70,7 +70,7 @@
     window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040', vars: { label: q.get('label') || 'a' },
-        composition: { sequences: window.__sequences() } });
+        composition: { layers: window.__sequences() } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
   </script>

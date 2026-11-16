@@ -36,7 +36,7 @@
     const movie = new Movie();
     window.movie = movie;
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: 2, frameRate: 30, background: '#000000', ...(Q.has('vars') ? { vars: { word: 'RR' } } : Q.get('size') === 'var' ? { vars: { size: 64 } } : {}), composition: { sequences: [layer] } });
+      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: 2, frameRate: 30, background: '#000000', ...(Q.has('vars') ? { vars: { word: 'RR' } } : Q.get('size') === 'var' ? { vars: { size: 64 } } : {}), composition: { layers: [layer] } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init: ' + e.message); }
 

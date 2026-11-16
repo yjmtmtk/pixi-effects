@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { Graphics, Rectangle } from 'pixi.js';
 import { ShapeSequence } from '../../src/sequences/Shape';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
-const make = (spec: unknown) => new ShapeSequence({ type: 'shape', ...(spec as object) } as SequenceSpec, comp, comp);
+const make = (spec: unknown) => new ShapeSequence({ type: 'shape', ...(spec as object) } as LayerSpec, comp, comp);
 async function placed(spec: unknown, bounds: Rectangle) {
   vi.spyOn(Graphics.prototype, 'getLocalBounds').mockReturnValue(bounds as never);
   const s = make(spec);

@@ -1,18 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { CompositionSequence } from '../../src/sequences/Composition';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
-async function build(sequences: SequenceSpec[]) {
-  const comp = new CompositionSequence({ type: 'composition', sequences } as never, null, root);
+async function build(layers: LayerSpec[]) {
+  const comp = new CompositionSequence({ type: 'composition', layers } as never, null, root);
   await comp.build();
   const tl = createTimeline({ paused: true, defaults: { ease: 'none' } });
   comp.bindTimeline(tl);
   return { comp, tl };
 }
-const box = (name: string, extra: object = {}): SequenceSpec => ({ type: 'shape', shape: 'rect', name, width: 10, height: 10, ...extra }) as SequenceSpec;
+const box = (name: string, extra: object = {}): LayerSpec => ({ type: 'shape', shape: 'rect', name, width: 10, height: 10, ...extra }) as LayerSpec;
 
 describe('every layer is bound in a small timeline of its own', () => {
   it('the parent timeline holds one timeline per layer, however many tweens each has (adding thousands of tweens to one timeline made GSAP re-measure it at every add)', async () => {
@@ -36,7 +36,7 @@ describe('every layer is bound in a small timeline of its own', () => {
   });
 
   it('nested compositions nest the same way and keep their offsets', async () => {
-    const inner: SequenceSpec = { type: 'composition', name: 'inner', at: 3, duration: 5, sequences: [box('c', { at: 1, initial: { x: 0 }, keyframes: [{ at: 0, to: { x: 40 }, duration: 4, ease: 'none' }] })] } as never;
+    const inner: LayerSpec = { type: 'composition', name: 'inner', at: 3, duration: 5, layers: [box('c', { at: 1, initial: { x: 0 }, keyframes: [{ at: 0, to: { x: 40 }, duration: 4, ease: 'none' }] })] } as never;
     const { comp, tl } = await build([inner]);
     const c = (comp._children[0] as unknown as { _children: Array<{ target: { x: number } }> })._children[0]!.target;
     tl.time(6);                                                                      // the child starts at 3 + 1 = 4 s; 2 s in -> half way

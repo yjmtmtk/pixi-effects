@@ -55,7 +55,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#000000',
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'shape', shape: 'rect', name: 'box', width: 20, height: 20,
             initial: { x: 40, y: 90, fill: '#ff0000' },
             keyframes: ORDER === 'reverse' ? [B, A] : [A, B] },

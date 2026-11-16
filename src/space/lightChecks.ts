@@ -5,21 +5,21 @@
 import { suggestName } from '../core/options';
 import { collectPropKeys } from './specKeys';
 import { FALLOFFS, LIGHT_KINDS, LIGHT_PROPS, MAX_CASTERS, MAX_LIGHTS } from './lighting';
-import type { SequenceSpec } from '../types';
+import type { LayerSpec } from '../types';
 
 /** This many lights with soft shadows warn (measured: 3 soft lights over 20 layers cost about 20 ms a frame at 1080p). */
 const SOFT_LIGHTS = 3;
 
 type Bag = Record<string, unknown>;
-const bagsOf = (spec: SequenceSpec): Bag[] => {
+const bagsOf = (spec: LayerSpec): Bag[] => {
   const s = spec as unknown as { initial?: Bag; keyframes?: Array<{ set?: Bag; to?: Bag; from?: Bag }> };
   const out: Bag[] = [];
   if (s.initial) out.push(s.initial);
   for (const k of s.keyframes ?? []) for (const b of [k.set, k.to, k.from]) if (b) out.push(b);
   return out;
 };
-const numbersOf = (spec: SequenceSpec, key: string): number[] => bagsOf(spec).map(b => b[key]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
-const nameOf = (s: SequenceSpec, i: number) => ((s as { name?: string }).name ? `"${(s as { name?: string }).name}"` : `#${i + 1}`);
+const numbersOf = (spec: LayerSpec, key: string): number[] => bagsOf(spec).map(b => b[key]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+const nameOf = (s: LayerSpec, i: number) => ((s as { name?: string }).name ? `"${(s as { name?: string }).name}"` : `#${i + 1}`);
 
 const KIND_ALIASES: Record<string, string> = {
   directional: 'parallel', sun: 'parallel', sunlight: 'parallel', distant: 'parallel',
@@ -46,7 +46,7 @@ const LIGHT_ALIASES: Record<string, string> = {
 };
 
 /** What is wrong with one `light` layer written on its own (misplaced keys, aliases, ranges, a threeD light). */
-export function lightLayerProblems(spec: SequenceSpec): string[] {
+export function lightLayerProblems(spec: LayerSpec): string[] {
   const out: string[] = [];
   const raw = spec as unknown as Bag;
   const kind = lightKindProblem(raw.kind);
@@ -89,11 +89,11 @@ export function lightLayerProblems(spec: SequenceSpec): string[] {
 }
 
 /** What is wrong with the lights of a composition taken together; empty when there is no light (a composition without light is not touched). */
-export function lightSetProblems(layers: readonly SequenceSpec[]): string[] {
+export function lightSetProblems(layers: readonly LayerSpec[]): string[] {
   const lights = layers.filter(l => l.type === 'light');
   if (lights.length === 0) return [];
   const out: string[] = [];
-  const kindOf = (l: SequenceSpec) => ((l as { kind?: string }).kind ?? 'point');
+  const kindOf = (l: LayerSpec) => ((l as { kind?: string }).kind ?? 'point');
   if (!lights.some(l => kindOf(l) === 'ambient')) {
     out.push('there is no ambient light, so what no light reaches is black; add { type: \'light\', kind: \'ambient\', initial: { intensity: 0.25 } }');
   }
@@ -124,7 +124,7 @@ export function lightSetProblems(layers: readonly SequenceSpec[]): string[] {
 }
 
 /** What is wrong with the fog a camera writes (`fogFar` not beyond `fogNear`, an amount outside 0..1). */
-export function fogProblems(camera: SequenceSpec): string[] {
+export function fogProblems(camera: LayerSpec): string[] {
   const out: string[] = [];
   const near = numbersOf(camera, 'fogNear')[0], far = numbersOf(camera, 'fogFar')[0];
   if (near !== undefined && far !== undefined && far <= near) out.push(`fogFar (${far}) is not beyond fogNear (${near}): the fog is a hard step at fogNear. Make fogFar larger (the distance where the fog is complete)`);

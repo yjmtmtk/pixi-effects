@@ -9,7 +9,7 @@ import { computeEnvelope, type AudioEnvelope, type EnvelopeOptions } from './env
  * ```js
  * const music = { bpm: 96, tracks: [...], drums: {...} };
  * const env = await musicEnvelope(music, { frameRate: 30 });
- * // sequences: [{ type: 'audio', music }, { type: 'shape', ..., keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.3, band: 'bass' } } }) }]
+ * // layers: [{ type: 'audio', music }, { type: 'shape', ..., keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.3, band: 'bass' } } }) }]
  * ```
  */
 export async function musicEnvelope(music: MusicOptions, options: EnvelopeOptions = {}): Promise<AudioEnvelope> {

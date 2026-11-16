@@ -2,7 +2,7 @@
  * What the shader layer says about what it was given, as sentences (the caller puts `pixi-effects: layer "x": ` in front), and the pieces of
  * GLSL it builds around the author's code. Pure: no Pixi, no DOM. Nothing here throws.
  */
-import type { SequenceSpec } from '../types';
+import type { LayerSpec } from '../types';
 
 /** Declared for the author in every shader (Shadertoy names). */
 export const SHADER_BUILTINS = ['iResolution', 'iTime', 'iFrame'] as const;
@@ -96,7 +96,7 @@ export function glslErrors(log: string): string[] {
 const stripComments = (code: string): string => code.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/.*$/gm, ' ');
 
 /** What is wrong with a shader layer as written (static: nothing is compiled here). */
-export function shaderProblems(spec: SequenceSpec): string[] {
+export function shaderProblems(spec: LayerSpec): string[] {
   const out: string[] = [];
   const raw = spec as unknown as { fragment?: unknown; uniforms?: unknown; resolution?: unknown; transparent?: unknown };
   if (typeof raw.fragment !== 'string' || raw.fragment.trim() === '') {

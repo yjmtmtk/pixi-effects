@@ -10,7 +10,7 @@ describe('a preset given a moment by name in at', () => {
     expect(() => followPath({ d: 'M0 0 L10 0', at: 'host@in' as never, duration: 1 })).toThrow(/followPath\(\): at "host@in"/);
   });
   it('a preset that returns layers says: put them in a composition at that moment', () => {
-    expect(() => particles({ count: 3, at: 'host@in' as never, life: [1, 1], area: { x: 0, y: 0 } } as never)).toThrow(/particles\(\): at "host@in" is a moment by name: .*\{ type: 'composition', at: 'host@in', sequences: particles\(\{ …, at: 0 \}\) \}/);
+    expect(() => particles({ count: 3, at: 'host@in' as never, life: [1, 1], area: { x: 0, y: 0 } } as never)).toThrow(/particles\(\): at "host@in" is a moment by name: .*\{ type: 'composition', at: 'host@in', layers: particles\(\{ …, at: 0 \}\) \}/);
   });
   it('seconds still work, and no at is 0', () => {
     expect(wiggle({ at: 1, duration: 1, props: { x: { around: 0, amp: 5 } } })[0]!.at).toBeGreaterThanOrEqual(1);

@@ -31,7 +31,7 @@ export default function chapter(P) {
   return {
     duration: D,
     poster: 2.6,
-    sequences: [
+    layers: [
       P.bg(C.ink),
       ...P.tag('00', 'OPEN', '', { at: 2.4 }),
       // the mark: big and alone at frame 0, then it shrinks into its place before the word

@@ -1,5 +1,5 @@
 == pixi-effects ==
-function animateText(text: string, style: MeasureStyle, options: AnimateTextOptions): TextSequenceSpec[]
+function animateText(text: string, style: MeasureStyle, options: AnimateTextOptions): TextLayerSpec[]
 interface AnimateTextOptions
   align?: "left" | "center" | "right"
   at?: number
@@ -49,6 +49,7 @@ type AudioEnvelopeSource = string | URL | Blob | ArrayBuffer | AudioBuffer
 interface AudioInspectOptions
   scenes?: { name: string; start: number; end: number; }[]
   window?: number
+type AudioLayerSpec = AudioAssetSpec | AudioSfxSpec | AudioMusicSpec
 interface AudioMusicSpec extends AudioBase
   asset?: undefined
   loop?: boolean
@@ -66,7 +67,6 @@ interface AudioReport
   scenes: { name: string; start: number; end: number; lufs: number | null; peakDb: number; silent: boolean; }[]
   sources: AudioSourceReport[]
   windows: { t: number; rmsDb: number; peakDb: number; brightnessHz: number; }[]
-type AudioSequenceSpec = AudioAssetSpec | AudioSfxSpec | AudioMusicSpec
 interface AudioSfxSpec extends AudioBase
   asset?: undefined
   loop?: undefined
@@ -83,6 +83,8 @@ interface AudioSourceReport
   start: number
 type BlendModeName = | 'normal' | 'add' | 'screen' | 'multiply' | 'overlay' | 'soft-light' | 'hard-light' | 'color-dodge' | 'color-burn' | 'darken' | 'lighten' | 'difference' | 'exclusion' |…
 function bpmEnvelope(bpm: number, options: { duration: number; frameRate?: number | undefined; swing?: number | undefined; }): AudioEnvelope
+interface CameraLayerSpec extends LayerCommon
+  type: "camera"
 function cameraPath(opts: CameraPathOptions): Keyframe[]
 interface CameraPathOptions
   at?: number
@@ -95,8 +97,6 @@ interface CameraPathOptions
   samplesPerSecond?: number
   smooth?: boolean
   to?: number
-interface CameraSequenceSpec extends SequenceCommon
-  type: "camera"
 interface CanvasInfo
   canvas: (width: number, height: number) => HTMLCanvasElement
   duration: number
@@ -111,7 +111,7 @@ interface CanvasInfo
   state: unknown
   time: number
   width: number
-interface CanvasSequenceSpec extends SequenceCommon
+interface CanvasLayerSpec extends LayerCommon
   draw: (ctx: CanvasRenderingContext2D, t: number, info: CanvasInfo) => void
   height?: string | number
   params?: Record<string, number>
@@ -133,24 +133,24 @@ interface CircleShapeSpec extends ShapeBase, Trimmable
   anchorY?: PropValue
   radius: PropValue
   shape: "circle"
-interface CompositionSequenceSpec extends SequenceCommon
+interface CompositionLayerSpec extends LayerCommon
   clip?: boolean
   frameRate?: number
   height?: number
+  layers?: LayerSpec[]
   loop?: boolean | { duration: number; }
   markers?: Record<string, number>
   params?: Record<string, string | number>
-  sequences?: SequenceSpec[]
   speed?: number
   transitions?: TransitionSpec[]
   type: "composition"
   use?: string
   width?: number
-interface CompositionSpec extends SequenceCommon
+interface CompositionSpec extends LayerCommon
   components?: Record<string, ComponentSpec>
   height?: number
+  layers?: LayerSpec[]
   markers?: Record<string, number>
-  sequences?: SequenceSpec[]
   stops?: (number | `${string}@${string}` | StopSpec)[]
   transitions?: TransitionSpec[]
   width?: number
@@ -218,7 +218,7 @@ interface HoverOptions extends PickOptions
   cursor?: string | boolean
   onEnter?: ((hit: PickHit) => void)
   onLeave?: ((hit: PickHit) => void)
-interface ImageSequenceSpec extends SequenceCommon
+interface ImageLayerSpec extends LayerCommon
   anchorX?: PropValue
   anchorY?: PropValue
   asset: string
@@ -245,7 +245,7 @@ interface IssueGroup
   kind?: "canvas"
   lastFrame: number
   message: string
-function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec
+function kenBurns(opts: KenBurnsOptions): ImageLayerSpec
 type KenBurnsOptions = & KenBurnsBase & ( | { motion: 'still' } | KenBurnsScale | KenBurnsRotation | KenBurnsPosition )
 interface Keyframe
   at?: number | `${string}@${string}`
@@ -257,6 +257,22 @@ interface Keyframe
   set?: KeyframeProps
   to?: KeyframeProps
   yoyo?: boolean
+interface LayerCommon
+  at?: number | `${string}@${string}`
+  blendMode?: BlendModeName
+  castsShadows?: boolean
+  duration?: number
+  filterArea?: { x: number; y: number; width: number; height: number; }
+  filters?: FilterSpec[]
+  follow?: string
+  hideBehindCamera?: boolean
+  initial?: Props
+  keyframes?: Keyframe[]
+  lit?: boolean
+  mask?: LayerSpec | MaskRefSpec | MaskRefSpec[]
+  name?: string
+  parent?: string
+  threeD?: boolean
 interface LayerInfo
   alpha: number
   bounds: Rect | null
@@ -269,7 +285,8 @@ interface LayerInfo
   threeD: boolean
   type: string
   visible: boolean
-interface LightSequenceSpec extends SequenceCommon
+type LayerSpec = | NullLayerSpec | VideoLayerSpec | ImageLayerSpec | TextLayerSpec | AudioLayerSpec | CompositionLayerSpec | CameraLayerSpec | LightLayerSpec | ShaderLayerSpec | CanvasLa…
+interface LightLayerSpec extends LayerCommon
   falloff?: "none" | "smooth" | "inverseSquare"
   kind?: "ambient" | "point" | "spot" | "parallel"
   type: "light"
@@ -295,7 +312,7 @@ type MaskRefSpec = string | MatteRefSpec
 interface MatteRefSpec
   channel?: "luma" | "alpha"
   invert?: boolean
-  layer: string | SequenceSpec
+  layer: string | LayerSpec
 type MeasureStyle = Record<string, unknown>
 function measureText(text: string, style?: MeasureStyle): TextSize
 type MediabunnyModule = typeof Mediabunny
@@ -475,7 +492,7 @@ interface MusicTrackEvents
   notes: MusicNote[]
 function noise(x: number, seed?: number): number
 function noise2(x: number, y: number, seed?: number): number
-interface NullSequenceSpec extends SequenceCommon
+interface NullLayerSpec extends LayerCommon
   type: "null"
 interface OnionSkinOptions
   as?: "blob" | "dataURL"
@@ -484,7 +501,7 @@ interface OnionSkinOptions
   motionBlur?: MotionBlurSpec
   scale?: number
   to?: number
-function orbit(opts: OrbitOptions): CameraSequenceSpec
+function orbit(opts: OrbitOptions): CameraLayerSpec
 interface OrbitOptions
   at?: number | `${string}@${string}`
   center?: [number, number]
@@ -497,7 +514,7 @@ interface OrbitOptions
   radius?: number
   samplesPerSecond?: number
   startAngle?: number
-function particles(opts: ParticlesOptions): SequenceSpec[]
+function particles(opts: ParticlesOptions): LayerSpec[]
 interface ParticlesOptions
   angle?: Range
   area: { x: number; y: number; width?: number | undefined; height?: number | undefined; }
@@ -519,7 +536,7 @@ interface ParticlesOptions
   speed?: Range
   spin?: Range
   sway?: { amp: number; freq?: number | undefined; }
-  template?: SequenceSpec
+  template?: LayerSpec
   wind?: number
 interface PathSampler
   at(u: number): { x: number; y: number; angle: number; }
@@ -624,7 +641,7 @@ interface Scene2DContext
   root: Container<ContainerChild>
   texture(name: string): Texture<TextureSource<any>>
   width: number
-interface Scene2DSequenceSpec extends SequenceCommon
+interface Scene2DLayerSpec extends LayerCommon
   destroy?: ((ctx: Scene2DContext) => void)
   height?: string | number
   reuse?: boolean
@@ -634,23 +651,6 @@ interface Scene2DSequenceSpec extends SequenceCommon
   width?: string | number
 interface Scene2DSetupResult
   objects?: Record<string, object>
-interface SequenceCommon
-  at?: number | `${string}@${string}`
-  blendMode?: BlendModeName
-  castsShadows?: boolean
-  duration?: number
-  filterArea?: { x: number; y: number; width: number; height: number; }
-  filters?: FilterSpec[]
-  follow?: string
-  hideBehindCamera?: boolean
-  initial?: Props
-  keyframes?: Keyframe[]
-  lit?: boolean
-  mask?: SequenceSpec | MaskRefSpec | MaskRefSpec[]
-  name?: string
-  parent?: string
-  threeD?: boolean
-type SequenceSpec = | NullSequenceSpec | VideoSequenceSpec | ImageSequenceSpec | TextSequenceSpec | AudioSequenceSpec | CompositionSequenceSpec | CameraSequenceSpec | LightSequenceSpec | Sh…
 interface SfxKnobs
   brightness?: number
   pitch?: number
@@ -666,7 +666,7 @@ interface SfxVoice
   pan?: number | [number, number]
   to?: number
   wave: "sine" | "triangle" | "square" | "saw" | "noise"
-interface ShaderSequenceSpec extends SequenceCommon
+interface ShaderLayerSpec extends LayerCommon
   fragment: string
   height?: string | number
   resolution?: number
@@ -674,7 +674,7 @@ interface ShaderSequenceSpec extends SequenceCommon
   type: "shader"
   uniforms?: Record<string, string | number | number[]>
   width?: string | number
-type ShapeSequenceSpec = | RectShapeSpec | CircleShapeSpec | EllipseShapeSpec | ArcShapeSpec | LineShapeSpec | PolygonShapeSpec | PathShapeSpec
+type ShapeLayerSpec = | RectShapeSpec | CircleShapeSpec | EllipseShapeSpec | ArcShapeSpec | LineShapeSpec | PolygonShapeSpec | PathShapeSpec
 interface SlideTransition extends TransitionCommon
   direction: "left" | "right" | "up" | "down"
   kind: "slide"
@@ -729,6 +729,17 @@ interface StopSpec
   notes?: string
   page?: string | true
   pdf?: boolean
+interface TextLayerSpec extends LayerCommon
+  anchorX?: PropValue
+  anchorY?: PropValue
+  colorSpace?: "rgb" | "oklab" | "oklch"
+  fillGradient?: GradientSpec
+  format?: { decimals?: number | undefined; grouping?: boolean | undefined; pad?: number | undefined; time?: "hh:mm:ss" …
+  resolution?: number
+  spans?: (string | TextSpan)[]
+  style?: Record<string, PropValue | { color?: PropValue | undefined; width?: PropValue | undefined; }>
+  text?: string
+  type: "text"
 interface TextPiece
   cx?: number
   cy?: number
@@ -740,17 +751,6 @@ interface TextPiece
   x: number
   y: number
 type TextPreset = keyof typeof PRESETS
-interface TextSequenceSpec extends SequenceCommon
-  anchorX?: PropValue
-  anchorY?: PropValue
-  colorSpace?: "rgb" | "oklab" | "oklch"
-  fillGradient?: GradientSpec
-  format?: { decimals?: number | undefined; grouping?: boolean | undefined; pad?: number | undefined; time?: "hh:mm:ss" …
-  resolution?: number
-  spans?: (string | TextSpan)[]
-  style?: Record<string, PropValue | { color?: PropValue | undefined; width?: PropValue | undefined; }>
-  text?: string
-  type: "text"
 interface TextSize
   height: number
   lines: number
@@ -802,7 +802,7 @@ interface TransitionCommon
   to: string
 type TransitionSpec = | CrossfadeTransition | WipeTransition | IrisTransition | SlideTransition | DipTransition | ZoomTransition | DissolveTransition | LumaTransition
 function useMediabunny(from: MediabunnySource): void
-interface VideoSequenceSpec extends SequenceCommon
+interface VideoLayerSpec extends LayerCommon
   anchorX?: PropValue
   anchorY?: PropValue
   asset: string
@@ -830,7 +830,7 @@ interface WipeTransition extends TransitionCommon
   direction: "left" | "right" | "up" | "down"
   kind: "wipe"
   softness?: number
-function withFade<T extends SequenceCommon>(spec: T, opts: WithFadeOptions): T
+function withFade<T extends LayerCommon>(spec: T, opts: WithFadeOptions): T
 interface WithFadeOptions
   in?: number
   out?: number
@@ -889,9 +889,9 @@ interface DeckPage
   duration: number
   initial?: Props
   keyframes?: Keyframe[]
+  layers: LayerSpec[]
   name?: string
   notes?: string
-  sequences: SequenceSpec[]
   stops?: (number | { at: number; pdf?: boolean | undefined; })[]
 interface DeckResult
   composition: CompositionSpec
@@ -981,7 +981,7 @@ interface LoadModelOptions
   offset?: number
   speed?: number
 function register3D(): void
-function scene3d(spec: Scene3DSequenceSpec): SequenceSpec
+function scene3d(spec: Scene3DLayerSpec): LayerSpec
 interface Scene3DContext
   camera: Camera3D
   height: number
@@ -991,7 +991,7 @@ interface Scene3DContext
   space?: SpaceNow
   view: View3D<Container3D>
   width: number
-interface Scene3DSequenceSpec extends SequenceCommon
+interface Scene3DLayerSpec extends LayerCommon
   destroy?: ((ctx: Scene3DContext) => void)
   followCamera?: boolean
   followFog?: boolean
@@ -1006,7 +1006,7 @@ interface Scene3DSequenceSpec extends SequenceCommon
   width?: PropValue
 interface Scene3DSetupResult
   objects?: Record<string, object>
-interface SequenceCommon (not exported; the keys of the types above)
+interface LayerCommon (not exported; the keys of the types above)
   at?: number | `${string}@${string}`
   blendMode?: BlendModeName
   castsShadows?: boolean
@@ -1018,7 +1018,7 @@ interface SequenceCommon (not exported; the keys of the types above)
   initial?: Props
   keyframes?: Keyframe[]
   lit?: boolean
-  mask?: SequenceSpec | MaskRefSpec | MaskRefSpec[]
+  mask?: LayerSpec | MaskRefSpec | MaskRefSpec[]
   name?: string
   parent?: string
   threeD?: boolean
@@ -1032,7 +1032,7 @@ text layer: text spans format resolution style colorSpace fillGradient anchorX a
 image layer: asset colorSpace scaleMode anchorX anchorY
 video layer: asset loop audio volume speed anchorX anchorY
 audio layer: volume asset loop sfx music speed
-composition layer: width height sequences transitions speed clip use params frameRate loop markers
+composition layer: width height layers transitions speed clip use params frameRate loop markers
 shader layer: fragment uniforms width height resolution transparent
 rect shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach width height cornerRadius anchorX anchorY
 circle shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach radius anchorX anchorY

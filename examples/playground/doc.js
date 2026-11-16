@@ -42,7 +42,8 @@ const PINS = /https:\/\/cdn\.jsdelivr\.net\/npm\/pixi-effects@[\d.]+\/dist\//g;
 
 /** For the sandboxed iframe: this site's library, assets resolved from `assetBase`, the bridge, and extra import-map entries. */
 export function compose(html, code, { distBase, assetBase, extraImports = {} }) {
-  const out = standalone(html, code, { extraImports, assetBase }).replace(PINS, () => distBase);
+  // the site's own build: the bar's file is controller.js since 1.0 (a template pinned to an older release still names Controller.js)
+  const out = standalone(html, code, { extraImports, assetBase }).replace(PINS, () => distBase).split(`${distBase}Controller.js`).join(`${distBase}controller.js`);
   const at = out.lastIndexOf('</body>');
   return out.slice(0, at) + `<script>${BRIDGE_SOURCE}</script>\n` + out.slice(at);
 }

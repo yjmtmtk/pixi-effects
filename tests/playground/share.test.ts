@@ -12,7 +12,7 @@ describe('share links: the code in the address, packed', () => {
     expect(await share.decode(await share.encode(code))).toBe(code);
   });
   it('the packed text is address-safe (base64url: no + / = characters) and shorter than the code for real code', async () => {
-    const code = 'const sequences = [' + '{ type: "text", text: "hello" },'.repeat(50) + '];';
+    const code = 'const layers = [' + '{ type: "text", text: "hello" },'.repeat(50) + '];';
     const s = await share.encode(code);
     expect(s).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(s.length).toBeLessThan(code.length / 2);

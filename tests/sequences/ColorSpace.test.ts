@@ -66,19 +66,19 @@ vi.mock('pixi.js', () => {
 
 import { ImageSequence } from '../../src/sequences/Image';
 import { TextSequence } from '../../src/sequences/Text';
-import type { ImageSequenceSpec, TextSequenceSpec, CompositionShape } from '../../src/types';
+import type { ImageLayerSpec, TextLayerSpec, CompositionShape } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
 
 beforeEach(() => { calls.length = 0; });
 
-async function buildImage(spec: ImageSequenceSpec) {
+async function buildImage(spec: ImageLayerSpec) {
   const seq = new ImageSequence(spec, root, root);
   await seq.build();
   return seq;
 }
-async function buildText(spec: TextSequenceSpec) {
+async function buildText(spec: TextLayerSpec) {
   const seq = new TextSequence(spec, root, root);
   await seq.build();
   return seq;

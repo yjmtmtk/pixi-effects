@@ -20,7 +20,7 @@
   <script type="module">
     import { Movie } from '../../dist/index.js';
     const silent = new URLSearchParams(location.search).has('silent');
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', width: 640, height: 360, initial: { x: 320, y: 180, fill: '#123' } },
       ...Array.from({ length: 12 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 20 + i * 3, initial: { x: 40 + i * 50, y: 60 + (i % 4) * 70, fill: i % 2 ? '#ff5a36' : '#38c8ff' },
         keyframes: [{ at: 0, duration: 2, to: { x: 600 - i * 40, y: 300 - (i % 5) * 40, rotation: 3 } }] })),
@@ -31,7 +31,7 @@
     ];
     const movie = new Movie();
     window.movie = movie;
-    await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#000', composition: { sequences } });
+    await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#000', composition: { layers } });
     window.__ready = true;
   </script>
 </body>

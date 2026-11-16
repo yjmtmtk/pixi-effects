@@ -44,7 +44,7 @@
       "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects": "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js" } }
+      "pixi-effects/controller": "../../dist/controller.js" } }
   </script>
   <script type="module">
     import { Movie } from 'pixi-effects';
@@ -87,7 +87,7 @@
     const caption = (text, a, b, c, d) => ({ type: 'text', text, style: { fontFamily: FONT, fontSize: 46, fontWeight: '800', fill: '#ffffff', stroke: { color: '#00000066', width: 6 } },
       initial: { x: W / 2, y: 120, anchorX: 0.5, anchorY: 0.5, alpha: `smoothstep(${a}, ${b}, scroll) * (1 - smoothstep(${c}, ${d}, scroll))` } });
 
-    const composition = { sequences: [
+    const composition = { layers: [
       // sky: day, then night fading in over it
       { type: 'shape', shape: 'rect', name: 'day', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, fillGradient: { stops: [[0, '#6ab7ff'], [0.5, '#ffd9a3']] } },
       { type: 'shape', shape: 'rect', name: 'night', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', alpha: 'smoothstep(0.3, 0.75, scroll)' }, fillGradient: { stops: [[0, '#070b24'], [0.55, '#43296b']] } },

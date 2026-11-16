@@ -29,9 +29,9 @@ async function open<T>(fn: (cdp: any) => Promise<T>, query = ''): Promise<T> {
 
 import { warpOffset } from '../../src/filters/Warp';
 const mine = (logs: string[]) => logs.filter(l => l.includes('pixi-effects:') && !l.includes('WebGPU'));
-const mkWith = async (cdp: any, sequences: unknown[], extra: Record<string, unknown> = {}) => {
+const mkWith = async (cdp: any, layers: unknown[], extra: Record<string, unknown> = {}) => {
   const src: string = await cdp.eval('stripes()');
-  await cdp.eval(`mk(${JSON.stringify({ assets: [{ name: 'stripes', src }], composition: { sequences }, ...extra })})`);
+  await cdp.eval(`mk(${JSON.stringify({ assets: [{ name: 'stripes', src }], composition: { layers }, ...extra })})`);
 };
 const picture = (filters: unknown[], extra: Record<string, unknown> = {}) => ({ type: 'image', name: 'pic', asset: 'stripes', initial: { x: 0, y: 0 }, filters, ...extra });
 /** The centres of the white runs of a row (the red channel above half), between two x. */

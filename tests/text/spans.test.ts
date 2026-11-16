@@ -85,31 +85,31 @@ describe('expandSpans: the text layer becomes one group of ordinary text layers'
   });
 
   it('every piece is a text layer with the layer\'s style plus its own overrides, at its measured place, named name.N', () => {
-    const g = expandSpans(spec, warn) as { sequences: Array<Record<string, unknown>> };
-    expect(g.sequences.map(s => [s.type, s.name, s.text])).toEqual([['text', 'code.0', 'AB'], ['text', 'code.1', 'CD']]);
-    expect(g.sequences[1]).toMatchObject({ style: { fontFamily: 'Arial', fontSize: 20, fill: '#ff0000', align: 'left' }, initial: { x: 20, y: 0 } });
+    const g = expandSpans(spec, warn) as { layers: Array<Record<string, unknown>> };
+    expect(g.layers.map(s => [s.type, s.name, s.text])).toEqual([['text', 'code.0', 'AB'], ['text', 'code.1', 'CD']]);
+    expect(g.layers[1]).toMatchObject({ style: { fontFamily: 'Arial', fontSize: 20, fill: '#ff0000', align: 'left' }, initial: { x: 20, y: 0 } });
   });
 
   it('the pieces are measured with the style a text layer is DRAWN with: its defaults (Arial 36, white, centred) fill in what the layer does not say', () => {
-    const g = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: {} } as never, warn) as { sequences: Array<{ style: Record<string, unknown>; initial: { x: number } }>; width: number };
-    expect(g.sequences[0]!.style).toMatchObject({ fontFamily: 'Arial', fontSize: 36, fill: '#ffffff', align: 'center' });
-    expect(g.sequences[1]!.initial.x).toBe(36);                       // the mock: 18 px per character at 36, so AB is 36 wide (it was measured at 26 and the pieces overlapped)
+    const g = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: {} } as never, warn) as { layers: Array<{ style: Record<string, unknown>; initial: { x: number } }>; width: number };
+    expect(g.layers[0]!.style).toMatchObject({ fontFamily: 'Arial', fontSize: 36, fill: '#ffffff', align: 'center' });
+    expect(g.layers[1]!.initial.x).toBe(36);                       // the mock: 18 px per character at 36, so AB is 36 wide (it was measured at 26 and the pieces overlapped)
     expect(g.width).toBe(72);
   });
 
   it('numbers written as expressions or variables are resolved BEFORE measuring, and the pieces get the numbers (not the expression, which would resolve against the small group)', () => {
-    const g = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: { fontSize: 'H * 0.1', fill: '#fff' } } as never, warn, { H: 200, W: 400 }) as { sequences: Array<{ style: Record<string, unknown>; initial: { x: number } }> };
-    expect(g.sequences[1]!.initial.x).toBe(20);                       // fontSize 20: 10 px per character
-    expect(g.sequences.map(q => q.style.fontSize)).toEqual([20, 20]);
-    const v = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: { fontSize: 'size' } } as never, warn, { size: 30 }) as { sequences: Array<{ initial: { x: number } }> };
-    expect(v.sequences[1]!.initial.x).toBe(30);
+    const g = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: { fontSize: 'H * 0.1', fill: '#fff' } } as never, warn, { H: 200, W: 400 }) as { layers: Array<{ style: Record<string, unknown>; initial: { x: number } }> };
+    expect(g.layers[1]!.initial.x).toBe(20);                       // fontSize 20: 10 px per character
+    expect(g.layers.map(q => q.style.fontSize)).toEqual([20, 20]);
+    const v = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: { fontSize: 'size' } } as never, warn, { size: 30 }) as { layers: Array<{ initial: { x: number } }> };
+    expect(v.layers[1]!.initial.x).toBe(30);
   });
 
   it('a size that cannot be resolved is said, and the default is measured and drawn (never NaN)', () => {
-    const g = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: { fontSize: 'nowhere * 2' } } as never, warn, { H: 200 }) as { sequences: Array<{ style: Record<string, unknown>; initial: { x: number } }> };
+    const g = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: { fontSize: 'nowhere * 2' } } as never, warn, { H: 200 }) as { layers: Array<{ style: Record<string, unknown>; initial: { x: number } }> };
     expect(said.some(m => /fontSize/.test(m) && /36/.test(m))).toBe(true);
-    expect(g.sequences[0]!.style.fontSize).toBe(36);
-    expect(g.sequences[1]!.initial.x).toBe(36);
+    expect(g.layers[0]!.style.fontSize).toBe(36);
+    expect(g.layers[1]!.initial.x).toBe(36);
   });
 
   it('anchorX / anchorY of the layer become the group\'s pivot (0.5 centres the block on x, y, as it does a text)', () => {
@@ -142,26 +142,26 @@ describe('expandSpans: the text layer becomes one group of ordinary text layers'
   });
 
   it('style.wordWrap and style.leading do not apply (the lines are the \\n of the spans): said, and taken out of the pieces', () => {
-    const g = expandSpans({ type: 'text', spans: ['AB'], style: { fontSize: 20, wordWrap: true, wordWrapWidth: 100, leading: 6 } } as never, warn) as { sequences: Array<{ style: Record<string, unknown> }> };
+    const g = expandSpans({ type: 'text', spans: ['AB'], style: { fontSize: 20, wordWrap: true, wordWrapWidth: 100, leading: 6 } } as never, warn) as { layers: Array<{ style: Record<string, unknown> }> };
     expect(said.some(m => /style\.wordWrap, style\.wordWrapWidth, style\.leading do not apply/.test(m))).toBe(true);
-    expect(g.sequences[0]!.style).not.toHaveProperty('wordWrap');
-    expect(g.sequences[0]!.style).not.toHaveProperty('wordWrapWidth');
-    expect(g.sequences[0]!.style).not.toHaveProperty('leading');
+    expect(g.layers[0]!.style).not.toHaveProperty('wordWrap');
+    expect(g.layers[0]!.style).not.toHaveProperty('wordWrapWidth');
+    expect(g.layers[0]!.style).not.toHaveProperty('leading');
   });
 
   it('a typewriter (visibleChars) is remembered for the group, and its pieces start fully visible and typed; blank pieces draw nothing', () => {
     const typed = { type: 'text', name: 't', spans: ['A', '  ', 'BC'], style, initial: { visibleChars: 0 } } as never;
-    const g = expandSpans(typed, warn) as { sequences: Array<{ initial: Record<string, number> }> };
-    expect(g.sequences).toHaveLength(2);                                       // the blank piece is not a layer
-    expect(g.sequences.map(s => s.initial.visibleChars)).toEqual([1, 2]);
+    const g = expandSpans(typed, warn) as { layers: Array<{ initial: Record<string, number> }> };
+    expect(g.layers).toHaveLength(2);                                       // the blank piece is not a layer
+    expect(g.layers.map(s => s.initial.visibleChars)).toEqual([1, 2]);
     const meta = spansMeta.get(g as object)!;
     expect(meta.typed).toBe(true);
     expect(meta.pieces).toEqual([{ start: 0, length: 1 }, { start: 3, length: 2 }]);
   });
 
   it('without a typewriter the pieces are plain text layers (no counters)', () => {
-    const g = expandSpans(spec, warn) as { sequences: Array<{ initial: Record<string, number> }> };
+    const g = expandSpans(spec, warn) as { layers: Array<{ initial: Record<string, number> }> };
     expect(spansMeta.get(g as object)!.typed).toBe(false);
-    expect(g.sequences[0]!.initial).not.toHaveProperty('visibleChars');
+    expect(g.layers[0]!.initial).not.toHaveProperty('visibleChars');
   });
 });

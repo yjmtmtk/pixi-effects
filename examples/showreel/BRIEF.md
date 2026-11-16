@@ -27,7 +27,7 @@ export default function chapter(P) {
     duration: 8,                            // EXACTLY the number in chapters.json
     assets: [],                             // optional: [{ name: '<id>-grid', src: '<data URL drawn on a canvas>' }] (names start with your id)
     poster: 4.2,                            // optional: the moment that stands for the chapter in a thumbnail (seconds)
-    sequences: [ P.bg(C.ink), ...P.tag('03', 'SPACE', 'a camera moves through cards in depth'), /* your layers */ ],
+    layers: [ P.bg(C.ink), ...P.tag('03', 'SPACE', 'a camera moves through cards in depth'), /* your layers */ ],
   };
 }
 ```
@@ -88,7 +88,7 @@ Model: <your model> (Claude <name>, self-reported)   Cycles: N   Result: works |
 ## Known limits of the harness (found by the first twelve authors)
 - A chapter cannot see the reel's plan: if it needs the reel's clock (the sound chapter does), it hardcodes the chapter's start and the music's start, and must be updated when durations change.
 - In the one-chapter check the music is absent, so `the mix is quiet` / `silent from …` notes are expected (the chapter's sfx are measured alone).
-- A `deck()` inside a chapter: wrap both `d.composition.sequences` and `d.composition.transitions` in your own `{ type: 'composition' }` layer; the chapter object has no `transitions` key.
+- A `deck()` inside a chapter: wrap both `d.composition.layers` and `d.composition.transitions` in your own `{ type: 'composition' }` layer; the chapter object has no `transitions` key.
 - Hide a text layer with `alpha: 0`, not `set: { visible: false }` (the check reports a hidden text as "has no size").
 - `inspect` ignores masks, so a text hidden by a matte still counts in the overlap review.
 - `volume` 0.5–0.7 on the music tracks gives about −23 LUFS (the score is normalised); the shipped reel uses `volume: 1.22` to land at −18 LUFS.

@@ -1533,15 +1533,15 @@ export function collectVideoSequences(seq: Sequence, out: VideoLike[], clocks?: 
 }
 
 /** How many layers a composition spec holds (its children, theirs, …): the size of the `build` stage of `loadprogress`. */
-function countLayers(spec: { sequences?: unknown[] } | undefined): number {
+function countLayers(spec: { layers?: unknown[] } | undefined): number {
   let n = 0;
-  for (const s of spec?.sequences ?? []) {
+  for (const s of spec?.layers ?? []) {
     const mask = (s as { mask?: unknown }).mask;
-    n += 1 + countLayers(s as { sequences?: unknown[] });
+    n += 1 + countLayers(s as { layers?: unknown[] });
     const spans = (s as { spans?: unknown }).spans;
     if (Array.isArray(spans)) n += spans.length;                         // a text with spans is built as a group and one layer per piece (at least one per span)
     const src = maskSourceOf(mask);
-    if (src.kind === 'inline') n += 1 + countLayers(src.spec as { sequences?: unknown[] });   // an inline mask is built as a layer too
+    if (src.kind === 'inline') n += 1 + countLayers(src.spec as { layers?: unknown[] });   // an inline mask is built as a layer too
   }
   return n;
 }
@@ -1549,5 +1549,7 @@ function countLayers(spec: { sequences?: unknown[] } | undefined): number {
 /** What the composition says about its components and its variables (said once, when it is given: not on every rebuild). */
 function lintComposition(composition: CompositionSpec | undefined, vars: Vars): string[] {
   const { spec, warnings } = expandComponents(composition, Object.keys(vars));
-  return [...warnings, ...lintVars(spec, vars), ...lintTransitions(applyVars(spec, vars))];
+  const root = (composition ?? {}) as { sequences?: unknown; layers?: unknown };
+  const renamed = root.sequences !== undefined ? ['pixi-effects: the root composition: "sequences" is now "layers" (the layers of a composition are layers: [ … ]); they are not drawn'] : [];
+  return [...renamed, ...warnings, ...lintVars(spec, vars), ...lintTransitions(applyVars(spec, vars))];
 }

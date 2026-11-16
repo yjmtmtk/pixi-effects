@@ -32,7 +32,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -236,9 +236,9 @@
       ringSeqs.push({ type: 'composition', name: 'belt', width: P, height: P,
         initial: { x: PC, y: PC, pivotX: PC, pivotY: PC, rotation: 0, alpha: 0 },
         keyframes: [{ at: 0, to: { rotation: -95 }, duration: DURATION, ease: 'none' }, { at: 1.0, to: { alpha: 1 }, duration: 1.2, ease: 'power2.inOut' }],
-        sequences: dots });
+        layers: dots });
       seqs.push({ type: 'composition', name: 'plate', threeD: true, width: P, height: P,
-        initial: { x: CX, y: CY, z: 0, pivotX: PC, pivotY: PC, rotationX: TILT, scale: 1 / PN }, sequences: ringSeqs });
+        initial: { x: CX, y: CY, z: 0, pivotX: PC, pivotY: PC, rotationX: TILT, scale: 1 / PN }, layers: ringSeqs });
     }
 
     // the Sun: a glow that adds light, and a gradient disc
@@ -275,7 +275,7 @@
       seqs.push({ type: 'composition', name: 'planet-' + p.id, threeD: true, width: cw, height: ch,
         initial: { ...pos.initial, pivotX: cx, pivotY: cy, scale: p.R / NR, rotation: ROT, alpha: 0 },
         keyframes: [...pos.keyframes, { at: 0.8 + i * 0.1, to: { alpha: 1 }, duration: 0.8, ease: 'power2.out' }],
-        sequences: kids });
+        layers: kids });
     });
 
     // a soft vignette over the 3D scene, under the type
@@ -367,7 +367,7 @@
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS, background: C.bg,
         assets: [starfield(), { name: 'bgm', src: '../_assets/bgm.mp3' }],
-        composition: { sequences: seqs },
+        composition: { layers: seqs },
       });
       window.__ready = true;
     } catch (e) {

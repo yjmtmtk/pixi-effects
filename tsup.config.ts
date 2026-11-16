@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
-    Controller: 'src/Controller.ts',
+    controller: 'src/Controller.ts',
     present: 'src/present/index.ts',
     '3d': 'src/3d/index.ts',
     sound: 'src/core/soundEntry.ts',

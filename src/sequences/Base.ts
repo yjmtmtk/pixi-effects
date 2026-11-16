@@ -3,7 +3,7 @@ import { Rectangle } from 'pixi.js';
 import { applyKeyframes, applyInitial, type PathRouters } from '../core/Timeline';
 import { buildScope, type Scope } from '../expr/Scope';
 import { createFilter, grainLoop, type NamedFilter } from '../filters';
-import type { CompositionShape, SequenceSpec, AudioDescriptor } from '../types';
+import type { CompositionShape, LayerSpec, AudioDescriptor } from '../types';
 import type { SpaceHost } from '../space/Layer3D';
 import type { Timeline } from '../core/timelineEngine';
 import { layerAt } from '../core/layerAt';
@@ -11,7 +11,7 @@ import { layerAt } from '../core/layerAt';
 
 
 export abstract class Sequence {
-  spec: SequenceSpec;
+  spec: LayerSpec;
   parent: CompositionShape | null;
   root: CompositionShape;
   target: Container | null = null;
@@ -43,7 +43,7 @@ export abstract class Sequence {
    */
   absoluteStart: number | null = null;
 
-  constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape) {
+  constructor(spec: LayerSpec, parent: CompositionShape | null, root: CompositionShape) {
     this.spec = shapeColourForms(liftAnchor(spec));
     this.parent = parent;
     this.root = root;
@@ -84,7 +84,7 @@ export abstract class Sequence {
    * The `initial` and `keyframes` that go onto the display object. A layer whose `time` runs a clock (video, composition) takes `time`
    * out of them: it is not a property of the display object.
    */
-  protected displayProps(): { initial: SequenceSpec['initial']; keyframes: SequenceSpec['keyframes'] } {
+  protected displayProps(): { initial: LayerSpec['initial']; keyframes: LayerSpec['keyframes'] } {
     return { initial: this.spec.initial, keyframes: this.spec.keyframes };
   }
 
@@ -144,18 +144,18 @@ export abstract class Sequence {
 }
 
 /** A top-level `anchorX` / `anchorY` on text, image or video (a shape keeps them as its geometry) goes into `initial`, where it wins. */
-function liftAnchor(spec: SequenceSpec): SequenceSpec {
+function liftAnchor(spec: LayerSpec): LayerSpec {
   const s = spec as unknown as { type: string; anchorX?: unknown; anchorY?: unknown; initial?: Record<string, unknown> };
   if ((s.type !== 'text' && s.type !== 'image' && s.type !== 'video') || (s.anchorX === undefined && s.anchorY === undefined)) return spec;
   const { anchorX, anchorY, ...rest } = s;
-  return { ...rest, initial: { ...(s.initial ?? {}), ...(anchorX !== undefined ? { anchorX } : {}), ...(anchorY !== undefined ? { anchorY } : {}) } } as unknown as SequenceSpec;
+  return { ...rest, initial: { ...(s.initial ?? {}), ...(anchorX !== undefined ? { anchorX } : {}), ...(anchorY !== undefined ? { anchorY } : {}) } } as unknown as LayerSpec;
 }
 
 /**
  * A shape's colours as PixiJS and SVG write them: `fill: { color, alpha }`, `stroke: { color, width, alpha }` (spread into fill / fillAlpha,
  * stroke / strokeWidth / strokeAlpha, a key written beside it wins) and `'none'` (no fill, no stroke), in initial and in keyframes.
  */
-function shapeColourForms(spec: SequenceSpec): SequenceSpec {
+function shapeColourForms(spec: LayerSpec): LayerSpec {
   const s = spec as unknown as { type: string; initial?: Record<string, unknown>; keyframes?: Array<Record<string, unknown>> };
   if (s.type !== 'shape') return spec;
   const bag = (b: unknown): unknown => {
@@ -182,6 +182,6 @@ function shapeColourForms(spec: SequenceSpec): SequenceSpec {
     ...s,
     ...(s.initial ? { initial: bag(s.initial) } : {}),
     ...(s.keyframes ? { keyframes: s.keyframes.map(k => (k && typeof k === 'object' ? { ...k, ...(k.set ? { set: bag(k.set) } : {}), ...(k.to ? { to: bag(k.to) } : {}), ...(k.from ? { from: bag(k.from) } : {}) } : k)) } : {}),
-  } as unknown as SequenceSpec;
+  } as unknown as LayerSpec;
 }
 

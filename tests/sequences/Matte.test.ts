@@ -8,11 +8,11 @@ import { CompositionSequence } from '../../src/sequences/Composition';
 import { MatteSet } from '../../src/core/MatteSet';
 import { Container } from 'pixi.js';
 import type { SpaceHost } from '../../src/space/Layer3D';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
-async function build(sequences: unknown[]) {
-  const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration: 10, sequences } as unknown as SequenceSpec as never, shape, shape);
+async function build(layers: unknown[]) {
+  const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration: 10, layers } as unknown as LayerSpec as never, shape, shape);
   await comp.build();
   return comp;
 }

@@ -29,7 +29,7 @@
 
   <script type="importmap">{ "imports": {
     "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
-    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/Controller.js" } }</script>
+    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/controller.js" } }</script>
 
   <script type="module">
     import { Movie } from 'pixi-effects';
@@ -468,7 +468,7 @@
       ...steps,
     ];
 
-    const sequences = [sky, clouds, mountains, city, rainFar, street, walker, rainNear, railing, titles, ...sound];
+    const layers = [sky, clouds, mountains, city, rainFar, street, walker, rainNear, railing, titles, ...sound];
 
     const movie = new Movie();
     window.movie = movie;
@@ -480,7 +480,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS,
         poster: 9.4,
         background: '#05050c',
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

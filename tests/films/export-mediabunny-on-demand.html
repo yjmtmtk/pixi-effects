@@ -32,7 +32,7 @@
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 160, height: 90, duration: 1, frameRate: 30, background: '#102040',
         ...(q.has('video') ? { assets: [{ name: 'clip', src: '../fixtures/media/colors.mp4' }] } : {}),
-        composition: { sequences: [
+        composition: { layers: [
           ...(q.has('video') ? [{ type: 'video', asset: 'clip', name: 'clip', audio: false, duration: 1, initial: { x: 0, y: 0, scale: 0.2 } }] : []),
           { type: 'shape', shape: 'rect', name: 'box', width: 40, height: 40, initial: { x: 20, y: 45, fill: '#ffffff' }, keyframes: [{ at: 0, to: { x: 140 }, duration: 1, ease: 'none' }] },
         ] } });

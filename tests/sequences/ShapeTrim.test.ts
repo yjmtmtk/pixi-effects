@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { ShapeSequence } from '../../src/sequences/Shape';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
@@ -9,7 +9,7 @@ type Call = [string, ...unknown[]];
 
 /** Build a shape layer; `draw()` runs the per-frame redraw and returns the Graphics calls it made. */
 async function shape(spec: Record<string, unknown>) {
-  const seq = new ShapeSequence({ type: 'shape', ...spec } as unknown as SequenceSpec, comp, comp);
+  const seq = new ShapeSequence({ type: 'shape', ...spec } as unknown as LayerSpec, comp, comp);
   await seq.build();
   const g = seq.target as unknown as Record<string, (...a: unknown[]) => unknown> & { onRender: () => void };
   const calls: Call[] = [];

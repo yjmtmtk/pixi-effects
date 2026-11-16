@@ -25,7 +25,7 @@
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
         poster: new URLSearchParams(location.search).has('noposter') ? undefined : 3,
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'shape', shape: 'rect', width: 80, height: 80, initial: { x: 100, y: 360, fill: '#ffffff' },
             keyframes: [{ at: 0, to: { x: 1100 }, duration: 4, ease: 'none' }] },
         ] },

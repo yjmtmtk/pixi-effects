@@ -57,7 +57,7 @@ export default function chapter(P) {
     type: 'composition', name: 'race', duration: 7, width: 1920, height: 1080,
     initial: { time: 0 },
     keyframes: clockKeys('time', (t) => t),
-    sequences: dots,
+    layers: dots,
   };
 
   // everything that moves together shakes together: the seeded handheld wiggle rides on the stage during the slow motion
@@ -66,7 +66,7 @@ export default function chapter(P) {
     initial: { x: 0, y: 0 },
     keyframes: P.wiggle({ at: T.slow, duration: T.end - T.slow, freq: 9, seed: 4,
       props: { x: { around: 0, amp: 8 }, y: { around: 0, amp: 5 } } }),
-    sequences: [
+    layers: [
       line('start-line', X0), line('finish-line', X1),
       ...tracks, ...labels,
       race,
@@ -87,7 +87,7 @@ export default function chapter(P) {
   return {
     duration: 7,
     poster: 1.6,
-    sequences: [
+    layers: [
       P.bg(C.ink),
       ...P.tag('08', 'MOTION', 'easing curves, a rewound clock, a seeded shake', { at: 0.7 }),
       stage,

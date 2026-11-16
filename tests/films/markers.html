@@ -38,18 +38,18 @@
         composition: {
           markers: { drop: 2.5 },
           components: {
-            card: { width: 320, height: 40, duration: 2, markers: { in: 0.5, out: 1.5 }, sequences: [
+            card: { width: 320, height: 40, duration: 2, markers: { in: 0.5, out: 1.5 }, layers: [
               { type: 'shape', shape: 'rect', name: 'bar', width: 320, height: 10, anchorX: 0, anchorY: 0, initial: { fill: '#808080' } },
             ] },
           },
-          sequences: [
+          layers: [
             { use: 'card', name: 'host', at: 1 },
-            { type: 'composition', name: 'slow', at: 0, duration: 4, speed: 0.5, markers: { hit: 1 }, width: 10, height: 10, sequences: [
+            { type: 'composition', name: 'slow', at: 0, duration: 4, speed: 0.5, markers: { hit: 1 }, width: 10, height: 10, layers: [
               { type: 'shape', shape: 'rect', name: 'dot', width: 2, height: 2, initial: { x: -100, fill: '#000000' } },
             ] },
             probe('p1', '#ff0000', 0, 'host@in', 0.5),
             probe('p2', '#00ff00', 50, 'host@out + 0.2', 0.3),
-            { type: 'composition', name: 'scene', at: 1, duration: 3, width: 320, height: 180, sequences: [probe('p3', '#0000ff', 100, '@drop', 0.5)] },
+            { type: 'composition', name: 'scene', at: 1, duration: 3, width: 320, height: 180, layers: [probe('p3', '#0000ff', 100, '@drop', 0.5)] },
             probe('p4', '#ffff00', 150, 'slow@hit', 0.5),
             { ...probe('p5', '#ff00ff', 200, 0.5, 3), keyframes: [{ at: 'host@out', set: { alpha: 0 } }] },
             probe('p6', '#ffffff', 250, '{who}@in', 0.5),

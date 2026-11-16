@@ -36,7 +36,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":  "../../dist/present.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
@@ -270,7 +270,7 @@
       { type: 'audio', name: 'switch', sfx: { preset: 'click', pitch: -7, brightness: -0.6 }, at: BAR + 1.5, volume: 0.9 },
     ];
 
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: C.ground } },
       ...SHOTS.map(shotLayer),
       ...caption(1, '削り出しのアルミニウム', 'TURNED FROM SOLID ALUMINIUM', 0.9, BAR - 0.05),
@@ -290,7 +290,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS,
         poster: 12,
         background: C.ground,
-        composition: { sequences, filters: [{ type: 'grain', name: 'grain', amount: 0.018, size: 1.5, color: 0 }] },
+        composition: { layers, filters: [{ type: 'grain', name: 'grain', amount: 0.018, size: 1.5, color: 0 }] },
       });
       window.__ready = true;
     } catch (e) {

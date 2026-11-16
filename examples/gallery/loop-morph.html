@@ -39,7 +39,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":  "../../dist/present.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
@@ -51,7 +51,7 @@
     import { Movie } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
     // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
-    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, layers }] });
     //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
 
     const W = 1080, H = 1080, FPS = 30, DURATION = 12;
@@ -94,8 +94,8 @@
     const WAVE = [0.75, 1.25];        // two waves of the typing indicator
     const STAG = 0.125;               // a sixteenth at 120 bpm
 
-    const sequences = [];
-    const add = (...l) => sequences.push(...l);
+    const layers = [];
+    const add = (...l) => layers.push(...l);
 
     add({ type: 'shader', name: 'paper', width: W, height: H, initial: { x: 0, y: 0 },
       uniforms: { paper: PAPER, dot: MUTE },
@@ -317,7 +317,7 @@
         loop: true,                     // it is a loop: the player goes back to 0 at the end
         background: PAPER,
         // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

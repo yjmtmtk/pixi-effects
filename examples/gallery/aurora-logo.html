@@ -34,7 +34,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -91,7 +91,7 @@
     for (let d = 200; d <= 340; d += 2) arcPoints.push([AC + ARC_R * Math.cos(rad(d)), AC + ARC_R * Math.sin(rad(d))]);
     for (let d = 340; d >= 200; d -= 2) arcPoints.push([AC + (ARC_R - ARC_T) * Math.cos(rad(d)), AC + (ARC_R - ARC_T) * Math.sin(rad(d))]);
 
-    const sequences = [
+    const layers = [
       fullRect('bg', { initial: { x: W / 2, y: H / 2, fill: BG } }),
 
       // a cool glow gathers behind the mark
@@ -136,7 +136,7 @@
       { type: 'composition', name: 'arc', width: 2 * AC, height: 2 * AC, ...life(T.pulse),
         initial: { x: CX, y: CY, pivotX: AC, pivotY: AC, rotation: -34, alpha: 0 },
         keyframes: [{ at: 0, to: { rotation: 0, alpha: 1 }, duration: 1.5, ease: EASE }],
-        sequences: [{ type: 'shape', shape: 'polygon', name: 'arc-band', points: arcPoints,
+        layers: [{ type: 'shape', shape: 'polygon', name: 'arc-band', points: arcPoints,
           fillGradient: { angle: 90, stops: [[0, rgba(ICE, 0)], [0.28, rgba(ICE, 0.95)], [0.72, rgba(CHAMP, 0.95)], [1, rgba(CHAMP, 0)]] } }] },
 
       // the wordmark lands from the centre outwards: R O, then U R, then A A
@@ -178,7 +178,7 @@
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: BG,
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

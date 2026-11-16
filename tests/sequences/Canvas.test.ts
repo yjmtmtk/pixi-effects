@@ -3,7 +3,7 @@ vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMoc
 import { CompositionSequence } from '../../src/sequences/Composition';
 import { createTimeline } from '../../src/core/timelineEngine';
 import { installCanvas } from '../support/fakeGl';
-import type { CompositionShape, SequenceSpec, CanvasInfo } from '../../src/types';
+import type { CompositionShape, LayerSpec, CanvasInfo } from '../../src/types';
 
 const shape: CompositionShape = { width: 320, height: 180, duration: 4, frameRate: 30 };
 
@@ -18,8 +18,8 @@ function recording2d() {
   return { ctx, calls, props };
 }
 
-async function build(sequences: unknown[]) {
-  const comp = new CompositionSequence({ type: 'composition', width: 320, height: 180, duration: 4, sequences } as unknown as SequenceSpec as never, shape, shape);
+async function build(layers: unknown[]) {
+  const comp = new CompositionSequence({ type: 'composition', width: 320, height: 180, duration: 4, layers } as unknown as LayerSpec as never, shape, shape);
   await comp.build();
   const tl = createTimeline({ paused: true });
   comp.bindTimeline(tl);
@@ -60,7 +60,7 @@ describe('the canvas layer: what draw is given', () => {
 
   it('info.start counts the compositions around the layer: a layer at 0.5 inside a group at 2 starts at 2.5 on the movie\'s clock', async () => {
     const draw = vi.fn();
-    const { comp } = await build([{ type: 'composition', name: 'g', at: 2, duration: 2, width: 200, height: 100, sequences: [cv({ at: 0.5, duration: 1, draw })] }]);
+    const { comp } = await build([{ type: 'composition', name: 'g', at: 2, duration: 2, width: 200, height: 100, layers: [cv({ at: 0.5, duration: 1, draw })] }]);
     draw.mockClear();
     const g = (comp as unknown as { _children: Array<{ spec: { name?: string }; _children: Layer[] }> })._children.find(c => c.spec.name === 'g')!;
     await g._children[0]!.awaitFrameAt(0.25);
@@ -71,7 +71,7 @@ describe('the canvas layer: what draw is given', () => {
 
   it('the first frame of a layer inside a group that starts later is drawn with the right start and time (the build draws it before the group is bound, so the first request must redraw)', async () => {
     const draw = vi.fn();
-    const { comp } = await build([{ type: 'composition', name: 'g', at: 5, duration: 2, width: 200, height: 100, sequences: [cv({ at: 0, duration: 1, draw })] }]);
+    const { comp } = await build([{ type: 'composition', name: 'g', at: 5, duration: 2, width: 200, height: 100, layers: [cv({ at: 0, duration: 1, draw })] }]);
     draw.mockClear();
     const g = (comp as unknown as { _children: Array<{ spec: { name?: string }; _children: Layer[] }> })._children.find(c => c.spec.name === 'g')!;
     await g._children[0]!.awaitFrameAt(0);

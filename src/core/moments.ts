@@ -270,7 +270,7 @@ function maskLayerOf(mask: unknown): Plain | null {
 /** Anything to do: a string `at` (of a layer, a mask, a transition, or a keyframe's with an @) or markers somewhere. */
 function needsWork(spec: Plain): boolean {
   const layer = (l: unknown): boolean => isPlain(l) && (typeof l.at === 'string' || l.markers !== undefined || (Array.isArray(l.keyframes) && l.keyframes.some(isNamedKf))
-    || look(l.sequences) || layer(maskLayerOf(l.mask)) || (Array.isArray(l.transitions) && l.transitions.some(t => isPlain(t) && typeof t.at === 'string')));
+    || look(l.layers) || layer(maskLayerOf(l.mask)) || (Array.isArray(l.transitions) && l.transitions.some(t => isPlain(t) && typeof t.at === 'string')));
   const look = (list: unknown): boolean => Array.isArray(list) && list.some(layer);
   return spec.markers !== undefined || layer(spec) || (Array.isArray(spec.stops) && spec.stops.some(st => typeof st === 'string' || (isPlain(st) && typeof st.at === 'string')));
 }
@@ -296,9 +296,9 @@ function makeNode(spec: Plain, parent: Node | null, life: number, kind: Node['ki
   }
   // a layer with no duration lives on the clock of its composition (a composition: the whole of it, as the runtime gives `duration: span`)
   const childLife = (l: Plain) => num(l.duration) ?? span;
-  if (Array.isArray(spec.sequences)) {
-    spec.sequences = spec.sequences.map(l => (isPlain(l) ? { ...l } : l));
-    for (const l of spec.sequences as unknown[]) {
+  if (Array.isArray(spec.layers)) {
+    spec.layers = spec.layers.map(l => (isPlain(l) ? { ...l } : l));
+    for (const l of spec.layers as unknown[]) {
       if (!isPlain(l)) continue;
       const child = makeNode(l, node, childLife(l), 'layer', say, all);
       node.children.push(child);

@@ -1,7 +1,7 @@
 import { parseEase } from './_ease';
 import { warnUnknownOptions } from '../core/options';
 import { DEFAULT_FOV, DEG } from '../space/math';
-import type { CameraSequenceSpec, Keyframe } from '../types';
+import type { CameraLayerSpec, Keyframe } from '../types';
 
 const ORBIT_KEYS = ['duration', 'degrees', 'startAngle', 'radius', 'center', 'fov', 'ease', 'dollyZoom', 'at', 'name', 'samplesPerSecond'] as const;
 
@@ -47,7 +47,7 @@ export interface OrbitOptions {
  * `dollyZoom: { from: 38, to: 64 }`: `fov` animates and the radius follows it (`z = (H/2) / tan(fov/2)`),
  * keeping the `z = 0` plane the same size.
  */
-export function orbit(opts: OrbitOptions): CameraSequenceSpec {
+export function orbit(opts: OrbitOptions): CameraLayerSpec {
   warnUnknownOptions('orbit()', opts, ORBIT_KEYS);
   const {
     duration, degrees, fov, ease = 'sine.inOut', samplesPerSecond = 10,
@@ -84,7 +84,7 @@ export function orbit(opts: OrbitOptions): CameraSequenceSpec {
     keyframes.push({ at: (duration * i) / steps, to: pos(i + 1), duration: duration / steps, ease: 'none' });
   }
   const p0 = pos(0);
-  const spec: CameraSequenceSpec = {
+  const spec: CameraLayerSpec = {
     type: 'camera',
     duration,
     initial: {

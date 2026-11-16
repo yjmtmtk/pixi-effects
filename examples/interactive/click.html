@@ -48,11 +48,11 @@
     const bubble = (b, i) => ({ type: 'composition', name: b.name, width: 2 * b.r, height: 2 * b.r, duration: 8,
       initial: { x: b.x, y: b.y, pivotX: b.r, pivotY: b.r, scale: `(1 + 0.16 * h${i}) * (1 - 0.55 * p${i})`, alpha: `1 - 0.7 * p${i}` },
       keyframes: [{ at: i * 0.35, to: { y: '-=22' }, duration: 1.4 + (i % 3) * 0.3, ease: 'sine.inOut', repeat: 12, yoyo: true }],
-      sequences: [
+      layers: [
         { type: 'shape', shape: 'circle', radius: b.r, initial: { x: b.r, y: b.r, fill: b.c, fillAlpha: 0.92 } },
         { type: 'shape', shape: 'circle', radius: b.r * 0.2, initial: { x: b.r * 0.68, y: b.r * 0.62, fill: '#ffffff', fillAlpha: 0.55 } },
       ] });
-    const composition = { sequences: [
+    const composition = { layers: [
       { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101a30' } },
       { type: 'shape', shape: 'rect', name: 'band', width: 'GW', height: 220, initial: { x: 'GW/2', y: 'GH - 110', fill: '#0c1428' } },
       { type: 'text', name: 'title', text: '{title}', style: { fontFamily: FONT, fontSize: 64, fontWeight: '800', fill: '#ffffff', letterSpacing: 6 }, initial: { x: 'GW/2', y: 78, anchorX: 0.5, anchorY: 0.5 } },

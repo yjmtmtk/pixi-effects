@@ -4,8 +4,8 @@ import { lintTransitions } from '../../src/core/transitionLint';
 // A transition that is not understood used to vanish with no word (an unknown kind expanded to nothing): now it is said, with what to write.
 const movie = (t: Record<string, unknown>, nested = false) => {
   const transitions = [{ from: 'a', to: 'b', at: 1, duration: 1, ...t }];
-  const sequences = [{ type: 'text', name: 'a', text: 'A' }, { type: 'text', name: 'b', text: 'B' }];
-  return nested ? { sequences: [{ type: 'composition', name: 'scene', sequences, transitions }] } : { sequences, transitions };
+  const layers = [{ type: 'text', name: 'a', text: 'A' }, { type: 'text', name: 'b', text: 'B' }];
+  return nested ? { layers: [{ type: 'composition', name: 'scene', layers, transitions }] } : { layers, transitions };
 };
 
 describe('lintTransitions', () => {
@@ -24,7 +24,7 @@ describe('lintTransitions', () => {
   });
   it('a good transition says nothing', () => {
     expect(lintTransitions(movie({ kind: 'wipe', direction: 'left', ease: 'power2.inOut' }))).toEqual([]);
-    expect(lintTransitions({ sequences: [] })).toEqual([]);
+    expect(lintTransitions({ layers: [] })).toEqual([]);
   });
   it('the old names say the new ones: smoothing → softness, a luma flip → invert', () => {
     expect(lintTransitions(movie({ kind: 'wipe', direction: 'left', smoothing: 0.1 }))[0]).toMatch(/transition "a" → "b": "smoothing" is now "softness" \(0\.\.1, the softness of the edge\)/);

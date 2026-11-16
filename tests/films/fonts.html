@@ -36,7 +36,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30,
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#102040' } },
           text('ok-arial', 'Arial, sans-serif', 10),
           text('missing', 'ThisFontDoesNotExist123, NopeNope', 50),

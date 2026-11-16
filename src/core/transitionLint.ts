@@ -64,8 +64,8 @@ export function lintTransitions(spec: unknown): string[] {
         }
       }
     }
-    for (const l of Array.isArray(comp.sequences) ? comp.sequences : []) {
-      if (isPlain(l) && Array.isArray(l.sequences)) walk(l, `composition "${String(l.name ?? '?')}": `);
+    for (const l of Array.isArray(comp.layers) ? comp.layers : []) {
+      if (isPlain(l) && Array.isArray(l.layers)) walk(l, `composition "${String(l.name ?? '?')}": `);
     }
   };
   if (isPlain(spec)) walk(spec, '');

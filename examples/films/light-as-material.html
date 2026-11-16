@@ -36,7 +36,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/3d":         "../../dist/3d.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
       "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
@@ -91,7 +91,7 @@
       ...(o.duration ? { duration: o.duration } : {}),
     });
     const bg = (color = INK, extra = {}) => ({ type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, ...extra, initial: { x: W / 2, y: H / 2, fill: color, ...(extra.initial || {}) } });
-    const scene = (name, at, duration, sequences, extra = {}) => ({ type: 'composition', name, at, duration, width: W, height: H, sequences, ...extra });
+    const scene = (name, at, duration, layers, extra = {}) => ({ type: 'composition', name, at, duration, width: W, height: H, layers, ...extra });
     const glowBlob = (name, x, y, r, color, alpha = 0.5, extra = {}) => ({
       type: 'shape', shape: 'circle', name, radius: r, blendMode: 'add', ...extra,
       fillGradient: { type: 'radial', stops: [[0, rgba(color, alpha)], [0.4, rgba(color, alpha * 0.35)], [1, rgba(color, 0)]] },
@@ -215,7 +215,7 @@
       put(ta, r++, 0, '◆  writing reel.html', MUTE, { slide: true });
       const CODE = [
         "const reel = { width: 1920, height: 1080, fps: 30, duration: 45 }",
-        "sequences: [",
+        "layers: [",
         "  { type: 'camera', initial: { focus: 'title', aperture: 34, fogFar: 3600 } },",
         "  { type: 'light', kind: 'spot', castsShadows: true, initial: { intensity: 1.5 } },",
         "  { type: 'text', text: 'LIGHT AS A MATERIAL', threeD: true, style: thin(190) },",
@@ -267,7 +267,7 @@
       // the screen: a composition that scrolls under a fixed mask (the mask stays, the content moves)
       const screen = { type: 'composition', name: 'screen', width: WIN_W, height: 2400, initial: { x: SX, y: SY }, keyframes: scrollKeys,
         mask: { type: 'shape', shape: 'rect', width: WIN_W - 2, height: SH - 1, anchorX: 0, anchorY: 0, initial: { x: SX + 1, y: SY, fill: '#ffffff' } },
-        sequences: [...lines, cursor] };
+        layers: [...lines, cursor] };
 
       // window chrome and screen texture
       const scan = (() => { const c = Object.assign(document.createElement('canvas'), { width: WIN_W, height: SH }); const g = c.getContext('2d'); g.fillStyle = 'rgba(0,0,0,0.16)'; for (let y = 1; y < SH; y += 3) g.fillRect(0, y, WIN_W, 1); return c.toDataURL(); })();
@@ -297,7 +297,7 @@
           { at: 0.7, to: { rotationY: -4, rotationX: 1.2 }, duration: 9, ease: 'sine.inOut' },
           { at: T_RECEDE, to: { z: -1900, x: W / 2 + 320, y: H / 2 + 60, rotationY: -32 }, duration: 1.25, ease: 'power3.in' },
         ],
-        sequences: [...chrome, screen, ...fx],
+        layers: [...chrome, screen, ...fx],
       };
       audio.push(sfx('swoosh', T_RECEDE - 0.05, { pitch: -6, brightness: -0.4, volume: 0.7 }));
       return { card, audio, scan };
@@ -328,7 +328,7 @@
       // the words: a card that the light reveals and that throws its own shadow on the wall
       seqs.push({ type: 'composition', name: 'title', width: TW, height: TH, threeD: true, castsShadows: true,
         initial: { x: W / 2, y: H / 2 - 30, z: TITLE_Z, pivotX: TW / 2, pivotY: TH / 2 },
-        sequences: [
+        layers: [
           { type: 'text', name: 'l1', text: 'LIGHT AS', style: titleStyle, initial: { x: TW / 2 + 18, y: 150, anchorX: 0.5, anchorY: 0.5 } },
           { type: 'text', name: 'l2', text: 'A MATERIAL', style: titleStyle, initial: { x: TW / 2 + 18, y: 400, anchorX: 0.5, anchorY: 0.5 } },
         ] });
@@ -490,7 +490,7 @@
           initial: { x, y: y + n.r + 14, anchorX: 0.5, anchorY: 0, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4 }] });
       });
       seqs.push({ type: 'camera', name: 'cam', keyframes: [{ at: 0, to: { offsetZ: -70, offsetX: 30 }, duration: dur, ease: 'sine.inOut' }] });
-      seqs.push({ type: 'composition', name: 'graph', width: W, height: H, threeD: true, initial: { x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2, rotationY: 9, rotationX: -3 }, sequences: graph });
+      seqs.push({ type: 'composition', name: 'graph', width: W, height: H, threeD: true, initial: { x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2, rotationY: 9, rotationX: -3 }, layers: graph });
 
       // the ring: layers by type (d3 pie → arc slices that draw on)
       const types = Object.entries(counts.types).sort((a, b) => b[1] - a[1]);
@@ -571,7 +571,7 @@
         initial: { x: 170, y: 160, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0, y: 170 }, to: { alpha: 1, y: 160 }, duration: 0.8, ease: 'power2.out' }] });
       // the whole sheet drifts and grows a little, like a slow push-in on a drawing
       seqs.push({ type: 'composition', name: 'sheet', width: W, height: H, initial: { x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2 },
-        keyframes: [{ at: 0, to: { scale: 1.04, x: W / 2 - 14, y: H / 2 + 6 }, duration: dur, ease: 'sine.inOut' }], sequences: sheet });
+        keyframes: [{ at: 0, to: { scale: 1.04, x: W / 2 - 14, y: H / 2 + 6 }, duration: dur, ease: 'sine.inOut' }], layers: sheet });
       seqs.push(...audio, sfx('pop', 0.5, { pitch: -6, brightness: -0.4, volume: 0.5 }));
       return scene('sketch', at, dur, seqs);
     }
@@ -623,7 +623,7 @@
         const x = i % 2 ? 1480 : 440, y = i % 3 === 0 ? 330 : 690, z = -STEP * i - 210;
         seqs.push({ type: 'composition', name: 'pane' + i, width: PW, height: PH, threeD: true, hideBehindCamera: true,
           initial: { x, y, z, pivotX: PW / 2, pivotY: PH / 2, rotationY: i % 2 ? -14 : 14, alpha: 0.9 },
-          sequences: [{ type: 'shape', shape: 'rect', width: PW, height: PH, cornerRadius: 16, initial: { x: PW / 2, y: PH / 2, fill: '#101a30', fillAlpha: 0.55, stroke: WHITE, strokeWidth: 1.5, strokeAlpha: 0.35 } }, ...content] });
+          layers: [{ type: 'shape', shape: 'rect', width: PW, height: PH, cornerRadius: 16, initial: { x: PW / 2, y: PH / 2, fill: '#101a30', fillAlpha: 0.55, stroke: WHITE, strokeWidth: 1.5, strokeAlpha: 0.35 } }, ...content] });
       });
       // the light at the end of the corridor
       seqs.push({ type: 'shape', shape: 'circle', name: 'sun', radius: 320, threeD: true, hideBehindCamera: true, blendMode: 'add', initial: { x: 960, y: 540, z: -STEP * GATES - 300, alpha: 0 },
@@ -717,7 +717,7 @@
     const countTypes = (seqs, acc = {}) => {
       for (const s of seqs) {
         acc[s.type] = (acc[s.type] || 0) + 1;
-        if (s.sequences) countTypes(s.sequences, acc);
+        if (s.layers) countTypes(s.layers, acc);
         if (s.mask && typeof s.mask === 'object' && s.mask.type) acc[s.mask.type] = (acc[s.mask.type] || 0) + 1;
       }
       return acc;
@@ -737,7 +737,7 @@
     const data = dataScene(counts);
     window.__counts = counts;
 
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'root-glow', width: W, height: H, duration: T.light + 1.6, initial: { x: W / 2, y: H / 2 },
         fillGradient: { type: 'radial', center: [0.5, 0.55], radius: 0.7, stops: [[0, rgba(AMBER, 0.08)], [0.5, rgba(CYAN, 0.03)], [1, rgba(INK, 0)]] } },
       { type: 'camera', name: 'rootcam', initial: { focus: 0, aperture: 30, fogNear: 1500, fogFar: 3400, fogColor: INK, fogAmount: 1 } },
@@ -764,7 +764,7 @@
         motionBlur: { samples: 6, shutter: 0.5 },
         vars: { version: '0.54.0', fps: FPS },
         assets: [{ name: 'scanlines', src: terminal.scan }],
-        composition: { sequences, transitions, filters: [{ type: 'grain', amount: 0.025, size: 1.5 }] },
+        composition: { layers, transitions, filters: [{ type: 'grain', amount: 0.025, size: 1.5 }] },
       });
       window.__ready = true;
     } catch (e) {

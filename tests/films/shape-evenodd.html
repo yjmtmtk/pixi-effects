@@ -37,7 +37,7 @@
     // the [r, g, b] of frame 0 at each [x, y] (one snapshot at the canvas's own size)
     window.pixelsAt = async (points) => { const img = await movie.snapshot(0, { as: 'imageData' }); return { size: [img.width, img.height], px: points.map(([x, y]) => { const i = (y * img.width + x) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]]; }) }; };
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000', composition: { sequences: [
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000', composition: { layers: [
         path('donutLeft', donut(160, 90), ruleLeft),
         path('donutRight', donut(480, 90), ruleRight),
         path('starLeft', star(160, 270), ruleLeft),

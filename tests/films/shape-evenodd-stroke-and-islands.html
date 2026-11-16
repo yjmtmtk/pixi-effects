@@ -32,7 +32,7 @@
     const movie = new Movie();
     window.movie = movie;
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000', composition: { sequences: [
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000', composition: { layers: [
         { type: 'shape', shape: 'path', name: 'squares', d, ...(rule ? { fillRule: rule } : {}), initial: { fill: '#ffcc00', stroke: '#0066ff', strokeWidth } },
       ] } });
       const img = await movie.snapshot(0, { as: 'imageData' });

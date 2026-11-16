@@ -1,4 +1,4 @@
-import type { SequenceCommon, Keyframe } from '../types';
+import type { LayerCommon, Keyframe } from '../types';
 import { warnUnknownOptions } from '../core/options';
 
 export interface WithFadeOptions {
@@ -10,10 +10,10 @@ export interface WithFadeOptions {
 
 /**
  * Add alpha fade-in / fade-out keyframes to a sequence spec. Mutates and
- * returns the spec so the result can be dropped straight into `sequences[]`.
+ * returns the spec so the result can be dropped straight into `layers`.
  *
  * ```ts
- * sequences: [
+ * layers: [
  *   withFade(
  *     kenBurns({ asset: 'p', at: 0, duration: 6, motion: 'scale' }),
  *     { in: 0.5, out: 0.5 },
@@ -34,7 +34,7 @@ export interface WithFadeOptions {
  * whether the spec sits directly under the root composition or nested inside
  * another.
  */
-export function withFade<T extends SequenceCommon>(spec: T, opts: WithFadeOptions): T {
+export function withFade<T extends LayerCommon>(spec: T, opts: WithFadeOptions): T {
   warnUnknownOptions('withFade()', opts, ['in', 'out']);
   if (opts.in != null && opts.in > 0) {
     spec.initial = { ...(spec.initial ?? {}), alpha: 0 };

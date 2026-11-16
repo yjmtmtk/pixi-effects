@@ -10,7 +10,7 @@
     import { Movie } from '../../dist/index.js';
     await new Promise((r) => setTimeout(r, 5000));
     const movie = new Movie(); window.movie = movie;
-    await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 1, frameRate: 30, background: '#123456', composition: { sequences: [] } });
+    await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 1, frameRate: 30, background: '#123456', composition: { layers: [] } });
     window.__ready = true;
   </script>
 </body>

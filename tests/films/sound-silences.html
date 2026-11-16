@@ -36,17 +36,17 @@
     const DURATION = SECOND + 0.5;
     const movie = new Movie();
     window.movie = movie;
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 40, initial: { x: 160, y: 90, fill: '#3a86ff' } },
       { type: 'audio', name: 'rise', sfx: 'riser', at: 0 },
       { type: 'audio', name: 'beep', sfx: 'beep', at: SECOND },
     ];
-    if (q.get('fill') === '1') sequences.push({ type: 'audio', name: 'bed', at: 0, duration: DURATION, volume: 0.5,
+    if (q.get('fill') === '1') layers.push({ type: 'audio', name: 'bed', at: 0, duration: DURATION, volume: 0.5,
       sfx: { voices: [{ wave: 'sine', freq: 220, envelope: 'hold' }] } });
-    if (q.has('faint')) sequences.push({ type: 'audio', name: 'faint', sfx: 'beep', at: 2.5, volume: Number(q.get('faint')) });
+    if (q.has('faint')) layers.push({ type: 'audio', name: 'faint', sfx: 'beep', at: 2.5, volume: Number(q.get('faint')) });
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: DURATION, frameRate: 30, background: '#101828',
-        composition: { sequences } });
+        composition: { layers } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
   </script>

@@ -24,7 +24,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'null', name: 'rig', initial: { x: 640, y: 360 }, keyframes: [{ at: 0, to: { rotation: 90 }, duration: 2, ease: 'none' }] },
           { type: 'shape', shape: 'circle', radius: 20, name: 'dot', parent: 'rig', initial: { x: 200, y: 0, fill: '#ffffff' } },
           // a chain: the arm doubles in size at 2 s, its dot (red) sits 100 px out

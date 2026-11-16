@@ -14,7 +14,7 @@ That is all it needs. **To register it as a skill** in your agent (Claude Code, 
 
 Declarative composition and video rendering for the web. After Effects-style timelines on top of [PixiJS v8](https://pixijs.com/), with a small timeline of its own and strict TypeScript types. The ease names and the way `to` / `from` / `set` read are [GSAP](https://gsap.com/)'s, with thanks. Render to MP4 / WebM / MOV via [mediabunny](https://mediabunny.dev/).
 
-- **Declarative DSL** — describe your composition as a tree of typed sequences (text, image, video, audio, shapes, nested compositions). No imperative tween code.
+- **Declarative DSL** — describe your composition as a tree of typed layers (text, image, video, audio, shapes, nested compositions). No imperative tween code.
 - **Sound effects without files** — `{ type: 'audio', sfx: 'swoosh', at: 2 }`: 11 synthesised presets (click, pop, swoosh, riser, hit, chime …) with `pitch` / `brightness` / `seed`, or your own `voices`; deterministic and in the exported file at the same moments as in the browser; `movie.inspectAudio()` checks them as numbers.
 - **Expression language** — sprinkle `'GW * 0.5'` or `'min(W, H) / 2'` anywhere a number goes. Resolved at runtime against a sequence-relative scope.
 - **Filters by name** — `filters: [{ type: 'glow', outerStrength: 3 }]`, no import: `blur noise alpha colorMatrix` (pixi.js) and the 38 filters of [`pixi-filters`](https://github.com/pixijs/filters) (`dropShadow crt rgbSplit oldFilm glitch pixelate twist …`), animated with `'filters.<name>.<option>'`. Any other PixiJS `Filter` goes in as `{ type: 'custom' }`.
@@ -95,7 +95,7 @@ Add three entries to the importmap above (PixiJS 3D needs `pixi.js` 8.23.0 or la
 
   register3D();
 
-  // ...inside composition.sequences:
+  // ...inside composition.layers:
   scene3d({
     type: 'scene3d', name: 'knot',
     setup: ({ root, camera }) => {
@@ -130,7 +130,7 @@ await movie.init({
   canvas,
   width: 1280, height: 720, duration: 5, frameRate: 30,
   composition: {
-    sequences: [
+    layers: [
       {
         type: 'text',
         text: 'hello pixi-effects',
@@ -157,7 +157,7 @@ const blob = await movie.render({ format: 'mp4' });
 Any layer can be placed in depth and viewed through a camera — no 3D engine involved:
 
 ```ts
-sequences: [
+layers: [
   { type: 'camera', keyframes: [{ at: 0, from: { x: 'GW/2 - 260' }, to: { x: 'GW/2 + 260' }, duration: 4, ease: 'sine.inOut' }] },
   { type: 'shape', shape: 'rect', width: 300, height: 200, threeD: true, initial: { x: 'GW/2', y: 'GH/2', z: -400, fill: '#3a6ea5' } },
   { type: 'shape', shape: 'rect', width: 300, height: 200, threeD: true, initial: { x: 'GW/2', y: 'GH/2', z: 250,  fill: '#d96a3a' } },
@@ -185,7 +185,7 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
 
 ## Documentation
 
-- [**DSL reference**](./docs/dsl.md) — composition, sequences, 3D layers & camera, 3D scenes (scene3d), keyframes, expressions, filters
+- [**DSL reference**](./docs/dsl.md) — composition, layers, 3D layers & camera, 3D scenes (scene3d), keyframes, expressions, filters
 - [**API reference**](./docs/api.md) — `Movie`, `Controller`, `pixi-effects/present`, `pixi-effects/3d`, events, render options
 - [**Interactive movies**](./examples/interactive/) — nine live samples of a movie you change while it plays (variables, `setVars`, `rebuild`, loop): rock paper scissors, a scrolling city, a tune from four chords, a card for anyone, choose your ending … ([docs/api.md](./docs/api.md))
 - [**Gallery**](./examples/gallery/) — 43 complete pieces, each one HTML file of data

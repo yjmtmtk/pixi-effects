@@ -35,7 +35,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":  "../../dist/present.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
@@ -270,7 +270,7 @@
     };
 
     // ── the composition ──────────────────────────────────────────────
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: PAPER } },
 
       // header + step progress
@@ -392,7 +392,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS,
         poster: 12,
         background: PAPER,
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

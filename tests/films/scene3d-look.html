@@ -30,7 +30,7 @@
     const ref = (k, extra = {}) => ({ type: 'shape', shape: 'rect', name: `ref${k}`, width: 60, height: 60, initial: { x: cell(k), y: 45, fill: '#e05030', ...(extra.initial ?? {}) }, ...(extra.blendMode ? { blendMode: extra.blendMode } : {}), ...(extra.filters ? { filters: extra.filters } : {}) });
     const s3d = (k, name, extra = {}) => ({ type: 'scene3d', name, width: 60, height: 60, initial: { x: cell(k), y: 135, anchorX: 0.5, anchorY: 0.5, ...(extra.initial ?? {}) }, setup: plane,
       ...(extra.blendMode ? { blendMode: extra.blendMode } : {}), ...(extra.keyframes ? { keyframes: extra.keyframes } : {}), ...(extra.filters ? { filters: extra.filters } : {}) });
-    const half = (child) => ({ type: 'composition', name: `wrap-${child.name}`, width: 480, height: 180, initial: { alpha: 0.5 }, sequences: [child] });
+    const half = (child) => ({ type: 'composition', name: `wrap-${child.name}`, width: 480, height: 180, initial: { alpha: 0.5 }, layers: [child] });
 
     const movie = new Movie();
     window.movie = movie;
@@ -43,7 +43,7 @@
     };
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 180, duration: 1, frameRate: 30, background: '#4080c0',
-        composition: { sequences: [
+        composition: { layers: [
           ref(0, { initial: { alpha: 0.5 } }), s3d(0, 'alpha', { initial: { alpha: 0.5 }, ...(q.get('tint') === '1' ? { keyframes: [{ at: 0, to: { tint: '#ff0000' }, duration: 1 }] } : {}) }),
           half(ref(1)), half(s3d(1, 'parent')),
           ref(2, { blendMode: 'add' }), s3d(2, 'add', { blendMode: 'add' }),

@@ -1,5 +1,5 @@
 import { suggestName } from './options';
-import type { SequenceSpec } from '../types';
+import type { LayerSpec } from '../types';
 import { layerAt } from './layerAt';
 
 export const MATTE_CHANNELS = ['alpha', 'luma'] as const;
@@ -98,7 +98,7 @@ export function canBeMatte(spec: { type: string; threeD?: boolean }): boolean {
  * What is wrong with a layer's `mask` references, as sentences (the caller puts `pixi-effects: layer "x": ` in front). `siblings` are the layers
  * of the same composition (the layer itself among them); `span` is the composition's length in seconds.
  */
-export function matteProblems(layer: SequenceSpec, siblings: readonly SequenceSpec[], span: number): string[] {
+export function matteProblems(layer: LayerSpec, siblings: readonly LayerSpec[], span: number): string[] {
   const src = maskSourceOf((layer as { mask?: unknown }).mask);
   if (src.kind === 'inline') return [...src.problems];
   if (src.kind !== 'refs') return [];

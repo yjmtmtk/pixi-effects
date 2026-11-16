@@ -38,7 +38,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":    "../../dist/present.js"
     }
   }
@@ -158,11 +158,11 @@
     const result = deck({
       transition: { kind: 'slide', direction: 'left', duration: T, ease: 'power3.inOut' },
       pages: [
-        { name: 'The Quiet Hours', duration: D1, stops: [P1], notes: 'Welcome. Ten minutes on attention.', sequences: page1 },
-        { name: 'One observation', duration: D2, stops: [P2a, P2b], sequences: page2 },
-        { name: 'A week, measured', duration: D3, stops: [P3a, P3b], notes: 'The best day had the fewest interruptions, not the most hours.', sequences: page3 },
-        { name: 'Three habits', duration: D4, stops: S4, sequences: page4 },
-        { name: 'Thank you', duration: D5, stops: [P5], sequences: page5 },
+        { name: 'The Quiet Hours', duration: D1, stops: [P1], notes: 'Welcome. Ten minutes on attention.', layers: page1 },
+        { name: 'One observation', duration: D2, stops: [P2a, P2b], layers: page2 },
+        { name: 'A week, measured', duration: D3, stops: [P3a, P3b], notes: 'The best day had the fewest interruptions, not the most hours.', layers: page3 },
+        { name: 'Three habits', duration: D4, stops: S4, layers: page4 },
+        { name: 'Thank you', duration: D5, stops: [P5], layers: page5 },
       ],
     });
     const posterAt = result.composition.stops[4].at;           // page 3 at its second stop: the best day lit up, the number counted up

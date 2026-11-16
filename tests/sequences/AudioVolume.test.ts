@@ -5,7 +5,7 @@ vi.mock('pixi.js', async () => {
 });
 import { AudioSequence } from '../../src/sequences/Audio';
 import { mixdown } from '../../src/core/AudioMixer';
-import type { AudioDescriptor, CompositionShape, SequenceSpec } from '../../src/types';
+import type { AudioDescriptor, CompositionShape, LayerSpec } from '../../src/types';
 import { Assets } from 'pixi.js';
 
 const SR = 44100;
@@ -17,7 +17,7 @@ async function levels(spec: Record<string, unknown>, times: number[], total = 10
   const buffer = probe.createBuffer(1, SR * total, SR);
   buffer.getChannelData(0).fill(1);
   (Assets as unknown as { get: unknown }).get = async () => ({ audioBuffer: buffer, duration: total });
-  const seq = new AudioSequence({ type: 'audio', asset: 'a', loop: true, ...spec } as unknown as SequenceSpec, comp, comp);
+  const seq = new AudioSequence({ type: 'audio', asset: 'a', loop: true, ...spec } as unknown as LayerSpec, comp, comp);
   await seq.build();
   const out: AudioDescriptor[] = [];
   seq.collectAudio(out, 0);
@@ -96,7 +96,7 @@ describe('audio layer default duration', () => {
     const probe = new OfflineAudioContext(1, SR, SR);
     const buffer = probe.createBuffer(1, SR * 0.6, SR);
     (Assets as unknown as { get: unknown }).get = async () => ({ audioBuffer: buffer, duration: 0.6 });
-    const seq = new AudioSequence({ type: 'audio', asset: 'a', ...spec } as unknown as SequenceSpec, comp, comp);
+    const seq = new AudioSequence({ type: 'audio', asset: 'a', ...spec } as unknown as LayerSpec, comp, comp);
     await seq.build();
     return seq.duration!;
   }

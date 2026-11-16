@@ -35,7 +35,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":  "../../dist/present.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
@@ -85,7 +85,7 @@
         });
       }
       return {
-        type: 'composition', name, threeD: true, width: cw, height: ch, sequences: lamps,
+        type: 'composition', name, threeD: true, width: cw, height: ch, layers: lamps,
         initial: { x: W / 2, y: H / 2, z, pivotX: cw / 2, pivotY: ch / 2 },
         keyframes: [{ at: 0, to: { x: W / 2 + drift }, duration: DURATION, ease: 'sine.inOut' }],
       };
@@ -178,7 +178,7 @@
       ]),
     ];
 
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', name: 'backdrop',
         initial: { x: 'GW/2', y: 'GH/2' },
         fillGradient: { type: 'radial', center: [0.5, 0.42], radius: 0.75, stops: [[0, INK2], [1, INK]] } },
@@ -208,7 +208,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS,
         poster: 5.0,
         background: INK,
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { lintKeys } from '../../src/core/lint';
 import { layerKeys, PROP_KEYS } from '../../src/core/layerKeys';
 import { suggestName } from '../../src/core/options';
-import type { SequenceSpec } from '../../src/types';
+import type { LayerSpec } from '../../src/types';
 
-const warns = (spec: unknown): string[] => { const out: string[] = []; lintKeys(spec as SequenceSpec, m => out.push(m)); return out; };
+const warns = (spec: unknown): string[] => { const out: string[] = []; lintKeys(spec as LayerSpec, m => out.push(m)); return out; };
 
 describe('the keys speed and time are known', () => {
   it('speed is a key of video, audio and composition layers; time is an animatable property', () => {
@@ -14,7 +14,7 @@ describe('the keys speed and time are known', () => {
   it('a correct use is silent', () => {
     expect(warns({ type: 'video', asset: 'v', speed: 0.5 })).toEqual([]);
     expect(warns({ type: 'video', asset: 'v', initial: { time: 2 }, keyframes: [{ at: 0, from: { time: 0 }, to: { time: 3 }, duration: 1 }] })).toEqual([]);
-    expect(warns({ type: 'composition', speed: -1, sequences: [] })).toEqual([]);
+    expect(warns({ type: 'composition', speed: -1, layers: [] })).toEqual([]);
     expect(warns({ type: 'audio', asset: 'a', speed: 2 })).toEqual([]);
   });
 });
@@ -31,7 +31,7 @@ describe('remap mistakes say what to write', () => {
     expect(w).toHaveLength(2);
     expect(w[0]).toMatch(/"reverse" is not a key: write speed: -1/);
     expect(w[1]).toMatch(/"timeRemap" is not a key: animate time/);
-    expect(warns({ type: 'composition', time: 3, sequences: [] })).toEqual([expect.stringMatching(/"time" belongs in initial or keyframes/)]);
+    expect(warns({ type: 'composition', time: 3, layers: [] })).toEqual([expect.stringMatching(/"time" belongs in initial or keyframes/)]);
   });
   it('speed or time on a layer that cannot be remapped', () => {
     const w = warns({ type: 'shape', shape: 'rect', width: 1, height: 1, speed: 2 });
@@ -50,7 +50,7 @@ describe('remap mistakes say what to write', () => {
     const w = warns({ type: 'video', asset: 'v', keyframes: [{ at: 0, to: { speed: 2 }, duration: 1 }] });
     expect(w).toHaveLength(1);
     expect(w[0]).toMatch(/speed is a fixed setting, not an animatable property: write it on the layer \(speed: 2\); to change the speed over time, animate time/);
-    expect(warns({ type: 'composition', initial: { speed: 2 }, sequences: [] })).toHaveLength(1);
+    expect(warns({ type: 'composition', initial: { speed: 2 }, layers: [] })).toHaveLength(1);
   });
   it('speed and time on an sfx / music point at pitch', () => {
     const w = warns({ type: 'audio', sfx: 'pop', speed: 2 });

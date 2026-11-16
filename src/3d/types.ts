@@ -1,6 +1,6 @@
 import type { Renderer } from 'pixi.js';
 import type { Camera3D, Container3D, View3D, View3DOptions } from '@pixi/3d';
-import type { SequenceCommon, PropValue, SpaceNow } from '../types';
+import type { LayerCommon, PropValue, SpaceNow } from '../types';
 
 /** Handed to setup / update / destroy. One per scene3d layer. */
 export interface Scene3DContext {
@@ -26,7 +26,7 @@ export interface Scene3DSetupResult {
   objects?: Record<string, object>;
 }
 
-export interface Scene3DSequenceSpec extends SequenceCommon {
+export interface Scene3DLayerSpec extends LayerCommon {
   type: 'scene3d';
   /** Layer size in composition px. Expressions allowed (e.g. 'W * 0.5'). Default: the parent composition's size. */
   width?: PropValue;

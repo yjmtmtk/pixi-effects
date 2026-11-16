@@ -1,8 +1,8 @@
-import type { ImageSequenceSpec, Props } from '../types';
+import type { ImageLayerSpec, Props } from '../types';
 import { warnUnknownOptions } from '../core/options';
 
 /**
- * Ken Burns preset for a single image. Returns an `ImageSequenceSpec` ready
+ * Ken Burns preset for a single image. Returns an `ImageLayerSpec` ready
  * to drop into a composition's `sequences[]`.
  *
  * Four motion modes:
@@ -84,7 +84,7 @@ interface KenBurnsPosition {
   zoom?: number;
 }
 
-export function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec {
+export function kenBurns(opts: KenBurnsOptions): ImageLayerSpec {
   warnUnknownOptions('kenBurns()', opts, KEN_BURNS_KEYS);
   const {
     asset, name, at, duration,
@@ -95,7 +95,7 @@ export function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec {
   // Keyframe `at` is sequence-local, so the motion simply starts at 0 whatever `at` is.
 
   let initial: Props;
-  let keyframes: ImageSequenceSpec['keyframes'];
+  let keyframes: ImageLayerSpec['keyframes'];
 
   if (opts.motion === 'still') {
     initial = {
@@ -210,7 +210,7 @@ export function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec {
     ];
   }
 
-  const spec: ImageSequenceSpec = {
+  const spec: ImageLayerSpec = {
     type: 'image',
     asset,
     duration,

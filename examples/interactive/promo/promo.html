@@ -30,7 +30,7 @@
       "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects": "../../../dist/index.js",
-      "pixi-effects/controller": "../../../dist/Controller.js" } }
+      "pixi-effects/controller": "../../../dist/controller.js" } }
   </script>
   <script type="module">
     import { Movie } from 'pixi-effects';
@@ -60,7 +60,7 @@
       return { type: 'composition', name: `window-${asset}`, at, duration: dur, width: W, height: H,
         initial: { x: mx, y: my, pivotX: mx, pivotY: my },
         keyframes: [{ at: 0, from: { scale: 1.2, rotation: tilt, alpha: 0 }, to: { scale: 1, rotation: 0, alpha: 1 }, duration: 0.42, ease: 'expo.out' }],
-        sequences: [
+        layers: [
           { type: 'shape', shape: 'rect', width: w + 40, height: h + 40, cornerRadius: radius + 14, initial: { x: mx, y: my + 24, fill: '#000000', alpha: 0.5 }, filters: [{ type: 'blur', strength: 28 }] },
           { type: 'video', asset, speed, audio: false, initial: { x: left - cx * scale, y: top - cy * scale, anchorX: 0, anchorY: 0, scale },
             mask: { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: radius, initial: { x: mx, y: my, fill: '#ffffff' } } },
@@ -152,7 +152,7 @@
         return [
           { type: 'composition', name: `tile-${id}`, at, duration: S.batch + 7 - at, width: W, height: H, initial: { x: cx, y: cy, pivotX: cx, pivotY: cy },
             keyframes: [{ at: 0, from: { scale: 0.3, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.35, ease: 'back.out(1.8)' }],
-            sequences: [{ type: 'video', asset: `batch-${id}`, audio: false, initial: { x: cx - w / 2, y: cy - h / 2, anchorX: 0, anchorY: 0, scale: sc },
+            layers: [{ type: 'video', asset: `batch-${id}`, audio: false, initial: { x: cx - w / 2, y: cy - h / 2, anchorX: 0, anchorY: 0, scale: sc },
               mask: { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: 16, initial: { x: cx, y: cy, fill: '#ffffff' } } }] },
           { type: 'text', text: `${id}.mp4`, at: at + 0.2, duration: S.batch + 7 - at - 0.2, style: { fontFamily: MONO, fontSize: 36, fontWeight: '700', fill: MUTED }, initial: { x: cx, y: cy + h / 2 + 34, anchorX: 0.5, anchorY: 0.5 },
             keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.3 }] },
@@ -220,7 +220,7 @@
         ...['card', 'city', 'janken', 'chords', 'ending', 'variants', 'pointer', 'batch-aiko', 'batch-ben', 'batch-chloe', 'batch-dev', 'batch-emi', 'batch-finn'].map(id => ({ name: id, src: `clips/${id}.mp4` })),
         ...['janken', 'scroll-city', 'chords', 'card', 'ending', 'variants', 'sliders', 'pointer', 'liquid'].map(id => ({ name: `poster-${id}`, src: `../posters/${id}.jpg` })),
       ],
-      composition: { sequences: layers },
+      composition: { layers: layers },
     });
     new Controller(movie, { canvas });
     window.__ready = true;

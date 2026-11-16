@@ -13,7 +13,7 @@ If you are an AI agent in a browser that offers WebMCP tools (`document.modelCon
 
 ## The idea
 
-A video is **data**: a list of layers in `sequences`. Each layer has `type`, a start `at` and a `duration` (seconds), `initial` values and `keyframes`. Repeated structure is a JS loop or function that returns layers. There is no per-frame code and no `Math.random()`.
+A video is **data**: a list of layers in `layers`. Each layer has `type`, a start `at` and a `duration` (seconds), `initial` values and `keyframes`. Repeated structure is a JS loop or function that returns layers. There is no per-frame code and no `Math.random()`.
 
 ```js
 // @chat-example
@@ -21,7 +21,7 @@ const W = 1280, H = 720, FPS = 30, DURATION = 8;
 const BACKGROUND = '#f3eee4';
 const INK = '#2b2118', ACCENT = '#c0583a';
 
-const sequences = [
+const layers = [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: BACKGROUND } },
   {
     type: 'text', text: 'Rye & Sons', name: 'title', at: 0.4, duration: DURATION - 0.4,
@@ -59,7 +59,7 @@ That is a complete, working video (the block between the two markers). Change th
 - **Text:** `style` is a PixiJS text style (`fontSize fontFamily fontWeight fill letterSpacing align wordWrap wordWrapWidth lineHeight`). Use fonts that exist everywhere (`Georgia, serif`, `Arial, sans-serif`, `ui-monospace, monospace`); this page loads no web fonts. Estimate a text's width at about 0.6 × `fontSize` per character, keep important text 5 % away from the edges, and keep the bottom 60 px free (the player bar covers it in the preview, not in the file).
 - **Scenes.** Stack layers with `at` / `duration` over an opaque background rect. Do not remove layers.
 - **Sound with no files:** `{ type: 'audio', sfx: 'swoosh', at: 2 }`. Presets: `click pop swoosh swipe hit riser chime beep coin glitch typewriter`; to change one: `sfx: { preset: 'chime', pitch: 7 }` (`pitch` in semitones, `brightness` −1 … 1; inside `sfx`, never beside it). A `riser` is loudest at its **end**: start it `duration` seconds before the hit. This page cannot load music or images from your own files; use shapes, text, sfx and `music` (below).
-- **Repeat with code, never by copying:** `Array.from({ length: 12 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 20, at: i * 0.15, duration: DURATION - i * 0.15, initial: { x: 120 + i * 90, y: 360, fill: '#ffd166' }, keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2)' }] }))` returns twelve layers: spread them into `sequences` with `...`.
+- **Repeat with code, never by copying:** `Array.from({ length: 12 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 20, at: i * 0.15, duration: DURATION - i * 0.15, initial: { x: 120 + i * 90, y: 360, fill: '#ffd166' }, keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2)' }] }))` returns twelve layers: spread them into `layers` with `...`.
 - **Helpers already imported** in the template: `kenBurns` (slow zoom for an image layer), `withFade`, `wiggle` (seeded shake as keyframes), `stagger`, `animateText` (per letter / word entrances), `followPath`, `particles` (seeded confetti / snow / sparks as layers), `deck` (slides). Each returns keyframes or layers: `keyframes: wiggle(...)`, `...particles(...)`. The full signatures are in `https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/skills/pixi-effects/reference/cheatsheet.md` (22 KB; read it only if you need a helper).
 - **Advanced:** `const INIT = { assets: [...], composition: { transitions: [...] } }` in the edit block adds `movie.init` options (the page merges it); most videos need nothing here.
 - **Not available on this page:** named filters beyond `blur`, `noise`, `alpha`, `colorMatrix`, `grain` (the other 38 need the `pixi-filters` package; film grain is `{ type: 'grain' }`), your own image / video / music files. Say so rather than guessing.
@@ -73,7 +73,7 @@ Write the tune as text: an audio layer with `music`. Tracks of notes and chords,
 const W = 1280, H = 720, FPS = 30, DURATION = 22;
 const BACKGROUND = '#0e1a2b';
 
-const sequences = [
+const layers = [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: BACKGROUND } },
   {
     type: 'text', text: 'Snowfall', name: 'title', at: 1, duration: DURATION - 1,

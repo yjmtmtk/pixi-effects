@@ -30,12 +30,12 @@
     window.pixelAt = async (frame, x, y) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (y * img.width + x) * 4; return Array.from(img.data.slice(i, i + 4)); };
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 1, frameRate: 30, background: '#4080c0',
-        composition: { sequences: [
+        composition: { layers: [
           s3d(40, 'masked', { mask: circle(40) }),
           s3d(120, 'masked-blurred', { mask: circle(120), filters: [{ type: 'blur', strength: 1 }] }),
-          { type: 'composition', name: 'filtered-parent', width: 320, height: 180, filters: [{ type: 'blur', strength: 0.5 }], sequences: [s3d(200, 'masked-in-filter', { mask: circle(200) })] },
+          { type: 'composition', name: 'filtered-parent', width: 320, height: 180, filters: [{ type: 'blur', strength: 0.5 }], layers: [s3d(200, 'masked-in-filter', { mask: circle(200) })] },
           { type: 'composition', name: 'card', threeD: true, width: 70, height: 70, initial: { x: 245, y: 55, rotationY: 20 },
-            sequences: [s3d(35, 'in-card', { initial: { x: 35, y: 35, anchorX: 0.5, anchorY: 0.5 } })] },
+            layers: [s3d(35, 'in-card', { initial: { x: 35, y: 35, anchorX: 0.5, anchorY: 0.5 } })] },
           { type: 'camera' },
         ] } });
       window.__ready = true;

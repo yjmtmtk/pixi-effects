@@ -5,7 +5,7 @@ import { buildScope } from '../expr/Scope';
 import { describeLayer } from '../core/lint';
 import { suggestName } from '../core/options';
 import type { PathRouters } from '../core/Timeline';
-import type { CanvasInfo, CanvasSequenceSpec, PropValue } from '../types';
+import type { CanvasInfo, CanvasLayerSpec, PropValue } from '../types';
 import { NOT_PURE } from '../core/purity';
 
 /** What the determinism check found: the moments whose two pictures differ (channel values that differ, the largest difference out of 255; -1 when only a hash was compared) and the usual time of one draw. */
@@ -50,7 +50,7 @@ export class CanvasSequence extends Sequence {
   private layerH = 1;
   private seed = 0;
   private smoothing = true;
-  private drawFn: CanvasSequenceSpec['draw'] | null = null;
+  private drawFn: CanvasLayerSpec['draw'] | null = null;
   private state: unknown;
   /** The current value of every param: what keyframes move (`params.amount`). */
   private carrier: Record<string, number> = {};
@@ -60,7 +60,7 @@ export class CanvasSequence extends Sequence {
   private lastKey = '';
   private lastLocal = 0;
 
-  private get canvasSpec(): CanvasSequenceSpec { return this.spec as unknown as CanvasSequenceSpec; }
+  private get canvasSpec(): CanvasLayerSpec { return this.spec as unknown as CanvasLayerSpec; }
 
   protected override pathRouters(): PathRouters {
     return { params: (path) => this.resolveParam(path) };

@@ -58,12 +58,12 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#000000',
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'shape', shape: 'rect', name: 'tie', width: 20, height: 20,
             initial: { x: 40, y: 40, fill: '#ff0000' },
             keyframes: REVERSE ? [B, A] : [A, B] },
           { type: 'composition', name: 'clock', width: 320, height: 180, at: COMP_AT, duration: 2, speed: SPEED,
-            sequences: [
+            layers: [
               { type: 'shape', shape: 'rect', name: 'life', at: 1, duration: 1, width: 40, height: 40,
                 initial: { x: 60, y: 130, fill: '#00ff00' },
                 keyframes: [{ at: 0, to: { x: 260 }, duration: 1, ease: 'none' }] },

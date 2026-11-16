@@ -1,6 +1,6 @@
 import type {
-  SequenceCommon, VideoSequenceSpec, ImageSequenceSpec, TextSequenceSpec, AudioAssetSpec, AudioSfxSpec, AudioMusicSpec,
-  CompositionSequenceSpec, CameraSequenceSpec, LightSequenceSpec, ShaderSequenceSpec, CanvasSequenceSpec, Scene2DSequenceSpec, NullSequenceSpec, SequenceSpec,
+  LayerCommon, VideoLayerSpec, ImageLayerSpec, TextLayerSpec, AudioAssetSpec, AudioSfxSpec, AudioMusicSpec,
+  CompositionLayerSpec, CameraLayerSpec, LightLayerSpec, ShaderLayerSpec, CanvasLayerSpec, Scene2DLayerSpec, NullLayerSpec, LayerSpec,
   RectShapeSpec, CircleShapeSpec, EllipseShapeSpec, ArcShapeSpec, LineShapeSpec, PolygonShapeSpec, PathShapeSpec,
 } from '../types';
 
@@ -13,19 +13,19 @@ type KeysOfUnion<T> = T extends unknown ? keyof T : never;
 type Covers<T, K extends readonly string[]> = [Exclude<KeysOfUnion<T>, K[number]>] extends [never] ? true : { missing: Exclude<KeysOfUnion<T>, K[number]> };
 type Assert<T extends true> = T;
 
-export const COMMON = ['type', 'name', 'parent', 'follow', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
+export const COMMON = ['type', 'name', 'parent', 'follow', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const satisfies readonly KeysOfUnion<LayerCommon | { type: string }>[];
 
-const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume', 'speed', 'anchorX', 'anchorY'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
-const IMAGE = [...COMMON, 'asset', 'colorSpace', 'scaleMode', 'anchorX', 'anchorY'] as const satisfies readonly KeysOfUnion<ImageSequenceSpec>[];
-const TEXT = [...COMMON, 'text', 'spans', 'format', 'resolution', 'style', 'colorSpace', 'fillGradient', 'anchorX', 'anchorY'] as const satisfies readonly KeysOfUnion<TextSequenceSpec>[];
+const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume', 'speed', 'anchorX', 'anchorY'] as const satisfies readonly KeysOfUnion<VideoLayerSpec>[];
+const IMAGE = [...COMMON, 'asset', 'colorSpace', 'scaleMode', 'anchorX', 'anchorY'] as const satisfies readonly KeysOfUnion<ImageLayerSpec>[];
+const TEXT = [...COMMON, 'text', 'spans', 'format', 'resolution', 'style', 'colorSpace', 'fillGradient', 'anchorX', 'anchorY'] as const satisfies readonly KeysOfUnion<TextLayerSpec>[];
 const AUDIO = [...COMMON, 'volume', 'asset', 'loop', 'sfx', 'music', 'speed'] as const satisfies readonly KeysOfUnion<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec>[];
-const COMPOSITION = [...COMMON, 'width', 'height', 'sequences', 'transitions', 'speed', 'clip', 'use', 'params', 'frameRate', 'loop', 'markers'] as const satisfies readonly KeysOfUnion<CompositionSequenceSpec>[];
-const CAMERA = [...COMMON] as const satisfies readonly KeysOfUnion<CameraSequenceSpec>[];
-const LIGHT = [...COMMON, 'kind', 'falloff'] as const satisfies readonly KeysOfUnion<LightSequenceSpec>[];
-const SHADER = [...COMMON, 'fragment', 'uniforms', 'width', 'height', 'resolution', 'transparent'] as const satisfies readonly KeysOfUnion<ShaderSequenceSpec>[];
-const CANVAS = [...COMMON, 'draw', 'setup', 'width', 'height', 'resolution', 'params', 'seed', 'scaleMode'] as const satisfies readonly KeysOfUnion<CanvasSequenceSpec>[];
-const SCENE2D = [...COMMON, 'setup', 'update', 'destroy', 'width', 'height', 'reuse'] as const satisfies readonly KeysOfUnion<Scene2DSequenceSpec>[];
-const NULL = [...COMMON] as const satisfies readonly KeysOfUnion<NullSequenceSpec>[];
+const COMPOSITION = [...COMMON, 'width', 'height', 'layers', 'transitions', 'speed', 'clip', 'use', 'params', 'frameRate', 'loop', 'markers'] as const satisfies readonly KeysOfUnion<CompositionLayerSpec>[];
+const CAMERA = [...COMMON] as const satisfies readonly KeysOfUnion<CameraLayerSpec>[];
+const LIGHT = [...COMMON, 'kind', 'falloff'] as const satisfies readonly KeysOfUnion<LightLayerSpec>[];
+const SHADER = [...COMMON, 'fragment', 'uniforms', 'width', 'height', 'resolution', 'transparent'] as const satisfies readonly KeysOfUnion<ShaderLayerSpec>[];
+const CANVAS = [...COMMON, 'draw', 'setup', 'width', 'height', 'resolution', 'params', 'seed', 'scaleMode'] as const satisfies readonly KeysOfUnion<CanvasLayerSpec>[];
+const SCENE2D = [...COMMON, 'setup', 'update', 'destroy', 'width', 'height', 'reuse'] as const satisfies readonly KeysOfUnion<Scene2DLayerSpec>[];
+const NULL = [...COMMON] as const satisfies readonly KeysOfUnion<NullLayerSpec>[];
 
 const SHAPE = [...COMMON, 'shape', 'fillGradient', 'colorSpace', 'strokeCap', 'strokeJoin'] as const;
 const TRIM = ['trimStart', 'trimEnd', 'trimEach'] as const;
@@ -39,9 +39,9 @@ const PATH = [...SHAPE, ...TRIM, 'd', 'fillRule', 'morphTo', 'morph', 'morphPoin
 
 /** The compiler checks every table covers its type (this type is never used: it exists to fail the build). */
 export type __Covered = [
-  Assert<Covers<VideoSequenceSpec, typeof VIDEO>>, Assert<Covers<ImageSequenceSpec, typeof IMAGE>>, Assert<Covers<TextSequenceSpec, typeof TEXT>>,
-  Assert<Covers<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec, typeof AUDIO>>, Assert<Covers<CompositionSequenceSpec, typeof COMPOSITION>>,
-  Assert<Covers<CameraSequenceSpec, typeof CAMERA>>, Assert<Covers<LightSequenceSpec, typeof LIGHT>>, Assert<Covers<ShaderSequenceSpec, typeof SHADER>>, Assert<Covers<CanvasSequenceSpec, typeof CANVAS>>, Assert<Covers<Scene2DSequenceSpec, typeof SCENE2D>>, Assert<Covers<NullSequenceSpec, typeof NULL>>,
+  Assert<Covers<VideoLayerSpec, typeof VIDEO>>, Assert<Covers<ImageLayerSpec, typeof IMAGE>>, Assert<Covers<TextLayerSpec, typeof TEXT>>,
+  Assert<Covers<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec, typeof AUDIO>>, Assert<Covers<CompositionLayerSpec, typeof COMPOSITION>>,
+  Assert<Covers<CameraLayerSpec, typeof CAMERA>>, Assert<Covers<LightLayerSpec, typeof LIGHT>>, Assert<Covers<ShaderLayerSpec, typeof SHADER>>, Assert<Covers<CanvasLayerSpec, typeof CANVAS>>, Assert<Covers<Scene2DLayerSpec, typeof SCENE2D>>, Assert<Covers<NullLayerSpec, typeof NULL>>,
   Assert<Covers<RectShapeSpec, typeof RECT>>, Assert<Covers<CircleShapeSpec, typeof CIRCLE>>, Assert<Covers<EllipseShapeSpec, typeof ELLIPSE>>,
   Assert<Covers<ArcShapeSpec, typeof ARC>>, Assert<Covers<LineShapeSpec, typeof LINE>>, Assert<Covers<PolygonShapeSpec, typeof POLYGON>>,
   Assert<Covers<PathShapeSpec, typeof PATH>>,
@@ -111,4 +111,4 @@ export const STYLE_KEYS: readonly string[] = [
   'align', 'wordWrap', 'wordWrapWidth', 'breakWords', 'whiteSpace', 'padding', 'textBaseline', 'trim', 'lineJoin', 'miterLimit', 'filters', 'tagStyles',
 ];
 
-export type { SequenceSpec };
+export type { LayerSpec };

@@ -44,7 +44,7 @@
     const lit = LIGHTS.length > 0 || !!shadow;
     const material = (c) => lit ? new P3D.PhongMaterial({ baseColor: c, specularStrength: 0, doubleSided: true }) : new P3D.FlatMaterial({ baseColor: c });
     const plane = (root, o) => { const m = new P3D.Mesh3D({ geometry: new P3D.PlaneGeometry({ width: o.w, height: o.h }), material: material(o.c) }); m.position.set(o.x, -o.y, o.z); root.addChild(m); return m; };
-    const sequences = shadow ? [
+    const layers = shadow ? [
       { type: 'light', kind: 'ambient', initial: { intensity: 0.3 } },
       shadow === 'parallel'
         ? { type: 'light', kind: 'parallel', castsShadows: q.get('noshadow') !== '1', initial: { x: s(300), y: s(80), z: s(700), lookAtX: s(480), lookAtY: s(270), lookAtZ: 0, intensity: 1 } }
@@ -56,16 +56,16 @@
     if (shadow) {
       const WALL = { x: s(480), y: s(270), z: s(-GAP), w: s(880), h: s(480), c: '#3a6ea5' }, CARD = { x: s(440), y: s(270), z: 0, w: s(200), h: s(200), c: '#d96a3a' };
       if (mode === 'board') {
-        sequences.push({ type: 'shape', shape: 'rect', width: WALL.w, height: WALL.h, threeD: true, initial: { x: WALL.x, y: WALL.y, z: WALL.z, anchorX: 0.5, anchorY: 0.5, fill: WALL.c } });
-        sequences.push({ type: 'shape', shape: 'rect', width: CARD.w, height: CARD.h, threeD: true, castsShadows: q.get('noshadow') !== '1', initial: { x: CARD.x, y: CARD.y, z: CARD.z, anchorX: 0.5, anchorY: 0.5, fill: CARD.c } });
+        layers.push({ type: 'shape', shape: 'rect', width: WALL.w, height: WALL.h, threeD: true, initial: { x: WALL.x, y: WALL.y, z: WALL.z, anchorX: 0.5, anchorY: 0.5, fill: WALL.c } });
+        layers.push({ type: 'shape', shape: 'rect', width: CARD.w, height: CARD.h, threeD: true, castsShadows: q.get('noshadow') !== '1', initial: { x: CARD.x, y: CARD.y, z: CARD.z, anchorX: 0.5, anchorY: 0.5, fill: CARD.c } });
       } else {
-        sequences.push({ type: 'scene3d', name: 'world', followCamera: true, followLights: true,
+        layers.push({ type: 'scene3d', name: 'world', followCamera: true, followLights: true,
           setup: ({ root }) => { const w = plane(root, WALL); w.castShadow = false; w.receiveShadow = true; const c = plane(root, CARD); c.castShadow = true; c.receiveShadow = false; } });
       }
     } else if (mode === 'board') {
-      for (const b of BOXES) sequences.push({ type: 'shape', shape: 'rect', width: s(200), height: s(200), threeD: true, initial: { x: s(b.x), y: s(b.y), z: s(b.z), anchorX: 0.5, anchorY: 0.5, fill: b.c } });
+      for (const b of BOXES) layers.push({ type: 'shape', shape: 'rect', width: s(200), height: s(200), threeD: true, initial: { x: s(b.x), y: s(b.y), z: s(b.z), anchorX: 0.5, anchorY: 0.5, fill: b.c } });
     } else {
-      sequences.push({ type: 'scene3d', name: 'world', followCamera: true, followLights: true, followFog: true, ...(q.get('aspect') === '1' ? { width: W, height: W } : {}),
+      layers.push({ type: 'scene3d', name: 'world', followCamera: true, followLights: true, followFog: true, ...(q.get('aspect') === '1' ? { width: W, height: W } : {}),
         setup: ({ root }) => {
           for (const b of BOXES) plane(root, { x: s(b.x), y: s(b.y), z: s(b.z), w: s(200), h: s(200), c: b.c });
           if (q.get('ownLight') === '1') { const own = new P3D.AmbientLight({ intensity: 2 }); root.addChild(own); }
@@ -77,7 +77,7 @@
     window.pixelAt = async (frame, x, y) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (y * img.width + x) * 4; return Array.from(img.data.slice(i, i + 4)); };
     window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: DUR, frameRate: 30, background: '#101820', composition: { sequences } });
+      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: DUR, frameRate: 30, background: '#101820', composition: { layers } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
   </script>

@@ -25,7 +25,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 640, height: 360, duration: 3, frameRate: 30, background: '#000000',
-        composition: { sequences: Array.from({ length: 8 }, (_, i) => ({
+        composition: { layers: Array.from({ length: 8 }, (_, i) => ({
           type: 'shape', shape: 'rect', width: 40, height: 40, name: 'box' + i,
           initial: { x: `40 + rand(${seed * 100 + i}) * 560`, y: `40 + rand(${seed * 100 + i + 50}) * 280`, fill: '#ffffff' },
           keyframes: wiggle({ duration: 3, freq: 4, seed: seed * 100 + i, props: { x: { around: 320, amp: 200 }, rotation: { around: 0, amp: 30 } } }),

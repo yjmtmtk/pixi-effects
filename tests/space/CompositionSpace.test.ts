@@ -8,7 +8,7 @@ import { registerSequenceType } from '../../src/core/Composition';
 import type { SpaceHost } from '../../src/space/Layer3D';
 import { blurRadius } from '../../src/space/focus';
 import { homeDistance } from '../../src/space/math';
-import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import type { CompositionLayerSpec, CompositionShape } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 class Box extends Sequence {
@@ -22,8 +22,8 @@ registerSequenceType('__box', Box as never);
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
 
-async function build(sequences: unknown[], width = 1280, height = 720) {
-  const spec = { type: 'composition', width, height, duration: 10, sequences } as unknown as CompositionSequenceSpec;
+async function build(layers: unknown[], width = 1280, height = 720) {
+  const spec = { type: 'composition', width, height, duration: 10, layers } as unknown as CompositionLayerSpec;
   const comp = new CompositionSequence(spec, root, root);
   await comp.build();
   comp.bindTimeline(createTimeline({ paused: true }));
@@ -145,7 +145,7 @@ describe('CompositionSequence — threeD layers', () => {
     const comp = await build([
       {
         type: 'composition', width: 400, height: 300, threeD: true,
-        sequences: [{ type: '__box', threeD: true }],
+        layers: [{ type: '__box', threeD: true }],
       },
     ]);
     const { render, host } = mkHost();
@@ -352,7 +352,7 @@ describe('CompositionSequence — depth of field', () => {
   it('a nested threeD composition is blurred as one layer by its parent\'s camera', async () => {
     const comp = await build([
       { type: 'camera', initial: { focus: 0, aperture: 60 } },
-      { type: 'composition', name: 'card', width: 200, height: 100, duration: 10, threeD: true, initial: { z: -400 }, sequences: [{ type: '__box', threeD: true }] },
+      { type: 'composition', name: 'card', width: 200, height: 100, duration: 10, threeD: true, initial: { z: -400 }, layers: [{ type: '__box', threeD: true }] },
     ]);
     comp.updateSpace(0, mkHost().host);
     expect(filters(comp, 0)).toHaveLength(1);

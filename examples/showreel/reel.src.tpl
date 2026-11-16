@@ -47,7 +47,7 @@
     /*@@INLINE@@*/
 
     const W = 1920, H = 1080, FPS = 30;
-    const countLayers = (seqs) => (seqs || []).reduce((n, s) => n + 1 + countLayers(s.sequences), 0);
+    const countLayers = (seqs) => (seqs || []).reduce((n, s) => n + 1 + countLayers(s.layers), 0);
 
     // Lay the chapters end to end: each starts OVERLAP seconds before the one before it ends, and the transition between them runs in that overlap.
     function assemble(facts) {
@@ -60,25 +60,25 @@
         const c = CH[row.id](P);
         if (c.duration !== row.duration) console.warn(`reel: chapter ${row.id} lasts ${c.duration} s but chapters.json promises ${row.duration} s`);
         const at = plan.chapters[i].at;
-        sequences.push({ type: 'composition', name: row.id, at, duration: c.duration, width: W, height: H, sequences: c.sequences });
+        sequences.push({ type: 'composition', name: row.id, at, duration: c.duration, width: W, height: H, layers: c.layers });
         for (const a of c.assets ?? []) assets.push(a);
         if (i > 0 && TABLE.transitions[row.id]) transitions.push({ ...TABLE.transitions[row.id], from: TABLE.chapters[i - 1].id, to: row.id, at, duration: TABLE.overlap });
       });
-      return { sequences: [...sequences, ...audio], transitions, assets, total: plan.total, plan: plan.chapters };
+      return { layers: [...sequences, ...audio], transitions, assets, total: plan.total, plan: plan.chapters };
     }
 
     try {
       // pass 1 counts the reel's own data; pass 2 builds the chapters again knowing the numbers (the last chapter shows them)
       const first = assemble({ kb: 0, layers: 0, lineCount: 0, lines: [] });
-      const lines = JSON.stringify(first.sequences, null, 2).split('\n');
-      const facts = { kb: @@KB@@, layers: countLayers(first.sequences), lineCount: lines.length, lines };
+      const lines = JSON.stringify(first.layers, null, 2).split('\n');
+      const facts = { kb: @@KB@@, layers: countLayers(first.layers), lineCount: lines.length, lines };
       const reel = assemble(facts);
       const movie = new lib.Movie();
       window.movie = movie;
       new Controller(movie, { canvas: document.getElementById('stage') });
       await movie.init({
         canvas: document.getElementById('stage'), width: W, height: H, frameRate: FPS, duration: reel.total, background: '#000000',
-        assets: reel.assets, poster: TABLE.poster ?? reel.total * 0.5, composition: { sequences: reel.sequences, transitions: reel.transitions },
+        assets: reel.assets, poster: TABLE.poster ?? reel.total * 0.5, composition: { layers: reel.layers, transitions: reel.transitions },
       });
       window.reelPlan = reel.plan;
       window.__ready = true;

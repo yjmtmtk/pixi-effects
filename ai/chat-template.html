@@ -87,7 +87,7 @@
 
     // The video is DATA: a list of layers. Repeated structure = a JS loop or function that returns layers.
     // Keyframe `at` counts from the START OF ITS OWN LAYER. Angles are degrees. Numbers can be expressions: 'GW/2', 'GH - 80'.
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: BACKGROUND } },
       {
         type: 'text', text: 'Hello', at: 0.5, duration: DURATION - 0.5,
@@ -113,7 +113,7 @@
         poster: POSTER,
         background: BACKGROUND,
         ...EXTRA,
-        composition: { sequences, ...(EXTRA.composition || {}) },
+        composition: { layers, ...(EXTRA.composition || {}) },
       });
       window.__ready = true;
     } catch (e) {

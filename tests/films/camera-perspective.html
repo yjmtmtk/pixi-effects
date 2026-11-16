@@ -21,9 +21,9 @@
     const fov = q.has('fov') ? Number(q.get('fov')) : 40;
     const camZ = (360 / 2) / Math.tan(fov / 2 * Math.PI / 180);          // docs/dsl.md, Camera: z defaults to (H/2) / tan(fov/2)
     const z = q.get('z') === 'cam' ? camZ : q.has('z') ? Number(q.get('z')) : 0;
-    const sequences = [];
-    if (q.has('fov')) sequences.push({ type: 'camera', name: 'cam', initial: { fov } });
-    sequences.push({ type: 'shape', shape: 'rect', name: 'card', width: 200, height: 100, threeD: true,
+    const layers = [];
+    if (q.has('fov')) layers.push({ type: 'camera', name: 'cam', initial: { fov } });
+    layers.push({ type: 'shape', shape: 'rect', name: 'card', width: 200, height: 100, threeD: true,
       ...(q.get('hideBehindCamera') === '1' ? { hideBehindCamera: true } : {}),
       initial: { x: 320, y: 180, z, fill: '#ffffff' } });
     const movie = new Movie();
@@ -31,7 +31,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000',
-        composition: { sequences },
+        composition: { layers },
       });
       let img = null;
       window.shot = async (frame) => { img = await movie.snapshot(frame, { as: 'imageData' }); window.__size = [img.width, img.height]; return true; };

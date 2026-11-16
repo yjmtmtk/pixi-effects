@@ -39,7 +39,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":  "../../dist/present.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
@@ -247,7 +247,7 @@
       ...soak(`${name}Ink`, 0, 1.4, 6),
     });
 
-    const sequences = [
+    const layers = [
       { type: 'image', asset: 'paper', name: 'paper', initial: { x: 0, y: 0 } },
 
       { type: 'image', asset: 'hills', name: 'hills', at: T.hills, duration: DURATION - T.hills,
@@ -313,7 +313,7 @@
           { name: 'paper', src: paper() }, { name: 'stroke', src: brushStroke() }, { name: 'hills', src: hills() },
           { name: 'mist', src: mist() }, { name: 'goose', src: goose() },
         ],
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

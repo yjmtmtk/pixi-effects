@@ -10,7 +10,7 @@ import { tweenColor } from '../expr/colorTween';
 import { describeLayer } from '../core/lint';
 import { STYLE_OPAQUE_KEYS, TEXT_STYLE_DEFAULTS } from '../text/styleKeys';
 import type { ColorInput } from '../expr/colorInterp';
-import type { TextSequenceSpec, Keyframe, Props, GradientSpec } from '../types';
+import type { TextLayerSpec, Keyframe, Props, GradientSpec } from '../types';
 import type { Timeline } from '../core/timelineEngine';
 
 
@@ -41,7 +41,7 @@ function formatTime(v: number, pattern: string, warned: Set<string>): string | n
   }
 }
 
-function formatValue(v: number, f: TextSequenceSpec['format'], warned: Set<string> = new Set()): string {
+function formatValue(v: number, f: TextLayerSpec['format'], warned: Set<string> = new Set()): string {
   if (f?.time !== undefined) { const t = formatTime(v, String(f.time), warned); if (t !== null) return t; }
   const fixed = v.toFixed(Math.max(0, Math.floor(f?.decimals ?? 0)));
   const pad = Math.max(0, Math.floor(f?.pad ?? 0));
@@ -55,7 +55,7 @@ function formatValue(v: number, f: TextSequenceSpec['format'], warned: Set<strin
 }
 
 export class TextSequence extends Sequence {
-  declare spec: TextSequenceSpec;
+  declare spec: TextLayerSpec;
   /** `value`: the number for the `{value}` placeholder; `visibleChars`: how many characters show (typewriter). Both tweened by keyframes. */
   private _counters: CounterState = { value: 0, visibleChars: 0 };
   /** The string now on the layer (before `{value}` / `visibleChars`): `text`, or the last `set: { text }`. */
@@ -191,20 +191,20 @@ export class TextSequence extends Sequence {
 // behaviour.
 function runSuperWithStrippedSpec(
   inst: TextSequence,
-  strippedSpec: TextSequenceSpec,
+  strippedSpec: TextLayerSpec,
   timeline: Timeline,
   offset: number,
 ): void {
   const originalSpec = inst.spec;
-  (inst as unknown as { spec: TextSequenceSpec }).spec = strippedSpec;
+  (inst as unknown as { spec: TextLayerSpec }).spec = strippedSpec;
   try {
     Sequence.prototype.bindTimeline.call(inst, timeline, offset);
   } finally {
-    (inst as unknown as { spec: TextSequenceSpec }).spec = originalSpec;
+    (inst as unknown as { spec: TextLayerSpec }).spec = originalSpec;
   }
 }
 
-function stripKeys(spec: TextSequenceSpec, keys: string[]): TextSequenceSpec {
+function stripKeys(spec: TextLayerSpec, keys: string[]): TextLayerSpec {
   return {
     ...spec,
     initial: stripProps(spec.initial, keys),

@@ -7,7 +7,7 @@ import { suggestName } from '../core/options';
 import { normalizeProps } from '../expr/normalizeProps';
 import { STYLE_OPAQUE_KEYS, TEXT_STYLE_DEFAULTS } from './styleKeys';
 import { describeLayer } from '../core/lint';
-import type { SequenceSpec, TextSequenceSpec } from '../types';
+import type { LayerSpec, TextLayerSpec } from '../types';
 export type { TextSpan } from '../types';
 
 type Warn = (message: string) => void;
@@ -138,9 +138,9 @@ const NOT_FOR_A_GROUP = ['fill', 'text', 'value', 'fillGradient'];
  * picture keys move to it; `anchorX` / `anchorY` become its pivot. Pieces are named `<name>.0`, `<name>.1` … and a typewriter (`visibleChars`) is
  * remembered in `spansMeta` for the sequence that counts over the pieces.
  */
-export function expandSpans(spec: TextSequenceSpec, warn: Warn = defaultWarn, scope?: Record<string, number>): SequenceSpec {
-  const who = describeLayer(spec as SequenceSpec);
-  const s = spec as unknown as Record<string, unknown> & TextSequenceSpec;
+export function expandSpans(spec: TextLayerSpec, warn: Warn = defaultWarn, scope?: Record<string, number>): LayerSpec {
+  const who = describeLayer(spec as LayerSpec);
+  const s = spec as unknown as Record<string, unknown> & TextLayerSpec;
   if (s.text !== undefined) warn(`pixi-effects: ${who}: "text" is ignored when the layer has spans: write the text as spans`);
   const style = resolveSpansStyle((s.style ?? {}) as Record<string, unknown>, scope, who, warn);
   // pieces are single lines placed by the author's `\n`: wrapping and extra leading would make a piece taller than the line it is placed on
@@ -181,7 +181,7 @@ export function expandSpans(spec: TextSequenceSpec, warn: Warn = defaultWarn, sc
   }));
   const rest: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(s)) if (!TEXT_ONLY.includes(k)) rest[k] = v;
-  const group = { type: 'composition', ...rest, width, height, initial, keyframes, sequences } as unknown as SequenceSpec;
+  const group = { type: 'composition', ...rest, width, height, initial, keyframes, layers: sequences } as unknown as LayerSpec;
   spansMeta.set(group, { typed, pieces: drawn.map(p => ({ start: p.start, length: p.length })), preview: layout.pieces.map((p, i) => (i > 0 && p.line !== layout.pieces[i - 1]!.line ? ' ' : '') + p.text).join('') });
   return group;
 }

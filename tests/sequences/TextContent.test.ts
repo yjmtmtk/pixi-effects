@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { TextSequence } from '../../src/sequences/Text';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
-const make = (spec: unknown) => new TextSequence({ type: 'text', ...(spec as object) } as SequenceSpec, comp, comp);
+const make = (spec: unknown) => new TextSequence({ type: 'text', ...(spec as object) } as LayerSpec, comp, comp);
 const textOf = (s: TextSequence) => (s.target as unknown as { text: string }).text;
 async function bound(spec: unknown) {
   const s = make(spec);

@@ -82,8 +82,8 @@
       "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
     },
     "./controller": {
-      "import": { "types": "./dist/Controller.d.ts", "default": "./dist/Controller.js" },
-      "require": { "types": "./dist/Controller.d.cts", "default": "./dist/Controller.cjs" }
+      "import": { "types": "./dist/controller.d.ts", "default": "./dist/controller.js" },
+      "require": { "types": "./dist/controller.d.cts", "default": "./dist/controller.cjs" }
     }
   },
   "main": "./dist/index.cjs",
@@ -2969,7 +2969,7 @@ npm run typecheck
 npm run build
 ```
 
-`npm run build` should produce `dist/index.js`, `dist/index.cjs`, `dist/index.d.ts`, `dist/index.d.cts`, `dist/Controller.js`, etc.
+`npm run build` should produce `dist/index.js`, `dist/index.cjs`, `dist/index.d.ts`, `dist/index.d.cts`, `dist/controller.js`, etc.
 
 - [ ] **Step 3: Inspect dist contents**
 
@@ -3018,7 +3018,7 @@ esm.sh / unpkg won't apply here (we're loading via local `npx serve`). The brows
 ```html
 <script type="module">
   import { Movie } from '../dist/index.js';
-  import { Controller } from '../dist/Controller.js';
+  import { Controller } from '../dist/controller.js';
 </script>
 ```
 
@@ -3082,7 +3082,7 @@ npm pack --dry-run
 
 Expected output lists only:
 - `dist/index.js`, `dist/index.cjs`, `dist/index.d.ts`, `dist/index.d.cts` (+ `.map` files)
-- `dist/Controller.js`, `dist/Controller.cjs`, `dist/Controller.d.ts`, `dist/Controller.d.cts` (+ `.map` files)
+- `dist/controller.js`, `dist/controller.cjs`, `dist/controller.d.ts`, `dist/controller.d.cts` (+ `.map` files)
 - `README.md`, `LICENSE`, `package.json`
 
 NO `src/`, `tests/`, `examples/`, `docs/`.

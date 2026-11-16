@@ -8,7 +8,7 @@ import { TextSequence } from '../../src/sequences/Text';
 import { ShapeSequence } from '../../src/sequences/Shape';
 import { ImageSequence } from '../../src/sequences/Image';
 import { CompositionSequence } from '../../src/sequences/Composition';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
@@ -34,7 +34,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
         { at: 0, to: { alpha: 0.5 }, duration: 1 },
         { at: 0, to: { fill: '#ff0000' }, duration: 1 },
       ],
-    } as unknown as SequenceSpec, shape, shape);
+    } as unknown as LayerSpec, shape, shape);
     await t.build();
     const tl = createTimeline({ paused: true });
     t.bindTimeline(tl, 0);
@@ -47,7 +47,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
     const t = new TextSequence({
       type: 'text', text: 'a', at: 2, duration: 3,
       keyframes: [{ at: -1, to: { y: 5 }, duration: 1 }],
-    } as unknown as SequenceSpec, shape, shape);
+    } as unknown as LayerSpec, shape, shape);
     await t.build();
     const tl = createTimeline({ paused: true });
     t.bindTimeline(tl, 0);
@@ -61,7 +61,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
         { at: 0.5, to: { alpha: 0.5 }, duration: 1 },
         { at: 0.5, to: { fill: '#ff0000' }, duration: 1 },
       ],
-    } as unknown as SequenceSpec, shape, shape);
+    } as unknown as LayerSpec, shape, shape);
     await t.build();
     const tl = createTimeline({ paused: true });
     t.bindTimeline(tl, 0);
@@ -76,7 +76,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
       type: 'image', asset: 'x', at: 2, duration: 3, colorSpace: 'oklch',
       initial: { tint: '#ff0000' },
       keyframes: [{ at: 0.5, to: { tint: '#00ff00' }, duration: 1 }],
-    } as unknown as SequenceSpec, shape, shape);
+    } as unknown as LayerSpec, shape, shape);
     await t.build();
     const tl = createTimeline({ paused: true });
     t.bindTimeline(tl, 0);
@@ -88,8 +88,8 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
   it('nested: composition at:3 containing a child at:1 with `at: 0` -> global 4s', async () => {
     const spec = {
       type: 'composition', at: 3, duration: 6, width: 640, height: 360,
-      sequences: [{ type: 'text', text: 'a', at: 1, duration: 2, keyframes: [{ at: 0, to: { alpha: 0.5 }, duration: 1 }] }],
-    } as unknown as SequenceSpec;
+      layers: [{ type: 'text', text: 'a', at: 1, duration: 2, keyframes: [{ at: 0, to: { alpha: 0.5 }, duration: 1 }] }],
+    } as unknown as LayerSpec;
     const comp = new CompositionSequence(spec as never, shape, shape);
     await comp.build();
     const tl = createTimeline({ paused: true });
@@ -101,7 +101,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
     const t = new TextSequence({
       type: 'text', text: 'a', at: 0, duration: 3,
       keyframes: [{ at: 0, to: { alpha: 0.5 }, duration: 1 }],
-    } as unknown as SequenceSpec, shape, shape);
+    } as unknown as LayerSpec, shape, shape);
     await t.build();
     const tl = createTimeline({ paused: true });
     t.bindTimeline(tl, 0);

@@ -27,7 +27,7 @@
       "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects": "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js" } }
+      "pixi-effects/controller": "../../dist/controller.js" } }
   </script>
   <script type="module">
     import { Movie } from 'pixi-effects';
@@ -45,7 +45,7 @@
       dots.push({ type: 'shape', shape: 'circle', radius: 9, initial: { x: x0, y: y0, scale: near, alpha: `clamp(0.25 + ${near} * 0.4, 0.3, 1)`, fill: (r + c) % 2 ? '#6aa8ff' : '#a06bff' },
         keyframes: [{ at: (c + r) * 0.1, to: { y: '-=26' }, duration: 0.9, ease: 'sine.inOut', repeat: 6, yoyo: true }] });
     }
-    const composition = { sequences: [
+    const composition = { layers: [
       { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0d1018' } },
       // two soft lights drifting on their own, and a band that sweeps down the picture
       { type: 'shape', shape: 'circle', radius: 340, initial: { x: 200, y: 180, fill: '#6aa8ff', fillAlpha: 0.10 }, keyframes: [{ at: 0, to: { x: 1000, y: 520 }, duration: 8, ease: 'sine.inOut' }] },

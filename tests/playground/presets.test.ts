@@ -21,7 +21,7 @@ describe('Playground presets: the edit block of the chat template', () => {
       it('has a label and the three constants the template reads', () => {
         expect(p.label).toBeTruthy();
         expect(p.code).toMatch(/const W =/);
-        expect(p.code).toMatch(/const sequences\b/);
+        expect(p.code).toMatch(/const layers\b/);
         expect(p.code).toMatch(/const POSTER\b/);
         expect(p.code).toMatch(/const BACKGROUND\b/);
       });
@@ -42,12 +42,12 @@ describe('Playground presets: the edit block of the chat template', () => {
         const lib = new Proxy({}, { get: () => pass });           // every imported helper is a function that returns a list (callable, spreadable)
         const names = ['__lib', 'document', 'kenBurns', 'withFade', 'wiggle', 'stagger', 'animateText', 'followPath', 'particles', 'deck'];
         const stubDoc = { createElement: () => ({ getContext: () => new Proxy({}, { get: () => () => ({ addColorStop() {} }) }), toDataURL: () => 'data:' }) };
-        const fn = new AsyncFunction(...names, `${body}\nreturn { W, H, FPS, DURATION, BACKGROUND, sequences, POSTER };`) as (...a: unknown[]) => Promise<any>;
+        const fn = new AsyncFunction(...names, `${body}\nreturn { W, H, FPS, DURATION, BACKGROUND, layers, POSTER };`) as (...a: unknown[]) => Promise<any>;
         const out = await fn(lib, stubDoc, pass, pass, pass, pass, pass, pass, pass, pass);
         expect(out.W).toBeGreaterThan(0);
         expect(out.DURATION).toBeGreaterThan(0);
-        expect(Array.isArray(out.sequences)).toBe(true);
-        expect(out.sequences.length).toBeGreaterThan(0);
+        expect(Array.isArray(out.layers)).toBe(true);
+        expect(out.layers.length).toBeGreaterThan(0);
         expect(out.POSTER).toBeLessThanOrEqual(out.DURATION);
       });
     });
@@ -55,7 +55,7 @@ describe('Playground presets: the edit block of the chat template', () => {
 
   it('extraImportsFor adds pixi-filters only to code that imports it', () => {
     expect(mod.extraImportsFor("import { GlowFilter } from 'pixi-filters';")['pixi-filters']).toMatch(/pixi-filters/);
-    expect(mod.extraImportsFor('const sequences = [];')).toEqual({});
-    expect(Object.keys(mod.extraImportsFor("import { GlowFilter } from 'pixi-filters'; const sequences = [];"))).toContain('pixi-filters');
+    expect(mod.extraImportsFor('const layers = [];')).toEqual({});
+    expect(Object.keys(mod.extraImportsFor("import { GlowFilter } from 'pixi-filters'; const layers = [];"))).toContain('pixi-filters');
   });
 });

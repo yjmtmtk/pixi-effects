@@ -29,7 +29,7 @@
       "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects": "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js" } }
+      "pixi-effects/controller": "../../dist/controller.js" } }
   </script>
   <script type="module">
     import { Movie } from 'pixi-effects';
@@ -52,7 +52,7 @@
       ];
     });
 
-    const composition = { sequences: [
+    const composition = { layers: [
       { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#10141d' } },
       { type: 'shape', shape: 'rect', name: 'baseline', width: 'GW*0.8', height: 3, initial: { x: 'GW/2', y: 'GH*0.84', fill: '#2a3140' } },
       { type: 'text', name: 'title', text: '{title}', style: { fontFamily: FONT, fontSize: 'GW*0.045', fontWeight: '800', fill: '#ffffff' }, initial: { x: 'GW*0.1', y: 'GH*0.12', anchorX: 0, anchorY: 0.5 } },

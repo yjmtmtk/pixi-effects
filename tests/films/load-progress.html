@@ -27,14 +27,14 @@
     const Q = new URLSearchParams(location.search);
     const N = Number(Q.get('n') ?? 120);
     const loader = document.getElementById('loader');
-    const sequences = Array.from({ length: N }, (_, i) => ({ type: 'text', name: 't' + i, text: 'Layer ' + i, style: { fontSize: 20, fill: '#fff' }, initial: { x: 10 + (i % 8) * 76, y: 10 + Math.floor(i / 8) * 22 } }));
+    const layers = Array.from({ length: N }, (_, i) => ({ type: 'text', name: 't' + i, text: 'Layer ' + i, style: { fontSize: 20, fill: '#fff' }, initial: { x: 10 + (i % 8) * 76, y: 10 + Math.floor(i / 8) * 22 } }));
     if (Q.has('yield')) window.__peLoadYieldMs = Number(Q.get('yield'));          // 0 = yield after every layer, 1e9 = never: the movie must come out the same
     const movie = new Movie();
     window.movie = movie;
     window.__events = [];
     movie.on('loadprogress', e => window.__events.push({ ...e, shownPercent: loader.getAttribute('data-percent'), shownStage: loader.getAttribute('data-stage'), shownVar: loader.style.getPropertyValue('--pe-progress') }));
     await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#111',
-      ...(Q.has('fast') ? { loader: false } : {}), composition: { sequences } });
+      ...(Q.has('fast') ? { loader: false } : {}), composition: { layers } });
     window.__layers = N;
     window.__ready = true;
   </script>

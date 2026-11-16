@@ -41,7 +41,7 @@
       return out; };
     window.bounds = async (f) => { const r = await movie.inspect(f, { layers: 'all' }); const l = r.layers.find((x) => x.name === 'morpher'); return l ? l.bounds : null; };
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#000000', composition: { sequences: [
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#000000', composition: { layers: [
         { type: 'shape', shape: 'path', name: 'morpher', d: D, morphTo: TO,
           initial: { morph: 0, fill: '#ffffff' },
           keyframes: [{ at: 0, to: { morph: 1 }, duration: 1, ease: 'none' }] },

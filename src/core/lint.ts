@@ -1,4 +1,4 @@
-import type { SequenceSpec } from '../types';
+import type { LayerSpec } from '../types';
 import { collectPropKeys } from '../space/specKeys';
 import { aliasOf, suggestName } from './options';
 import { layerKeys, kindName, kindsWithKey, pictureKeysIgnored, PROP_KEYS, STYLE_KEYS } from './layerKeys';
@@ -18,7 +18,7 @@ export function describeLayer(spec: { name?: string; type: string }): string {
  * ended (the usual cause: writing keyframe `at` in composition time instead of
  * time since the start of the layer).
  */
-export function lintTiming(spec: SequenceSpec, parentDuration: number, warn: Warn = defaultWarn): void {
+export function lintTiming(spec: LayerSpec, parentDuration: number, warn: Warn = defaultWarn): void {
   const who = describeLayer(spec);
   const at = layerAt(spec);
   if (at >= parentDuration) {
@@ -72,7 +72,7 @@ export function summarizeWarnings(messages: string[], shown = 3): string[] {
 }
 
 /** A text layer that animates `value` but has nowhere to print it. */
-export function lintText(spec: SequenceSpec, warn: Warn = defaultWarn): void {
+export function lintText(spec: LayerSpec, warn: Warn = defaultWarn): void {
   if (spec.type !== 'text') return;
   // Every string the layer ever shows: its `text` and any `set: { text }` swap.
   const strings = [spec.text ?? '', ...(spec.keyframes ?? []).map(kf => String((kf.set as Record<string, unknown> | undefined)?.text ?? ''))];
@@ -91,7 +91,7 @@ const REMAP_NAMES = new Set(['time', 'timeRemap', 'reverse']);
 const TIME_BAGS = ['set', 'to', 'from'] as const;
 
 /** The mistakes a time remap can make (`speed` / `time`), said once when the layer is built. Called from `lintKeys`. */
-function lintRemap(spec: SequenceSpec, warn: Warn): void {
+function lintRemap(spec: LayerSpec, warn: Warn): void {
   const s = spec as unknown as Record<string, any>;
   const who = describeLayer(spec);
   const kfs: Array<Record<string, any>> = s.keyframes ?? [];
@@ -140,6 +140,7 @@ function lintRemap(spec: SequenceSpec, warn: Warn): void {
 const REMOVED_KEYS: Record<string, string> = {
   maskInverted: 'a hole instead of a crop is `mask: { layer: <the mask layer>, invert: true }`',
   smoothing: "hard pixels are scaleMode: 'nearest' (as on an image)",
+  sequences: 'the layers of a composition are `layers: [ … ]`',
 };
 
 /** Words other tools use to draw a group as one picture: a composition always is one, so they need nothing (said as such, not as a typo). */
@@ -161,7 +162,7 @@ const KEYFRAME_KEYS = ['at', 'duration', 'ease', 'repeat', 'yoyo', 'repeatDelay'
 /** Words other tools use in a tween, and ours (GSAP `delay`, CSS / Lottie `easing`, `dur`): only for a keyframe. */
 const KEYFRAME_ALIASES: Record<string, string> = { easing: 'ease', delay: 'at', start: 'at', begin: 'at', time: 'at', startTime: 'at', dur: 'duration', length: 'duration', seconds: 'duration', repeatCount: 'repeat', loop: 'repeat', alternate: 'yoyo' };
 
-function lintKeyframeKeys(spec: SequenceSpec, who: string, warn: Warn): void {
+function lintKeyframeKeys(spec: LayerSpec, who: string, warn: Warn): void {
   (spec.keyframes ?? []).forEach((kf, i) => {
     if (!kf || typeof kf !== 'object') return;
     for (const key of Object.keys(kf)) {
@@ -179,7 +180,7 @@ function lintKeyframeKeys(spec: SequenceSpec, who: string, warn: Warn): void {
   });
 }
 
-export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
+export function lintKeys(spec: LayerSpec, warn: Warn = defaultWarn): void {
   const who = describeLayer(spec);
   const valid = layerKeys(spec as { type: string; shape?: string });
   if (valid) {

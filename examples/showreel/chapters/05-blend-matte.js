@@ -28,7 +28,7 @@ export default function chapter(P) {
   return {
     duration: 7,
     poster: 5.6,
-    sequences: [
+    layers: [
       P.bg(C.ink),
 
       // the word as a ghost outline: what is there before any matte lets the filled word through

@@ -39,7 +39,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -92,8 +92,8 @@
       keyframes: [{ at, to: { scale: 1 }, duration: 0.3, ease: 'back.out(2)' }],
     });
     // one beat = a nested composition that enters / exits as a unit
-    const beat = (name, at, duration, sequences, { exit = true } = {}) => ({
-      type: 'composition', name, at, duration, width: W, height: H, initial: { x: 0, y: 0 }, sequences,
+    const beat = (name, at, duration, layers, { exit = true } = {}) => ({
+      type: 'composition', name, at, duration, width: W, height: H, initial: { x: 0, y: 0 }, layers,
       keyframes: [
         { at: 0, from: { alpha: 0, y: 14 }, to: { alpha: 1, y: 0 }, duration: 0.4, ease: EASE_IN },
         ...(exit ? [{ at: -0.35, to: { alpha: 0, y: -10 }, duration: 0.35, ease: EASE_OUT }] : []),
@@ -251,7 +251,7 @@
 
     // ================================================================ ROOT
     const TITLE_SIZE = 104, HEADER_SIZE = 32;
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: BG } },
       { type: 'shape', shape: 'rect', name: 'horizon-glow', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
         fillGradient: { type: 'radial', center: [0.5, 1.08], radius: 0.75, stops: [[0, 'rgba(245,181,69,0.14)'], [0.45, 'rgba(245,181,69,0.04)'], [1, 'rgba(245,181,69,0)']] } },
@@ -295,7 +295,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: BG,
         assets: [{ name: 'bgm', src: '../_assets/bgm.mp3' }],
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

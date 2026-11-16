@@ -16,10 +16,10 @@
     const movie = new Movie();
     window.movie = movie;
     window.fire = (type, x, y) => { const r = canvas.getBoundingClientRect(); canvas.dispatchEvent(new PointerEvent(type, { clientX: r.left + x * r.width / 960, clientY: r.top + y * r.height / 540, bubbles: type !== 'pointerleave', pointerId: 1 })); };
-    await movie.init({ canvas, width: 960, height: 540, vars: { cx: 200, cy: 270, doneLit: 0 }, composition: { sequences: [
+    await movie.init({ canvas, width: 960, height: 540, vars: { cx: 200, cy: 270, doneLit: 0 }, composition: { layers: [
       { type: 'shape', shape: 'rect', name: 'done', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fill: '#182038' } },
       { type: 'shape', shape: 'rect', name: 'done-glow', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fill: '#3ddc97', alpha: 'doneLit' } },
-      { type: 'composition', name: 'card', width: 200, height: 120, duration: 1, initial: { x: 'cx', y: 'cy', pivotX: 100, pivotY: 60 }, sequences: [
+      { type: 'composition', name: 'card', width: 200, height: 120, duration: 1, initial: { x: 'cx', y: 'cy', pivotX: 100, pivotY: 60 }, layers: [
         { type: 'shape', shape: 'rect', name: 'face', width: 200, height: 120, cornerRadius: 14, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, fill: '#f2c14e' } },
         { type: 'text', name: 'label', text: 'Task', style: { fontSize: 34, fill: '#1b1b1b' }, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5 } },
       ] },

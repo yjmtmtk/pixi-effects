@@ -38,7 +38,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":  "../../dist/present.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
@@ -225,7 +225,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS,
         poster: 11.5,
         background: PAPER,
-        composition: { sequences: seq },
+        composition: { layers: seq },
       });
       window.__ready = true;
     } catch (e) {

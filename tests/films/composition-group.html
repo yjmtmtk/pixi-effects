@@ -29,30 +29,30 @@
     import { Movie } from '../../dist/index.js';
     const rect = (name, x, y, w, h, fill) => ({ type: 'shape', shape: 'rect', name, width: w, height: h, anchorX: 0, anchorY: 0, initial: { x, y, fill } });
     const pair = (a, b) => [rect(undefined, 0, 0, 100, 80, a), rect(undefined, 50, 0, 100, 80, b)];
-    const circle = (name, x, alpha) => ({ type: 'composition', name, width: 80, height: 80, initial: { x: x - 40, y: 130, alpha }, sequences: [
+    const circle = (name, x, alpha) => ({ type: 'composition', name, width: 80, height: 80, initial: { x: x - 40, y: 130, alpha }, layers: [
       { type: 'shape', shape: 'circle', radius: 30, initial: { x: 40, y: 40, fill: '#ffffff' } }] });
     const movie = new Movie();
     window.movie = movie;
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000',
-        composition: { sequences: [
-          { type: 'composition', name: 'groupA', width: 160, height: 80, initial: { x: 20, y: 20, alpha: 0.5 }, sequences: pair('#ff0000', '#0000ff') },
+        composition: { layers: [
+          { type: 'composition', name: 'groupA', width: 160, height: 80, initial: { x: 20, y: 20, alpha: 0.5 }, layers: pair('#ff0000', '#0000ff') },
           rect('white1', 200, 20, 160, 80, '#ffffff'),
-          { type: 'composition', name: 'multiplied', width: 160, height: 80, blendMode: 'multiply', initial: { x: 200, y: 20 }, sequences: pair('#ff0000', '#00ff00') },
+          { type: 'composition', name: 'multiplied', width: 160, height: 80, blendMode: 'multiply', initial: { x: 200, y: 20 }, layers: pair('#ff0000', '#00ff00') },
           rect('white2', 380, 20, 160, 80, '#ffffff'),
-          { type: 'composition', name: 'differenced', width: 160, height: 80, blendMode: 'difference', initial: { x: 380, y: 20 }, sequences: pair('#00ff00', '#ff0000') },
-          { type: 'composition', name: 'clipped', width: 100, height: 60, clip: true, initial: { x: 20, y: 140 }, sequences: [rect(undefined, 0, 0, 160, 60, '#ffff00')] },
-          { type: 'composition', name: 'unclipped', width: 100, height: 60, initial: { x: 200, y: 140 }, sequences: [rect(undefined, 0, 0, 160, 60, '#ffff00')] },
-          { type: 'composition', name: 'offCanvas', width: 100, height: 60, initial: { x: 700, y: 140 }, sequences: [rect(undefined, -320, 0, 60, 60, '#ff00ff')] },
+          { type: 'composition', name: 'differenced', width: 160, height: 80, blendMode: 'difference', initial: { x: 380, y: 20 }, layers: pair('#00ff00', '#ff0000') },
+          { type: 'composition', name: 'clipped', width: 100, height: 60, clip: true, initial: { x: 20, y: 140 }, layers: [rect(undefined, 0, 0, 160, 60, '#ffff00')] },
+          { type: 'composition', name: 'unclipped', width: 100, height: 60, initial: { x: 200, y: 140 }, layers: [rect(undefined, 0, 0, 160, 60, '#ffff00')] },
+          { type: 'composition', name: 'offCanvas', width: 100, height: 60, initial: { x: 700, y: 140 }, layers: [rect(undefined, -320, 0, 60, 60, '#ff00ff')] },
           circle('solid', 520, 1),
           circle('almost', 600, 0.999),
-          { type: 'composition', name: 'card', width: 160, height: 80, threeD: true, initial: { x: 20, y: 240, alpha: 0.5 }, sequences: pair('#ff0000', '#0000ff') },
+          { type: 'composition', name: 'card', width: 160, height: 80, threeD: true, initial: { x: 20, y: 240, alpha: 0.5 }, layers: pair('#ff0000', '#0000ff') },
           rect('grey', 200, 240, 160, 80, '#808080'),
-          { type: 'composition', name: 'glow', width: 160, height: 80, initial: { x: 200, y: 240, alpha: 0.5 }, sequences: [{ ...rect('glowRect', 0, 0, 160, 80, '#000080'), blendMode: 'add' }] },
-          { type: 'composition', name: 'win', width: 60, height: 30, clip: true, initial: { x: 400, y: 322 }, sequences: [
+          { type: 'composition', name: 'glow', width: 160, height: 80, initial: { x: 200, y: 240, alpha: 0.5 }, layers: [{ ...rect('glowRect', 0, 0, 160, 80, '#000080'), blendMode: 'add' }] },
+          { type: 'composition', name: 'win', width: 60, height: 30, clip: true, initial: { x: 400, y: 322 }, layers: [
             { type: 'text', name: 'outsideText', text: 'ABC', style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 120, y: 15, anchorX: 0.5, anchorY: 0.5 } }] },
-          { type: 'composition', name: 'win2', width: 60, height: 24, clip: true, initial: { x: 20, y: 330 }, sequences: [
+          { type: 'composition', name: 'win2', width: 60, height: 24, clip: true, initial: { x: 20, y: 330 }, layers: [
             { type: 'text', name: 'halfText', text: 'ABCDEFG', style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 0, y: 0 } }] },
           { type: 'text', name: 'other', text: 'ABC', style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 520, y: 337, anchorX: 0.5, anchorY: 0.5 } },
         ] },

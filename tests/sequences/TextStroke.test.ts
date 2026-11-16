@@ -11,13 +11,13 @@ vi.mock('pixi.js', async () => {
   return m;
 });
 import { TextSequence } from '../../src/sequences/Text';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 
 // An outline on text is drawn with PixiJS's default line join, `miter`: the sharp corners of W, V, A, k, 4 grow spikes ("the outline sticks out").
 // A text outline is round-joined unless the author says otherwise.
 const comp: CompositionShape = { width: 1280, height: 720, duration: 4 };
 const build = async (style: unknown) => {
-  const t = new TextSequence({ type: 'text', text: 'WAVE', style } as unknown as SequenceSpec, comp, comp);
+  const t = new TextSequence({ type: 'text', text: 'WAVE', style } as unknown as LayerSpec, comp, comp);
   await t.build();
   return (t.target as unknown as { style: Record<string, any> }).style;
 };

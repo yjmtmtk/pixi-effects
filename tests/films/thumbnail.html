@@ -24,7 +24,7 @@
     const q = new URLSearchParams(location.search);
     const movie = new Movie();
     window.movie = movie;
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#16324f' } },
       { type: 'shape', shape: 'circle', name: 'ball', radius: 40, initial: { x: 60, y: 120, fill: '#ffd166' }, keyframes: [{ at: 0, to: { x: 580 }, duration: 4, ease: 'power2.inOut' }] },
       { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 80, threeD: true, initial: { x: 320, y: 250, fill: '#2ecc71' }, keyframes: [{ at: 0, to: { rotationY: 180 }, duration: 4, ease: 'none' }] },
@@ -32,17 +32,17 @@
       // a shader layer draws its frame in `awaitFrameAt`, like a 3D layer: the picture a seek, and so a thumbnail and its restore, must wait for
       { type: 'shader', name: 'plasma', width: 160, height: 100, initial: { x: 460, y: 40 }, fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { vec2 uv = fragCoord / iResolution.xy; fragColor = vec4(uv.x, 0.5 + 0.5 * sin(iTime * 3.0 + uv.y * 6.0), 0.5 + 0.5 * cos(iTime * 2.0), 1.0); }' },
     ];
-    if (q.get('video')) sequences.push({ type: 'video', asset: 'green', audio: false, initial: { x: 500, y: 300, scale: 0.2 } });
-    if (!q.get('vars')) sequences[3].text = '{value}';
+    if (q.get('video')) layers.push({ type: 'video', asset: 'green', audio: false, initial: { x: 500, y: 300, scale: 0.2 } });
+    if (!q.get('vars')) layers[3].text = '{value}';
     const options = { canvas: document.getElementById('stage'), width: 640, height: 360, duration: 4, frameRate: 30, loader: false, background: '#000',
-      composition: { sequences, filters: [{ type: 'grain', amount: 0.2, size: 1.5, fps: 30, seed: 3 }] } };
+      composition: { layers, filters: [{ type: 'grain', amount: 0.2, size: 1.5, fps: 30, seed: 3 }] } };
     if (q.get('video')) options.assets = [{ name: 'green', src: '../../examples/_assets/green.mp4' }];
     if (q.get('vars')) options.vars = { a: 'n ' };
     if (q.get('poster')) options.poster = 2;
     await movie.init(options);
     // ?ui=1 puts the player bar on it with the seek-bar preview on, ?ui=0 with the option left out
     if (q.get('ui') !== null) {
-      const { Controller } = await import('../../dist/Controller.js');
+      const { Controller } = await import('../../dist/controller.js');
       window.controller = new Controller(movie, q.get('ui') === '1' ? { canvas: document.getElementById('stage'), thumbnails: true } : { canvas: document.getElementById('stage') });
     }
     window.__ready = true;

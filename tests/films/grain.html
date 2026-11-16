@@ -32,10 +32,10 @@
     const keyframes = Q.has('amountTo') ? [{ at: 0, duration: 4, to: { 'filters.g.amount': Number(Q.get('amountTo')) } }] : [];
     const composition = Q.get('mode') === 'card'
       // a grain layer inside a threeD card: the card is drawn to a texture before the stage is drawn
-      ? { sequences: [{ type: 'composition', name: 'card', threeD: true, width: W, height: H, initial: { x: W / 2, y: H / 2 }, sequences: [{ type: 'composition', name: 'inner', width: W, height: H, sequences: inner, filters: grain ? [grain] : [] }] }] }
+      ? { layers: [{ type: 'composition', name: 'card', threeD: true, width: W, height: H, initial: { x: W / 2, y: H / 2 }, layers: [{ type: 'composition', name: 'inner', width: W, height: H, layers: inner, filters: grain ? [grain] : [] }] }] }
       : Q.get('mode') === 'layer'
-      ? { sequences: [{ type: 'composition', name: 'inner', width: W, height: H, sequences: inner, filters: grain || noise ? [grain || noise] : [], keyframes }] }
-      : { sequences: inner, ...(grain || noise ? { filters: [grain || noise] } : {}) };
+      ? { layers: [{ type: 'composition', name: 'inner', width: W, height: H, layers: inner, filters: grain || noise ? [grain || noise] : [], keyframes }] }
+      : { layers: inner, ...(grain || noise ? { filters: [grain || noise] } : {}) };
     const movie = new Movie();
     window.movie = movie;
     try {

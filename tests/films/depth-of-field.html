@@ -52,7 +52,7 @@
     window.demo = async (aperture) => {
       const dots = Array.from({ length: 14 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 30 + (i % 4) * 14, threeD: true,
         initial: { x: 100 + ((i * 197) % 1100), y: 90 + ((i * 131) % 540), z: -500 - (i % 3) * 200, fill: ['#ffb347', '#6ec6ff', '#ff6f91', '#c4f1be'][i % 4] } }));
-      const comp = { sequences: [
+      const comp = { layers: [
         { type: 'shape', shape: 'rect', width: 1280, height: 720, anchorX: 0, anchorY: 0, initial: { fill: '#101626' } },
         { type: 'camera', name: 'cam', initial: { focus: 'title', aperture } },
         ...dots,

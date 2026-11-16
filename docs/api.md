@@ -4,7 +4,7 @@
 - [`Controller`](#controller) — drop-in player UI overlay
 - [`pixi-effects/3d`](#pixi-effects3d) — 3D scenes drawn by PixiJS 3D (the main 3D engine)
 
-For DSL types (composition spec, sequences, filters, keyframes, expressions), see [DSL reference](./dsl.md).
+For DSL types (composition spec, layers, filters, keyframes, expressions), see [DSL reference](./dsl.md).
 
 ---
 
@@ -466,7 +466,7 @@ import { audioEnvelope, bpmEnvelope, react } from 'pixi-effects';
 const env = await audioEnvelope('music.mp3', { frameRate: 30 });      // a URL, Blob / File, ArrayBuffer or AudioBuffer
 // env.series.level / bass / mid / treble: one value per frame, 0–1 on a log (perceptual) scale, measured against the loudest of them
 // env.beats: times of the beats (seconds); env.bpm: the tempo (null with too few beats); env.at(time, 'bass')
-await movie.init({ /* … */ composition: { sequences: [
+await movie.init({ /* … */ composition: { layers: [
   { type: 'shape', shape: 'circle', radius: 120, initial: { x: 640, y: 360 },
     keyframes: react(env, { duration: 12, props: { scale: { base: 1, amount: 0.4, band: 'bass', attack: 0.02, release: 0.2 } } }) },
   { type: 'audio', asset: 'music', loop: true },
@@ -657,9 +657,9 @@ import { Mesh3D, Model3D, DirectionalLight } from '@pixi/3d';
 
 Registers the `scene3d` layer type (explicit, so a bundler cannot drop it; calling it again is fine) and turns off the self-updating of `Model3D` and `AnimationPlayer` (`defaultOptions.autoUpdate = false`): a video draws from the time. Warns once when PixiJS is older than 8.23.
 
-### `scene3d(spec: Scene3DSequenceSpec): SequenceSpec`
+### `scene3d(spec: Scene3DLayerSpec): LayerSpec`
 
-Typing helper: takes a typed scene3d spec and returns it as a core `SequenceSpec`.
+Typing helper: takes a typed scene3d spec and returns it as a core `LayerSpec`.
 
 ### `layerTexture(ctx, name, options?): Promise<LayerTexture>`
 
@@ -676,5 +676,5 @@ Puts the layer's camera where the whole of `object` fits; options `direction` (d
 ### Exported types
 
 ```ts
-import type { Scene3DContext, Scene3DSetupResult, Scene3DSequenceSpec, LayerTexture, LayerTextureOptions, LoadedModel, LoadModelOptions, FitCameraOptions } from 'pixi-effects/3d';
+import type { Scene3DContext, Scene3DSetupResult, Scene3DLayerSpec, LayerTexture, LayerTextureOptions, LoadedModel, LoadModelOptions, FitCameraOptions } from 'pixi-effects/3d';
 ```

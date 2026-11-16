@@ -7,7 +7,7 @@ vi.mock('pixi.js', async () => {
 import { applyKeyframes, loopVars } from '../../src/core/Timeline';
 import { ShapeSequence } from '../../src/sequences/Shape';
 import { TextSequence } from '../../src/sequences/Text';
-import type { CompositionShape, Keyframe, SequenceSpec } from '../../src/types';
+import type { CompositionShape, Keyframe, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
@@ -68,7 +68,7 @@ describe('colour and shape paths repeat too', () => {
       keyframes: [
         { at: 0, to: { width: 50 }, duration: 1, repeat: 3, yoyo: true },
         { at: 0, to: { fill: '#ff0000' }, duration: 1, repeat: 3, yoyo: true },
-      ] } as unknown as SequenceSpec, comp, comp);
+      ] } as unknown as LayerSpec, comp, comp);
     await s.build();
     const tl = createTimeline({ paused: true });
     s.bindTimeline(tl, 0);
@@ -76,7 +76,7 @@ describe('colour and shape paths repeat too', () => {
     expect(reps.length).toBe(2);
 
     const t = new TextSequence({ type: 'text', text: 'a', duration: 5,
-      keyframes: [{ at: 0, to: { fill: '#00ff00' }, duration: 1, repeat: 2, yoyo: true }] } as unknown as SequenceSpec, comp, comp);
+      keyframes: [{ at: 0, to: { fill: '#00ff00' }, duration: 1, repeat: 2, yoyo: true }] } as unknown as LayerSpec, comp, comp);
     await t.build();
     const tl2 = createTimeline({ paused: true });
     t.bindTimeline(tl2, 0);

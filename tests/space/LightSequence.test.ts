@@ -3,10 +3,10 @@ vi.mock('pixi.js', async () => (await import('./mockPixi')).createPixiMock());
 
 import { LightSequence } from '../../src/space/LightSequence';
 import { homeDistance } from '../../src/space/math';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
-const make = (spec: Record<string, unknown> = {}) => new LightSequence({ type: 'light', ...spec } as unknown as SequenceSpec, shape, shape);
+const make = (spec: Record<string, unknown> = {}) => new LightSequence({ type: 'light', ...spec } as unknown as LayerSpec, shape, shape);
 type Carrier = Record<string, unknown>;
 beforeEach(() => { vi.restoreAllMocks(); });
 

@@ -7,7 +7,7 @@ import { registerSequenceType } from '../../src/core/Composition';
 import { inspectScene } from '../../src/core/inspect';
 import { groupIssues, splitIssues } from '../../src/core/review';
 import { expandTransitions, transitionWindowsOf, carryTransitionWindows } from '../../src/core/Transitions';
-import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import type { CompositionLayerSpec, CompositionShape } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 class Box extends Sequence {
@@ -16,8 +16,8 @@ class Box extends Sequence {
 registerSequenceType('__box', Box as never);
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
-async function scene(sequences: unknown[]) {
-  const spec = { type: 'composition', width: 1280, height: 720, duration: 10, sequences } as unknown as CompositionSequenceSpec;
+async function scene(layers: unknown[]) {
+  const spec = { type: 'composition', width: 1280, height: 720, duration: 10, layers } as unknown as CompositionLayerSpec;
   const comp = new CompositionSequence(spec, root, root);
   await comp.build();
   comp.bindTimeline(createTimeline({ paused: true }));
@@ -96,7 +96,7 @@ describe('inspectScene', () => {
       expect(await run([text, rect('glow', 150, 100, { blendMode: 'screen' })])).toEqual([]);
       expect(await run([text, { type: 'shape', shape: 'circle', name: 'ring', radius: 10, initial: { x: 150, y: 100, stroke: '#fff', strokeWidth: 2 } }])).toEqual([]);
       expect(await run([text, { type: 'shape', shape: 'path', name: 'curve', d: 'M 0 0 L 400 400', initial: { x: 150, y: 100, fill: '#fff' } }])).toEqual([]);
-      const comp = await scene([{ type: 'composition', name: 'group', width: 400, height: 300, sequences: [text] }]);
+      const comp = await scene([{ type: 'composition', name: 'group', width: 400, height: 300, layers: [text] }]);
       expect(inspectScene(comp, 0, 0, { width: 1280, height: 720 }).issues).toEqual([]);
     });
 
@@ -114,7 +114,7 @@ describe('inspectScene', () => {
     });
 
     it('a cover inside a group that is almost transparent is not opaque', async () => {
-      const comp = await scene([text, { type: 'composition', name: 'veil', width: 400, height: 300, initial: { alpha: 0.2 }, sequences: [rect('card', 150, 100)] }]);
+      const comp = await scene([text, { type: 'composition', name: 'veil', width: 400, height: 300, initial: { alpha: 0.2 }, layers: [rect('card', 150, 100)] }]);
       expect(crossing(inspectScene(comp, 0, 0, { width: 1280, height: 720 }).issues)).toEqual([]);
     });
 
@@ -136,8 +136,8 @@ describe('inspectScene', () => {
 
   it('walks nested compositions and gives layers inside a threeD layer no canvas bounds', async () => {
     const comp = await scene([
-      { type: 'composition', name: 'group', width: 400, height: 300, sequences: [{ type: '__box', name: 'inner', initial: { x: 20, y: 30 } }] },
-      { type: 'composition', name: 'card', width: 400, height: 300, threeD: true, sequences: [{ type: '__box', name: 'inCard' }] },
+      { type: 'composition', name: 'group', width: 400, height: 300, layers: [{ type: '__box', name: 'inner', initial: { x: 20, y: 30 } }] },
+      { type: 'composition', name: 'card', width: 400, height: 300, threeD: true, layers: [{ type: '__box', name: 'inCard' }] },
     ]);
     const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
     const byName = Object.fromEntries(r.layers.map(l => [l.name, l]));
@@ -270,7 +270,7 @@ describe('inspectScene', () => {
       { type: 'text', name: 'fly', text: 'b', threeD: true, initial: { x: 1200, y: 200 }, keyframes: [{ at: 0, to: { z: 800 }, duration: 2 }] },
       { type: 'text', name: 'pivot', text: 'c', initial: { x: 1200, y: 300 }, keyframes: [{ at: 0, to: { pivotX: 50 }, duration: 2 }] },
       { type: 'composition', name: 'scene', width: 1280, height: 720, keyframes: [{ at: 0, to: { scale: 3 }, duration: 2 }],
-        sequences: [{ type: 'text', name: 'inner', text: 'd', initial: { x: 1200, y: 400 } }] },
+        layers: [{ type: 'text', name: 'inner', text: 'd', initial: { x: 1200, y: 400 } }] },
     ]);
     const r = inspectScene(comp, 0, 1, { width: 1280, height: 720 });
     for (const n of ['zoom', 'fly', 'pivot', 'scene/inner']) expect(r.layers.find(l => l.path === n)!.moving, n).toBe(true);
@@ -313,7 +313,7 @@ describe('inspectScene', () => {
 
   it('a composition that has not started yet is not inspected', async () => {
     const comp = await scene([
-      { type: 'composition', name: 'later', at: 6, width: 1280, height: 720, sequences: [
+      { type: 'composition', name: 'later', at: 6, width: 1280, height: 720, layers: [
         { type: 'text', name: 'one', text: 'a', initial: { x: 100, y: 100 } },
         { type: 'text', name: 'two', text: 'b', initial: { x: 100, y: 100 } },
       ] },
@@ -328,14 +328,14 @@ describe('inspectScene during a transition', () => {
   async function twoScenes(slideText: boolean) {
     const scene2 = (name: string, at: number, x: number) => ({
       type: 'composition', name, at, duration: 3, width: 1280, height: 720,
-      sequences: [{ type: 'text', name: name + '-title', text: name, initial: { x, y: 100 } }],
+      layers: [{ type: 'text', name: name + '-title', text: name, initial: { x, y: 100 } }],
     });
     // Through the same expansion Movie.init runs: it consumes `transitions` (they are gone from the built spec).
     const spec = expandTransitions({
       type: 'composition', width: 1280, height: 720, duration: 10,
-      sequences: [scene2('a', 0, 100), scene2('b', 2, slideText ? 1250 : 100)],
+      layers: [scene2('a', 0, 100), scene2('b', 2, slideText ? 1250 : 100)],
       transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at: 2, duration: 1 }],
-    } as unknown as CompositionSequenceSpec);
+    } as unknown as CompositionLayerSpec);
     const comp = new CompositionSequence(spec, root, root);
     await comp.build();
     const tl = createTimeline({ paused: true });
@@ -367,13 +367,13 @@ describe('inspectScene during a transition', () => {
   it('inside a remapped composition the window is read in ITS time: outer 5 s at 0.5x is local 2.5 s, inside the 2–3 s window', async () => {
     const scene2 = (name: string, at: number) => ({
       type: 'composition', name, at, duration: 3, width: 1280, height: 720,
-      sequences: [{ type: 'text', name: name + '-title', text: name, initial: { x: 100, y: 100 } }],
+      layers: [{ type: 'text', name: name + '-title', text: name, initial: { x: 100, y: 100 } }],
     });
     const spec = expandTransitions({
       type: 'composition', width: 1280, height: 720, duration: 10, speed: 0.5,
-      sequences: [scene2('a', 0), scene2('b', 2)],
+      layers: [scene2('a', 0), scene2('b', 2)],
       transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at: 2, duration: 1 }],
-    } as unknown as CompositionSequenceSpec);
+    } as unknown as CompositionLayerSpec);
     const comp = new CompositionSequence(spec, root, root);
     await comp.build();
     const tl = createTimeline({ paused: true });
@@ -387,9 +387,9 @@ describe('inspectScene during a transition', () => {
   it('the windows survive the spread Movie.init makes of the expanded spec', () => {
     const expanded = expandTransitions({
       type: 'composition', width: 1280, height: 720, duration: 10,
-      sequences: [{ type: 'text', name: 'a', text: 'a', duration: 3 }, { type: 'text', name: 'b', text: 'b', at: 2, duration: 3 }],
+      layers: [{ type: 'text', name: 'a', text: 'a', duration: 3 }, { type: 'text', name: 'b', text: 'b', at: 2, duration: 3 }],
       transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at: 2, duration: 1 }],
-    } as unknown as CompositionSequenceSpec);
+    } as unknown as CompositionLayerSpec);
     const copy = carryTransitionWindows(expanded, { ...expanded });
     expect(transitionWindowsOf(copy)).toEqual([{ from: 'a', to: 'b', start: 2, end: 3 }]);
     expect(transitionWindowsOf({})).toEqual([]);
@@ -432,7 +432,7 @@ describe('inspectScene — scaled to nothing, and moved by a parent', () => {
     const comp = await scene([
       { type: 'composition', name: 'timeline', width: 4000, height: 720,
         keyframes: [{ at: 0, to: { x: -2000 }, duration: 5 }],
-        sequences: [{ type: 'text', name: 'far', text: 'x', initial: { x: 3000, y: 100 } }] },
+        layers: [{ type: 'text', name: 'far', text: 'x', initial: { x: 3000, y: 100 } }] },
       { type: 'text', name: 'still', text: 'y', initial: { x: 3000, y: 300 } },        // static and off canvas: a real problem
     ]);
     const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });

@@ -37,7 +37,7 @@ Rules that cause most failures (details in the skill and pitfalls):
 
 ## Reference
 
-- [DSL reference](${RAW}/docs/dsl.md): composition, sequences, 3D layers and camera, keyframes, expressions, filters, transitions, presets (wiggle, stagger, animateText, followPath, particles, react, deck), music written as text, stops for presentations
+- [DSL reference](${RAW}/docs/dsl.md): composition, layers, 3D layers and camera, keyframes, expressions, filters, transitions, presets (wiggle, stagger, animateText, followPath, particles, react, deck), music written as text, stops for presentations
 - [API reference](${RAW}/docs/api.md): Movie, Controller, Presenter (presentations, PDF export), audio analysis (audioEnvelope), events, render options, pixi-effects/3d
 - [Media tools](${RAW}/docs/media.md): \`npx pixi-effects probe | trim | frames | sound\`: look at, listen to and cut a video or sound you were handed, with no ffmpeg installed
 - [README](${RAW}/README.md): install, CDN import map, quickstart

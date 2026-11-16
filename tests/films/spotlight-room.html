@@ -35,7 +35,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":  "../../dist/present.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
@@ -120,7 +120,7 @@
     const sweep = (at, p) => ({ at, to: lampAt(p), duration: MOVE_T, ease: 'cubic-bezier(.5, 0, .2, 1)' });
     const sfx = (name, at, extra = {}) => ({ type: 'audio', sfx: name, at, ...extra });
 
-    const sequences = [
+    const layers = [
       // 2D ground in the fog colour: what is far dissolves into it
       { type: 'shape', shape: 'rect', name: 'ground', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: INK } },
 
@@ -192,7 +192,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS,
         poster: 4.4,
         background: INK,
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

@@ -44,7 +44,7 @@ export default function chapter(P) {
   const contentH = slice.length * LH;
   const SCROLL = Math.min(2800, contentH - VIEW - 600);                 // the fast scroll, then a slow drift of 600 px: both stay inside the content
   const wall = {
-    type: 'composition', name: 'wall', width: 1920, height: TOP + contentH + 200, at: 0, duration: 5.6, sequences: wallLayers,
+    type: 'composition', name: 'wall', width: 1920, height: TOP + contentH + 200, at: 0, duration: 5.6, layers: wallLayers,
     initial: { x: 0, y: 0 },
     mask: { type: 'shape', shape: 'rect', width: 1728, height: VIEW, anchorX: 0, anchorY: 0, initial: { x: X0, y: TOP, fill: '#ffffff' } },
     keyframes: [
@@ -115,7 +115,7 @@ export default function chapter(P) {
   return {
     duration: D,
     poster: 4.6,
-    sequences: [
+    layers: [
       P.bg(C.ink),
       readHead,                                                         // under the lines: a highlight bar the data passes through
       wall,

@@ -4,7 +4,7 @@ import { CompositionSequence } from '../../src/sequences/Composition';
 import { canvasProblems, canvasReport } from '../../src/core/canvasCheck';
 import { createTimeline } from '../../src/core/timelineEngine';
 import { installCanvas } from '../support/fakeGl';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 
 const shape: CompositionShape = { width: 320, height: 180, duration: 4, frameRate: 30 };
 /** The "pixels" are the arguments of the last fillRect. */
@@ -19,8 +19,8 @@ function pixelCtx() {
   });
   return { ctx };
 }
-async function build(sequences: unknown[]) {
-  const comp = new CompositionSequence({ type: 'composition', width: 320, height: 180, duration: 4, sequences } as unknown as SequenceSpec as never, shape, shape);
+async function build(layers: unknown[]) {
+  const comp = new CompositionSequence({ type: 'composition', width: 320, height: 180, duration: 4, layers } as unknown as LayerSpec as never, shape, shape);
   await comp.build();
   comp.bindTimeline(createTimeline({ paused: true }));
   return comp;
@@ -32,7 +32,7 @@ describe('canvasProblems: the canvas layers of a movie whose same frame is not t
     let n = 0;
     const comp = await build([
       { type: 'canvas', name: 'pure', draw: (ctx: CanvasRenderingContext2D, t: number) => { ctx.fillRect(Math.round(t * 10), 0, 1, 1); } },
-      { type: 'composition', name: 'group', width: 200, height: 100, sequences: [
+      { type: 'composition', name: 'group', width: 200, height: 100, layers: [
         { type: 'canvas', name: 'leaky', draw: (ctx: CanvasRenderingContext2D) => { ctx.fillRect(n++, 0, 1, 1); } },
       ] },
     ]);
@@ -72,7 +72,7 @@ describe('canvasReport: what the check tells even when every canvas layer passes
     let n = 0;
     const comp = await build([
       { type: 'canvas', name: 'pure', draw: (ctx: CanvasRenderingContext2D, t: number) => { ctx.fillRect(Math.round(t * 10), 0, 1, 1); } },
-      { type: 'composition', name: 'group', width: 200, height: 100, sequences: [
+      { type: 'composition', name: 'group', width: 200, height: 100, layers: [
         { type: 'canvas', name: 'leaky', draw: (ctx: CanvasRenderingContext2D) => { ctx.fillRect(n++, 0, 1, 1); } },
       ] },
     ]);

@@ -12,7 +12,7 @@ You are also a usability tester: record honestly everything that made you retry 
 
 ## Files you create (and only these)
 - `examples/gallery/<id>.html` — the piece (start from `skills/pixi-effects/template.html`; in the importmap point the `pixi-effects*` entries at the
-  local build: `"pixi-effects": "../../dist/index.js"`, `"pixi-effects/controller": "../../dist/Controller.js"`, and `"pixi-effects/3d": "../../dist/3d.js"` for a 3D scene).
+  local build: `"pixi-effects": "../../dist/index.js"`, `"pixi-effects/controller": "../../dist/controller.js"`, and `"pixi-effects/3d": "../../dist/3d.js"` for a 3D scene).
 - `examples/gallery/posters/<id>.jpg` — a poster still (see below).
 - `examples/gallery/_notes/<id>.md` — your stumble notes.
 

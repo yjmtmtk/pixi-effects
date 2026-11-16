@@ -2,7 +2,7 @@ import { collectPropKeys } from './specKeys';
 import { describeLayer } from '../core/lint';
 import { focusProblems } from './focus';
 import { fogProblems, lightLayerProblems } from './lightChecks';
-import type { SequenceSpec } from '../types';
+import type { LayerSpec } from '../types';
 
 type Warn = (message: string) => void;
 const defaultWarn: Warn = m => console.warn(m);
@@ -41,7 +41,7 @@ const SKEW_KEYS = ['skew', 'skewX', 'skewY'];
  * Warn (never throw) about the inputs an AI author is most likely to get wrong,
  * with a message that says what to change. One call per layer, at build time.
  */
-export function lintSequence(spec: SequenceSpec, warn: Warn = defaultWarn): void {
+export function lintSequence(spec: LayerSpec, warn: Warn = defaultWarn): void {
   const who = describeLayer(spec);
   const keys = collectPropKeys(spec);
   const explained = new Set<string>();
@@ -98,7 +98,7 @@ export function lintSequence(spec: SequenceSpec, warn: Warn = defaultWarn): void
 }
 
 /** The layer names a camera's `focus` points at: missing, not threeD, or with a z that moves later. One call per camera, at build time. */
-export function lintFocus(camera: SequenceSpec, siblings: readonly SequenceSpec[], warn: Warn = defaultWarn): void {
+export function lintFocus(camera: LayerSpec, siblings: readonly LayerSpec[], warn: Warn = defaultWarn): void {
   if (camera.type !== 'camera') return;
   const who = describeLayer(camera);
   for (const p of focusProblems(camera, siblings)) {

@@ -38,7 +38,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -244,7 +244,7 @@
         { at: T.zoom, to: { z: -800, x: 188, rotationY: 18 }, duration: 1.0, ease: 'power3.inOut' },
         { at: T.zoom + 1.1, to: { y: H / 2 - 10 }, duration: 0.8, ease: 'sine.inOut', repeat: 1, yoyo: true },
       ],
-      sequences: [...chrome, ...term, ...screenFx],
+      layers: [...chrome, ...term, ...screenFx],
     };
     sfx('swoosh', snap(T.zoom - 0.05), 0.77);
 
@@ -296,7 +296,7 @@
     sfx('pop', T.cta, 0.41);
 
     // ───────────────────────── root ─────────────────────────
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: PAGE } },
       { type: 'shape', shape: 'rect', name: 'ambient-glow', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
         fillGradient: { type: 'radial', radius: 0.62, stops: [[0, 'rgba(90,200,250,0.10)'], [0.55, 'rgba(90,200,250,0.03)'], [1, 'rgba(90,200,250,0)']] } },
@@ -321,7 +321,7 @@
           { name: 'scanlines', src: scanlines(WIN_W, WIN_H - TITLE_H) },
           { name: 'bgm', src: '../_assets/bgm.mp3' },
         ],
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

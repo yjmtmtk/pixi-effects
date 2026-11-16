@@ -1,15 +1,15 @@
 import { RESERVED_NAMES, type VarValue } from './vars';
 import { suggestName } from './options';
 import { describeLayer } from './lint';
-import type { SequenceSpec } from '../types';
+import type { LayerSpec } from '../types';
 
 /**
  * Components: a composition written once and placed many times, each time with its own values (After Effects: a precomp used in several places,
  * with its Essential properties; React: a component and its props).
  *
  *   composition: {
- *     components: { lowerThird: { params: { title: 'Name' }, width: 600, height: 120, sequences: [ … '{title}' … ] } },
- *     sequences: [ { use: 'lowerThird', at: 2, params: { title: 'Aiko' }, initial: { x: 100, y: 900 } } ],
+ *     components: { lowerThird: { params: { title: 'Name' }, width: 600, height: 120, layers: [ … '{title}' … ] } },
+ *     layers: [ { use: 'lowerThird', at: 2, params: { title: 'Aiko' }, initial: { x: 100, y: 900 } } ],
  *   }
  *
  * The params are read as the movie's variables are: `{title}` in any string of the definition, a number param as a word in its expressions.
@@ -50,14 +50,14 @@ export function expandComponents<T>(spec: T, varNames: readonly string[] = []): 
   const warnings: string[] = [];
   if (!isPlain(spec)) return { spec, warnings };
   const raw = spec.components;
-  if (raw === undefined && !usesAny(spec.sequences)) return { spec, warnings };
+  if (raw === undefined && !usesAny(spec.layers)) return { spec, warnings };
   const say = (m: string) => warnings.push(`pixi-effects: ${m}`);
 
   const defs = new Map<string, Definition>();
-  if (raw !== undefined && !isPlain(raw)) say(`components must be an object of names and compositions ({ lowerThird: { width, height, sequences } }); ignored`);
+  if (raw !== undefined && !isPlain(raw)) say(`components must be an object of names and compositions ({ lowerThird: { width, height, layers } }); ignored`);
   else if (raw) {
     for (const [name, def] of Object.entries(raw)) {
-      if (!isPlain(def)) { say(`component "${name}" must be an object (a composition: { params?, width, height, sequences }); ignored`); continue; }
+      if (!isPlain(def)) { say(`component "${name}" must be an object (a composition: { params?, width, height, layers }); ignored`); continue; }
       const { params: p, ...body } = def;
       const params: Record<string, VarValue> = {};
       if (p !== undefined && !isPlain(p)) say(`component "${name}": params must be an object of names and default values ({ title: 'Name', size: 40 }); ignored`);
@@ -95,23 +95,23 @@ export function expandComponents<T>(spec: T, varNames: readonly string[] = []): 
     if (!isPlain(layer)) return layer;
     if (layer.use === undefined) {
       let out: Plain = layer;
-      if (Array.isArray(layer.sequences)) out = { ...out, sequences: expandList(layer.sequences, stack) };
+      if (Array.isArray(layer.layers)) out = { ...out, layers: expandList(layer.layers, stack) };
       if (isPlain(layer.mask)) out = { ...out, mask: expandMask(layer.mask, stack) };
       return out;
     }
-    const { use, params: given, sequences: own, ...rest } = layer;
-    const who = describeLayer(layer as unknown as SequenceSpec);
-    const empty = { ...rest, type: 'composition', sequences: [] };
+    const { use, params: given, layers: own, ...rest } = layer;
+    const who = describeLayer(layer as unknown as LayerSpec);
+    const empty = { ...rest, type: 'composition', layers: [] };
     if (typeof use !== 'string') { say(`${who}: use must be the name of a component (a string), got ${JSON.stringify(use)}; drawn empty`); return empty; }
     const def = defs.get(use);
     if (!def) {
       const guess = suggestName(use, [...defs.keys()]);
-      say(`${who}: use: "${use}": no component of that name${guess ? ` — did you mean "${guess}"?` : defs.size ? ` (components: ${[...defs.keys()].join(', ')})` : ` (none are declared: add components: { ${use}: { width, height, sequences } } to the root composition)`}; drawn empty`);
+      say(`${who}: use: "${use}": no component of that name${guess ? ` — did you mean "${guess}"?` : defs.size ? ` (components: ${[...defs.keys()].join(', ')})` : ` (none are declared: add components: { ${use}: { width, height, layers } } to the root composition)`}; drawn empty`);
       return empty;
     }
     used.add(use);
     if (stack.includes(use)) { say(`component "${stack[0]}" uses itself (${[...stack, use].join(' → ')}); the inner one is drawn empty`); return empty; }
-    if (own !== undefined) say(`${who} has use: "${use}" and sequences of its own: the component's layers are used, its own sequences are ignored`);
+    if (own !== undefined) say(`${who} has use: "${use}" and layers of its own: the component's layers are used, its own layers are ignored`);
     if (layer.type !== undefined && layer.type !== 'composition') say(`${who}: use: "${use}" makes a composition; type "${String(layer.type)}" is ignored`);
     const values: Record<string, VarValue> = { ...def.params };
     if (given !== undefined && !isPlain(given)) say(`${who}: params must be an object of names and values ({ title: 'Aiko' }); ignored`);
@@ -137,7 +137,7 @@ export function expandComponents<T>(spec: T, varNames: readonly string[] = []): 
     // the place adds to what the component has: its initial and markers key by key, its keyframes and filters after the component's
     for (const bag of ['initial', 'markers'] as const) if (isPlain(body[bag]) && isPlain(rest[bag])) placed[bag] = { ...body[bag], ...rest[bag] };
     for (const list of ['keyframes', 'filters'] as const) if (Array.isArray(body[list]) && Array.isArray(rest[list])) placed[list] = [...(body[list] as unknown[]), ...(rest[list] as unknown[])];
-    placed.sequences = expandList(body.sequences ?? [], [...stack, use]);
+    placed.layers = expandList(body.layers ?? [], [...stack, use]);
     if (isPlain(placed.mask)) placed.mask = expandMask(placed.mask, stack);
     return placed;
   };
@@ -146,8 +146,8 @@ export function expandComponents<T>(spec: T, varNames: readonly string[] = []): 
 
   const { components: _drop, ...root } = spec;
   void _drop;
-  const out = { ...root, sequences: expandList(root.sequences, []) } as Plain;
-  if (root.sequences === undefined) delete out.sequences;
+  const out = { ...root, layers: expandList(root.layers, []) } as Plain;
+  if (root.layers === undefined) delete out.layers;
   for (const name of defs.keys()) if (!used.has(name)) say(`component "${name}" is declared but nothing uses it (place it with { use: '${name}', params: { … } })`);
   return { spec: out as T, warnings };
 }
@@ -155,5 +155,5 @@ export function expandComponents<T>(spec: T, varNames: readonly string[] = []): 
 /** Is there a `use` anywhere in these layers (nested compositions and inline masks included)? */
 function usesAny(list: unknown): boolean {
   if (!Array.isArray(list)) return false;
-  return list.some(l => isPlain(l) && (l.use !== undefined || usesAny(l.sequences) || (isPlain(l.mask) && usesAny([l.mask])) || (isPlain(l.layer) && usesAny([l.layer]))));
+  return list.some(l => isPlain(l) && (l.use !== undefined || usesAny(l.layers) || (isPlain(l.mask) && usesAny([l.mask])) || (isPlain(l.layer) && usesAny([l.layer]))));
 }

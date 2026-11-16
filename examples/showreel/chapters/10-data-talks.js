@@ -107,8 +107,8 @@ export default function chapter(P) {
     width: 1920, height: 1080, frameRate: 30,
     transition: { kind: 'slide', direction: 'left', duration: T, ease: 'power3.inOut' },
     pages: [
-      { name: 'Chart', duration: D1, stops: [3.0], sequences: page1 },
-      { name: 'Takeaway', duration: D2, stops: [3.0], sequences: page2 },
+      { name: 'Chart', duration: D1, stops: [3.0], layers: page1 },
+      { name: 'Takeaway', duration: D2, stops: [3.0], layers: page2 },
     ],
   });
 
@@ -121,10 +121,10 @@ export default function chapter(P) {
   return {
     duration: 7,
     poster: 2.9,
-    sequences: [
+    layers: [
       P.bg(C.ink),
       { type: 'composition', name: 'deck', at: 0, duration: 7, width: 1920, height: 1080,
-        sequences: deck.composition.sequences, transitions: deck.composition.transitions },
+        layers: deck.composition.layers, transitions: deck.composition.transitions },
       ...sfx,
     ],
   };

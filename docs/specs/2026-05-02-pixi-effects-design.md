@@ -197,8 +197,8 @@ Same as pixistage's vitest.config but `.ts` and updated include glob.
       "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
     },
     "./controller": {
-      "import": { "types": "./dist/Controller.d.ts", "default": "./dist/Controller.js" },
-      "require": { "types": "./dist/Controller.d.cts", "default": "./dist/Controller.cjs" }
+      "import": { "types": "./dist/controller.d.ts", "default": "./dist/controller.js" },
+      "require": { "types": "./dist/controller.d.cts", "default": "./dist/controller.cjs" }
     }
   },
   "main": "./dist/index.cjs",

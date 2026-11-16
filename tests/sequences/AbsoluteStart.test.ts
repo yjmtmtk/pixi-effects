@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Container } from 'pixi.js';
 import { Sequence } from '../../src/sequences/Base';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 
 // Mock PIXI for Image/Shape tests
 vi.mock('pixi.js', () => {
@@ -47,7 +47,7 @@ vi.mock('pixi.js', () => {
 
 import { ShapeSequence } from '../../src/sequences/Shape';
 import { ImageSequence } from '../../src/sequences/Image';
-import type { ShapeSequenceSpec, ImageSequenceSpec } from '../../src/types';
+import type { ShapeLayerSpec, ImageLayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const shape: CompositionShape = { width: 100, height: 100, duration: 10 };
@@ -59,7 +59,7 @@ class StubSequence extends Sequence {
 }
 
 function makeSeq(at: number): StubSequence {
-  const spec = { type: 'shape', shape: 'rect', width: 1, height: 1, at, duration: 2 } as SequenceSpec;
+  const spec = { type: 'shape', shape: 'rect', width: 1, height: 1, at, duration: 2 } as LayerSpec;
   return new StubSequence(spec, shape, shape);
 }
 
@@ -90,7 +90,7 @@ describe('Sequence.absoluteStart', () => {
 
   it('ShapeSequence sets absoluteStart in bindTimeline', async () => {
     const root: CompositionShape = { width: 100, height: 100, duration: 10 };
-    const spec: ShapeSequenceSpec = {
+    const spec: ShapeLayerSpec = {
       type: 'shape',
       shape: 'rect',
       width: 10,
@@ -108,7 +108,7 @@ describe('Sequence.absoluteStart', () => {
 
   it('ImageSequence with colorSpace="oklab" sets absoluteStart in bindTimeline', async () => {
     const root: CompositionShape = { width: 100, height: 100, duration: 10 };
-    const spec: ImageSequenceSpec = {
+    const spec: ImageLayerSpec = {
       type: 'image',
       asset: 'test-asset',
       at: 2,

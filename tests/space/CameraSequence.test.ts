@@ -4,12 +4,12 @@ vi.mock('pixi.js', async () => (await import('./mockPixi')).createPixiMock());
 import { wiggle } from '../../src/presets/wiggle';
 import { CameraSequence } from '../../src/space/CameraSequence';
 import { homeDistance } from '../../src/space/math';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
 const make = (spec: Record<string, unknown> = {}) =>
-  new CameraSequence({ type: 'camera', ...spec } as unknown as SequenceSpec, shape, shape);
+  new CameraSequence({ type: 'camera', ...spec } as unknown as LayerSpec, shape, shape);
 
 beforeEach(() => { vi.restoreAllMocks(); });
 

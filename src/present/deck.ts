@@ -1,7 +1,7 @@
-import type { CompositionSpec, SequenceSpec, TransitionSpec, Keyframe, Props, StopSpec } from '../index';
+import type { CompositionSpec, LayerSpec, TransitionSpec, Keyframe, Props, StopSpec } from '../index';
 import { warnUnknownOptions } from '../index';
 
-const PAGE_KEYS = ['name', 'duration', 'sequences', 'stops', 'notes', 'advance', 'initial', 'keyframes', 'filters', 'filterArea', 'blendMode', 'mask'] as const;
+const PAGE_KEYS = ['name', 'duration', 'layers', 'stops', 'notes', 'advance', 'initial', 'keyframes', 'filters', 'filterArea', 'blendMode', 'mask'] as const;
 const DECK_KEYS = ['pages', 'transition', 'width', 'height', 'frameRate', 'background', 'canvas', 'assets', 'poster', 'motionBlur', 'loader'] as const;
 
 export interface DeckPage {
@@ -10,7 +10,7 @@ export interface DeckPage {
   /** How long the page lasts, seconds (including any transition into the next page, see `DeckOptions.transition`). Required. */
   duration: number;
   /** The page's layers, written in the page's own time (`at: 0` is the start of the page). */
-  sequences: SequenceSpec[];
+  layers: LayerSpec[];
   /** Where the page stops, in the page's own time: the first is the page settled, the rest are steps (a bullet appears, a chart grows). Default: where the transition into the next page begins (the end for the last page). */
   stops?: Array<number | { at: number; pdf?: boolean }>;
   /** Speaker notes (kept on the page's first stop). */
@@ -34,7 +34,7 @@ export interface DeckOptions {
   transition?: DeckTransition;
 }
 
-/** What `deck()` returns: spread it into `movie.init` (`{ duration, composition: { sequences, transitions?, stops } }` plus any movie option you passed). */
+/** What `deck()` returns: spread it into `movie.init` (`{ duration, composition: { layers, transitions?, stops } }` plus any movie option you passed). */
 export interface DeckResult {
   duration: number;
   composition: CompositionSpec;
@@ -50,22 +50,22 @@ export interface DeckResult {
  * await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, ...deck({
  *   transition: { kind: 'slide', duration: 0.6, direction: 'left' },
  *   pages: [
- *     { name: 'Hello', duration: 5, stops: [1.2], sequences: [ …title, subtitle… ] },
- *     { name: 'Why',   duration: 8, stops: [1.2, 3, 5], sequences: [ …three bullets, at 1.2, 3, 5… ] },
+ *     { name: 'Hello', duration: 5, stops: [1.2], layers: [ …title, subtitle… ] },
+ *     { name: 'Why',   duration: 8, stops: [1.2, 3, 5], layers: [ …three bullets, at 1.2, 3, 5… ] },
  *   ],
  * }) });
  * movie.on('ready', …); new Presenter(movie, { canvas });
  * ```
  */
 export function deck(options: DeckOptions): DeckResult {
-  if (!options || !Array.isArray(options.pages) || options.pages.length === 0) throw new Error('deck(): pages must be a list with at least one page: { pages: [{ name, duration, stops, sequences }] }');
+  if (!options || !Array.isArray(options.pages) || options.pages.length === 0) throw new Error('deck(): pages must be a list with at least one page: { pages: [{ name, duration, stops, layers }] }');
   warnUnknownOptions('deck()', options, DECK_KEYS);
   const { pages, transition, ...movieOptions } = options as DeckOptions & Record<string, unknown>;
   pages.forEach((p, i) => {
     if (!p || typeof p !== 'object') throw new Error(`deck(): pages[${i}] must be an object`);
     warnUnknownOptions(`deck() pages[${i}]`, p, PAGE_KEYS);
     if (!(typeof p.duration === 'number' && Number.isFinite(p.duration) && p.duration > 0)) throw new Error(`deck(): pages[${i}].duration must be a positive number of seconds, got ${String(p.duration)}`);
-    if (!Array.isArray(p.sequences)) throw new Error(`deck(): pages[${i}].sequences must be a list of layers (it may be empty), got ${typeof p.sequences}`);
+    if (!Array.isArray(p.layers)) throw new Error(`deck(): pages[${i}].layers must be a list of layers (it may be empty), got ${typeof p.layers}`);
   });
   let overlap = 0;
   if (transition) {
@@ -75,7 +75,7 @@ export function deck(options: DeckOptions): DeckResult {
     overlap = pages.length > 1 ? transition.duration : 0;
   }
 
-  const sequences: SequenceSpec[] = [];
+  const layers: LayerSpec[] = [];
   const transitions: TransitionSpec[] = [];
   const stops: StopSpec[] = [];
   let start = 0;
@@ -92,8 +92,8 @@ export function deck(options: DeckOptions): DeckResult {
       if (!(typeof s === 'number' && Number.isFinite(s) && s > 0 && s <= page.duration + 1e-9)) throw new Error(`deck(): page ${label} has stop ${String(s)}, outside the page (0 to ${page.duration} s)`);
       if (k > 0 && s <= local[k - 1]!) throw new Error(`deck(): page ${label} stops must be in order, earliest first (got ${local.join(', ')})`);
     });
-    const { name: _n, duration: _d, sequences: inner, stops: _s, notes: _no, advance: _a, ...layerProps } = page;
-    sequences.push({ type: 'composition', name: id, at: round(start), duration: page.duration, ...layerProps, sequences: inner } as unknown as SequenceSpec);
+    const { name: _n, duration: _d, layers: inner, stops: _s, notes: _no, advance: _a, ...layerProps } = page;
+    layers.push({ type: 'composition', name: id, at: round(start), duration: page.duration, ...layerProps, layers: inner } as unknown as LayerSpec);
     local.forEach((s, k) => {
       const stop: StopSpec = { at: round(start + s) };
       if (k === 0) { stop.page = page.name ?? true; if (page.notes !== undefined) stop.notes = page.notes; }
@@ -108,7 +108,7 @@ export function deck(options: DeckOptions): DeckResult {
     start = start + page.duration - (isLast ? 0 : overlap);
   });
 
-  const composition: CompositionSpec = { sequences, stops };
+  const composition: CompositionSpec = { layers, stops };
   if (transitions.length > 0) composition.transitions = transitions;
   return { ...movieOptions, duration: round(start), composition };
 }

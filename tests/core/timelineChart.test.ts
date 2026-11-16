@@ -6,7 +6,7 @@ import { Container } from 'pixi.js';
 import { registerSequenceType } from '../../src/core/Composition';
 import { expandTransitions } from '../../src/core/Transitions';
 import { collectTimeline, timelineHtml, timelineSvg } from '../../src/core/timelineChart';
-import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import type { CompositionLayerSpec, CompositionShape } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 class Box extends Sequence {
@@ -15,8 +15,8 @@ class Box extends Sequence {
 registerSequenceType('__box', Box as never);
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 12 };
-async function scene(sequences: unknown[], extra: Record<string, unknown> = {}) {
-  const base = { type: 'composition', width: 1280, height: 720, duration: 12, sequences, ...extra } as unknown as CompositionSequenceSpec;
+async function scene(layers: unknown[], extra: Record<string, unknown> = {}) {
+  const base = { type: 'composition', width: 1280, height: 720, duration: 12, layers, ...extra } as unknown as CompositionLayerSpec;
   const spec = extra.transitions ? expandTransitions(base) : base;
   const comp = new CompositionSequence(spec, shape, shape);
   await comp.build();
@@ -48,7 +48,7 @@ describe('collectTimeline', () => {
   it('nested compositions: children sit inside their parent at depth + 1, with times offset by the parent\'s start', async () => {
     const data = collectTimeline(await scene([
       { type: 'composition', name: 'card', at: 3, duration: 5, width: 100, height: 100,
-        sequences: [{ type: '__box', name: 'inner', at: 1, duration: 2, keyframes: [{ at: 0.5, set: { alpha: 1 } }] }] },
+        layers: [{ type: '__box', name: 'inner', at: 1, duration: 2, keyframes: [{ at: 0.5, set: { alpha: 1 } }] }] },
     ]), 12);
     expect(data.rows.map(r => [r.name, r.depth, r.start, r.end])).toEqual([['card', 0, 3, 8], ['inner', 1, 4, 6]]);
     expect(data.rows[1]!.keys).toEqual([4.5]);
@@ -81,7 +81,7 @@ describe('collectTimeline', () => {
   });
 
   it('a composition is never grouped away: its children stay under it', async () => {
-    const cards = Array.from({ length: 5 }, (_, i) => ({ type: 'composition', name: 'card' + i, at: i, duration: 2, width: 10, height: 10, sequences: [{ type: '__box', name: 'in' + i }] }));
+    const cards = Array.from({ length: 5 }, (_, i) => ({ type: 'composition', name: 'card' + i, at: i, duration: 2, width: 10, height: 10, layers: [{ type: '__box', name: 'in' + i }] }));
     const data = collectTimeline(await scene(cards), 12);
     expect(data.rows.map(r => r.name)).toEqual(['card0', 'in0', 'card1', 'in1', 'card2', 'in2', 'card3', 'in3', 'card4', 'in4']);
   });
@@ -195,7 +195,7 @@ describe('timelineSvg options — a chart of any width, with or without the name
 describe('time remap on the timeline', () => {
   const stage = (extra: Record<string, unknown> = {}) => ({
     type: 'composition', name: 'stage', at: 1, duration: 2, width: 100, height: 100, ...extra,
-    sequences: [{ type: '__box', name: 'inner', at: 0.25, duration: 0.5 }],
+    layers: [{ type: '__box', name: 'inner', at: 0.25, duration: 0.5 }],
   });
   it('rows inside a remapped composition are marked local, with where the time comes from; the composition\'s own row is in the outer time', async () => {
     const data = collectTimeline(await scene([stage({ speed: 0.5 })]), 12);

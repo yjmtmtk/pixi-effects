@@ -38,7 +38,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30,
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#102a43' } },
           { type: 'shape', shape: 'rect', name: 'bar', width: 500, height: 40, initial: { x: 640, y: 360, fill: '#ffd166' },
             filters: on ? [{ type: 'radialBlur', angle: 90, center: { x: 640, y: 360 }, kernelSize: 15, radius: -1 }] : [] },

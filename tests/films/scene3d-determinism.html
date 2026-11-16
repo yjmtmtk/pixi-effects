@@ -23,7 +23,7 @@
     window.movie = movie;
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30, background: '#102040',
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'scene3d', name: 'spin', width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 },
             setup: ({ root, camera }) => {
               const cube = new Mesh3D({ geometry: new CubeGeometry({ width: 1.4, height: 1.4, depth: 1.4 }), material: new Material3D({ baseColor: 0x7fb4ff, roughness: 0.5, metallic: 0 }) });

@@ -36,7 +36,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 1, frameRate: 30,
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1d2433' } },
           { type: 'text', name: 'who', text: `Well done, ${NAME}!`, style: { fontSize: 28, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 'GW/2', y: 70, anchorX: 0.5, anchorY: 0.5 } },
           { type: 'text', name: 'points', text: `${SCORE} points`, style: { fontSize: 22, fill: '#ffd166' }, initial: { x: 'GW/2', y: 115, anchorX: 0.5, anchorY: 0.5 } },

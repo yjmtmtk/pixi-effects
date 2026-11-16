@@ -53,7 +53,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
     await withPage(async (cdp) => {
       for (const [name, extra, dur, at] of CASES) {
         const layer = { type: 'video', asset: 'clip', duration: dur, audio: false, ...extra, initial: { scale: 2, ...(extra.initial ?? {}) } };
-        await cdp.eval(`mk({ duration: ${dur}, composition: { sequences: [${JSON.stringify(layer)}] } })`);
+        await cdp.eval(`mk({ duration: ${dur}, composition: { layers: [${JSON.stringify(layer)}] } })`);
         const frames: number[] = [];
         // frame 0, then every fourth frame from 1: never ON a seam of a repeat / yoyo / freeze (30, 60, 90), where a tween legitimately shows
         // either the end of one play or the start of the next
@@ -74,7 +74,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
 
   it('a ramp (accelerating, eased) is the same going forwards, by jumps and backwards, and moves forward only', async () => {
     await withPage(async (cdp) => {
-      await cdp.eval(`mk({ duration: 2, composition: { sequences: [{ type: 'video', asset: 'clip', duration: 2, audio: false, initial: { scale: 2 }, ...${JSON.stringify(RAMP)} }] } })`);
+      await cdp.eval(`mk({ duration: 2, composition: { layers: [{ type: 'video', asset: 'clip', duration: 2, audio: false, initial: { scale: 2 }, ...${JSON.stringify(RAMP)} }] } })`);
       const frames = Array.from({ length: 29 }, (_, i) => i * 2);
       const got: number[] = [];
       for (const f of frames) got.push(await cdp.eval(`frameAt(${f})`));
@@ -88,7 +88,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
   it('the export (Movie.render to mp4, played back) shows the same clip frames as the snapshots, for a reversed and a doubled video', async () => {
     await withPage(async (cdp) => {
       for (const extra of [{ speed: -1, dur: 3 }, { speed: 2, dur: 1.5 }]) {
-        await cdp.eval(`mk({ duration: ${extra.dur}, composition: { sequences: [{ type: 'video', asset: 'clip', duration: ${extra.dur}, audio: false, initial: { scale: 2 }, speed: ${extra.speed} }] } })`);
+        await cdp.eval(`mk({ duration: ${extra.dur}, composition: { layers: [{ type: 'video', asset: 'clip', duration: ${extra.dur}, audio: false, initial: { scale: 2 }, speed: ${extra.speed} }] } })`);
         const frames = [0, 10, 20, 30, 40].filter(f => f < extra.dur * FPS - 2);
         const snaps: number[] = [];
         for (const f of frames) snaps.push(await cdp.eval(`frameAt(${f})`));
@@ -100,7 +100,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
 
   it('a loop wraps (a negative speed too); speed alone makes the layer as long as the file divided by |speed|', async () => {
     await withPage(async (cdp) => {
-      await cdp.eval(`mk({ duration: 6, composition: { sequences: [{ type: 'video', asset: 'clip', duration: 6, loop: true, audio: false, initial: { scale: 2 }, speed: -1 }] } })`);
+      await cdp.eval(`mk({ duration: 6, composition: { layers: [{ type: 'video', asset: 'clip', duration: 6, loop: true, audio: false, initial: { scale: 2 }, speed: -1 }] } })`);
       // the layer starts at file time 6 = two whole passes of the 3 s clip: that single instant is the wrap boundary (the start AND the end of the file; it used to read
       // as the end only because the page's clip was one frame too long). One frame in, it is unambiguous: the last frame of the file, counting back.
       expect(await cdp.eval('frameAt(1)')).toBe(89);
@@ -108,7 +108,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
       const f = await cdp.eval('frameAt(100)');                                       // 3.33 s: wrapped, counting back from 6 - 3.33 = 2.67 s in file time
       expect(Math.abs(f - shown(((6 - 100 / FPS) % 3 + 3) % 3))).toBeLessThanOrEqual(1);
       const lasts = async (extra: string) => {
-        await cdp.eval(`mk({ duration: 8, composition: { sequences: [{ type: 'video', asset: 'clip', audio: false, ${extra} initial: { scale: 2 } }] } })`);
+        await cdp.eval(`mk({ duration: 8, composition: { layers: [{ type: 'video', asset: 'clip', audio: false, ${extra} initial: { scale: 2 } }] } })`);
         const row = await cdp.eval(`window.movie.timelineData().rows.find(r => r.type === 'video')`);
         return row.end - row.start;
       };
@@ -142,7 +142,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
         const exact = OUTER.filter(f => Math.abs(mapped(f / FPS) * FPS - Math.round(mapped(f / FPS) * FPS)) < 1e-6);
         expect(exact.length, `${name}: frames compared`).toBeGreaterThanOrEqual(7);
         const want = await cdp.eval(`plainAt(${map}, ${JSON.stringify(exact)}, ${content})`);
-        await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ ...stage(), ...${JSON.stringify(extra)} }] } })`);
+        await cdp.eval(`mk({ duration: 4, composition: { layers: [{ ...stage(), ...${JSON.stringify(extra)} }] } })`);
         let worst = 0;
         for (const f of exact) worst = Math.max(worst, await cdp.eval(`snap(${f}).then(s => diff(s, ${JSON.stringify(want[f])}))`));
         expect(worst, `${name}: largest difference from the unremapped composition`).toBeLessThanOrEqual(60);          // antialiased edges only (the clock is rounded to 1e-7 s)
@@ -157,7 +157,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
     await withPage(async (cdp) => {
       const frames = [3, 9, 15, 21, 27];
       const want = await cdp.eval(`plainAt(t => 3 + t, ${JSON.stringify(frames)}, 4)`);
-      await cdp.eval(`mk({ duration: 1, composition: { sequences: [{ ...stage(), initial: { time: -1 } }] } })`);
+      await cdp.eval(`mk({ duration: 1, composition: { layers: [{ ...stage(), initial: { time: -1 } }] } })`);
       let worst = 0;
       for (const f of frames) worst = Math.max(worst, await cdp.eval(`snap(${f}).then(s => diff(s, ${JSON.stringify(want[f])}))`));
       expect(worst).toBeLessThanOrEqual(60);
@@ -166,7 +166,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
 
   it('a jump BACKWARD first, to a place a from / to tween reaches only going backward, still gives the same picture', async () => {
     await withPage(async (cdp) => {
-      await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ ...stage(), speed: -1 }] } })`);
+      await cdp.eval(`mk({ duration: 4, composition: { layers: [{ ...stage(), speed: -1 }] } })`);
       const first = await cdp.eval('snap(100)');                       // backward-first: the very first render is at the far end of the local timeline
       await cdp.eval('snap(0)'); await cdp.eval('snap(60)');
       expect(await cdp.eval(`snap(100).then(s => diff(s, ${JSON.stringify(first)}))`)).toBe(0);
@@ -176,7 +176,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
   it('speed above 1 does not cut the content at the composition length (the local time runs to 8 s)', async () => {
     await withPage(async (cdp) => {
       const at = async (f: number) => cdp.eval(`frameAt(${f})`);
-      await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ type: 'composition', duration: 4, speed: 2, sequences: [{ type: 'video', asset: 'clip', audio: false, duration: 3, at: 5, initial: { scale: 2 } }] }] } })`);
+      await cdp.eval(`mk({ duration: 4, composition: { layers: [{ type: 'composition', duration: 4, speed: 2, layers: [{ type: 'video', asset: 'clip', audio: false, duration: 3, at: 5, initial: { scale: 2 } }] }] } })`);
       // local time 5 s starts at output 2.5 s (frame 75); the video has a 3 s clip, so output frame 90 shows clip frame (6 - 5) * 30
       expect(Math.abs((await at(90)) - 30)).toBeLessThanOrEqual(1);
     });
@@ -192,8 +192,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
       ]`;
       for (const c of [{ speed: -1, map: '(t => 4 - t)', len: 4 }, { speed: 2, map: '(t => 2 * t)', len: 8 }]) {
         // the oracle: the same content, unremapped (as long as the remapped one's content), at the mapped local time
-        const want = await cdp.eval(`(async () => { await mk({ duration: ${c.len}, composition: { sequences: [{ type: 'composition', duration: ${c.len}, sequences: ${content} }] } }); const out = {}; for (const f of ${JSON.stringify(OUTER)}) out[f] = await snap(Math.round(${c.map}(f / 30) * 30)); return out; })()`);
-        await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ type: 'composition', duration: 4, speed: ${c.speed}, sequences: ${content} }] } })`);
+        const want = await cdp.eval(`(async () => { await mk({ duration: ${c.len}, composition: { layers: [{ type: 'composition', duration: ${c.len}, layers: ${content} }] } }); const out = {}; for (const f of ${JSON.stringify(OUTER)}) out[f] = await snap(Math.round(${c.map}(f / 30) * 30)); return out; })()`);
+        await cdp.eval(`mk({ duration: 4, composition: { layers: [{ type: 'composition', duration: 4, speed: ${c.speed}, layers: ${content} }] } })`);
         let worst = 0;
         for (const f of OUTER) worst = Math.max(worst, await cdp.eval(`snap(${f}).then(s => diff(s, ${JSON.stringify(want[f])}))`));
         expect(worst, `speed ${c.speed}`).toBeLessThanOrEqual(60);
@@ -208,10 +208,10 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
     await withPage(async (cdp) => {
       const mb = '{ samples: 8, shutter: 0.5 }';
       const move = `[{ type: 'shape', shape: 'rect', width: 40, height: 40, initial: { x: 40, y: 90, fill: '#ffffff' }, keyframes: [{ at: 0, to: { x: 280 }, duration: 4, ease: 'none' }] }]`;
-      await cdp.eval(`mk({ duration: 4, motionBlur: ${mb}, composition: { sequences: [{ type: 'composition', duration: 4, sequences: ${move} }] } })`);
+      await cdp.eval(`mk({ duration: 4, motionBlur: ${mb}, composition: { layers: [{ type: 'composition', duration: 4, layers: ${move} }] } })`);
       const plain: Record<number, string> = {};
       for (const f of [30, 60, 90]) plain[f] = await cdp.eval(`snap(${f})`);
-      await cdp.eval(`mk({ duration: 4, motionBlur: ${mb}, composition: { sequences: [{ type: 'composition', duration: 4, speed: -1, sequences: ${move} }] } })`);
+      await cdp.eval(`mk({ duration: 4, motionBlur: ${mb}, composition: { layers: [{ type: 'composition', duration: 4, speed: -1, layers: ${move} }] } })`);
       for (const f of [30, 60, 90]) {
         const d = await cdp.eval(`snap(${f}).then(s => diff(s, ${JSON.stringify(plain[120 - f])}))`);
         expect(d, `frame ${f} against the plain composition at frame ${120 - f}`).toBeLessThanOrEqual(6);
@@ -221,7 +221,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
 
   it('destroy kills the local timeline and the clock: nothing a remapped composition made is left behind', async () => {
     await withPage(async (cdp) => {
-      await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ ...stage(), speed: -1 }, { ...stage(), speed: 2 }] } })`);
+      await cdp.eval(`mk({ duration: 4, composition: { layers: [{ ...stage(), speed: -1 }, { ...stage(), speed: 2 }] } })`);
       await cdp.eval('snap(30)');
       await cdp.eval('(window.__tl = window.movie.timeline, 0)');
       expect(await cdp.eval('window.__tl.segments().length')).toBeGreaterThan(0);          // the movie and its local timelines exist

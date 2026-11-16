@@ -33,7 +33,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30,
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#000000' } },
           { type: 'shape', shape: 'rect', name: 'square', width: 80, height: 80, initial: { x: 160, y: 360, fill: '#ffffff' },
             keyframes: [{ at: 0, to: { x: 1120 }, duration: 2, ease: 'none' }] },

@@ -34,7 +34,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":  "../../dist/present.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
@@ -178,7 +178,7 @@
     const gateCard = (name, z, at, duration, keyframes, draw) => ({
       type: 'composition', name, threeD: true, at, duration, width: GW_, height: GH_,
       initial: { x: -GOX + GW_ / 2, y: -GOY + GH_ / 2, z, pivotX: GW_ / 2, pivotY: GH_ / 2 },
-      keyframes, sequences: gateStrokes(draw, at, at + duration),
+      keyframes, layers: gateStrokes(draw, at, at + duration),
     });
 
     // a door: a dark fusuma slab with a frame, a round finger-pull and a lit inner edge (a threeD card, hinged on its outer edge)
@@ -190,7 +190,7 @@
         type: 'composition', name, threeD: true, at, duration, width: DOOR_W, height: DOOR_H,
         initial: { x: left ? 0 : W, y: H / 2, z, pivotX: left ? 0 : DOOR_W, pivotY: DOOR_H / 2 },
         keyframes,
-        sequences: [
+        layers: [
           rect({ name: 'slab', width: DOOR_W, height: DOOR_H, initial: { x: DOOR_W / 2, y: DOOR_H / 2 },
             fillGradient: { angle: 90, stops: left ? [[0, '#121110'], [0.8, DOOR], [1, '#26231f']] : [[0, '#26231f'], [0.2, DOOR], [1, '#121110']] } }),
           rect({ name: 'frame', width: DOOR_W - 240, height: DOOR_H - 240, initial: { x: DOOR_W / 2, y: DOOR_H / 2, stroke: STONE, strokeWidth: 2, strokeAlpha: 0.1 } }),
@@ -346,7 +346,7 @@
         ...wiggle({ at: 0, duration: 0.55, freq: 16, seed: 8, ease: 'none', props: { x: { around: W / 2, amp: 9 }, y: { around: H / 2, amp: 7 } } }),
         { at: 9.0, to: { x: 600, scale: 0.74 }, duration: 1.3, ease: 'power3.inOut' },
       ],
-      sequences: [
+      layers: [
         { type: 'shape', shape: 'circle', name: 'sun-glow', radius: 520, initial: { x: SUN_C[0], y: SUN_C[1] + 640 },
           fillGradient: { type: 'radial', stops: [[0, VERM_A(0.2)], [0.45, VERM_A(0.07)], [1, VERM_A(0)]] },
           keyframes: [{ at: 0.3, to: { y: SUN_C[1] }, duration: 2.4, ease: 'power3.out' },
@@ -404,7 +404,7 @@
     paperSeq.push({ type: 'composition', name: 'seal', at: 12 - 0.12, duration: 5.12, width: 128, height: 128,
       initial: { x: SEAL_X, y: SEAL_Y, pivotX: 64, pivotY: 64, rotation: -3 },
       keyframes: [{ at: 0, from: { scale: 1.6, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.12, ease: 'power2.in' }],
-      sequences: [
+      layers: [
         rect({ name: 'seal-body', width: 128, height: 128, cornerRadius: 10, initial: { x: 64, y: 64, fill: VERMILION } }),
         { type: 'text', name: 'seal-char', text: '間', style: { ...KANJI, fontSize: 84, fill: PAPER }, initial: { x: 64, y: 66, anchorX: 0.5, anchorY: 0.5 } },
       ] });
@@ -412,7 +412,7 @@
     paperSeq.push({ type: 'text', name: 'colophon-l', text: 'A FILM IN FIVE INTERVALS', at: 12.4, duration: 4.6, style: MONO, initial: { x: MARGIN, y: 978, anchorY: 0.5 }, keyframes: fadeKF(0, 0.8) });
     paperSeq.push({ type: 'text', name: 'colophon-r', text: '80 BPM · D MINOR → D MAJOR', at: 12.6, duration: 4.4, style: MONO, initial: { x: W - MARGIN, y: 978, anchorX: 1, anchorY: 0.5 }, keyframes: fadeKF(0, 0.8) });
 
-    S.push({ type: 'composition', name: 'paper-world', at: B_AT, duration: 16.6, width: W, height: H, sequences: paperSeq });
+    S.push({ type: 'composition', name: 'paper-world', at: B_AT, duration: 16.6, width: W, height: H, layers: paperSeq });
 
     // the doors that burst open on the hit (camera B is the default camera, so z = 0 matches the stop frame exactly)
     S.push({ type: 'camera', name: 'cam-b', at: SILENCE, duration: DURATION - SILENCE, initial: { fov: 40 } });
@@ -481,7 +481,7 @@
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS,
         poster: 43.5, background: INK, assets: [{ name: 'grain', src: grainSrc }],
-        composition: { sequences: S },
+        composition: { layers: S },
       });
       window.__ready = true;
     } catch (e) {

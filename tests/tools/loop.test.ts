@@ -28,7 +28,7 @@ async function open<T>(fn: (cdp: any) => Promise<T>, query = ''): Promise<T> {
 }
 const square = { type: 'shape', shape: 'rect', width: 20, height: 20, initial: { x: 'W/2', y: 'H/2', fill: '#ff0000' } };
 const mk = (cdp: any, opts: unknown) => cdp.eval(`mk(${JSON.stringify(opts)})`);
-const SHORT = { duration: 0.5, composition: { sequences: [square] } };
+const SHORT = { duration: 0.5, composition: { layers: [square] } };
 
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the default backend', ''], ['WebGL', '?backend=webgl']])('movie.loop, on a real browser (%s)', (_label, query) => {
   const withPage = <T,>(fn: (cdp: any) => Promise<T>) => open(fn, query);
@@ -65,7 +65,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('the sound plays again on every lap (a new source each time)', async () => {
     await withPage(async (cdp) => {
-      await mk(cdp, { duration: 0.6, loop: true, composition: { sequences: [square, { type: 'audio', sfx: 'pop', at: 0 }] } });
+      await mk(cdp, { duration: 0.6, loop: true, composition: { layers: [square, { type: 'audio', sfx: 'pop', at: 0 }] } });
       const out = await cdp.eval(`(async () => {
         movie.play(); await new Promise(r => setTimeout(r, 200)); const first = movie.audioSource;
         await new Promise(r => setTimeout(r, 900)); const later = movie.audioSource;

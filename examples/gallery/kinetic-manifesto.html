@@ -42,7 +42,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -256,7 +256,7 @@
     try {
       await movie.init({
         canvas, width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS, background: INK,
-        composition: { sequences: seq },
+        composition: { layers: seq },
       });
       window.__ready = true;
     } catch (e) {

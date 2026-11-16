@@ -67,7 +67,7 @@ vi.mock('../../src/sequences/trimPath', async (orig) => ({
 }));
 
 import { ShapeSequence } from '../../src/sequences/Shape';
-import type { ShapeSequenceSpec, CompositionShape } from '../../src/types';
+import type { ShapeLayerSpec, CompositionShape } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
@@ -78,7 +78,7 @@ beforeEach(() => {
   lastGraphics = null;
 });
 
-function build(spec: ShapeSequenceSpec) {
+function build(spec: ShapeLayerSpec) {
   const seq = new ShapeSequence(spec, root, root);
   return seq.build().then(() => seq);
 }
@@ -424,7 +424,7 @@ describe('a path with fillRule "evenodd": the biggest sub-path is filled and the
   const D = 'M 0 0 L 100 0 L 100 100 L 0 100 Z M 25 25 L 75 25 L 75 75 L 25 75 Z';
   const run = async (extra: Record<string, unknown>) => {
     calls.length = 0;
-    const seq = new ShapeSequence({ type: 'shape', shape: 'path', d: D, initial: { fill: '#ffcc00' }, ...extra } as unknown as ShapeSequenceSpec, root, root);
+    const seq = new ShapeSequence({ type: 'shape', shape: 'path', d: D, initial: { fill: '#ffcc00' }, ...extra } as unknown as ShapeLayerSpec, root, root);
     await seq.build();
     calls.length = 0;
     (seq as unknown as { _redraw(): void })._redraw();

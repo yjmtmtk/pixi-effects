@@ -16,12 +16,12 @@
     },
     "./controller": {
       "import": {
-        "types": "./dist/Controller.d.ts",
-        "default": "./dist/Controller.js"
+        "types": "./dist/controller.d.ts",
+        "default": "./dist/controller.js"
       },
       "require": {
-        "types": "./dist/Controller.d.cts",
-        "default": "./dist/Controller.cjs"
+        "types": "./dist/controller.d.cts",
+        "default": "./dist/controller.cjs"
       }
     },
     "./loader.css": "./dist/loader.css",

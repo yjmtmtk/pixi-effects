@@ -36,7 +36,7 @@ export function recipeBody(md, id) {
 /** The edit block for one list entry: { id, recipe, label, duration, background, poster }. */
 export function presetCode(md, meta) {
   const body = recipeBody(md, meta.recipe).split('\n').map((l) => (l ? `  ${l}` : l)).join('\n');
-  const object = /\breturn\s*\{/.test(body);                     // `{ sequences, transitions, … }` instead of an array of layers
+  const object = /\breturn\s*\{/.test(body);                     // `{ layers, transitions, … }` instead of an array of layers
   const head = [
     `// Recipe "${meta.recipe}" (skills/pixi-effects/reference/recipes.md). Edit anything, then press ⌘↵ / Ctrl+↵ to Run.`,
     ...importsFor(body),
@@ -46,8 +46,8 @@ export function presetCode(md, meta) {
     '',
   ];
   const tail = object
-    ? [`const RECIPE = (() => {`, body, `})();`, `const sequences = RECIPE.sequences;`, `const INIT = { composition: { transitions: RECIPE.transitions } };`]
-    : [`const sequences = (() => {`, body, `})();`];
+    ? [`const RECIPE = (() => {`, body, `})();`, `const layers = RECIPE.layers;`, `const INIT = { composition: { transitions: RECIPE.transitions } };`]
+    : [`const layers = (() => {`, body, `})();`];
   return [...head, ...tail, `const POSTER = ${meta.poster};`, ''].join('\n');
 }
 

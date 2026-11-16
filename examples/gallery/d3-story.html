@@ -39,7 +39,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "d3":                      "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm",
       "topojson-client":         "https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/+esm"
     }
@@ -75,7 +75,7 @@
       { type: 'shape', shape: 'rect', width: 2, height: 22, initial: { x: M, y: H - 52, anchorX: 0, anchorY: 0.5, fill: OR } },
       { type: 'text', text: d3call, style: { fontSize: 22, fontFamily: MONO, fill: INK }, initial: { x: M + 18, y: H - 52, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0.3, to: { alpha: 1 }, duration: 0.3 }] },
     ];
-    const comp = (name, at, duration, sequences) => ({ type: 'composition', name, at, duration, width: W, height: H, sequences });
+    const comp = (name, at, duration, layers) => ({ type: 'composition', name, at, duration, width: W, height: H, layers });
     const drawOn = (at, duration = 1.2, ease = 'power2.inOut') => ({ at, to: { trimEnd: 1 }, duration, ease });
     const sfx = [];
 
@@ -219,7 +219,7 @@
       await movie.init({
         canvas: document.getElementById('stage'), width: W, height: H, duration: DURATION, frameRate: FPS, poster: 18.5, background: BG,
         composition: {
-          sequences: [...order, { type: 'shape', shape: 'rect', width: W, height: H, blendMode: 'multiply', initial: { x: W / 2, y: H / 2 }, fillGradient: { type: 'radial', radius: 0.8, stops: [[0.55, 'rgba(255,255,255,1)'], [1, 'rgba(70,70,80,1)']] } }, music, ...sounds],
+          layers: [...order, { type: 'shape', shape: 'rect', width: W, height: H, blendMode: 'multiply', initial: { x: W / 2, y: H / 2 }, fillGradient: { type: 'radial', radius: 0.8, stops: [[0.55, 'rgba(255,255,255,1)'], [1, 'rgba(70,70,80,1)']] } }, music, ...sounds],
           transitions: order.slice(1).map((c, i) => ({ kind: 'luma', from: order[i].name, to: c.name, at: c.at, duration: 0.4, map: maps[i], softness: 0.12 })),
           filters: [{ type: 'grain', name: 'g', amount: 0.02, size: 1.4, color: 0.2 }],
         },

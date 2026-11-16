@@ -47,7 +47,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('an alpha matte: the layer shows inside the disc and the backdrop outside; the matte itself is not drawn (even though it is listed after the layer)', async () => {
     await withPage(async (cdp) => {
-      const url = await frame(cdp, { sequences: [backdrop, layer({ mask: 'm' }), disc()] });
+      const url = await frame(cdp, { layers: [backdrop, layer({ mask: 'm' }), disc()] });
       near(await at(cdp, url, 80, 45), mix(1), 'inside');
       near(await at(cdp, url, 10, 10), mix(0), 'outside');
       near(await at(cdp, url, 100, 45), mix(0), 'the disc is radius 20: x = 100 is its edge, 105 is outside');
@@ -56,28 +56,28 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a half-transparent matte cuts halfway', async () => {
     await withPage(async (cdp) => {
-      const url = await frame(cdp, { sequences: [backdrop, disc('m', '#ffffff', { initial: { x: 80, y: 45, fill: '#ffffff', alpha: 0.5 } }), layer({ mask: 'm' })] });
+      const url = await frame(cdp, { layers: [backdrop, disc('m', '#ffffff', { initial: { x: 80, y: 45, fill: '#ffffff', alpha: 0.5 } }), layer({ mask: 'm' })] });
       near(await at(cdp, url, 80, 45), mix(0.5), 'inside');
     });
   });
 
   it('a luma matte reads the brightness (Rec. 709) of the matte, alpha reads its opacity', async () => {
     await withPage(async (cdp) => {
-      let url = await frame(cdp, { sequences: [backdrop, rect('m', { initial: { x: 0, y: 0, fill: '#808080' } }), layer({ mask: { layer: 'm', channel: 'luma' } })] });
+      let url = await frame(cdp, { layers: [backdrop, rect('m', { initial: { x: 0, y: 0, fill: '#808080' } }), layer({ mask: { layer: 'm', channel: 'luma' } })] });
       near(await at(cdp, url, 80, 45), mix(128 / 255), 'grey #808080 as luma');
-      url = await frame(cdp, { sequences: [backdrop, rect('m', { initial: { x: 0, y: 0, fill: '#ff0000' } }), layer({ mask: { layer: 'm', channel: 'luma' } })] });
+      url = await frame(cdp, { layers: [backdrop, rect('m', { initial: { x: 0, y: 0, fill: '#ff0000' } }), layer({ mask: { layer: 'm', channel: 'luma' } })] });
       near(await at(cdp, url, 80, 45), mix(0.2126), 'red as luma (0.2126)');
-      url = await frame(cdp, { sequences: [backdrop, rect('m', { initial: { x: 0, y: 0, fill: '#ff0000' } }), layer({ mask: 'm' })] });
+      url = await frame(cdp, { layers: [backdrop, rect('m', { initial: { x: 0, y: 0, fill: '#ff0000' } }), layer({ mask: 'm' })] });
       near(await at(cdp, url, 80, 45), mix(1), 'the same red as alpha is fully opaque');
     });
   });
 
   it('invert uses 1 − matte (alpha and luma)', async () => {
     await withPage(async (cdp) => {
-      let url = await frame(cdp, { sequences: [backdrop, disc(), layer({ mask: { layer: 'm', invert: true } })] });
+      let url = await frame(cdp, { layers: [backdrop, disc(), layer({ mask: { layer: 'm', invert: true } })] });
       near(await at(cdp, url, 80, 45), mix(0), 'inside the disc: the hole');
       near(await at(cdp, url, 10, 10), mix(1), 'outside');
-      url = await frame(cdp, { sequences: [backdrop, rect('m', { initial: { x: 0, y: 0, fill: '#808080' } }), layer({ mask: { layer: 'm', channel: 'luma', invert: true } })] });
+      url = await frame(cdp, { layers: [backdrop, rect('m', { initial: { x: 0, y: 0, fill: '#808080' } }), layer({ mask: { layer: 'm', channel: 'luma', invert: true } })] });
       near(await at(cdp, url, 80, 45), mix(1 - 128 / 255), 'inverted grey luma');
     });
   });
@@ -86,11 +86,11 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     await withPage(async (cdp) => {
       const left = rect('A', { width: 80, initial: { x: 0, y: 0, fill: '#ffffff' } });
       const b = disc('B');
-      let url = await frame(cdp, { sequences: [backdrop, left, b, layer({ mask: ['A', 'B'] })] });
+      let url = await frame(cdp, { layers: [backdrop, left, b, layer({ mask: ['A', 'B'] })] });
       near(await at(cdp, url, 70, 45), mix(1), 'in A and in B');
       near(await at(cdp, url, 100, 45), mix(0), 'in B but not in A');
       near(await at(cdp, url, 10, 10), mix(0), 'in neither');
-      url = await frame(cdp, { sequences: [backdrop, left, b, layer({ mask: ['A', { layer: 'B', invert: true }] })] });
+      url = await frame(cdp, { layers: [backdrop, left, b, layer({ mask: ['A', { layer: 'B', invert: true }] })] });
       near(await at(cdp, url, 70, 45), mix(0), 'in A and in B: subtracted');
       near(await at(cdp, url, 10, 10), mix(1), 'in A, not in B');
       near(await at(cdp, url, 120, 10), mix(0), 'not in A');
@@ -101,7 +101,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     await withPage(async (cdp) => {
       const m = rect('m', { width: 30, height: 90, initial: { x: 0, y: 0, fill: '#ffffff' }, keyframes: [{ at: 0, to: { x: 130 }, duration: 1, ease: 'none' }] });
       const band = (name: string, y: number, color: string) => rect(name, { height: 30, initial: { x: 0, y, fill: color }, mask: 'm' });
-      const comp = { sequences: [backdrop, m, band('top', 0, '#ff3366'), band('mid', 30, '#33ff66'), band('low', 60, '#3366ff')] };
+      const comp = { layers: [backdrop, m, band('top', 0, '#ff3366'), band('mid', 30, '#33ff66'), band('low', 60, '#3366ff')] };
       await cdp.eval(`mk(${JSON.stringify({ duration: 1, composition: comp })})`);
       for (const f of [0, 15, 29]) {
         const url: string = await cdp.eval(`snap(${f})`);
@@ -120,7 +120,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a matte with its own at and duration: where it is missing the layer is invisible (and the build said so once)', async () => {
     await withPage(async (cdp) => {
-      await cdp.eval(`mk(${JSON.stringify({ duration: 1, composition: { sequences: [backdrop, disc('m', '#ffffff', { at: 0.3, duration: 0.4 }), layer({ mask: 'm' })] } })})`);
+      await cdp.eval(`mk(${JSON.stringify({ duration: 1, composition: { layers: [backdrop, disc('m', '#ffffff', { at: 0.3, duration: 0.4 }), layer({ mask: 'm' })] } })})`);
       near(await at(cdp, await cdp.eval('snap(0)'), 80, 45), mix(0), 'before the matte exists: the layer is cut away entirely');
       near(await at(cdp, await cdp.eval('snap(12)'), 80, 45), mix(1), 'while the matte exists (0.4 s)');
       near(await at(cdp, await cdp.eval('snap(12)'), 10, 10), mix(0), 'outside the disc');
@@ -132,7 +132,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a matte that has a parent (a moving null layer) is drawn where the null carries it', async () => {
     await withPage(async (cdp) => {
-      const comp = { sequences: [backdrop,
+      const comp = { layers: [backdrop,
         { type: 'null', name: 'rig', initial: { x: 40, y: 0 } },
         { type: 'shape', shape: 'circle', name: 'm', parent: 'rig', radius: 20, initial: { x: 40, y: 45, fill: '#ffffff' } },
         layer({ mask: 'm' })] };
@@ -144,7 +144,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('an inline inverted mask on a layer inside a null follows the null (the hole is where the null puts it)', async () => {
     await withPage(async (cdp) => {
-      const comp = { sequences: [backdrop,
+      const comp = { layers: [backdrop,
         { type: 'null', name: 'rig', initial: { x: 40, y: 0 } },
         rect('L', { parent: 'rig', initial: { x: 0, y: 0, fill: LAYER },
           mask: { layer: { type: 'shape', shape: 'circle', radius: 20, initial: { x: 40, y: 45, fill: '#ffffff' } }, invert: true } })] };
@@ -157,7 +157,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('with a blend mode the blend is inside the matte and the backdrop is outside', async () => {
     await withPage(async (cdp) => {
-      const url = await frame(cdp, { sequences: [backdrop, disc(), layer({ mask: 'm', blendMode: 'multiply' })] });
+      const url = await frame(cdp, { layers: [backdrop, disc(), layer({ mask: 'm', blendMode: 'multiply' })] });
       const back = hexToRgb(BACK), src = hexToRgb(LAYER);
       near(await at(cdp, url, 80, 45), back.map((b, k) => b * src[k]! * 255), 'multiply inside');
       near(await at(cdp, url, 10, 10), back.map(b => b * 255), 'outside');
@@ -168,7 +168,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   for (const [mode, alpha] of [['multiply', 1], ['screen', 1], ['add', 1], ['overlay', 1], ['soft-light', 1], ['hue', 1], ['overlay', 0.5], ['luminosity', 1]] as const) {
     it(`a matted layer with blendMode ${mode}${alpha < 1 ? ' at alpha ' + alpha : ''}: the blend inside the matte, the backdrop outside`, async () => {
       await withPage(async (cdp) => {
-        const url = await frame(cdp, { sequences: [backdrop, disc(), layer({ mask: 'm', blendMode: mode, initial: { x: 0, y: 0, fill: LAYER, alpha } })] });
+        const url = await frame(cdp, { layers: [backdrop, disc(), layer({ mask: 'm', blendMode: mode, initial: { x: 0, y: 0, fill: LAYER, alpha } })] });
         const back = hexToRgb(BACK), src = hexToRgb(LAYER);
         const inside = mode === 'multiply' ? back.map((b, k) => b * src[k]! * alpha + b * (1 - alpha)).map(v => v * 255)
           : mode === 'screen' ? back.map((b, k) => (b + src[k]! - b * src[k]!) * alpha + b * (1 - alpha)).map(v => v * 255)
@@ -182,7 +182,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('the same matte with a luma channel and a blend: brightness 0.5 half-blends', async () => {
     await withPage(async (cdp) => {
-      const url = await frame(cdp, { sequences: [backdrop, rect('m', { initial: { x: 0, y: 0, fill: '#808080' } }), layer({ mask: [{ layer: 'm', channel: 'luma' }], blendMode: 'multiply' })] });
+      const url = await frame(cdp, { layers: [backdrop, rect('m', { initial: { x: 0, y: 0, fill: '#808080' } }), layer({ mask: [{ layer: 'm', channel: 'luma' }], blendMode: 'multiply' })] });
       const back = hexToRgb(BACK), src = hexToRgb(LAYER), m = 128 / 255;
       near(await at(cdp, url, 80, 45), back.map((b, k) => (b * (1 - m) + b * src[k]! * m) * 255), 'luma 0.5 with multiply');
     });
@@ -190,7 +190,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a matted layer that has its own filter (an identity colour matrix) is cut by the matte after it', async () => {
     await withPage(async (cdp) => {
-      const url = await frame(cdp, { sequences: [backdrop, disc(), layer({ mask: 'm', filters: [{ type: 'colorMatrix', matrix: [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0] }] })] });
+      const url = await frame(cdp, { layers: [backdrop, disc(), layer({ mask: 'm', filters: [{ type: 'colorMatrix', matrix: [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0] }] })] });
       near(await at(cdp, url, 80, 45), mix(1), 'inside');
       near(await at(cdp, url, 10, 10), mix(0), 'outside');
     });
@@ -200,10 +200,10 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     await withPage(async (cdp) => {
       const discUrl: string = await cdp.eval(`(() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(32, 32, 28, 0, 7); g.fill(); return c.toDataURL('image/png'); })()`);
       const text = { type: 'text', name: 'm', text: 'I', style: { fontSize: 90, fontWeight: '900', fill: '#ffffff', fontFamily: 'sans-serif' }, initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } };
-      let url = await frame(cdp, { sequences: [backdrop, text, layer({ mask: 'm' })] });
+      let url = await frame(cdp, { layers: [backdrop, text, layer({ mask: 'm' })] });
       near(await at(cdp, url, 80, 45), mix(1), 'text matte: in the letter');
       near(await at(cdp, url, 10, 10), mix(0), 'text matte: outside');
-      url = await frame(cdp, { sequences: [backdrop, { type: 'image', name: 'm', asset: 'disc', initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } }, layer({ mask: 'm' })] }, 0, { assets: [{ name: 'disc', src: discUrl }] });
+      url = await frame(cdp, { layers: [backdrop, { type: 'image', name: 'm', asset: 'disc', initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } }, layer({ mask: 'm' })] }, 0, { assets: [{ name: 'disc', src: discUrl }] });
       near(await at(cdp, url, 80, 45), mix(1), 'image matte: in the disc');
       near(await at(cdp, url, 10, 10), mix(0), 'image matte: outside');
     });
@@ -212,7 +212,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   it('every seek order gives the same pictures for a matte that moves, a blend, a filter and a text matte together', async () => {
     await withPage(async (cdp) => {
       const move = { keyframes: [{ at: 0, to: { x: 130 }, duration: 1, ease: 'none' }] };
-      const comp = { sequences: [backdrop,
+      const comp = { layers: [backdrop,
         disc('m', '#ffffff', { initial: { x: 30, y: 45, fill: '#ffffff' }, ...move }),
         layer({ mask: 'm', blendMode: 'overlay' }),
         { type: 'text', name: 't', text: 'I', style: { fontSize: 60, fill: '#ffffff' }, initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } },
@@ -226,13 +226,13 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   });
 
   const A = '#c03030', B = '#3050c0';
-  const scene = (name: string, fill: string) => ({ type: 'composition', name, width: 160, height: 90, duration: 2, sequences: [rect(name + '-fill', { initial: { x: 0, y: 0, fill: fill } })] });
+  const scene = (name: string, fill: string) => ({ type: 'composition', name, width: 160, height: 90, duration: 2, layers: [rect(name + '-fill', { initial: { x: 0, y: 0, fill: fill } })] });
   const rgb = (hex: string) => hexToRgb(hex).map(v => v * 255);
   const isB = (p: number[]) => Math.abs(p[2]! - 192) < Math.abs(p[2]! - 48);
 
   it('a luma wipe (linear): at the start only A, midway the left is B and the right is A, at the end only B; the same on every seek order', async () => {
     await withPage(async (cdp) => {
-      const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'linear', softness: 0.1 }] };
+      const comp = { layers: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'linear', softness: 0.1 }] };
       await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp })})`);
       const url = async (f: number) => cdp.eval(`snap(${f})`) as Promise<string>;
       near(await at(cdp, await url(0), 10, 45), rgb(A), 'start, left');
@@ -251,7 +251,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a luma wipe with invert: the light side changes first', async () => {
     await withPage(async (cdp) => {
-      const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'linear', softness: 0.1, invert: true }] };
+      const comp = { layers: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'linear', softness: 0.1, invert: true }] };
       await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp })})`);
       const mid: string = await cdp.eval('snap(30)');
       near(await at(cdp, mid, 10, 45), rgb(A), 'flipped, midway: the left has not changed');
@@ -261,7 +261,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a luma wipe with a built-in radial map starts at the middle and the circle grows to the corners (a circle on screen, not an ellipse)', async () => {
     await withPage(async (cdp) => {
-      const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'radial', softness: 0.05 }] };
+      const comp = { layers: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'radial', softness: 0.05 }] };
       await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp })})`);
       const url: string = await cdp.eval('snap(30)');                // progress 0.5
       const lumaAt = (x: number, y: number) => builtInLuma('radial', x / 160, y / 90, 160 / 90);
@@ -279,7 +279,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   it('a luma wipe with a grayscale image as the map: dark parts change first (here a map that is dark on the right)', async () => {
     await withPage(async (cdp) => {
       const mapUrl: string = await cdp.eval(`(() => { const c = document.createElement('canvas'); c.width = 160; c.height = 90; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 160, 0); gr.addColorStop(0, '#fff'); gr.addColorStop(1, '#000'); g.fillStyle = gr; g.fillRect(0, 0, 160, 90); return c.toDataURL('image/png'); })()`);
-      const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'rightfirst', softness: 0.1 }] };
+      const comp = { layers: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'rightfirst', softness: 0.1 }] };
       await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp, assets: [{ name: 'rightfirst', src: mapUrl }] })})`);
       const mid: string = await cdp.eval('snap(30)');
       near(await at(cdp, mid, 150, 45), rgb(B), 'the dark (right) side has changed');
@@ -291,7 +291,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   for (const kind of ['wipe', 'iris', 'dissolve', 'luma']) {
     it(`a ${kind} transition compiles on this backend (no shader error) and ends on B, starts on A`, async () => {
       await withPage(async (cdp) => {
-        const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind, from: 'a', to: 'b', at: 0.5, duration: 1 }] };
+        const comp = { layers: [scene('a', A), scene('b', B)], transitions: [{ kind, from: 'a', to: 'b', at: 0.5, duration: 1 }] };
         await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp })})`);
         near(await at(cdp, await cdp.eval('snap(0)'), 80, 45), rgb(A), 'start');
         near(await at(cdp, await cdp.eval('snap(59)'), 80, 45), rgb(B), 'end');
@@ -303,7 +303,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a layer with a named matte inside a transition keeps its matte (the transition wraps the layer; the matte is found)', async () => {
     await withPage(async (cdp) => {
-      const comp = { sequences: [
+      const comp = { layers: [
         rect('a', { initial: { x: 0, y: 0, fill: A }, duration: 2 }),
         disc('m'),
         rect('b', { initial: { x: 0, y: 0, fill: B }, mask: 'm', duration: 2 }),
@@ -319,7 +319,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   for (const kind of ['zoom', 'luma', 'wipe', 'iris']) {
     it(`a named matte on a layer that a ${kind} transition wraps still cuts it once the transition is over`, async () => {
       await withPage(async (cdp) => {
-        const comp = { sequences: [
+        const comp = { layers: [
           rect('a', { initial: { x: 0, y: 0, fill: A }, duration: 2 }),
           disc('m'),
           rect('b', { initial: { x: 0, y: 0, fill: B }, mask: 'm', duration: 2 }),
@@ -339,7 +339,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     it(`an inline mask on a layer that a ${kind} transition wraps still cuts it, before and after, and its white fill never shows`, async () => {
       await withPage(async (cdp) => {
         const inline = { type: 'shape', shape: 'circle', radius: 20, initial: { x: 80, y: 45, fill: '#ffffff' } };
-        const comp = { sequences: [
+        const comp = { layers: [
           rect('a', { initial: { x: 0, y: 0, fill: A }, duration: 1.5, mask: inline }),
           rect('b', { initial: { x: 0, y: 0, fill: B }, duration: 1.5, mask: inline, at: 1 }),
         ], transitions: [{ kind, from: 'a', to: 'b', at: 1, duration: 0.5 }] };
@@ -359,11 +359,11 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   for (const [what, layerSpec] of [
     ['a shape', (W: number, H: number) => ({ type: 'shape', shape: 'rect', name: 'big', width: 4000, height: 2400, threeD: true, initial: { x: W / 2, y: H / 2, z: 0, rotationY: 12, fill: A } })],
     ['a composition card', (W: number, H: number) => ({ type: 'composition', name: 'big', width: 4000, height: 2400, threeD: true, initial: { x: W / 2, y: H / 2, z: 0, rotationY: 12, pivotX: 2000, pivotY: 1200 },     // a composition has no anchor: the pivot is its centre
-      sequences: [{ type: 'shape', shape: 'rect', width: 4000, height: 2400, initial: { x: 2000, y: 1200, fill: A } }] })],
+      layers: [{ type: 'shape', shape: 'rect', width: 4000, height: 2400, initial: { x: 2000, y: 1200, fill: A } }] })],
   ] as const) {
     it(`${what} of 4000 x 2400 in perspective is drawn (not black)`, async () => {
       await withPage(async (cdp) => {
-        await cdp.eval(`mk(${JSON.stringify({ width: 960, height: 540, duration: 1, composition: { sequences: [layerSpec(960, 540)] } })})`);
+        await cdp.eval(`mk(${JSON.stringify({ width: 960, height: 540, duration: 1, composition: { layers: [layerSpec(960, 540)] } })})`);
         const url: string = await cdp.eval('snap(0)');
         near(await at(cdp, url, 480, 270), rgb(A), 'centre');
         near(await at(cdp, url, 40, 40), rgb(A), 'near a corner (the layer is far larger than the frame)');
@@ -373,7 +373,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a composition with no mask does not touch the matte machinery: the same pixels, no warning', async () => {
     await withPage(async (cdp) => {
-      const url = await frame(cdp, { sequences: [backdrop, layer({ initial: { x: 40, y: 20, fill: LAYER }, width: 40, height: 30 })] });
+      const url = await frame(cdp, { layers: [backdrop, layer({ initial: { x: 40, y: 20, fill: LAYER }, width: 40, height: 30 })] });
       near(await at(cdp, url, 5, 5), hexToRgb(BACK).map(v => v * 255), 'backdrop');
       near(await at(cdp, url, 50, 30), hexToRgb(LAYER).map(v => v * 255), 'layer');
       expect(mine(await cdp.eval('__logs'))).toEqual([]);

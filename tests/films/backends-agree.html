@@ -82,7 +82,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#1e2a38',
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'shape', shape: 'rect', name: 'panel', width: 240, height: 110,
             fillGradient: { angle: 90, stops: [[0, '#ff9a3c'], [1, '#3c5bff']] },
             initial: { x: 150, y: 100 } },

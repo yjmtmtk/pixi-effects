@@ -26,7 +26,7 @@ export default function chapter(P) {
   // One window of the sequence: a 1920 x 1080 composition that lives from `from` for `len` seconds.
   const win = (name, from, len, children, filters) => ({
     type: 'composition', name, width: 1920, height: 1080, at: from, duration: len,
-    filters, sequences: [backdrop(name + '-back'), ...children],
+    filters, layers: [backdrop(name + '-back'), ...children],
   });
 
   const glowAt = (strength) => ({ type: 'glow', name: 'halo', distance: 28, outerStrength: strength, innerStrength: 0, color: 0xff5a36, quality: 0.3 });
@@ -130,13 +130,13 @@ export default function chapter(P) {
     type: 'composition', name: 'scene', width: 1920, height: 1080,
     filters: [{ type: 'grain', name: 'film', amount: 0.03, size: 1.6, seed: 5, fps: 24 }],
     keyframes: [{ at: at(4), from: { 'filters.film.amount': 0.03 }, to: { 'filters.film.amount': 0.12 }, duration: 0.5, ease: 'power2.out' }],
-    sequences: [plain, glow, crt, glitch, slam, settle, ring, ...burst, ...labels],
+    layers: [plain, glow, crt, glitch, slam, settle, ring, ...burst, ...labels],
   };
 
   return {
     duration: 7,
     poster: at(3) + 0.5,
-    sequences: [
+    layers: [
       P.bg(C.ink),
       scene,
       ...P.tag('07', 'FILTERS AND PARTICLES', null, { at: 0.7 }),

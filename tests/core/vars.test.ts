@@ -42,11 +42,11 @@ describe('normalizeVars: what an author may declare', () => {
 
 describe('applyVars: {name} in any string of the spec becomes the value', () => {
   it('replaces declared names only, anywhere in the spec (text, colour, asset, nested layers, arrays), and leaves the input alone', () => {
-    const spec = { sequences: [{ type: 'text', text: '{title} / {value}', style: { fill: '{accent}' }, keyframes: [{ at: 0, to: { x: '{shift}' } }] }, { type: 'image', asset: '{lang}-logo' }] };
+    const spec = { layers: [{ type: 'text', text: '{title} / {value}', style: { fill: '{accent}' }, keyframes: [{ at: 0, to: { x: '{shift}' } }] }, { type: 'image', asset: '{lang}-logo' }] };
     const frozen = JSON.stringify(spec);
     const out = applyVars(spec, { title: 'NORD', accent: '#e5399a', shift: 40, lang: 'ja' }) as typeof spec;
-    expect(out.sequences[0]).toEqual({ type: 'text', text: 'NORD / {value}', style: { fill: '#e5399a' }, keyframes: [{ at: 0, to: { x: '40' } }] });
-    expect(out.sequences[1]).toEqual({ type: 'image', asset: 'ja-logo' });
+    expect(out.layers[0]).toEqual({ type: 'text', text: 'NORD / {value}', style: { fill: '#e5399a' }, keyframes: [{ at: 0, to: { x: '40' } }] });
+    expect(out.layers[1]).toEqual({ type: 'image', asset: 'ja-logo' });
     expect(JSON.stringify(spec)).toBe(frozen);                              // never mutated
     expect(out).not.toBe(spec);
   });
@@ -93,7 +93,7 @@ describe('lintVars: what the composition says about its variables', () => {
   const lint = (spec: unknown, vars: Record<string, number | string>) => lintVars(spec, vars);
 
   it('a variable that nothing uses is said (the usual cause is a typo on one side)', () => {
-    const w = lint({ sequences: [{ type: 'text', text: '{title}', initial: { x: 'W/2' } }] }, { title: 'a', unused: 1 });
+    const w = lint({ layers: [{ type: 'text', text: '{title}', initial: { x: 'W/2' } }] }, { title: 'a', unused: 1 });
     expect(w).toHaveLength(1);
     expect(w[0]).toMatch(/variable "unused" is declared but nothing uses it/);
   });

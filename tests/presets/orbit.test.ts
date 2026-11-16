@@ -3,7 +3,7 @@ import { orbit } from '../../src/presets/orbit';
 import { homeDistance } from '../../src/space/math';
 import { lintSequence } from '../../src/space/lint';
 import { lintTiming } from '../../src/core/lint';
-import type { SequenceSpec } from '../../src/types';
+import type { LayerSpec } from '../../src/types';
 import { evaluateExpr } from '../../src/expr/Parser';
 
 const DEG = Math.PI / 180;
@@ -67,8 +67,8 @@ describe('orbit()', () => {
     expect(v720(c.initial).fov).toBe(50);
     expect(v720(c.initial).z).toBeCloseTo(homeDistance(720, 50) * Math.cos(-15 * DEG), 6);
     const w: string[] = [];
-    lintSequence(c as SequenceSpec, m => w.push(m));
-    lintTiming(c as SequenceSpec, 10, m => w.push(m));
+    lintSequence(c as LayerSpec, m => w.push(m));
+    lintTiming(c as LayerSpec, 10, m => w.push(m));
     expect(w).toEqual([]);
   });
 

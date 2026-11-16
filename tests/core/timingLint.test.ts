@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { lintTiming, summarizeWarnings } from '../../src/core/lint';
-import type { SequenceSpec } from '../../src/types';
+import type { LayerSpec } from '../../src/types';
 
 function run(spec: unknown, parentDuration = 10): string[] {
   const out: string[] = [];
-  lintTiming(spec as SequenceSpec, parentDuration, m => out.push(m));
+  lintTiming(spec as LayerSpec, parentDuration, m => out.push(m));
   return out;
 }
 
@@ -116,7 +116,7 @@ describe('summarizeWarnings', () => {
 
   it('lintTiming tags the late-keyframe warning so a caller can group it', () => {
     const kinds: Array<string | undefined> = [];
-    lintTiming({ type: 'text', text: 'a', duration: 3, keyframes: [{ at: 4, to: { alpha: 0 } }] } as unknown as SequenceSpec, 10, (_m, kind) => kinds.push(kind));
+    lintTiming({ type: 'text', text: 'a', duration: 3, keyframes: [{ at: 4, to: { alpha: 0 } }] } as unknown as LayerSpec, 10, (_m, kind) => kinds.push(kind));
     expect(kinds).toEqual(['late-keyframe']);
   });
 });

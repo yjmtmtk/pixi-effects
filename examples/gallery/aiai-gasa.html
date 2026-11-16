@@ -38,7 +38,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":  "../../dist/present.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
@@ -422,7 +422,7 @@
           { name: 'adultWet', src: person({ sw: 44, sh: 18, head: 15, coat: C.coat, wet: true }) },
           { name: 'child', src: person({ sw: 27, sh: 12, head: 13, coat: C.sweater, child: true }) },
         ],
-        composition: { sequences: L },
+        composition: { layers: L },
       });
       window.__ready = true;
     } catch (e) {

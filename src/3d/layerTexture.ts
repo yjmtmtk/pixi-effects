@@ -71,7 +71,7 @@ export async function layerTexture(ctx: Scene3DContext, name: string, options: L
       'A layer shown on a mesh must be listed BEFORE the scene3d layer, in the same composition, and have that name.');
   }
   if (source.spec.type !== 'composition') {
-    throw new Error(`${label}: "${name}" is a ${source.spec.type} layer: a layer shown on a mesh must be a composition (wrap it: { type: 'composition', name: '${name}', width: 480, height: 270, sequences: [ … ] })`);
+    throw new Error(`${label}: "${name}" is a ${source.spec.type} layer: a layer shown on a mesh must be a composition (wrap it: { type: 'composition', name: '${name}', width: 480, height: 270, layers: [ … ] })`);
   }
   const logicalW = Math.max(1, Math.round(source.intrinsicWidth)), logicalH = Math.max(1, Math.round(source.intrinsicHeight));
   const rt = RenderTexture.create({ width: logicalW, height: logicalH, resolution, autoGenerateMipmaps: true });

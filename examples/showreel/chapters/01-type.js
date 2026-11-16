@@ -81,5 +81,5 @@ export default function chapter(P) {
   seq.push(label('l3', 'pixels in every frame, counted by one keyframe', 470 + measureText('0', s3).height / 2 + 70, T3 + 0.3, T3_END));
   seq.push(sfx('s3', 'chime', T3 + 0.9, 0.35));
 
-  return { duration: END, poster: 3.95, sequences: seq };
+  return { duration: END, poster: 3.95, layers: seq };
 }

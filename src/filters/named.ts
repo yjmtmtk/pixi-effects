@@ -82,7 +82,7 @@ function libraryFilters(spec: unknown): Map<string, string | undefined> {
         else if (!isCoreType(f.type)) throw unknownType(f.type);
       }
     }
-    for (const key of ['sequences', 'mask', 'layer']) visit(o[key]);          // ('layer': a mask written as { layer: <spec>, invert })
+    for (const key of ['layers', 'mask', 'layer']) visit(o[key]);          // ('layer': a mask written as { layer: <spec>, invert })
   };
   visit(spec);
   return found;

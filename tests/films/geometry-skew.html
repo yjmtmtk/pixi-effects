@@ -24,7 +24,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000',
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'shape', shape: 'rect', name: 'box', width: 160, height: 80, anchorX, anchorY,
             initial: { x: 320, y: 180, skewX, skewY, fill: '#ffffff' } },
         ] },

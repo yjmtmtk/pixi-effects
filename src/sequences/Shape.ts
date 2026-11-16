@@ -15,7 +15,7 @@ import { buildMorph, morphAt, type MorphPair } from './morphPath';
 import { collectPropKeys } from '../space/specKeys';
 import type { Timeline } from '../core/timelineEngine';
 import type {
-  ShapeSequenceSpec, GradientSpec,
+  ShapeLayerSpec, GradientSpec,
   LineShapeSpec, PolygonShapeSpec, PathShapeSpec,
   Props, Keyframe, PropValue,
 } from '../types';
@@ -41,7 +41,7 @@ const COLOR_KEYS = new Set<LiveKey>(['fill', 'stroke']);
 // are baked once at build. `anchorX` / `anchorY` are also animatable —
 // useful for "morph from left-anchored to centred" tricks.
 const TRIM_KEYS = ['trimStart', 'trimEnd'] as const;
-const GEOMETRY_KEYS_BY_SHAPE: Record<ShapeSequenceSpec['shape'], readonly GeometryKey[]> = {
+const GEOMETRY_KEYS_BY_SHAPE: Record<ShapeLayerSpec['shape'], readonly GeometryKey[]> = {
   rect:    ['width', 'height', 'cornerRadius', 'anchorX', 'anchorY', ...TRIM_KEYS],
   circle:  ['radius', 'anchorX', 'anchorY', ...TRIM_KEYS],
   ellipse: ['radiusX', 'radiusY', 'anchorX', 'anchorY', ...TRIM_KEYS],
@@ -54,7 +54,7 @@ const GEOMETRY_KEYS_BY_SHAPE: Record<ShapeSequenceSpec['shape'], readonly Geomet
 // Shape kinds whose geometry is drawn relative to a configurable anchor —
 // they don't need the build-time auto-pivot that user-coord shapes
 // (line / polygon / path) rely on for visual centring.
-const ANCHORED_SHAPES = new Set<ShapeSequenceSpec['shape']>(['rect', 'circle', 'ellipse', 'arc']);
+const ANCHORED_SHAPES = new Set<ShapeLayerSpec['shape']>(['rect', 'circle', 'ellipse', 'arc']);
 
 interface ShapeState {
   // style
@@ -89,7 +89,7 @@ interface ShapeState {
 }
 
 export class ShapeSequence extends Sequence {
-  declare spec: ShapeSequenceSpec;
+  declare spec: ShapeLayerSpec;
   private _state: ShapeState = {
     fill: undefined,
     fillAlpha: 1,
@@ -326,7 +326,7 @@ export class ShapeSequence extends Sequence {
 
 // ─── State seeding ───────────────────────────────────────────────────────
 
-function seedGeometry(state: ShapeState, spec: ShapeSequenceSpec, scope: Scope): void {
+function seedGeometry(state: ShapeState, spec: ShapeLayerSpec, scope: Scope): void {
   const keys = GEOMETRY_KEYS_BY_SHAPE[spec.shape];
   const initial = (spec.initial ?? {}) as Record<string, PropValue | undefined>;
   for (const k of keys) {
@@ -522,14 +522,14 @@ function makePathDraw(spec: PathShapeSpec): (g: Graphics) => void {
   return (g: Graphics) => { g.path(new GraphicsPath(d)); };
 }
 
-const STATE_DRAWERS: Partial<Record<ShapeSequenceSpec['shape'], (g: Graphics, s: ShapeState) => void>> = {
+const STATE_DRAWERS: Partial<Record<ShapeLayerSpec['shape'], (g: Graphics, s: ShapeState) => void>> = {
   rect:    drawRectFromState,
   circle:  drawCircleFromState,
   ellipse: drawEllipseFromState,
   arc:     drawArcFromState,
 };
 
-function makeDrawGeometry(spec: ShapeSequenceSpec, scope: Scope, state: ShapeState, morph: { pairs: MorphPair[]; to: string } | null): (g: Graphics) => void {
+function makeDrawGeometry(spec: ShapeLayerSpec, scope: Scope, state: ShapeState, morph: { pairs: MorphPair[]; to: string } | null): (g: Graphics) => void {
   const stateDrawer = STATE_DRAWERS[spec.shape];
   if (stateDrawer) return (g: Graphics) => stateDrawer(g, state);
   switch (spec.shape) {
@@ -557,7 +557,7 @@ function drawPolyline(g: Graphics, part: Polyline): void {
 }
 
 /** The outline a stroke trim walks along: the same geometry as the drawer, as polylines (null: no trim for this kind). */
-function makeOutline(spec: ShapeSequenceSpec, scope: Scope, s: ShapeState, morph: { pairs: MorphPair[]; to: string } | null): (() => Polyline[]) | null {
+function makeOutline(spec: ShapeLayerSpec, scope: Scope, s: ShapeState, morph: { pairs: MorphPair[]; to: string } | null): (() => Polyline[]) | null {
   switch (spec.shape) {
     case 'rect': return () => {
       const w = s.width ?? 0, h = s.height ?? 0;

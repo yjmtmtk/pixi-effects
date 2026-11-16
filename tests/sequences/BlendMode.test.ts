@@ -6,11 +6,11 @@ vi.mock('pixi.js', async () => {
 });
 import { CompositionSequence } from '../../src/sequences/Composition';
 import { setBlendFilterFactory } from '../../src/core/blend';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
-async function build(sequences: unknown[]) {
-  const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration: 10, sequences } as unknown as SequenceSpec as never, shape, shape);
+async function build(layers: unknown[]) {
+  const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration: 10, layers } as unknown as LayerSpec as never, shape, shape);
   await comp.build();
   return comp;
 }
@@ -34,7 +34,7 @@ describe('blendMode on a layer', () => {
 
   it('a composition blends as one picture, through its group pass (the last filter; its container stays normal), and a threeD layer through its mesh', async () => {
     const comp = await build([
-      { type: 'composition', width: 200, height: 200, blendMode: 'add', sequences: [{ type: 'shape', shape: 'circle', radius: 10 }] },
+      { type: 'composition', width: 200, height: 200, blendMode: 'add', layers: [{ type: 'shape', shape: 'circle', radius: 10 }] },
       { type: 'shape', shape: 'circle', radius: 10, threeD: true, blendMode: 'screen' },
     ]);
     const group = comp.layers()[0]!.display as unknown as { blendMode?: string; filters: Array<{ blendMode?: string; enabled?: boolean }> };
@@ -199,7 +199,7 @@ describe('many advanced blends at once', () => {
   it('a composition with an advanced mode is one pass, whatever it holds (it blends as one picture): twelve plain layers in it do not warn', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const inside = Array.from({ length: 12 }, () => ({ type: 'shape', shape: 'circle', radius: 10 }));
-    await build([{ type: 'composition', width: 200, height: 200, blendMode: 'overlay', sequences: inside }]);
+    await build([{ type: 'composition', width: 200, height: 200, blendMode: 'overlay', layers: inside }]);
     expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('advanced blendMode'))).toEqual([]);
   });
 

@@ -33,7 +33,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 640, height: 360, duration: 10, frameRate: 30, background: '#10131c',
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'text', text: 'music, as text', style: { fontSize: 48, fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
           { type: 'audio', at: 0.5, volume: 0.9, music: {
             bpm: 88, swing: 0.14, reverb: 0.24, seed: 7,

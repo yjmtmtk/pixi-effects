@@ -32,7 +32,7 @@
   <script type="importmap">{ "imports": {
     "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
     "pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
-    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/Controller.js",
+    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/controller.js",
     "pixi-effects/present": "../../dist/present.js" } }</script>
 
   <script type="module">
@@ -86,7 +86,7 @@
       const hits = events.filter(e => e.kind !== 'drop');
       return { steps, px, py, events, hits, count: hits.length };
     }
-    // The sound needs the collision times while the sequences are written, so the run happens here, before init;
+    // The sound needs the collision times while the layers are written, so the run happens here, before init;
     // `setup` hands the same object to every canvas layer as info.state.
     const SIM = simulate();
     const sim = () => SIM;
@@ -226,7 +226,7 @@
     const LX = 96;                               // the left column
     const canvasLayer = (name, draw, extra = {}) => ({ type: 'canvas', name, width: W, height: H, duration: DURATION, setup: sim, draw, ...extra });
 
-    const sequences = [
+    const layers = [
       { type: 'shape', name: 'bg', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#06070a' } },
       { type: 'shape', name: 'pool', shape: 'circle', radius: R + 140, initial: { x: CX, y: CY, alpha: 0.9,
           fillGradient: { type: 'radial', stops: [{ offset: 0, color: '#141018' }, { offset: 1, color: '#06070a' }] } } },
@@ -263,7 +263,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS,
         poster: 12.8,
         background: '#06070a',
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

@@ -3,12 +3,12 @@ import { Sequence } from './Base';
 import { normalizeKeyframe } from '../core/Timeline';
 import { describeLayer } from '../core/lint';
 import { remapOf, clockTable, type TimeRemap } from '../core/remap';
-import type { AudioSequenceSpec, AudioAssetSpec, AudioSfxSpec, AudioMusicSpec, AudioDescriptor } from '../types';
+import type { AudioLayerSpec, AudioAssetSpec, AudioSfxSpec, AudioMusicSpec, AudioDescriptor } from '../types';
 import { AUDIO_FORMATS, type AudioAssetData } from '../core/AssetLoader';
 import { layerAt } from '../core/layerAt';
 
 export class AudioSequence extends Sequence {
-  declare spec: AudioSequenceSpec;
+  declare spec: AudioLayerSpec;
   private _audioBuffer: AudioBuffer | null = null;
   private _synth: AudioDescriptor['synth'] | null = null;
   private _music: AudioDescriptor['music'] | null = null;

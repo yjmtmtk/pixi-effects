@@ -3,7 +3,7 @@ import { Container } from 'pixi.js';
 import { registerSequenceType, buildSequenceTree } from '../../src/core/Composition';
 import { Sequence } from '../../src/sequences/Base';
 import { ShapeSequence } from '../../src/sequences/Shape';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 
 const shape: CompositionShape = { width: 100, height: 100, duration: 10 };
 
@@ -20,7 +20,7 @@ afterEach(() => {
 describe('registerSequenceType', () => {
   it('builds registered custom types through buildSequenceTree', async () => {
     registerSequenceType('__test-custom', FakeSequence as never);
-    const specs = [{ type: '__test-custom' } as unknown as SequenceSpec];
+    const specs = [{ type: '__test-custom' } as unknown as LayerSpec];
     const out = await buildSequenceTree(specs, shape, shape);
     expect(out).toHaveLength(1);
     expect(out[0]).toBeInstanceOf(FakeSequence);
@@ -29,7 +29,7 @@ describe('registerSequenceType', () => {
 
   it('still warns and skips unknown types', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const specs = [{ type: '__test-unregistered' } as unknown as SequenceSpec];
+    const specs = [{ type: '__test-unregistered' } as unknown as LayerSpec];
     const out = await buildSequenceTree(specs, shape, shape);
     expect(out).toHaveLength(0);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('__test-unregistered'));
@@ -39,7 +39,7 @@ describe('registerSequenceType', () => {
     registerSequenceType('__test-idem', FakeSequence as never);
     registerSequenceType('__test-idem', FakeSequence as never);
     const out = await buildSequenceTree(
-      [{ type: '__test-idem' } as unknown as SequenceSpec], shape, shape,
+      [{ type: '__test-idem' } as unknown as LayerSpec], shape, shape,
     );
     expect(out).toHaveLength(1);
   });
@@ -53,7 +53,7 @@ describe('registerSequenceType', () => {
     // win, so the conflicting registration can never actually take effect.
     registerSequenceType('shape', FakeSequence as never);
     const out = await buildSequenceTree(
-      [{ type: 'shape', shape: 'rect', width: 10, height: 10 } as SequenceSpec],
+      [{ type: 'shape', shape: 'rect', width: 10, height: 10 } as LayerSpec],
       shape, shape,
     );
     expect(out).toHaveLength(1);

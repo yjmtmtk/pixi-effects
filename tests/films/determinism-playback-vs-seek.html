@@ -99,7 +99,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: FPS, background: '#101828',
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'shape', shape: 'rect', name: 'box', width: 30, height: 30, initial: { x: 30, y: 40, fill: '#ff3030' },
             keyframes: [{ at: 0, to: { x: 290 }, duration: 3, ease: 'none' }] },
           { type: 'text', name: 'count', text: '{value}', style: { fontSize: 28, fill: '#ffffff' }, initial: { x: 12, y: 110, value: 0 },

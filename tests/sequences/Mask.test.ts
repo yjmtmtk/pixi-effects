@@ -67,7 +67,7 @@ vi.mock('pixi.js', () => {
 });
 
 import { CompositionSequence } from '../../src/sequences/Composition';
-import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import type { CompositionLayerSpec, CompositionShape } from '../../src/types';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
 
@@ -75,10 +75,10 @@ beforeEach(() => { calls.length = 0; });
 
 describe('Sequence — inline mask', () => {
   it('child with `mask` spec gets a `maskSequence` and `target.mask` wired', async () => {
-    const spec: CompositionSequenceSpec = {
+    const spec: CompositionLayerSpec = {
       type: 'composition',
       width: 1280, height: 720,
-      sequences: [
+      layers: [
         {
           type: 'shape', shape: 'rect', width: 200, height: 200,
           name: 'box',
@@ -101,10 +101,10 @@ describe('Sequence — inline mask', () => {
   });
 
   it('mask sequence is added to the same parent container as the child', async () => {
-    const spec: CompositionSequenceSpec = {
+    const spec: CompositionLayerSpec = {
       type: 'composition',
       width: 1280, height: 720,
-      sequences: [
+      layers: [
         {
           type: 'shape', shape: 'rect', width: 100, height: 100,
           initial: { x: 'W/2', y: 'H/2', fill: '#ff0000' },
@@ -122,10 +122,10 @@ describe('Sequence — inline mask', () => {
   });
 
   it('no mask spec → maskSequence stays null', async () => {
-    const spec: CompositionSequenceSpec = {
+    const spec: CompositionLayerSpec = {
       type: 'composition',
       width: 1280, height: 720,
-      sequences: [
+      layers: [
         { type: 'shape', shape: 'rect', width: 100, height: 100, initial: { x: 0, y: 0, fill: '#ff0000' } },
       ],
     };
@@ -138,8 +138,8 @@ describe('Sequence — inline mask', () => {
 
   const maskedRect = (extra: Record<string, unknown>, mask: Record<string, unknown>) => ({
     type: 'composition', width: 1280, height: 720,
-    sequences: [{ type: 'shape', shape: 'rect', width: 100, height: 100, initial: { x: 0, y: 0, fill: '#ff0000' }, ...extra, mask }],
-  }) as CompositionSequenceSpec;
+    layers: [{ type: 'shape', shape: 'rect', width: 100, height: 100, initial: { x: 0, y: 0, fill: '#ff0000' }, ...extra, mask }],
+  }) as CompositionLayerSpec;
   const circleMask = { type: 'shape', shape: 'circle', radius: 30, initial: { x: 0, y: 0, fill: '#ffffff' } };
   type Masked = { mask: unknown; maskInverseSetting: boolean; effects: Array<{ inverse: boolean; mask: unknown }> };
 
@@ -175,10 +175,10 @@ describe('Sequence — inline mask', () => {
   });
 
   it('a mask is not inverted unless it says so (normal masking)', async () => {
-    const spec: CompositionSequenceSpec = {
+    const spec: CompositionLayerSpec = {
       type: 'composition',
       width: 1280, height: 720,
-      sequences: [
+      layers: [
         {
           type: 'shape', shape: 'rect', width: 100, height: 100,
           initial: { x: 0, y: 0, fill: '#ff0000' },
@@ -193,10 +193,10 @@ describe('Sequence — inline mask', () => {
   });
 
   it('destroy() also tears down the mask sequence', async () => {
-    const spec: CompositionSequenceSpec = {
+    const spec: CompositionLayerSpec = {
       type: 'composition',
       width: 1280, height: 720,
-      sequences: [
+      layers: [
         {
           type: 'shape', shape: 'rect', width: 50, height: 50,
           initial: { x: 0, y: 0, fill: '#ff0000' },

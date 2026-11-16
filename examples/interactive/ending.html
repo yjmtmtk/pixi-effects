@@ -36,7 +36,7 @@
       "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects": "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js" } }
+      "pixi-effects/controller": "../../dist/controller.js" } }
   </script>
   <script type="module">
     import { Movie, particles } from 'pixi-effects';
@@ -59,7 +59,7 @@
     const fade = (d = 0.8) => [{ at: 0, from: { alpha: 0 }, duration: d }];
 
     // one ending = a composition that lives from the fork to the end and is shown only when `path` is its number
-    const ending = (k, name, sequences) => ({ type: 'composition', name: `ending-${name}`, at: CHOICE, duration: AFTER, width: W, height: H, initial: { alpha: is('path', k) }, sequences });
+    const ending = (k, name, layers) => ({ type: 'composition', name: `ending-${name}`, at: CHOICE, duration: AFTER, width: W, height: H, initial: { alpha: is('path', k) }, layers });
     const walkOff = (x, y, s, d = 2.6) => ({ at: 0.2, to: { x, y, scale: s }, duration: d, ease: 'power2.inOut' });
 
     const forest = ending(0, 'forest', [
@@ -98,7 +98,7 @@
       label('everything is small up here', 38, W / 2, 205, { at: 2.8, style: { fontWeight: '500', fill: '#365a8c' }, keyframes: fade(0.8) }),
     ]);
 
-    const composition = { sequences: [
+    const composition = { layers: [
       { type: 'shape', shape: 'rect', name: 'sky', width: W, height: H, initial: { x: W / 2, y: H / 2 }, fillGradient: { stops: [[0, '#79c2ff'], [1, '#ffe9bd']] } },
       { type: 'shape', shape: 'circle', radius: 80, initial: { x: 1060, y: 150, fill: '#fff7c9' } },
       { type: 'shape', shape: 'rect', name: 'ground', width: W, height: H - GROUND, initial: { x: W / 2, y: GROUND + (H - GROUND) / 2, fill: '#6bbf6a' } },

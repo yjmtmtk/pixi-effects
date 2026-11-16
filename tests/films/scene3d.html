@@ -102,12 +102,12 @@
     try {
       if (LATE) {
         await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040', vars: { label: 'a' },
-          composition: { sequences: [BAND, TEXT] } });
+          composition: { layers: [BAND, TEXT] } });
         entry = await import('../../dist/3d.js'); p3d = await import('@pixi/3d'); entry.register3D();
-        try { await movie.rebuild({ composition: { sequences: [BAND, TEXT, cubeLayer()] } }); } catch (e) { window.__error = String(e && e.message || e); }
+        try { await movie.rebuild({ composition: { layers: [BAND, TEXT, cubeLayer()] } }); } catch (e) { window.__error = String(e && e.message || e); }
       } else {
         await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040', vars: { label: 'a' },
-          composition: { sequences: [BAND, cubeLayer(), modelLayer(), TEXT] } });
+          composition: { layers: [BAND, cubeLayer(), modelLayer(), TEXT] } });
       }
       window.__ready = true;
     } catch (e) { window.__error = String(e && e.message || e); window.__ready = true; }

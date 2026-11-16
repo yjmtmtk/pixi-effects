@@ -8,7 +8,7 @@ import type { Container, Renderer, Texture } from 'pixi.js';
  * pixi-effects public DSL types.
  *
  * The composition spec users pass to `Movie.init({ composition })` is
- * shaped by `CompositionSpec`. Every `SequenceSpec` is a discriminated
+ * shaped by `CompositionSpec`. Every `LayerSpec` is a discriminated
  * union over `type`, so editor autocomplete narrows correctly.
  */
 
@@ -120,7 +120,7 @@ export type FilterSpec = ChromaKeyFilterSpec | CustomFilterSpec | NamedFilterSpe
 export interface TransitionCommon {
   /** Sibling sequence's `name` — the outgoing scene. */
   from: string;
-  /** Sibling sequence's `name` — the incoming scene. Must be declared after `from` in the parent's `sequences[]`. */
+  /** Sibling sequence's `name` — the incoming scene. Must be declared after `from` in the parent's `layers`. */
   to: string;
   /** Start time in the PARENT composition's time (like a sequence's `at`, not sequence-local). Negative = back from the parent's end. */
   /** Seconds on the clock of the composition, or a moment by name (`'a@end - 1'`). */
@@ -151,7 +151,7 @@ export interface IrisTransition extends TransitionCommon {
 
 export interface SlideTransition extends TransitionCommon {
   kind: 'slide';
-  /** Direction of motion: `'left'` = both sequences slide leftward (B enters from the right). */
+  /** Direction of motion: `'left'` = both layers slide leftward (B enters from the right). */
   direction: 'left' | 'right' | 'up' | 'down';
 }
 
@@ -217,11 +217,11 @@ export type BlendModeName =
  * A matte with options: `layer` is another layer of the same composition by name, or a layer written in place. `channel` is how it is read (`'alpha'` by
  * default, or `'luma'`: its brightness); `invert` uses 1 − matte (a hole instead of a crop). A layer written in place cannot go inside a list.
  */
-export interface MatteRefSpec { layer: string | SequenceSpec; channel?: 'alpha' | 'luma'; invert?: boolean }
+export interface MatteRefSpec { layer: string | LayerSpec; channel?: 'alpha' | 'luma'; invert?: boolean }
 /** A layer's `mask` can be a layer written in place, the name of another layer, `{ layer, channel, invert }`, or a list of those (intersect). */
 export type MaskRefSpec = string | MatteRefSpec;
 
-export interface SequenceCommon {
+export interface LayerCommon {
   name?: string;
   /**
    * Attach this layer to a `{ type: 'null' }` layer (by its `name`): it is drawn inside that layer, so its `x` / `y`
@@ -274,7 +274,7 @@ export interface SequenceCommon {
    * layers can share it), `{ layer, channel, invert }` (`layer` is a name, or a layer written in place), or a list of names and `{ layer: name }`
    * (all of them must let the layer through: intersect; subtract with `invert: true`). A hole instead of a crop: `mask: { layer: { …the shape… }, invert: true }`.
    */
-  mask?: SequenceSpec | MaskRefSpec | MaskRefSpec[];
+  mask?: LayerSpec | MaskRefSpec | MaskRefSpec[];
   /**
    * How this layer blends with what is behind it (everything drawn below it). `'add'` and `'screen'` brighten (glows, light
    * leaks, overlapping halos add up instead of covering each other), `'multiply'` darkens; `'overlay'`, `'soft-light'`,
@@ -297,7 +297,7 @@ export interface SequenceCommon {
   castsShadows?: boolean;
 }
 
-export interface VideoSequenceSpec extends SequenceCommon {
+export interface VideoLayerSpec extends LayerCommon {
   /** The point of the layer that sits at `x` / `y`, 0..1 of its size (as a shape's): the same as `initial.anchorX` / `anchorY`, and it wins over them. */
   anchorX?: PropValue;
   anchorY?: PropValue;
@@ -314,7 +314,7 @@ export interface VideoSequenceSpec extends SequenceCommon {
    */
   speed?: number;
 }
-export interface ImageSequenceSpec extends SequenceCommon {
+export interface ImageLayerSpec extends LayerCommon {
   /** The point of the layer that sits at `x` / `y`, 0..1 of its size (as a shape's): the same as `initial.anchorX` / `anchorY`, and it wins over them. */
   anchorX?: PropValue;
   anchorY?: PropValue;
@@ -349,7 +349,7 @@ export interface TextSpan {
   dropShadow?: boolean | Record<string, PropValue>;
 }
 
-export interface TextSequenceSpec extends SequenceCommon {
+export interface TextLayerSpec extends LayerCommon {
   /** The point of the layer that sits at `x` / `y`, 0..1 of its size (as a shape's): the same as `initial.anchorX` / `anchorY`, and it wins over them. */
   anchorX?: PropValue;
   anchorY?: PropValue;
@@ -435,7 +435,7 @@ export type SfxOptions =
   | (SfxKnobs & { preset: SfxPreset; voices?: never })
   | (SfxKnobs & { voices: SfxVoice[]; preset?: never });
 
-interface AudioBase extends SequenceCommon {
+interface AudioBase extends LayerCommon {
   type: 'audio';
   /** Level. 1 = the file as recorded, or the sfx preset's standard level (peaks at −12 dBFS). Animatable. */
   volume?: number;
@@ -540,12 +540,12 @@ export interface AudioMusicSpec extends AudioBase {
   loop?: boolean;
 }
 
-export type AudioSequenceSpec = AudioAssetSpec | AudioSfxSpec | AudioMusicSpec;
-export interface CompositionSequenceSpec extends SequenceCommon {
+export type AudioLayerSpec = AudioAssetSpec | AudioSfxSpec | AudioMusicSpec;
+export interface CompositionLayerSpec extends LayerCommon {
   type: 'composition';
   width?: number;
   height?: number;
-  sequences?: SequenceSpec[];
+  layers?: LayerSpec[];
   transitions?: TransitionSpec[];
   /**
    * Cut the content to the composition's `width` × `height` (CSS `overflow: hidden`). Default false: a child outside the rectangle is drawn.
@@ -583,7 +583,7 @@ export interface CompositionSequenceSpec extends SequenceCommon {
 }
 
 /** A component: a composition written once in the root's `components` and placed with `use`. `params` are its names and default values. */
-export type ComponentSpec = Omit<CompositionSequenceSpec, 'type' | 'use' | 'params'> & { params?: Record<string, number | string> };
+export type ComponentSpec = Omit<CompositionLayerSpec, 'type' | 'use' | 'params'> & { params?: Record<string, number | string> };
 
 /**
  * A camera layer. Put its props in `initial` / `keyframes`:
@@ -593,7 +593,7 @@ export type ComponentSpec = Omit<CompositionSequenceSpec, 'type' | 'use' | 'para
  * Unset `z` follows `fov` so the z = 0 plane stays 1:1. Affects only `threeD`
  * siblings in the same composition. +z points toward the viewer.
  */
-export interface CameraSequenceSpec extends SequenceCommon {
+export interface CameraLayerSpec extends LayerCommon {
   type: 'camera';
 }
 
@@ -601,7 +601,7 @@ export interface CameraSequenceSpec extends SequenceCommon {
  * A light layer. Like the camera it draws nothing; put its props in `initial` / `keyframes`:
  * `x y z lookAtX lookAtY lookAtZ intensity color coneAngle coneFeather radius falloffDistance shadowDarkness shadowDiffusion`.
  */
-export interface LightSequenceSpec extends SequenceCommon {
+export interface LightLayerSpec extends LayerCommon {
   type: 'light';
   /** `ambient`: a flat colour everywhere; `point`: from a position in every direction; `spot`: a point limited to a cone around the direction to its look-at point; `parallel`: a direction only (the sun). Default `'point'`. */
   kind?: 'ambient' | 'point' | 'spot' | 'parallel';
@@ -613,7 +613,7 @@ export interface LightSequenceSpec extends SequenceCommon {
  * A shader layer: a Shadertoy fragment shader drawn into a picture. Everything a layer can do works on it (initial, keyframes, mask, filters,
  * blendMode, threeD, lights).
  */
-export interface ShaderSequenceSpec extends SequenceCommon {
+export interface ShaderLayerSpec extends LayerCommon {
   type: 'shader';
   /** A Shadertoy fragment shader: write `void mainImage(out vec4 fragColor, in vec2 fragCoord)` (GLSL ES 3.00). `iResolution`, `iTime` (this layer's own seconds) and `iFrame` are declared for you, and so is every name in `uniforms`. */
   fragment: string;
@@ -659,7 +659,7 @@ export interface CanvasInfo {
  * layer can do works on it (initial, keyframes, mask, filters, blendMode, threeD, lights). It cannot see or paint on what is below it. A spec that has one holds functions, so it
  * is no longer pure JSON: an escape hatch like `scene3d` and the `custom` filter.
  */
-export interface CanvasSequenceSpec extends SequenceCommon {
+export interface CanvasLayerSpec extends LayerCommon {
   type: 'canvas';
   /**
    * Draws the picture at `t` (seconds since this layer started). `ctx` is the 2D context of the layer's own canvas, already cleared, with the layer's pixels as units. The same `t` and
@@ -705,7 +705,7 @@ export interface Scene2DSetupResult {
  * A scene2d layer: PixiJS 2D display objects built by your code (`setup`) and set from the time (`update`), shown in the layer's place in the stack. Everything a layer can do works on
  * it (initial, keyframes, mask, filters, blendMode, threeD). A spec that has one holds functions, so it is no longer pure JSON: an escape hatch like `canvas`, `scene2d` and `scene3d`.
  */
-export interface Scene2DSequenceSpec extends SequenceCommon {
+export interface Scene2DLayerSpec extends LayerCommon {
   type: 'scene2d';
   /** The layer's box in px (expressions allowed). Default: the composition's size. */
   width?: number | string;
@@ -773,7 +773,7 @@ export interface Trimmable {
   trimEach?: boolean;
 }
 
-interface ShapeBase extends SequenceCommon {
+interface ShapeBase extends LayerCommon {
   type: 'shape';
   /** Fill with a gradient instead of `fill` (top level or in `initial`). */
   fillGradient?: GradientSpec;
@@ -880,7 +880,7 @@ export interface PathShapeSpec extends ShapeBase, Trimmable {
   morphPoints?: number;
 }
 
-export type ShapeSequenceSpec =
+export type ShapeLayerSpec =
   | RectShapeSpec
   | CircleShapeSpec
   | EllipseShapeSpec
@@ -893,29 +893,29 @@ export type ShapeSequenceSpec =
  * A layer that draws nothing, only moves: the parent of other layers (`parent: 'name'`). Animate `x y rotation scale
  * scaleX scaleY skewX skewY alpha pivotX pivotY` in `initial` / `keyframes` like any layer; its children follow.
  */
-export interface NullSequenceSpec extends SequenceCommon {
+export interface NullLayerSpec extends LayerCommon {
   type: 'null';
 }
 
-export type SequenceSpec =
-  | NullSequenceSpec
-  | VideoSequenceSpec
-  | ImageSequenceSpec
-  | TextSequenceSpec
-  | AudioSequenceSpec
-  | CompositionSequenceSpec
-  | CameraSequenceSpec
-  | LightSequenceSpec
-  | ShaderSequenceSpec
-  | CanvasSequenceSpec
-  | Scene2DSequenceSpec
-  | ShapeSequenceSpec;
+export type LayerSpec =
+  | NullLayerSpec
+  | VideoLayerSpec
+  | ImageLayerSpec
+  | TextLayerSpec
+  | AudioLayerSpec
+  | CompositionLayerSpec
+  | CameraLayerSpec
+  | LightLayerSpec
+  | ShaderLayerSpec
+  | CanvasLayerSpec
+  | Scene2DLayerSpec
+  | ShapeLayerSpec;
 
-/** Top-level composition (root node) — same as `CompositionSequenceSpec` minus the discriminant. */
-export interface CompositionSpec extends SequenceCommon {
+/** Top-level composition (root node) — same as `CompositionLayerSpec` minus the discriminant. */
+export interface CompositionSpec extends LayerCommon {
   width?: number;
   height?: number;
-  sequences?: SequenceSpec[];
+  layers?: LayerSpec[];
   transitions?: TransitionSpec[];
   /**
    * Where a presentation pauses: seconds, or `{ at, page?, notes?, advance? }` (see `StopSpec`). A stop with `page` begins a page, the others
@@ -924,7 +924,7 @@ export interface CompositionSpec extends SequenceCommon {
    */
   stops?: Array<number | Moment | import('./core/stops').StopSpec>;
   /**
-   * Compositions written once and placed many times: `{ lowerThird: { params: { title: 'Name' }, width, height, sequences } }`, placed with
+   * Compositions written once and placed many times: `{ lowerThird: { params: { title: 'Name' }, width, height, layers } }`, placed with
    * `{ use: 'lowerThird', params: { title: 'Aiko' }, at, initial }` anywhere in the movie (also inside another component).
    */
   components?: Record<string, ComponentSpec>;

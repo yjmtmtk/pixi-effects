@@ -147,7 +147,7 @@ export function inspectScene(
     const blending = new Set<string>();
     const now = comp.childTime(time);                                   // the time its children live in (local when it is remapped)
     // a camera with a tween running now carries every threeD layer of the composition with it (a pan is not "cut off"); one at rest, or one that only `set`s values, carries nothing
-    const cameraMotion = (comp.spec.sequences ?? []).filter(q => q.type === 'camera').reduce((m: Motion, q) =>
+    const cameraMotion = (comp.spec.layers ?? []).filter(q => q.type === 'camera').reduce((m: Motion, q) =>
       either(m, motionOf(q.keyframes, now - comp.childBase - layerAt(q), q.duration ?? comp.duration ?? Infinity, () => true)), NO_MOTION);
     for (const w of transitionWindowsOf(comp.spec)) {
       const start = comp.childBase + w.start, end = comp.childBase + w.end;

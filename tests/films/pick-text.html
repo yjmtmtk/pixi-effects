@@ -8,7 +8,7 @@ import * as PIXI from 'pixi.js';
 window.PIXI = PIXI;
 const movie = new Movie(); window.movie = movie;
 await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000',
-  composition: { sequences: [
+  composition: { layers: [
     { type: 'text', name: 'word', text: 'HI', style: { fontSize: 200, fill: '#ffffff', fontWeight: '900' }, initial: { x: 200, y: 180, anchorX: 0.5, anchorY: 0.5 } },
     { type: 'text', name: 'outlined', text: 'Oo', style: { fontSize: 190, fill: '#ffffff', fontWeight: '700', stroke: { color: '#ffffff', width: 6 } }, initial: { x: 480, y: 180, anchorX: 0.5, anchorY: 0.5 } },
     { type: 'text', name: 'line', spans: ['Go ', { text: 'now', fill: '#ffffff', fontWeight: '700' }], style: { fontSize: 70, fill: '#ffffff' }, initial: { x: 320, y: 320, anchorX: 0.5, anchorY: 0.5 } },

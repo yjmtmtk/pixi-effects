@@ -1,6 +1,6 @@
 import { suggestName } from '../core/options';
 import { evaluateExpr } from '../expr/Parser';
-import type { Keyframe, SequenceSpec } from '../types';
+import type { Keyframe, LayerSpec } from '../types';
 
 /** `aperture` when the camera writes `focus` or `aperture` but no value of its own. The lens diameter, in comp pixels. */
 export const DEFAULT_APERTURE = 30;
@@ -78,11 +78,11 @@ export type FocusProblem =
   | { kind: 'moving'; name: string }
   | { kind: 'duplicate'; name: string; count: number };
 
-const movesZ = (spec: SequenceSpec): boolean =>
+const movesZ = (spec: LayerSpec): boolean =>
   (spec.keyframes ?? []).some(kf => [kf.set, kf.to, kf.from].some(bag => bag && 'z' in (bag as Bag)));
 
 /** What is wrong with the layer names a camera's `focus` points at, one entry per (name, problem). */
-export function focusProblems(camera: Props, siblings: readonly SequenceSpec[]): FocusProblem[] {
+export function focusProblems(camera: Props, siblings: readonly LayerSpec[]): FocusProblem[] {
   const out: FocusProblem[] = [];
   const said = new Set<string>();
   const threeD = siblings.filter(s => s.threeD && s.name).map(s => s.name!);

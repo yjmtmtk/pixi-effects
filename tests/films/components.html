@@ -30,12 +30,12 @@
         vars: { accent: '#0000ff' },
         composition: {
           components: {
-            chip: { params: { colour: '#ff0000', label: 'x', dx: 0 }, width: 100, height: 60, sequences: [
+            chip: { params: { colour: '#ff0000', label: 'x', dx: 0 }, width: 100, height: 60, layers: [
               { type: 'shape', shape: 'rect', name: 'box', width: 60, height: 40, anchorX: 0, anchorY: 0, initial: { x: '10 + dx', y: 10, fill: '{colour}' } },
               { type: 'text', name: 'label', text: '{label}', style: { fontSize: 12, fill: '#ffffff' }, initial: { x: 85, y: 30, anchorX: 0.5, anchorY: 0.5 } },
             ] },
           },
-          sequences: [
+          layers: [
             { use: 'chip', name: 'a', params: { colour: '#00ff00', label: 'A' } },
             { use: 'chip', name: 'b', params: { colour: '{accent}', label: 'B', dx: 20 }, initial: { x: 0, y: 100 } },
             { type: 'composition', use: 'chip', name: 'c', initial: { x: 200, y: 0 } },

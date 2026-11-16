@@ -38,7 +38,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -201,7 +201,7 @@
         type: 'composition', name: `bldg-${i}-${j}`, width: W, height: H, at: t0, duration: d,
         initial: { x: C[0], y: C[1], pivotX: C[0], pivotY: C[1], scaleY: 0 },
         keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 0.8, ease: 'back.out(1.5)' }],
-        sequences: [...boxFaces(i0, j0, i1, j1, h, 0, base, t0, d), ...windows, ...glow, ...crown],
+        layers: [...boxFaces(i0, j0, i1, j1, h, 0, base, t0, d), ...windows, ...glow, ...crown],
       };
     }
 
@@ -248,7 +248,7 @@
       const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys) - lift - 4, y1 = Math.max(...ys);
       return {
         type: 'composition', name: `bridge-${i}`, width: W, height: H, at: t0, duration: d,
-        sequences: [
+        layers: [
           poly('side-l', [L, F, u(F), u(L)], shadeStops(COL.deck, 0.7), t0, d),
           poly('side-r', [F, R, u(R), u(F)], shadeStops(COL.deck, 0.84), t0, d),
           poly('deck', [u(B), u(R), u(F), u(L)], stopsOf(COL.deck), t0, d),
@@ -296,7 +296,7 @@
       type: 'composition', name: 'slab', width: W, height: H,
       initial: { x: slabCentre[0], y: slabCentre[1], pivotX: slabCentre[0], pivotY: slabCentre[1], alpha: 0, scale: 0.9 },
       keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.8, ease: 'power3.out' }],
-      sequences: [
+      layers: [
         poly('slab-side-l', [iso(0, N), iso(N, N), down(iso(N, N), 16), down(iso(0, N), 16)], shadeStops(COL.ground, 0.52, '#3b3258', 0.2), 0, DURATION),
         poly('slab-side-r', [iso(N, N), iso(N, 0), down(iso(N, 0), 16), down(iso(N, N), 16)], shadeStops(COL.ground, 0.66), 0, DURATION),
         poly('ground', [iso(0, 0), iso(N, 0), iso(N, N), iso(0, N)], stopsOf(COL.ground), 0, DURATION),
@@ -315,7 +315,7 @@
       type: 'composition', name: 'city', width: W, height: H,
       initial: { x: slabCentre[0], y: slabCentre[1], pivotX: slabCentre[0], pivotY: slabCentre[1], scale: 0.97 },
       keyframes: [{ at: 0, to: { scale: 1.03 }, duration: DURATION, ease: 'none' }],
-      sequences: [slab, ...roads, ...cars(), ...blocks],
+      layers: [slab, ...roads, ...cars(), ...blocks],
     };
 
     // ---------------------------------------------------------------- sky, sun, stars
@@ -420,7 +420,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: '#1b1834',
         assets,
-        composition: { sequences },
+        composition: { layers: sequences },
       });
       window.__ready = true;
     } catch (e) {

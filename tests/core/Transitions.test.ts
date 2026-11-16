@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { expandTransitions, transitionWindowsOf } from '../../src/core/Transitions';
-import type { CompositionSpec, CompositionSequenceSpec, CustomFilterSpec, Keyframe } from '../../src/types';
+import type { CompositionSpec, CompositionLayerSpec, CustomFilterSpec, Keyframe } from '../../src/types';
 
 function spec(overrides: Partial<CompositionSpec> = {}): CompositionSpec {
   return {
     width: 100, height: 100, duration: 10,
-    sequences: [
+    layers: [
       { type: 'text', name: 'A', text: 'a', at: 0, duration: 5 },
       { type: 'text', name: 'B', text: 'b', at: 4, duration: 5 },
     ],
@@ -71,7 +71,7 @@ describe('expandTransitions — validation', () => {
 
   it('throws when one sequence is the `from` of two transitions', () => {
     const s = spec({
-      sequences: [
+      layers: [
         { type: 'text', name: 'A', text: 'a', at: 0, duration: 10 },
         { type: 'text', name: 'B', text: 'b', at: 2, duration: 4 },
         { type: 'text', name: 'C', text: 'c', at: 5, duration: 5 },
@@ -86,7 +86,7 @@ describe('expandTransitions — validation', () => {
 
   it('allows the same sequence to be `to` of one and `from` of another (chained A→B→C)', () => {
     const s = spec({
-      sequences: [
+      layers: [
         { type: 'text', name: 'A', text: 'a', at: 0, duration: 4 },
         { type: 'text', name: 'B', text: 'b', at: 3, duration: 4 },
         { type: 'text', name: 'C', text: 'c', at: 6, duration: 4 },
@@ -104,7 +104,7 @@ describe('expandTransitions — validation', () => {
     // Sequence A lives [0..10] (covers it), B lives [4..9] — but with the
     // shifted window [9, 10] B's lifespan covers right up to its end.
     const s = spec({
-      sequences: [
+      layers: [
         { type: 'text', name: 'A', text: 'a', at: 0, duration: 10 },
         { type: 'text', name: 'B', text: 'b', at: 4,  duration: 6 },
       ],
@@ -117,7 +117,7 @@ describe('expandTransitions — validation', () => {
 
   it('throws when one sequence is the `to` of two transitions', () => {
     const s = spec({
-      sequences: [
+      layers: [
         { type: 'text', name: 'A', text: 'a', at: 0, duration: 4 },
         { type: 'text', name: 'B', text: 'b', at: 3, duration: 4 },
         { type: 'text', name: 'C', text: 'c', at: 0, duration: 8 },
@@ -134,7 +134,7 @@ describe('expandTransitions — validation', () => {
     const inner: CompositionSpec = {
       type: 'composition',
       width: 100, height: 100, duration: 8,
-      sequences: [
+      layers: [
         { type: 'text', name: 'Inner-A', text: 'ia', at: 0, duration: 4 },
         { type: 'text', name: 'Inner-B', text: 'ib', at: 3, duration: 4 },
       ],
@@ -144,14 +144,14 @@ describe('expandTransitions — validation', () => {
     } as unknown as CompositionSpec;
 
     const out = expandTransitions(spec({
-      sequences: [
+      layers: [
         { type: 'text', name: 'Outer', text: 'o', at: 0, duration: 10 },
-        inner as unknown as CompositionSequenceSpec,
+        inner as unknown as CompositionLayerSpec,
       ],
     }));
 
     // Inner composition should have its `transitions` field stripped.
-    const innerOut = out.sequences!.find((s) => 'sequences' in s) as { transitions?: unknown };
+    const innerOut = out.layers!.find((s) => 'layers' in s) as { transitions?: unknown };
     expect(innerOut.transitions).toBeUndefined();
   });
 
@@ -159,7 +159,7 @@ describe('expandTransitions — validation', () => {
     const inner: CompositionSpec = {
       type: 'composition',
       width: 100, height: 100, duration: 8,
-      sequences: [
+      layers: [
         { type: 'text', name: 'Inner-A', text: 'ia', at: 0, duration: 4 },
       ],
       transitions: [
@@ -168,21 +168,21 @@ describe('expandTransitions — validation', () => {
     } as unknown as CompositionSpec;
 
     expect(() => expandTransitions(spec({
-      sequences: [
+      layers: [
         { type: 'text', name: 'Outer', text: 'o', at: 0, duration: 10 },
-        inner as unknown as CompositionSequenceSpec,
+        inner as unknown as CompositionLayerSpec,
       ],
     }))).toThrow(/transitions\[0\].*to.*"Ghost".*not found/i);
   });
 });
 
 function findSeqKfs(s: CompositionSpec, name: string): Keyframe[] {
-  const seq = s.sequences!.find((x) => x.name === name)!;
+  const seq = s.layers!.find((x) => x.name === name)!;
   return ('keyframes' in seq && seq.keyframes) ? seq.keyframes : [];
 }
 
 function findSeqInitial(s: CompositionSpec, name: string): Record<string, unknown> {
-  const seq = s.sequences!.find((x) => x.name === name)!;
+  const seq = s.layers!.find((x) => x.name === name)!;
   return ('initial' in seq && seq.initial) ? (seq.initial as Record<string, unknown>) : {};
 }
 
@@ -213,7 +213,7 @@ describe('expandTransitions — crossfade', () => {
 
   it('throws if `to` already has a manual `initial.alpha`', () => {
     const s = spec();
-    s.sequences![1] = { ...s.sequences![1]!, initial: { alpha: 0.5 } } as typeof s.sequences[1];
+    s.layers![1] = { ...s.layers![1]!, initial: { alpha: 0.5 } } as typeof s.layers[1];
     expect(() => expandTransitions({
       ...s,
       transitions: [{ kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1 }],
@@ -229,7 +229,7 @@ describe('expandTransitions — crossfade', () => {
 
   it('chained A→B→C: B gets both a fade-in and a fade-out keyframe', () => {
     const out = expandTransitions(spec({
-      sequences: [
+      layers: [
         { type: 'text', name: 'A', text: 'a', at: 0, duration: 4 },
         { type: 'text', name: 'B', text: 'b', at: 3, duration: 4 },
         { type: 'text', name: 'C', text: 'c', at: 6, duration: 4 },
@@ -253,7 +253,7 @@ describe('expandTransitions — crossfade', () => {
 });
 
 function findCustomFilter(s: CompositionSpec, seqName: string, filterName: string): CustomFilterSpec | undefined {
-  const seq = s.sequences!.find((x) => x.name === seqName)!;
+  const seq = s.layers!.find((x) => x.name === seqName)!;
   const filters = ('filters' in seq && seq.filters) ? seq.filters : [];
   return filters.find((f) => f.type === 'custom' && f.name === filterName) as CustomFilterSpec | undefined;
 }
@@ -306,10 +306,10 @@ describe('expandTransitions — wipe', () => {
     // The internal pattern is `_pe-transition-<digit>(-out)?` — anything else
     // under the reserved prefix is a name collision and must fail loud.
     const s = spec();
-    s.sequences![1] = {
-      ...s.sequences![1]!,
+    s.layers![1] = {
+      ...s.layers![1]!,
       filters: [{ type: 'custom', name: '_pe-transition-custom', filter: { apply() {} } as unknown }],
-    } as typeof s.sequences[1];
+    } as typeof s.layers[1];
     expect(() => expandTransitions({
       ...s,
       transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left' }],
@@ -318,7 +318,7 @@ describe('expandTransitions — wipe', () => {
 
   it('assigns distinct filter names for two transitions with different indices (chained)', () => {
     const out = expandTransitions(spec({
-      sequences: [
+      layers: [
         { type: 'text', name: 'A', text: 'a', at: 0, duration: 4 },
         { type: 'text', name: 'B', text: 'b', at: 3, duration: 4 },
         { type: 'text', name: 'C', text: 'c', at: 6, duration: 4 },
@@ -420,8 +420,8 @@ describe('expandTransitions — slide', () => {
     // When B has `initial.x: 'GW/2'`, the slide-in should land back at 'GW/2',
     // and B's start position should be '(GW/2) + W' (off-screen right of center).
     const s = spec();
-    s.sequences![0] = { ...s.sequences![0]!, initial: { x: 'GW/2' } } as typeof s.sequences[0];
-    s.sequences![1] = { ...s.sequences![1]!, initial: { x: 'GW/2' } } as typeof s.sequences[1];
+    s.layers![0] = { ...s.layers![0]!, initial: { x: 'GW/2' } } as typeof s.layers[0];
+    s.layers![1] = { ...s.layers![1]!, initial: { x: 'GW/2' } } as typeof s.layers[1];
     const out = expandTransitions({
       ...s,
       transitions: [{ kind: 'slide', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left' }],
@@ -433,7 +433,7 @@ describe('expandTransitions — slide', () => {
 
   it('preserves a numeric natural position', () => {
     const s = spec();
-    s.sequences![1] = { ...s.sequences![1]!, initial: { x: 200 } } as typeof s.sequences[1];
+    s.layers![1] = { ...s.layers![1]!, initial: { x: 200 } } as typeof s.layers[1];
     const out = expandTransitions({
       ...s,
       transitions: [{ kind: 'slide', from: 'A', to: 'B', at: 4, duration: 1, direction: 'right' }],
@@ -457,7 +457,7 @@ describe('expandTransitions — dip', () => {
 
   it('throws if `to` already has a non-zero initial.alpha', () => {
     const s = spec();
-    s.sequences![1] = { ...s.sequences![1]!, initial: { alpha: 0.5 } } as typeof s.sequences[1];
+    s.layers![1] = { ...s.layers![1]!, initial: { alpha: 0.5 } } as typeof s.layers[1];
     expect(() => expandTransitions({
       ...s,
       transitions: [{ kind: 'dip', from: 'A', to: 'B', at: 4, duration: 1 }],
@@ -531,7 +531,7 @@ describe('expandTransitions — luma wipe', () => {
   const luma = (extra: Record<string, unknown> = {}) => expandTransitions(spec({
     transitions: [{ kind: 'luma', from: 'A', to: 'B', at: 4, duration: 1, ...extra } as never],
   }));
-  const seqOf = (out: CompositionSpec, name: string) => out.sequences!.find(s => s.name === name) as CompositionSequenceSpec & { filterArea?: unknown; keyframes?: Keyframe[] };
+  const seqOf = (out: CompositionSpec, name: string) => out.layers!.find(s => s.name === name) as CompositionLayerSpec & { filterArea?: unknown; keyframes?: Keyframe[] };
 
   it('puts a LumaWipeFilter (progress 0 → 1) on `to` and an inverted one on `from`, both over the whole composition', () => {
     const out = luma({ map: 'radial', softness: 0.2 });
@@ -555,27 +555,27 @@ describe('expandTransitions — luma wipe', () => {
 describe('expandTransitions — a layer with a named matte that a transition wraps', () => {
   const withMatte = (mask: unknown) => expandTransitions({
     width: 100, height: 100, duration: 10,
-    sequences: [
+    layers: [
       { type: 'text', name: 'A', text: 'a', at: 0, duration: 5 },
       { type: 'shape', shape: 'circle', name: 'm', radius: 10, at: 4, duration: 5 },
       { type: 'text', name: 'B', text: 'b', at: 4, duration: 5, mask },
     ],
     transitions: [{ kind: 'dissolve', from: 'A', to: 'B', at: 4, duration: 1 }],
   } as CompositionSpec);
-  const wrapperB = (out: CompositionSpec) => out.sequences!.find(s => s.name === 'B') as CompositionSequenceSpec & { mask?: unknown };
+  const wrapperB = (out: CompositionSpec) => out.layers!.find(s => s.name === 'B') as CompositionLayerSpec & { mask?: unknown };
 
   it.each([['a name', 'm'], ['a reference', { layer: 'm', channel: 'luma' }], ['a list', ['m', { layer: 'm', invert: true }]]])('%s moves to the wrapper, which is a sibling of the matte; the layer inside keeps no mask', (_l, mask) => {
     const w = wrapperB(withMatte(mask));
     expect(w.type).toBe('composition');
     expect(w.mask).toEqual(mask);
-    expect((w.sequences![0] as { mask?: unknown }).mask).toBeUndefined();
+    expect((w.layers![0] as { mask?: unknown }).mask).toBeUndefined();
   });
 
   it('an inline mask (a layer spec) stays on the layer inside', () => {
     const inline = { type: 'shape', shape: 'circle', radius: 10 };
     const w = wrapperB(withMatte(inline));
     expect(w.mask).toBeUndefined();
-    expect((w.sequences![0] as { mask?: unknown }).mask).toEqual(inline);
+    expect((w.layers![0] as { mask?: unknown }).mask).toEqual(inline);
   });
 });
 
@@ -583,7 +583,7 @@ describe('expandTransitions — threeD participants', () => {
   it('FIX: warns once per transition when a participant is threeD (the wrapper would drop the camera)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     expandTransitions(spec({
-      sequences: [
+      layers: [
         { type: 'text', name: 'A', text: 'a', at: 0, duration: 5, threeD: true },
         { type: 'text', name: 'B', text: 'b', at: 4, duration: 5 },
       ],
@@ -608,7 +608,7 @@ describe('expandTransitions — keyframe `at` is sequence-local', () => {
   it('a negative transition `at` is resolved against the parent end, then rebased per participant', () => {
     // parent duration 10; `at: -1` => parent time 9. A starts at 0, B at 4.
     const out = expandTransitions(spec({
-      sequences: [
+      layers: [
         { type: 'text', name: 'A', text: 'a', at: 0, duration: 10 },
         { type: 'text', name: 'B', text: 'b', at: 4,  duration: 6 },
       ],
@@ -622,7 +622,7 @@ describe('expandTransitions — keyframe `at` is sequence-local', () => {
     const out = expandTransitions(spec({
       transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left' }],
     }));
-    const wrapperB = out.sequences!.find((x) => x.name === 'B') as { type: string; at?: number; keyframes?: Keyframe[] };
+    const wrapperB = out.layers!.find((x) => x.name === 'B') as { type: string; at?: number; keyframes?: Keyframe[] };
     expect(wrapperB.type).toBe('composition');
     expect(wrapperB.at).toBe(4);
     expect(wrapperB.keyframes).toContainEqual(expect.objectContaining({ at: 0, duration: 1 }));
@@ -630,7 +630,7 @@ describe('expandTransitions — keyframe `at` is sequence-local', () => {
 
   it('user keyframes that were already on the participant are left untouched', () => {
     const out = expandTransitions(spec({
-      sequences: [
+      layers: [
         { type: 'text', name: 'A', text: 'a', at: 0, duration: 5 },
         { type: 'text', name: 'B', text: 'b', at: 4, duration: 5, keyframes: [{ at: 2, to: { x: 10 }, duration: 1 }] },
       ],
@@ -647,13 +647,13 @@ describe('expandTransitions — floating-point sums at the edge of a layer', () 
   it('a transition that ends where its layer ends (6 + 0.7 against 2.4 + 4.3) is covered, not an error from the 15th decimal', () => {
     const spec = {
       width: 100, height: 100, duration: 20,
-      sequences: [
-        { type: 'composition', name: 'a', at: 0, duration: 6.7, sequences: [] },
-        { type: 'composition', name: 'b', at: 6, duration: 4, sequences: [] },
+      layers: [
+        { type: 'composition', name: 'a', at: 0, duration: 6.7, layers: [] },
+        { type: 'composition', name: 'b', at: 6, duration: 4, layers: [] },
       ],
       transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at: 6, duration: 0.7 }],
     } as never;
-    (spec as { sequences: Array<{ at: number; duration: number }> }).sequences[0]!.duration = 2.4 + 4.3 - 0.0000000000001;     // 6.6999999999999
+    (spec as { layers: Array<{ at: number; duration: number }> }).layers[0]!.duration = 2.4 + 4.3 - 0.0000000000001;     // 6.6999999999999
     expect(() => expandTransitions(spec)).not.toThrow();
   });
 });
@@ -662,7 +662,7 @@ describe('expandTransitions — a composition with its own time (speed / time)',
   // the layers live in the composition's LOCAL time, which at speed 2 runs to 8 s (twice its duration of 4)
   const remapped = (at: number, extra: Partial<CompositionSpec> = {}): CompositionSpec => ({
     width: 100, height: 100, duration: 4, speed: 2,
-    sequences: [{ type: 'text', name: 'a', text: 'a' }, { type: 'text', name: 'b', text: 'b' }],
+    layers: [{ type: 'text', name: 'a', text: 'a' }, { type: 'text', name: 'b', text: 'b' }],
     transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at, duration: 1 }],
     ...extra,
   } as CompositionSpec);

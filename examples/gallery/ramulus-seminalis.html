@@ -31,7 +31,7 @@
 
   <script type="importmap">{ "imports": {
     "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
-    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/Controller.js" } }</script>
+    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/controller.js" } }</script>
 
   <script type="module">
     import { Movie, random } from 'pixi-effects';
@@ -514,7 +514,7 @@
       ],
     }));
 
-    const sequences = [
+    const layers = [
       { type: 'canvas', name: 'plate', width: W, height: H, seed: SEED, initial: { x: 0, y: 0 }, setup: makePaper, draw: drawPlate },
       { type: 'text', name: 'tab', text: 'TAB. VII', style: { fontFamily: SERIF, fontSize: 15, letterSpacing: 4, fill: INK },
         initial: { x: 96, y: 78, alpha: 0 }, keyframes: fadeIn(0.5) },
@@ -548,9 +548,9 @@
       const cands = [[250, 300], [830, 300], [250, 470], [830, 470]];
       const [ix, iy] = cands.sort((a, b) => free(b[0], b[1]) - free(a[0], a[1]))[0];
       INSET.x = ix; INSET.y = iy;
-      const inset = sequences.find((s) => s.name === 'inset');
+      const inset = layers.find((s) => s.name === 'inset');
       inset.initial.x = ix - INSET.size / 2; inset.initial.y = iy - INSET.size / 2;
-      const fig2 = sequences.find((s) => s.name === 'fig2');
+      const fig2 = layers.find((s) => s.name === 'fig2');
       fig2.initial.x = ix; fig2.initial.y = iy + INSET.r + 14;
     }
 
@@ -564,7 +564,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS,
         poster: 8.9,
         background: PAPER,
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

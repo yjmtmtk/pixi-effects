@@ -34,7 +34,7 @@ Dev</textarea><button id="batch">Make one MP4 per name</button></div>
       "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects": "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js" } }
+      "pixi-effects/controller": "../../dist/controller.js" } }
   </script>
   <script type="module">
     import { Movie, particles } from 'pixi-effects';
@@ -55,7 +55,7 @@ Dev</textarea><button id="batch">Make one MP4 per name</button></div>
       ];
     }).flat();
 
-    const composition = { sequences: [
+    const composition = { layers: [
       { type: 'shape', shape: 'rect', name: 'top', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, fillGradient: { stops: [[0, '{top}'], [1, '{bottom}']] } },
       { type: 'shape', shape: 'circle', name: 'sun', radius: 150, initial: { x: 1060, y: 210, fill: '#ffffff', alpha: 0.28 },
         keyframes: [{ at: 0, from: { scale: 0.6 }, to: { scale: 1 }, duration: 1.4, ease: 'expo.out' }] },
@@ -69,7 +69,7 @@ Dev</textarea><button id="batch">Make one MP4 per name</button></div>
       // one candle flame for every full ten years, up to nine of them (a number in an expression)
       ...Array.from({ length: 9 }, (_, i) => ({ type: 'shape', shape: 'ellipse', radiusX: 9, radiusY: 15, at: 2.4, initial: { x: W / 2 + (i - 4) * 36, y: 618, fill: '#ffd23f', alpha: `step(${i + 1}, age / 10 + 0.001)` },
         keyframes: [{ at: 0, to: { scale: 1.25 }, duration: 0.22, ease: 'sine.inOut', repeat: 14, yoyo: true }] })),
-      { type: 'composition', name: 'confetti', at: 2.0, duration: 5, width: W, height: H, sequences: [
+      { type: 'composition', name: 'confetti', at: 2.0, duration: 5, width: W, height: H, layers: [
         ...particles({ count: 120, at: 0, emit: 0.8, life: [1.5, 2.6], area: { x: W / 2, y: -20, width: 1300 }, angle: [70, 110], speed: [200, 480], gravity: 360, size: [5, 9], shape: 'rect', spin: 360,
           colors: ['#ffffff', '#ffd166', '#ff5d73', '#4cc9f0'], fade: { out: 0.6 }, name: 'conf' })] },
       { type: 'audio', name: 'tune', volume: 0.55, at: 0.5, music: { bpm: 96, reverb: 0.25, tracks: [

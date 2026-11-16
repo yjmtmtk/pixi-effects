@@ -4,7 +4,7 @@ import { CompositionSequence } from '../../src/sequences/Composition';
 import { Sequence } from '../../src/sequences/Base';
 import { Container } from 'pixi.js';
 import { registerSequenceType } from '../../src/core/Composition';
-import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import type { CompositionLayerSpec, CompositionShape } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 class Box extends Sequence {
@@ -16,7 +16,7 @@ const shape: CompositionShape = { width: 320, height: 180, duration: 10 };
 /** Build a composition holding one remapped `stage` and return what it warned. */
 async function warningsOf(stageExtra: Record<string, unknown>, children: unknown[]): Promise<string[]> {
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  const spec = { type: 'composition', width: 320, height: 180, duration: 10, sequences: [{ type: 'composition', name: 'stage', duration: 4, width: 320, height: 180, ...stageExtra, sequences: children }] } as unknown as CompositionSequenceSpec;
+  const spec = { type: 'composition', width: 320, height: 180, duration: 10, layers: [{ type: 'composition', name: 'stage', duration: 4, width: 320, height: 180, ...stageExtra, layers: children }] } as unknown as CompositionLayerSpec;
   const comp = new CompositionSequence(spec, shape, shape);
   await comp.build();
   comp.bindTimeline(createTimeline({ paused: true }));

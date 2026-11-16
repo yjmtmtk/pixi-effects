@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { lintKeys } from '../../src/core/lint';
 import { layerKeys, PROP_KEYS, STYLE_KEYS } from '../../src/core/layerKeys';
-import type { SequenceSpec } from '../../src/types';
+import type { LayerSpec } from '../../src/types';
 
-const warns = (spec: unknown): string[] => { const out: string[] = []; lintKeys(spec as SequenceSpec, m => out.push(m)); return out; };
+const warns = (spec: unknown): string[] => { const out: string[] = []; lintKeys(spec as LayerSpec, m => out.push(m)); return out; };
 
 describe('lintKeys: a layer key that does not exist', () => {
   it('says which key, what kind of layer, and what was probably meant', () => {
@@ -37,7 +37,7 @@ describe('lintKeys: a property written on the layer instead of in initial', () =
     expect(warns({ type: 'image', asset: 'a', rotationX: 20 })[0]).toMatch(/"rotationX" is a property.*initial/s);
   });
   it('anchorX on a composition (shapes, text, image and video take it at the top, a composition does not) says initial too, not "it belongs to rect shape"', () => {
-    const w = warns({ type: 'composition', width: 10, height: 10, sequences: [], anchorX: 0.5 })[0]!;
+    const w = warns({ type: 'composition', width: 10, height: 10, layers: [], anchorX: 0.5 })[0]!;
     expect(w).toMatch(/"anchorX" is a property.*initial: \{ anchorX: 0\.5 \}/s);
     expect(w).not.toMatch(/belongs to/);
   });
@@ -55,7 +55,7 @@ describe('lintKeys: maskInverted is gone', () => {
 });
 
 describe('lintKeys: the words other tools use for a composition and a 3D layer', () => {
-  const comp = (extra: Record<string, unknown>) => ({ type: 'composition', width: 10, height: 10, sequences: [], ...extra });
+  const comp = (extra: Record<string, unknown>) => ({ type: 'composition', width: 10, height: 10, layers: [], ...extra });
   it('overflow, clipChildren, clipToBounds … mean clip: did you mean "clip"', () => {
     for (const key of ['overflow', 'clipChildren', 'clipToBounds', 'masksToBounds', 'clipContent']) {
       expect(warns(comp({ [key]: 'hidden' }))[0], key).toMatch(new RegExp(`"${key}" is not a composition layer key — did you mean "clip"\\?`));

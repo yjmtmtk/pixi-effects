@@ -3,7 +3,7 @@
 import { CompositionSequence } from './Composition';
 import { TextSequence, bindCounterKeyframes, resolveNumber, type CounterState } from './Text';
 import { spansMeta, type SpansMeta } from '../text/spans';
-import type { CompositionShape, SequenceSpec, Props } from '../types';
+import type { CompositionShape, LayerSpec, Props } from '../types';
 import type { Timeline } from '../core/timelineEngine';
 
 const strip = (props: Props | undefined): Props | undefined => {
@@ -16,7 +16,7 @@ export class SpansSequence extends CompositionSequence {
   private readonly _meta: SpansMeta | undefined;
   private readonly _count: CounterState = { value: 0, visibleChars: 0 };
 
-  constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape) {
+  constructor(spec: LayerSpec, parent: CompositionShape | null, root: CompositionShape) {
     super(spec, parent, root);
     this._meta = spansMeta.get(spec);
   }

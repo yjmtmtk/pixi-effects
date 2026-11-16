@@ -40,7 +40,7 @@
       await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040',
         composition: {
           filters: [{ type: 'grain', seed: 7, amount: 0.05 }],
-          sequences: [
+          layers: [
             { type: 'shape', shape: 'rect', name: 'box', width: 40, height: 40, initial: { x: 160, y: 90, fill: '#ffffff' },
               keyframes: wiggle({ duration: 3, freq: 4, seed: 3, props: { x: { around: 160, amp: 100 }, rotation: { around: 0, amp: 30 } } }) },
             { type: 'text', name: 'type', text: 'determinism', style: { fontSize: 22, fill: '#ffd166' }, initial: { x: 12, y: 12 },

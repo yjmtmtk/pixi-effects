@@ -29,7 +29,7 @@
       "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects": "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js" } }
+      "pixi-effects/controller": "../../dist/controller.js" } }
   </script>
   <script type="module">
     import { Movie } from 'pixi-effects';
@@ -83,7 +83,7 @@
       ];
     }).flat();
 
-    const composition = { sequences: [
+    const composition = { layers: [
       { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0d1020' } },
       ...bars, ...dots,
       { type: 'text', name: 'title', text: 'four chords', style: { fontFamily: FONT, fontSize: 40, fontWeight: '800', fill: '#c8d0ee', letterSpacing: 8 }, initial: { x: W / 2, y: 80, anchorX: 0.5, anchorY: 0.5 } },

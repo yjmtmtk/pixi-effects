@@ -33,7 +33,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -130,10 +130,10 @@
 
     const stinger = {
       type: 'composition', name: 'stinger', width: W, height: H, duration: STING_END,
-      sequences: [
+      layers: [
         rect('sting-bg', W / 2, H / 2, W, H, undefined, {
           fillGradient: { type: 'radial', radius: 0.75, stops: [[0, '#164496'], [0.5, '#0a2152'], [1, C.ink]] } }),
-        { type: 'composition', name: 'globe', width: 600, height: 600, sequences: globeSeq,
+        { type: 'composition', name: 'globe', width: 600, height: 600, layers: globeSeq,
           initial: { x: W / 2, y: 340, pivotX: 300, pivotY: 300, scale: 0.75, alpha: 0 },
           keyframes: [
             { at: 0.15, to: { scale: 1, alpha: 1 }, duration: 1.0, ease: OUT },
@@ -246,7 +246,7 @@
       fillGradient: { type: 'radial', radius: 0.72, stops: [[0.5, 'rgba(1,5,15,0)'], [1, 'rgba(1,5,15,0.75)']] } }));
 
     const program = {
-      type: 'composition', name: 'program', width: W, height: H, at: T.wipe, duration: PD, sequences: prog,
+      type: 'composition', name: 'program', width: W, height: H, at: T.wipe, duration: PD, layers: prog,
       initial: { x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2, scale: 1.0 },
       keyframes: [{ at: 0, to: { scale: 1.06 }, duration: PD, ease: 'sine.inOut' }],
     };
@@ -267,7 +267,7 @@
       type: 'composition', name: 'logo', width: 560, height: 150, at: T.logo, duration: DUR - T.logo,
       initial: { x: W / 2, y: 340, pivotX: 280, pivotY: 75 },
       keyframes: [{ at: T.wipe - T.logo, to: { x: 154, y: 72, scale: 0.32 }, duration: T.wipeD, ease: INOUT }],
-      sequences: [
+      layers: [
         text('logo-north', 'NORTH', 770, 77, { fontFamily: HEAVY, fontSize: 88, fontWeight: '900' }, {
           initial: { anchorX: 1 },
           mask: rect('north-mask', 0, 75, 398, 150, '#ffffff', { anchorX: 0 }),
@@ -387,7 +387,7 @@
       type: 'composition', name: 'ticker', width: W, height: TK.h, at: T.ticker, duration: DUR - T.ticker,
       initial: { x: 0, y: H + 4, alpha: 0 },
       keyframes: [{ at: 0, to: { y: TK.y, alpha: 1 }, duration: 0.5, ease: OUT }],
-      sequences: [
+      layers: [
         rect('tick-bar', W / 2, TK.h / 2, W, TK.h, C.paper),
         rect('tick-topline', W / 2, 1.5, W, 3, C.red),
         ...crawl,
@@ -407,7 +407,7 @@
       type: 'composition', name: 'live', width: LV.locW + LV.pillW, height: LV.h, at: T.live, duration: liveDur,
       initial: { x: LV.x + 40, y: LV.y, alpha: 0 },
       keyframes: [{ at: 0, to: { x: LV.x, alpha: 1 }, duration: 0.45, ease: OUT }],
-      sequences: [
+      layers: [
         rect('loc-box', 0, LV.h / 2, LV.locW, LV.h, C.navy2, { anchorX: 0, initial: { alpha: 0.92 } }),
         text('loc-label', 'HARBOR CITY', LV.locW / 2, LV.h / 2 + 1, { fontSize: 17, fontWeight: '700', letterSpacing: 1.5 }, { initial: { anchorX: 0.5 } }),
         rect('live-pill', LV.locW, LV.h / 2, LV.pillW, LV.h, C.red, { anchorX: 0 }),
@@ -434,7 +434,7 @@
 
     // z-order = array order: the dim sits over the program only; the band (→ tag) sits above the headline bar it hands off to
     const [dim, ...breakingTop] = breaking;
-    const sequences = [stinger, program, ...slabs, tagline, dim, ticker, ...lower, ...breakingTop, live, logo, flash, ...audio];
+    const layers = [stinger, program, ...slabs, tagline, dim, ticker, ...lower, ...breakingTop, live, logo, flash, ...audio];
 
     const movie = new Movie();
     window.movie = movie;
@@ -448,7 +448,7 @@
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
         ],
-        composition: { sequences, transitions: [
+        composition: { layers, transitions: [
           { kind: 'wipe', from: 'stinger', to: 'program', at: T.wipe, duration: T.wipeD, direction: 'right', ease: INOUT, softness: 0.01 },
         ] },
       });

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { lightKindProblem, lightLayerProblems, lightSetProblems, fogProblems } from '../../src/space/lightChecks';
-import type { SequenceSpec } from '../../src/types';
-const S = (o: Record<string, unknown>) => o as unknown as SequenceSpec;
+import type { LayerSpec } from '../../src/types';
+const S = (o: Record<string, unknown>) => o as unknown as LayerSpec;
 
 describe('lightKindProblem', () => {
   it('a good kind is fine; an alias says what it means; a typo gets did-you-mean', () => {

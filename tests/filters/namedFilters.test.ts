@@ -152,21 +152,21 @@ describe('an option that is undefined (a misspelt variable, a missing field) is 
 });
 
 describe('needsFilterLibrary / ensureFilterLibrary', () => {
-  const comp = (filters: unknown[]) => ({ sequences: [{ type: 'composition', sequences: [{ type: 'text', filters }] }] });
+  const comp = (filters: unknown[]) => ({ layers: [{ type: 'composition', layers: [{ type: 'text', filters }] }] });
 
   it('finds a named library filter anywhere in the composition (nested layers, masks)', () => {
     expect(needsFilterLibrary(comp([{ type: 'glow' }]))).toBe(true);
-    expect(needsFilterLibrary({ sequences: [{ type: 'shape', mask: { type: 'shape', filters: [{ type: 'pixelate' }] } }] })).toBe(true);
+    expect(needsFilterLibrary({ layers: [{ type: 'shape', mask: { type: 'shape', filters: [{ type: 'pixelate' }] } }] })).toBe(true);
   });
 
   it('finds it in a mask written as { layer: <spec>, invert }, and rejects an unknown type there too', () => {
-    expect(needsFilterLibrary({ sequences: [{ type: 'shape', mask: { layer: { type: 'shape', filters: [{ type: 'glow' }] }, invert: true } }] })).toBe(true);
-    expect(() => needsFilterLibrary({ sequences: [{ type: 'shape', mask: { layer: { type: 'shape', filters: [{ type: 'glwo' }] }, invert: true } }] })).toThrow(/glwo/);
+    expect(needsFilterLibrary({ layers: [{ type: 'shape', mask: { layer: { type: 'shape', filters: [{ type: 'glow' }] }, invert: true } }] })).toBe(true);
+    expect(() => needsFilterLibrary({ layers: [{ type: 'shape', mask: { layer: { type: 'shape', filters: [{ type: 'glwo' }] }, invert: true } }] })).toThrow(/glwo/);
   });
 
   it('is false for pixi.js\'s own filters, chromaKey, custom and a composition with no filters', () => {
     expect(needsFilterLibrary(comp([{ type: 'blur' }, { type: 'colorMatrix', preset: 'sepia' }, { type: 'chromaKey' }, { type: 'custom', filter: {} }]))).toBe(false);
-    expect(needsFilterLibrary({ sequences: [{ type: 'text' }] })).toBe(false);
+    expect(needsFilterLibrary({ layers: [{ type: 'text' }] })).toBe(false);
   });
 
   it('loads pixi-filters once, only when needed', async () => {
@@ -186,11 +186,11 @@ describe('needsFilterLibrary / ensureFilterLibrary', () => {
 
   it('that sentence names the filters that need the package and the layer that uses each (each type once), not a placeholder', async () => {
     const load = async () => { throw new Error('Failed to resolve module specifier "pixi-filters"'); };
-    const one = ensureFilterLibrary({ sequences: [{ type: 'shape', name: 'box', filters: [{ type: 'blur' }, { type: 'glow' }] }] }, load);
+    const one = ensureFilterLibrary({ layers: [{ type: 'shape', name: 'box', filters: [{ type: 'blur' }, { type: 'glow' }] }] }, load);
     await expect(one).rejects.toThrow('the filter "glow" (layer "box") comes from the pixi-filters package');
-    const many = ensureFilterLibrary({ sequences: [
+    const many = ensureFilterLibrary({ layers: [
       { type: 'text', name: 'title', filters: [{ type: 'glow' }] },
-      { type: 'composition', sequences: [{ type: 'shape', filters: [{ type: 'crt' }] }, { type: 'text', name: 'sub', filters: [{ type: 'glow' }] }] },
+      { type: 'composition', layers: [{ type: 'shape', filters: [{ type: 'crt' }] }, { type: 'text', name: 'sub', filters: [{ type: 'glow' }] }] },
     ] }, load);
     await expect(many).rejects.toThrow('the filters "glow" (layer "title"), "crt" come from the pixi-filters package');
     await expect(ensureFilterLibrary(comp([{ type: 'glow' }]), load)).rejects.not.toThrow(/see the type/);

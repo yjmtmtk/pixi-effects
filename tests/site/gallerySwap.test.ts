@@ -60,7 +60,7 @@ describe('gallery-swap: replace one piece by another', () => {
     expect(manifest.old).toBeUndefined(); expect(manifest.other).toBeDefined();
     const html = read(r, `${g}/fresh.html`);
     expect(html).toContain('"pixi-effects": "../../dist/index.js"');
-    expect(html).toContain('"pixi-effects/controller": "../../dist/Controller.js"');
+    expect(html).toContain('"pixi-effects/controller": "../../dist/controller.js"');
     expect(html).toContain('"pixi-effects/3d": "../../dist/3d.js"');                // an entry whose name has a digit too
     expect(html).toContain('https://esm.sh/pixi.js@8.22.0?bundle-deps');            // the other imports stay as they are
   });

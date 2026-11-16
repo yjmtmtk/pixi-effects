@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { maskSourceOf, refNames, usesMatteRoute, MATTE_CHANNELS, matteProblems } from '../../src/core/matte';
-import type { SequenceSpec } from '../../src/types';
+import type { LayerSpec } from '../../src/types';
 
 describe('maskSourceOf', () => {
   it('a layer spec (it has a type) is an inline mask, as it always was: read by its alpha, not inverted', () => {
@@ -106,7 +106,7 @@ describe('usesMatteRoute (which inline masks go through the matte filter)', () =
   });
 });
 
-const sp = (o: unknown) => o as SequenceSpec;
+const sp = (o: unknown) => o as LayerSpec;
 describe('matteProblems', () => {
   const sibs = [
     sp({ type: 'shape', shape: 'circle', name: 'disc' }),

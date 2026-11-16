@@ -46,7 +46,7 @@
       ? { type: 'audio', name, sfx: asObject ? { preset } : preset, [key]: value, at }
       : { type: 'audio', name, sfx: { preset, [key]: value }, at };
     const circle = (x) => ({ type: 'shape', shape: 'circle', radius: 30, initial: { x, y: 90, fill: '#ffffff' } });
-    const sequences = [
+    const layers = [
       knob('tick', 'click', 'pitch', pitch, 0.1),
       knob('thud', 'hit', 'brightness', -0.5, 0.3),
       knob('keys', 'typewriter', 'seed', 7, 0.6),
@@ -63,7 +63,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30, background: '#101010',
-        composition: { sequences },
+        composition: { layers },
       });
       const img = await movie.snapshot(0, { as: 'imageData' });
       const px = (x, y) => { const i = (y * img.width + x) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]]; };

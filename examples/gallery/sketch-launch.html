@@ -39,7 +39,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "roughjs":                 "https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.esm.js"
     }
   }
@@ -111,7 +111,7 @@
       const inner = gen.path('M -14 128 C -20 156 -6 168 0 190 C 6 168 20 156 14 128 Z', R({ seed: seed + 10, stroke: YEL, strokeWidth: 2, ...hach(YEL, { hachureGap: 4 }) }));
       const sets = []; for (let t = 0; t < 7.0; t += 0.36) sets.push({ at: t + k * 0.12, set: { alpha: 1 } }, { at: t + k * 0.12 + 0.12, set: { alpha: 0 } });
       return { type: 'composition', name: 'flame' + k, at: 4.2 - 1.0, duration: 8.0, width: W, height: H, initial: { alpha: 0 },
-        sequences: [...sketch(outer, RX, RY, 0, 0.01), ...sketch(inner, RX, RY, 0, 0.01)].map(l => ({ ...l, trimEnd: 1, keyframes: l.keyframes.map(kf => ({ ...kf, duration: 0.01 })) })), keyframes: sets };
+        layers: [...sketch(outer, RX, RY, 0, 0.01), ...sketch(inner, RX, RY, 0, 0.01)].map(l => ({ ...l, trimEnd: 1, keyframes: l.keyframes.map(kf => ({ ...kf, duration: 0.01 })) })), keyframes: sets };
     });
     // the two wings of an arrowhead sit behind the tip, whichever way the arrow points
     const arrowHead = (from, to, len = 17, spread = 0.5) => {
@@ -133,14 +133,14 @@
     const liftAt = 8.0;
     const rocket = {
       type: 'composition', name: 'rocket', at: 1.0, duration: DURATION - 1.0, width: W, height: H,
-      sequences: [...rocketLayers],
+      layers: [...rocketLayers],
       keyframes: [
         { at: liftAt - 1.0 - 0.7, to: { x: '+=4' }, duration: 0.06, repeat: 11, yoyo: true, ease: 'none' },          // a shiver before it goes
         { at: liftAt - 1.0, to: { y: '-=1100' }, duration: 2.0, ease: 'power3.in' },
       ],
     };
     // the flame rides the rocket: its own composition list is lifted with the same move
-    const rocketWithFlames = { ...rocket, sequences: [...rocket.sequences, ...flames] };
+    const rocketWithFlames = { ...rocket, layers: [...rocket.layers, ...flames] };
 
     // ---------------------------------------------------------------- the pad, the countdown, the smoke, the sky
     const pad = [
@@ -196,7 +196,7 @@
       { inst: 'musicbox', vol: 0.3, notes: '_:8 ' + Array.from({ length: 9 }, (_, i) => ['e5:1 g5:1', 'c5:1 e5:1', 'a4:1 c5:1', 'b4:1 d5:1'][i % 4]).join(' ') },
     ], drums: { kick: 'x...x...', hat: '..x...x.' } } };
 
-    const sequences = [...page, ...title, ...labels, ...pad, ...count, rocketWithFlames, ...smoke, ...burst, liftoffWord, ...trail, ...stars, ...moon, ...ending, music, ...sfx];
+    const layers = [...page, ...title, ...labels, ...pad, ...count, rocketWithFlames, ...smoke, ...burst, liftoffWord, ...trail, ...stars, ...moon, ...ending, music, ...sfx];
 
     const movie = new Movie();
     window.movie = movie;
@@ -204,7 +204,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: W, height: H, duration: DURATION, frameRate: FPS, poster: 8.5, background: PAPER,
-        composition: { sequences, filters: [{ type: 'grain', name: 'g', amount: 0.035, size: 1.6, color: 0.15 }] },
+        composition: { layers, filters: [{ type: 'grain', name: 'g', amount: 0.035, size: 1.6, color: 0.15 }] },
       });
       window.__ready = true;
     } catch (e) {

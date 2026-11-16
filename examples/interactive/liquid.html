@@ -28,7 +28,7 @@
       "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects": "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js" } }
+      "pixi-effects/controller": "../../dist/controller.js" } }
   </script>
   <script type="module">
     import { Movie } from 'pixi-effects';
@@ -58,7 +58,7 @@
             keyframes: [{ at: 0.2, to: { value: n }, duration: 1.6, ease: 'expo.out' }] },
         ];
       });
-      return { sequences: [
+      return { layers: [
         { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, fillGradient: { angle: 180, stops: [[0, '#0f1424'], [1, '#1b1033']] } },
         { type: 'shape', shape: 'circle', name: 'orb', radius: `${u}*${tall ? 0.28 : 0.22}`, initial: { x: tall ? 'GW*0.8' : 'GW*0.82', y: tall ? 'GH*0.12' : 'GH*0.26' }, fillGradient: { stops: [[0, '#6aa8ff'], [1, '#a06bff']] },
           keyframes: [{ at: 0, to: { y: tall ? 'GH*0.15' : 'GH*0.3' }, duration: 2, ease: 'sine.inOut', repeat: 3, yoyo: true }] },

@@ -81,7 +81,7 @@ function expected(x: number, y: number, plane: { o: Vec3; n: Vec3 }, lights: Lig
 }
 const rgb = async (cdp: any, url: string, x: number, y: number): Promise<number[]> => cdp.eval(`px(${JSON.stringify(url)}, ${x}, ${y})`);
 const near = (got: number[], want: number[], label: string) => { for (let k = 0; k < 3; k++) expect(Math.abs(got[k]! - want[k]!), `${label} channel ${k}: got ${got} want ${want.map(v => Math.round(v * 10) / 10)}`).toBeLessThanOrEqual(TOLERANCE); };
-const frame = async (cdp: any, sequences: unknown[], f = 0, extra: Record<string, unknown> = {}) => { await cdp.eval(`mk(${JSON.stringify({ composition: { sequences }, ...extra })})`); return cdp.eval(`snap(${f})`) as Promise<string>; };
+const frame = async (cdp: any, layers: unknown[], f = 0, extra: Record<string, unknown> = {}) => { await cdp.eval(`mk(${JSON.stringify({ composition: { layers }, ...extra })})`); return cdp.eval(`snap(${f})`) as Promise<string>; };
 const diff = async (cdp: any, a: string, b: string): Promise<number> => cdp.eval(`diff(${JSON.stringify(a)}, ${JSON.stringify(b)})`);
 const POINTS: Array<[number, number]> = [[160, 90], [40, 30], [280, 150], [20, 160], [250, 20]];
 
@@ -200,7 +200,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
         { type: 'camera', keyframes: [{ at: 0, to: { fov: 55 }, duration: 2, ease: 'sine.inOut' }] },
         tiltedCard(20, 25),
       ];
-      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: seq } })})`);
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { layers: seq } })})`);
       const o = await cdp.eval('orders([0, 7, 15, 22, 30, 38, 45, 52, 59])');
       expect(o.bwdMax).toBe(0);
       expect(o.jmpMax).toBe(0);
@@ -254,7 +254,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
         tiltedCard(25, 20),
         card({ name: 'far', initial: { x: 0, y: 0, z: -250, fill: '#808080' } }),
       ];
-      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: seq } })})`);
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { layers: seq } })})`);
       const o = await cdp.eval('orders([0, 7, 15, 22, 30, 38, 45, 52, 59])');
       expect(o.bwdMax).toBe(0);
       expect(o.jmpMax).toBe(0);
@@ -289,7 +289,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     await withPage(async (cdp) => {
       const lights = [ambient(0.2), L({ kind: 'point', x: 160, y: 90, z: 150, intensity: 0.7 })];
       const cardComp = { type: 'composition', name: 'cardc', width: W, height: H, threeD: true, initial: { x: 0, y: 0, z: 0 },
-        sequences: [{ type: 'shape', shape: 'rect', width: W, height: H, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#808080' } }] };
+        layers: [{ type: 'shape', shape: 'rect', width: W, height: H, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#808080' } }] };
       const url = await frame(cdp, [...lights.map(l => lightSpec(l)), cardComp]);
       for (const [x, y] of [[160, 90], [40, 30], [280, 150]] as Array<[number, number]>) near(await rgb(cdp, url, x, y), expected(x, y, FLAT, lights), `card at (${x},${y})`);
     });
@@ -297,7 +297,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('each composition has its own lights: a light in an inner composition shades only that composition\'s threeD layers, and an outer light does not reach inside', async () => {
     await withPage(async (cdp) => {
-      const inner = (extra: unknown[]) => ({ type: 'composition', name: 'inner', width: W, height: H, initial: { x: 0, y: 0 }, sequences: [...extra, card()] });
+      const inner = (extra: unknown[]) => ({ type: 'composition', name: 'inner', width: W, height: H, initial: { x: 0, y: 0 }, layers: [...extra, card()] });
       const inside = await frame(cdp, [inner([lightSpec(ambient(0.3))])]);
       near(await rgb(cdp, inside, 160, 90), expected(160, 90, FLAT, [ambient(0.3)]), 'an inner light shades the inner card');
       const outside = await frame(cdp, [lightSpec(ambient(0.3)), inner([])]);
@@ -308,8 +308,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   it('a light inside a time-remapped composition runs on that composition\'s own clock, and every seek order agrees', async () => {
     await withPage(async (cdp) => {
       const ramp = { ...lightSpec(ambient(0)), keyframes: [{ at: 0, to: { intensity: 1 }, duration: 4, ease: 'none' }] };
-      const inner = { type: 'composition', name: 'inner', width: W, height: H, duration: 2, speed: 2, initial: { x: 0, y: 0 }, sequences: [ramp, card()] };
-      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: [inner] } })})`);
+      const inner = { type: 'composition', name: 'inner', width: W, height: H, duration: 2, speed: 2, initial: { x: 0, y: 0 }, layers: [ramp, card()] };
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { layers: [inner] } })})`);
       const url: string = await cdp.eval('snap(30)');                           // 1.0 s: the inner clock reads 2 s of a 4 s ramp = intensity 0.5
       near(await rgb(cdp, url, 160, 90), expected(160, 90, FLAT, [ambient(0.5)]), 'half way up the inner ramp');
       const o = await cdp.eval('orders([0, 10, 20, 30, 40, 50, 59])');
@@ -322,7 +322,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   it('the light\'s colour can be keyframed from one colour string to another: halfway it is the mixture, in every seek order', async () => {
     await withPage(async (cdp) => {
       const tint = { ...lightSpec(ambient(1)), keyframes: [{ at: 0, from: { color: '#ff0000' }, to: { color: '#0000ff' }, duration: 2, ease: 'none' }] };
-      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: [tint, card()] } })})`);
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { layers: [tint, card()] } })})`);
       const start: string = await cdp.eval('snap(0)');
       near(await rgb(cdp, start, 160, 90), [128, 0, 0], 'red at the start');
       const mid: string = await cdp.eval('snap(30)');
@@ -512,7 +512,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     await withPage(async (cdp) => {
       const caster = blocker('block', 160, 90, 0, {}, { rotationY: 0 });
       const move = { ...lightSpec(SUN, { castsShadows: true }), keyframes: [{ at: 0, to: { x: 260 }, duration: 2, ease: 'none' }] };
-      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: [lightSpec(AMB), move, { ...caster, keyframes: [{ at: 0, to: { rotationY: 80 }, duration: 2, ease: 'none' }] }, floor()] } })})`);
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { layers: [lightSpec(AMB), move, { ...caster, keyframes: [{ at: 0, to: { rotationY: 80 }, duration: 2, ease: 'none' }] }, floor()] } })})`);
       const o = await cdp.eval('orders([0, 7, 15, 22, 30, 38, 45, 52, 59])');
       expect(o.bwdMax).toBe(0);
       expect(o.jmpMax).toBe(0);
@@ -525,7 +525,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     await withPage(async (cdp) => {
       const plain = await frame(cdp, [farCard()], 45, { duration: 2 });
       const seq = [{ type: 'camera', at: 0, duration: 1, initial: FOGGED }, farCard()];
-      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: seq } })})`);
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { layers: seq } })})`);
       const early: string = await cdp.eval('snap(15)');                          // inside the camera's life: fogged
       const late: string = await cdp.eval('snap(45)');                           // after it: the home camera, no fog
       near(await rgb(cdp, early, 160, 90), [0, 1, 2].map(k => 128 * (1 - fogAmount(CAM.z + 200, FOGGED.fogNear, FOGGED.fogFar, FOGGED.fogAmount)) + [0x20, 0x40, 0x60][k]! * fogAmount(CAM.z + 200, FOGGED.fogNear, FOGGED.fogFar, FOGGED.fogAmount)), 'fogged inside the camera\'s life');

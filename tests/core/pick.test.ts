@@ -6,7 +6,7 @@ import { Sequence } from '../../src/sequences/Base';
 import { registerSequenceType } from '../../src/core/Composition';
 import { pickScene, pointInQuad, type AlphaReader } from '../../src/core/pick';
 import { createTimeline } from '../../src/core/timelineEngine';
-import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import type { CompositionLayerSpec, CompositionShape } from '../../src/types';
 
 /**
  * A stand-in for a Pixi display object with exactly what a hit test reads: where it is (x, y, rotation about its origin, scale), how big it is, `toLocal` (the inverse of that),
@@ -46,8 +46,8 @@ registerSequenceType('__flat', Flat as never);
 registerSequenceType('__scenelike', SceneLike as never);
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
-async function scene(sequences: unknown[]) {
-  const spec = { type: 'composition', width: 1280, height: 720, duration: 10, sequences } as unknown as CompositionSequenceSpec;
+async function scene(layers: unknown[]) {
+  const spec = { type: 'composition', width: 1280, height: 720, duration: 10, layers } as unknown as CompositionLayerSpec;
   const comp = new CompositionSequence(spec, root, root);
   await comp.build();
   comp.bindTimeline(createTimeline({ paused: true }));
@@ -96,7 +96,7 @@ describe('pickScene: what is under a point of the canvas', () => {
   });
 
   it('a layer inside a nested composition is found by its path; the composition itself is not a hit', async () => {
-    const comp = await scene([{ type: 'composition', name: 'group', width: 300, height: 200, duration: 10, sequences: [{ type: '__flat', name: 'leaf', x: 10, y: 10 }] }]);
+    const comp = await scene([{ type: 'composition', name: 'group', width: 300, height: 200, duration: 10, layers: [{ type: '__flat', name: 'leaf', x: 10, y: 10 }] }]);
     const hits = pickScene(comp, 30, 30);
     expect(hits.map((h) => h.path)).toEqual(['group/leaf']);
     expect(hits[0]!.name).toBe('leaf');
@@ -112,7 +112,7 @@ describe('pickScene: what is under a point of the canvas', () => {
   it('naming a group (a nested composition) in only / ignore means everything in it: a card with a label is one target', async () => {
     const comp = await scene([
       { type: '__flat', name: 'bg', x: 0, y: 0, w: 500, h: 500 },
-      { type: 'composition', name: 'card', width: 200, height: 100, duration: 10, sequences: [{ type: '__flat', name: 'face', x: 10, y: 10, w: 100, h: 60 }, { type: '__flat', name: 'label', x: 30, y: 20, w: 40, h: 20 }] },
+      { type: 'composition', name: 'card', width: 200, height: 100, duration: 10, layers: [{ type: '__flat', name: 'face', x: 10, y: 10, w: 100, h: 60 }, { type: '__flat', name: 'label', x: 30, y: 20, w: 40, h: 20 }] },
       { type: '__flat', name: 'cardinal', x: 300, y: 300, w: 50, h: 50 },
     ]);
     expect(pickScene(comp, 40, 25, { only: ['card'] }).map((h) => h.path), 'both parts of the card').toEqual(['card/label', 'card/face']);

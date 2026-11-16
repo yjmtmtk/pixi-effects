@@ -9,7 +9,7 @@ export default function chapter(P) {
     type: 'composition', name, threeD: true, hideBehindCamera: near, width: w, height: h,
     initial: { x, y, z, pivotX: w / 2, pivotY: h / 2, rotationY: rotY, rotationX: rotX },
     keyframes,
-    sequences: [
+    layers: [
       { type: 'shape', shape: 'rect', name: name + '-paper', width: w, height: h, cornerRadius: 10,
         initial: { x: w / 2, y: h / 2, fill: fill, stroke: C.ink, strokeWidth: 3 } },
       { type: 'text', name: name + '-z', text: label, style: { fontSize: 46, fill: ink, fontFamily: F.mono, letterSpacing: 2 },
@@ -22,7 +22,7 @@ export default function chapter(P) {
   return {
     duration: 8,
     poster: 6.0,
-    sequences: [
+    layers: [
       P.bg(C.ink),
       // The camera: looks at the far card the whole time (so it stays centred and everything else parallaxes), dollies in on offsetZ, sways a
       // little, and racks the focus from the nearest card to the far one half way through the flight.

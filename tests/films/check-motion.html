@@ -23,7 +23,7 @@
     const movie = new Movie();
     window.movie = movie;
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 10, frameRate: 30, background: '#101828', composition: { sequences: cases[which] } });
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 10, frameRate: 30, background: '#101828', composition: { layers: cases[which] } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
   </script>

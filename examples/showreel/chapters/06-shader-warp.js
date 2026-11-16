@@ -54,7 +54,7 @@ export default function chapter(P) {
   return {
     duration: 7,
     poster: 5.0,
-    sequences: [
+    layers: [
       P.bg(C.ink),
 
       // ── beat 1 (0 – 3.0): formula A in a disc; the spiral winds up ──

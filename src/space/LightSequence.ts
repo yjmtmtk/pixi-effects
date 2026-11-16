@@ -8,7 +8,7 @@ import { Sequence } from '../sequences/Base';
 import { homeDistance } from './math';
 import type { CameraWindow } from './camera';
 import { FALLOFFS, LIGHT_KINDS, type LightState } from './lighting';
-import type { LightSequenceSpec } from '../types';
+import type { LightLayerSpec } from '../types';
 
 type Carrier = Container & {
   z: number; lookAtX: number; lookAtY: number; lookAtZ: number; intensity: number; color: string | number;
@@ -16,7 +16,7 @@ type Carrier = Container & {
 };
 
 export class LightSequence extends Sequence {
-  declare spec: LightSequenceSpec;
+  declare spec: LightLayerSpec;
   private color = new Color();
 
   async build(): Promise<void> {

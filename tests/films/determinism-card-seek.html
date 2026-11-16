@@ -33,8 +33,8 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#000000',
-        composition: { sequences: [
-          { type: 'composition', name: 'card', threeD: true, width: 600, height: 200, initial: { x: 320, y: 180, pivotX: 300, pivotY: 100 }, sequences: [
+        composition: { layers: [
+          { type: 'composition', name: 'card', threeD: true, width: 600, height: 200, initial: { x: 320, y: 180, pivotX: 300, pivotY: 100 }, layers: [
             { type: 'shape', shape: 'line', name: 'draw', from: [20, 100], to: [580, 100],
               initial: { stroke: '#ffffff', strokeWidth: 12, trimEnd: 0 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 2, ease: 'none' }] },
             { type: 'shape', shape: 'rect', name: 'grow', width: 100, height: 10, initial: { x: 300, y: 170, fill: '#ffffff', scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 5 }, duration: 2, ease: 'none' }] },

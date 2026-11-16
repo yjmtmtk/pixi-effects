@@ -22,7 +22,7 @@
     const movie = new Movie();
     window.movie = movie;
     await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, loader: false, background: '#111',
-      composition: { sequences: [
+      composition: { layers: [
         { type: 'shape', shape: 'rect', name: 'box', width: 40, height: 40, initial: { x: 0, y: 100 }, keyframes: [{ at: 0, set: { x: 300 } }, { at: 0, to: { y: 200 }, duration: 1 }] },
         { type: 'shape', shape: 'rect', name: 'later', at: 1, width: 40, height: 40, initial: { x: 0, y: 0 } },
       ] } });

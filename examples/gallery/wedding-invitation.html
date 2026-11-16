@@ -34,7 +34,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -87,7 +87,7 @@
 
     // ---- the card and its surroundings ---------------------------------------------------------
     const cardIn = [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 1.1, ease: 'power2.out' }];
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'linen', width: 'GW', height: 'GH', initial: { x: CX, y: CY, fill: LINEN } },
       { type: 'shape', shape: 'rect', name: 'linen-vignette', width: 'GW', height: 'GH', initial: { x: CX, y: CY },
         fillGradient: { type: 'radial', radius: 0.78, stops: [[0.45, 'rgba(80,60,35,0)'], [1, 'rgba(80,60,35,0.3)']] } },
@@ -118,8 +118,8 @@
         side('left',   { width: sw, height: 0, anchorY: 1 }, { x: L, y: B + sw / 2 },   { at: 2 * dH + dV,  to: { height: lenV }, duration: dV }),
       ];
     }
-    sequences.push(...borderTrace('border-outer', OUTER_IN, 2.4, GOLD, 1, T.border));
-    sequences.push(...borderTrace('border-inner', INNER_IN, 1.2, GOLD, 0.85, T.border + 0.35));
+    layers.push(...borderTrace('border-outer', OUTER_IN, 2.4, GOLD, 1, T.border));
+    layers.push(...borderTrace('border-inner', INNER_IN, 1.2, GOLD, 0.85, T.border + 0.35));
 
     // ---- botanical sprigs: a straight stem that grows, ellipse leaves that unfurl from their base ----
     const LEAF_COLORS = [SAGE, SAGE_D, SAGE_L, SAGE];
@@ -128,7 +128,7 @@
     const rotRight = (dx, dy) => deg(Math.atan2(dy, dx));    // rotation that points an ellipse's +x (anchorX: 0) along (dx, dy)
 
     function stem(name, [bx, by], [dx, dy], len, at, dur, leaves, opts = {}) {
-      sequences.push({ type: 'shape', shape: 'rect', name: `${name}-stem`, width: 1.8, height: 0, anchorY: 1, at,
+      layers.push({ type: 'shape', shape: 'rect', name: `${name}-stem`, width: 1.8, height: 0, anchorY: 1, at,
         initial: { x: bx, y: by, rotation: rotUp(dx, dy), fill: SAGE_D, alpha: 0.95 },
         keyframes: [{ at: 0, to: { height: len }, duration: dur, ease: 'power2.out' }] });
       const px = -dy, py = dx;                               // perpendicular to the stem
@@ -139,13 +139,13 @@
         const lx = dx * Math.cos(ang) + px * sideSign * Math.sin(ang), ly = dy * Math.cos(ang) + py * sideSign * Math.sin(ang);
         const L = (opts.leafLen ?? 42) * (1 - 0.4 * i / leaves) * between(0.9, 1.1);
         const reach = dur * (1 - Math.sqrt(1 - s / len));   // when the power2.out stem tip passes this leaf's base
-        sequences.push({ type: 'shape', shape: 'ellipse', name: `${name}-leaf${i}`, radiusX: L / 2, radiusY: L * 0.36 / 2, anchorX: 0, at: at + reach + 0.04,
+        layers.push({ type: 'shape', shape: 'ellipse', name: `${name}-leaf${i}`, radiusX: L / 2, radiusY: L * 0.36 / 2, anchorX: 0, at: at + reach + 0.04,
           initial: { x: bx + dx * s, y: by + dy * s, rotation: rotRight(lx, ly), fill: LEAF_COLORS[Math.floor(rnd() * LEAF_COLORS.length)], alpha: between(0.88, 1), scale: 0 },
           keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.75, ease: 'back.out(1.3)' }] });
       }
       if (opts.berries) {                                   // a small gold cluster at the tip
         const tx = bx + dx * len, ty = by + dy * len;
-        [[0, 0], [px * 7 + dx * 4, py * 7 + dy * 4], [-px * 7 + dx * 5, -py * 7 + dy * 5]].forEach(([ox, oy], i) => sequences.push({
+        [[0, 0], [px * 7 + dx * 4, py * 7 + dy * 4], [-px * 7 + dx * 5, -py * 7 + dy * 5]].forEach(([ox, oy], i) => layers.push({
           type: 'shape', shape: 'circle', name: `${name}-berry${i}`, radius: 3.2, at: at + dur - 0.1 + i * 0.08,
           initial: { x: tx + ox, y: ty + oy, fill: GOLD, scale: 0 },
           keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.6, ease: 'back.out(1.6)' }] }));
@@ -169,7 +169,7 @@
       style: { fontSize: size, fontFamily: SERIF, fill, ...extra },
       initial: { x: CX, y, anchorX: 0.5, anchorY: 0.5 }, keyframes: rise(y, 24, 1.3) });
 
-    sequences.push(
+    layers.push(
       caps('kicker', 'TOGETHER WITH THEIR FAMILIES', Y.kicker, T.kicker, 21, SAGE_INK, 6),
       serif('name-aiko', 'Aiko', Y.aiko, T.aiko, 130, INK, { letterSpacing: 6 }),
       serif('ampersand', '&', Y.amp, T.amp, 78, GOLD, { fontStyle: 'italic' }),
@@ -177,7 +177,7 @@
     );
 
     // gold rule grows from its centre with soft ends; a diamond pops in the middle over a cream gap
-    sequences.push(
+    layers.push(
       { type: 'shape', shape: 'rect', name: 'rule', width: 0, height: 1.6, at: T.rule, initial: { x: CX, y: Y.rule },
         fillGradient: { angle: 90, stops: [[0, rgba(GOLD, 0)], [0.14, GOLD], [0.86, GOLD], [1, rgba(GOLD, 0)]] },
         keyframes: [{ at: 0, to: { width: 330 }, duration: 1.1, ease: 'power3.out' }] },
@@ -187,7 +187,7 @@
         keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.6, ease: 'back.out(1.6)' }] },
     );
 
-    sequences.push(
+    layers.push(
       caps('invite', 'INVITE YOU TO CELEBRATE THEIR WEDDING', Y.invite, T.invite, 19, SAGE_INK, 5),
       serif('date', 'Saturday, 14 June 2027', Y.date, T.date, 38, INK, { letterSpacing: 2 }),
       serif('time', 'at four o’clock in the afternoon', Y.time, T.time, 27, SAGE_INK, { fontStyle: 'italic' }),
@@ -196,7 +196,7 @@
     );
 
     // ---- closing motif: two interlocking gold rings -------------------------------------------
-    [-13, 13].forEach((ox, i) => sequences.push({ type: 'shape', shape: 'circle', name: `ring-${i}`, radius: 21, at: T.rings + i * 0.16,
+    [-13, 13].forEach((ox, i) => layers.push({ type: 'shape', shape: 'circle', name: `ring-${i}`, radius: 21, at: T.rings + i * 0.16,
       initial: { x: CX + ox, y: Y.rings, stroke: GOLD, strokeWidth: 2.2, scale: 0, alpha: 0 },
       keyframes: [{ at: 0, to: { scale: 1, alpha: 1 }, duration: 0.9, ease: 'back.out(1.4)' }] }));
 
@@ -214,7 +214,7 @@
         twinkle.push({ at: t, to: { scale: 1, rotation: rot + 40 }, duration: 0.55, ease: 'sine.out' }, { at: t + 0.55, to: { scale: 0 }, duration: 0.55, ease: 'sine.in' });
         rot += 40; t += 1.1 + between(0.9, 2.2);
       }
-      sequences.push(
+      layers.push(
         { type: 'shape', shape: 'circle', name: `halo-${i}`, radius: r * 2.6, at, duration: avail, blendMode: 'screen',
           fillGradient: { type: 'radial', radius: 0.5, stops: [[0, rgba(GOLD_HI, 0.9)], [1, rgba(GOLD_HI, 0)]] },
           initial: { x, y, scale: 0 }, keyframes: twinkle.map(k => ({ ...k, to: { scale: k.to.scale } })) },
@@ -224,14 +224,14 @@
     });
 
     // ---- closing flourish: a soft light sheen sweeps across the card during the hold (screened, masked to the card) ----
-    sequences.push({ type: 'shape', shape: 'rect', name: 'sheen', width: 240, height: 1900, at: T.sheen, duration: 1.9, blendMode: 'screen',
+    layers.push({ type: 'shape', shape: 'rect', name: 'sheen', width: 240, height: 1900, at: T.sheen, duration: 1.9, blendMode: 'screen',
       fillGradient: { angle: 90, stops: [[0, 'rgba(255,250,240,0)'], [0.5, 'rgba(255,250,240,0.42)'], [1, 'rgba(255,250,240,0)']] },
       initial: { x: -260, y: CY, rotation: 18 },
       keyframes: [{ at: 0, to: { x: W + 260 }, duration: 1.8, ease: 'power2.inOut' }],
       mask: { type: 'shape', shape: 'rect', width: CARD_W, height: CARD_H, initial: { x: CX, y: CY, fill: '#ffffff' } } });
 
     // ---- sound: a soft swoosh under the rule, a chime for the rings (one-shots: no duration) -----
-    sequences.push(
+    layers.push(
       { type: 'audio', name: 'sfx-rule', sfx: 'swoosh', at: T.rule, volume: 0.3 },
       { type: 'audio', name: 'sfx-rings', sfx: 'chime', at: T.rings, volume: 0.16 },
     );
@@ -248,7 +248,7 @@
         assets: [
           paperTexture('paper', CARD_W, CARD_H, 4242),
         ],
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

@@ -5,7 +5,7 @@ import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timel
 import { revertibleSet } from '../core/revertibleSet';
 import { tweenColor } from '../expr/colorTween';
 import type { ColorInput, ColorSpace } from '../expr/colorInterp';
-import type { ImageSequenceSpec, Keyframe, Props } from '../types';
+import type { ImageLayerSpec, Keyframe, Props } from '../types';
 import type { Timeline } from '../core/timelineEngine';
 import { describeLayer } from '../core/lint';
 
@@ -15,7 +15,7 @@ import { describeLayer } from '../core/lint';
 const ORIGINAL_SCALE_MODE = new WeakMap<object, string | undefined>();
 
 export class ImageSequence extends Sequence {
-  declare spec: ImageSequenceSpec;
+  declare spec: ImageLayerSpec;
 
   async build(): Promise<void> {
     const texture = await Assets.get<Texture>(this.spec.asset);

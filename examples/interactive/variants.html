@@ -29,7 +29,7 @@
       "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects": "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js" } }
+      "pixi-effects/controller": "../../dist/controller.js" } }
   </script>
   <script type="module">
     import { Movie } from 'pixi-effects';
@@ -57,7 +57,7 @@
       const subSize = tall ? 'GW*0.052' : square ? 'GW*0.04' : 'GW*0.029';
       const left = { x: pad, anchorX: 0, anchorY: 0.5 };
       const rise = (delay) => ({ at: delay, from: { alpha: 0, y: '+=40' }, duration: 0.7, ease: 'expo.out' });
-      return { sequences: [
+      return { layers: [
         { type: 'shape', shape: 'rect', name: 'paper', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '{paper}' } },
         { type: 'shape', shape: 'circle', name: 'sun', radius: square ? 'GW*0.27' : 'min(GW,GH)*0.46', initial: { x: tall ? 'GW*0.72' : square ? 'GW*0.8' : 'GW*0.8', y: tall ? 'GH*0.2' : square ? 'GH*0.2' : 'GH*0.52', fill: '{accent}' },
           keyframes: [{ at: 0.1, from: { scale: 0 }, to: { scale: 1 }, duration: 0.9, ease: 'back.out(1.6)' }, { at: 1.2, to: { scale: 1.06 }, duration: 1.4, ease: 'sine.inOut', repeat: 2, yoyo: true }] },

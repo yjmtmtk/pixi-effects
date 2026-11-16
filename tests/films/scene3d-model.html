@@ -34,7 +34,7 @@
     };
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#101820',
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'scene3d', name: 'stage',
             setup: async (ctx) => {
               view = ctx.view;

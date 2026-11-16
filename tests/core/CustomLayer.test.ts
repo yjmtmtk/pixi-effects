@@ -6,7 +6,7 @@ import { Sequence } from '../../src/sequences/Base';
 import { registerSequenceType } from '../../src/core/Composition';
 import { CompositionSequence } from '../../src/sequences/Composition';
 import { createTimeline } from '../../src/core/timelineEngine';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
 
@@ -18,9 +18,9 @@ describe('a layer type written outside the library, with only what the package e
       async awaitFrameAt(local: number): Promise<void> { drawn.push(local); }
     }
     registerSequenceType('__mine', Mine as never);
-    const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration: 10, sequences: [
+    const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration: 10, layers: [
       { type: '__mine', name: 'm', at: 2, duration: 3, initial: { x: 0 }, keyframes: [{ at: 0, to: { x: 100 }, duration: 2, ease: 'none' }] },
-    ] } as unknown as SequenceSpec as never, root, root);
+    ] } as unknown as LayerSpec as never, root, root);
     await comp.build();
     const tl = createTimeline({ paused: true });
     comp.bindTimeline(tl);

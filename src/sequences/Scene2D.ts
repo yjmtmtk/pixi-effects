@@ -6,7 +6,7 @@ import { buildScope } from '../expr/Scope';
 import type { PathRouters } from '../core/Timeline';
 import { NOT_PURE } from '../core/purity';
 import { SetupValues } from '../core/setupValues';
-import type { Scene2DContext, Scene2DSequenceSpec } from '../types';
+import type { Scene2DContext, Scene2DLayerSpec } from '../types';
 
 /**
  * The layer's display object: a container whose `anchor` (the point of its box the layer's x / y name, 0..1 like a sprite's) is its pivot in the box's pixels, so
@@ -69,7 +69,7 @@ export class Scene2DSequence extends Sequence {
   /** What setup left on the objects the keyframes reach, shared with a layer that takes the scene over (core/setupValues.ts). */
   private _setupValues = new SetupValues();
 
-  private get _spec(): Scene2DSequenceSpec { return this.spec as unknown as Scene2DSequenceSpec; }
+  private get _spec(): Scene2DLayerSpec { return this.spec as unknown as Scene2DLayerSpec; }
 
   private _who(): string {
     const name = this._spec.name;
@@ -124,7 +124,7 @@ export class Scene2DSequence extends Sequence {
     const renderer = this.root.renderer as Renderer;
     const objects: Record<string, object> = {};
     const ctx: Scene2DContext = { root, renderer, width, height, objects, texture: (name) => textureOf(name) };
-    let result: Awaited<ReturnType<Scene2DSequenceSpec['setup']>>;
+    let result: Awaited<ReturnType<Scene2DLayerSpec['setup']>>;
     try {
       result = await spec.setup(ctx);
     } catch (err) {

@@ -12,7 +12,7 @@ import { Scene2DSequence } from '../sequences/Scene2D';
 import type { Sequence } from '../sequences/Base';
 import { expandSpans } from '../text/spans';
 import { buildScope } from '../expr/Scope';
-import type { SequenceSpec, CompositionShape, TextSequenceSpec } from '../types';
+import type { LayerSpec, CompositionShape, TextLayerSpec } from '../types';
 import { layerAt } from './layerAt';
 import { describeLayer } from './lint';
 import { SHAPE_NAMES, LAYER_TYPES } from './layerKeys';
@@ -32,9 +32,9 @@ async function getSpansSequence() {
   return _SpansSequence;
 }
 
-export type SequenceCtor = { new (spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape): Sequence };
+export type SequenceCtor = { new (spec: LayerSpec, parent: CompositionShape | null, root: CompositionShape): Sequence };
 
-const staticTypes: Partial<Record<SequenceSpec['type'], SequenceCtor>> = {
+const staticTypes: Partial<Record<LayerSpec['type'], SequenceCtor>> = {
   image: ImageSequence as unknown as SequenceCtor,
   text: TextSequence as unknown as SequenceCtor,
   audio: AudioSequence as unknown as SequenceCtor,
@@ -68,7 +68,7 @@ const REMOVED_TYPES: Record<string, string> = {
 };
 
 export async function buildSequenceTree(
-  specs: SequenceSpec[],
+  specs: LayerSpec[],
   parent: CompositionShape | null,
   root: CompositionShape,
   /** Filled one by one as each layer is built: a layer's setup (a `scene3d` layer's `layerTexture`) can find the layers listed before it. */
@@ -79,7 +79,7 @@ export async function buildSequenceTree(
     // a text layer with `spans` stands for a group of text layers, one per piece (src/text/spans.ts)
     if (spec.type === 'text' && (spec as { spans?: unknown }).spans !== undefined) {
       // the layer's own scope (W, H, GW, GH, the declared variables): the style's expressions are resolved for measuring
-      spec = expandSpans(spec as TextSequenceSpec, undefined, buildScope({ intrinsicWidth: 0, intrinsicHeight: 0, at: layerAt(spec), duration: spec.duration }, parent, root) as unknown as Record<string, number>);
+      spec = expandSpans(spec as TextLayerSpec, undefined, buildScope({ intrinsicWidth: 0, intrinsicHeight: 0, at: layerAt(spec), duration: spec.duration }, parent, root) as unknown as Record<string, number>);
       Cls = (await getSpansSequence()) as unknown as SequenceCtor;
     }
     if (!Cls && spec.type === 'composition') {

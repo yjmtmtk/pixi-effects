@@ -35,7 +35,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30,
-        composition: { sequences: [
+        composition: { layers: [
           bg,
           // 1: an opaque card drawn OVER the right half of its text
           label('hidden-text', 100),

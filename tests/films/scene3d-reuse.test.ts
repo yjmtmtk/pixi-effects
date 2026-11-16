@@ -44,7 +44,7 @@ runFilms('setVars keeps a scene3d layer that did not change', () => {
 
   it('a layer of another size is another layer (setup again, the old one disposed once); reuse: false builds again', async () => {
     await on('', async (film) => {
-      await film.eval('movie.rebuild({ composition: { sequences: [window.__text, window.__layer({ width: 200 })] } })');
+      await film.eval('movie.rebuild({ composition: { layers: [window.__text, window.__layer({ width: 200 })] } })');
       expect(await film.eval<number>('window.__setups')).toBe(2);
       expect(await film.eval<number>('window.__disposes')).toBe(1);
     });
@@ -58,7 +58,7 @@ runFilms('setVars keeps a scene3d layer that did not change', () => {
   it('a composition without the layer disposes it once; destroy disposes the one that is left, once', async () => {
     await on('', async (film) => {
       await film.eval("movie.setVars({ label: 'b' })");
-      await film.eval('movie.rebuild({ composition: { sequences: [window.__text] } })');
+      await film.eval('movie.rebuild({ composition: { layers: [window.__text] } })');
       expect(await film.eval<number>('window.__disposes')).toBe(1);
     });
     await on('', async (film) => {
@@ -80,7 +80,7 @@ runFilms('setVars keeps a scene3d layer that did not change', () => {
   it('a rebuild that fails leaves the old layer drawing its scene (the borrow was only a loan: nothing moved), and a later rebuild still keeps it', async () => {
     await on('', async (film) => {
       const before = await film.eval<string>('hashOf(30)');
-      const failed = await film.eval<string>(`movie.rebuild({ composition: { sequences: [window.__text, window.__layer(), { type: 'scene3d', name: 'broken', setup: () => { throw new Error('no model'); } }] } }).then(() => 'ok', (e) => String(e && e.message || e))`);
+      const failed = await film.eval<string>(`movie.rebuild({ composition: { layers: [window.__text, window.__layer(), { type: 'scene3d', name: 'broken', setup: () => { throw new Error('no model'); } }] } }).then(() => 'ok', (e) => String(e && e.message || e))`);
       expect(failed).toMatch(/scene3d layer "broken": setup failed: no model/);
       expect(await film.eval<string>('hashOf(30)')).toBe(before);
       await film.eval("movie.setVars({ label: 'a' })");

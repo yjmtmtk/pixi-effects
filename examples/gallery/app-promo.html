@@ -41,7 +41,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -233,7 +233,7 @@
         { at: T.phoneIn + 1.1, to: { y: 565 }, duration: 1.6, ease: 'sine.inOut', repeat: 4, yoyo: true },        // float: 5 × 1.6 s, ends at 9.3
         { at: T.phoneOut, to: { y: 860, z: -460, rotationY: 50, alpha: 0 }, duration: 0.65, ease: 'power2.in' },
       ],
-      sequences: screenUI,
+      layers: screenUI,
     };
 
     // ---------- captions (left of the phone) ----------
@@ -261,7 +261,7 @@
       type: 'composition', name: 'logo', width: 260, height: 260, at: T.logo, duration: DURATION - T.logo,
       initial: { x: LOGO.x, y: LOGO.y, pivotX: 130, pivotY: 130, scale: 0.4, alpha: 0 },
       keyframes: [{ at: 0, to: { scale: 1, alpha: 1 }, duration: 0.7, ease: 'back.out(1.4)' }],
-      sequences: [
+      layers: [
         shadow('logo-shadow', 130, 130 + 28, 230, 230, 0.22),
         gradRect('logo-tile', 130, 130, LOGO.s, LOGO.s, 50),
         ...check('logo-check', 130, 130, 92, '#ffffff'),
@@ -328,7 +328,7 @@
           ...ring1.assets, ...ring2.assets,
           { name: 'bgm', src: '../_assets/bgm.mp3' },
         ],
-        composition: { sequences },
+        composition: { layers: sequences },
       });
       window.__ready = true;
     } catch (e) {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { ShapeSequence } from '../../src/sequences/Shape';
 import { TextSequence } from '../../src/sequences/Text';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { gradStateFrom, mergeGrad, tweenGradient, bindGradientKeyframes, hasGradientKeys, validateGradientKeyframes } from '../../src/sequences/gradientAnim';
 import { createTimeline } from '../../src/core/timelineEngine';
 
@@ -150,7 +150,7 @@ describe('the layers that animate a gradient', () => {
   const fakeCanvas = () => vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => ({
     clearRect() {}, fillRect() {}, createLinearGradient: () => ({ addColorStop() {} }), createRadialGradient: () => ({ addColorStop() {} }), fillStyle: null,
   })) as never);
-  const shape = (extra: object) => new ShapeSequence({ type: 'shape', shape: 'rect', width: 100, height: 50, fillGradient: two, ...extra } as unknown as SequenceSpec, comp, comp);
+  const shape = (extra: object) => new ShapeSequence({ type: 'shape', shape: 'rect', width: 100, height: 50, fillGradient: two, ...extra } as unknown as LayerSpec, comp, comp);
   const painters = (): number => (globalThis as { __gradientPainters?: number }).__gradientPainters ?? 0;
 
   it('a shape with gradient keyframes paints a texture; destroying it gives the texture back; a shape without keyframes makes no painter', async () => {
@@ -187,7 +187,7 @@ describe('the layers that animate a gradient', () => {
   it('a text layer takes a fillGradient (top level or initial) as its fill, and keeps it after a keyframe', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     for (const where of ['top', 'initial'] as const) {
-      const t = new TextSequence({ type: 'text', text: 'hi', ...(where === 'top' ? { fillGradient: two } : { initial: { fillGradient: two } }), keyframes: [{ at: 0, to: { fillGradient: { angle: 90 } }, duration: 1 }] } as unknown as SequenceSpec, comp, comp);
+      const t = new TextSequence({ type: 'text', text: 'hi', ...(where === 'top' ? { fillGradient: two } : { initial: { fillGradient: two } }), keyframes: [{ at: 0, to: { fillGradient: { angle: 90 } }, duration: 1 }] } as unknown as LayerSpec, comp, comp);
       await t.build();
       const style = (t.target as unknown as { style: { fill: { options: { colorStops: Array<{ color: string }> } } } }).style;
       expect(style.fill.options.colorStops.map(c => c.color)).toEqual(['#ff0000', '#0000ff']);

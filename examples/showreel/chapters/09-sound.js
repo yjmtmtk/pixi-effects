@@ -168,7 +168,7 @@ export default function chapter(P) {
   return {
     duration: D,
     poster: 4.4,
-    sequences: [
+    layers: [
       P.bg(C.ink),
       ...P.tag('09', 'SOUND', 'the music under this reel is text, drawn as it plays'),
       ...Object.entries(LANE).filter(([n]) => n !== 'lead').map(([n, y]) => ({ type: 'shape', shape: 'rect', name: `hair-${n}`, width: X1 - X0, height: 2,
@@ -176,7 +176,7 @@ export default function chapter(P) {
       { type: 'shape', shape: 'rect', name: 'roll-window', width: X1 - X0, height: 640, anchorX: 0, anchorY: 0,
         initial: { x: X0, y: 284, fillGradient: { angle: 90, stops: [[0, 'rgba(255,255,255,0)'], [0.06, 'rgba(255,255,255,1)'], [0.94, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']] } } },
       { type: 'composition', name: 'roll', width: 6000, height: 1080, mask: { layer: 'roll-window', channel: 'alpha' },
-        initial: { x: 0, y: 0 }, keyframes: [{ at: 0, to: { x: -(D / SPB) * PXB }, duration: D, ease: 'none' }], sequences: roll },
+        initial: { x: 0, y: 0 }, keyframes: [{ at: 0, to: { x: -(D / SPB) * PXB }, duration: D, ease: 'none' }], layers: roll },
       ...names,
       ...playhead,
       ...rings,

@@ -67,7 +67,7 @@ export default function chapter(P) {
   return {
     duration: 7,
     poster: 6.2,
-    sequences: [
+    layers: [
       P.bg(C.ink),
       // the ring's track is there from the first frame (calm edge), the vermilion arc fills it
       { type: 'shape', shape: 'arc', name: 'track', radius: R, startAngle: 0, endAngle: 360,

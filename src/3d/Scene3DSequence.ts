@@ -14,7 +14,7 @@ import { applyCameraState, FogMirror, LightMirror } from './spaceBridge';
 import { HOST, type LayerTextureHost, type ShownLayer } from './layerTexture';
 import { blendFilterFor, isAdvancedBlend, type BlendFilterLike } from '../core/blend';
 import type { PropValue } from '../types';
-import type { Scene3DContext, Scene3DSequenceSpec } from './types';
+import type { Scene3DContext, Scene3DLayerSpec } from './types';
 
 /** The keys a scene3d layer has besides the common ones. */
 const OWN_KEYS = ['width', 'height', 'view', 'resolution', 'setup', 'update', 'destroy', 'followCamera', 'followLights', 'followFog', 'reuse'] as const;
@@ -61,8 +61,8 @@ export class Scene3DSequence extends Sequence implements RayPickable {
   /** The PixiJS 3D view this layer shows (null before build and after destroy). */
   get view(): View3D | null { return this._view; }
 
-  private get _spec(): Scene3DSequenceSpec {
-    return this.spec as unknown as Scene3DSequenceSpec;
+  private get _spec(): Scene3DLayerSpec {
+    return this.spec as unknown as Scene3DLayerSpec;
   }
 
   private _say(key: string, message: string): void {
@@ -125,7 +125,7 @@ export class Scene3DSequence extends Sequence implements RayPickable {
     const objects: Record<string, object> = {};
     const ctx: Scene3DContext = { view, root: view.root, camera: view.camera, renderer: renderer as Renderer, width, height, objects };
     Object.defineProperty(ctx, HOST, { value: this._makeHost(), enumerable: false });
-    let result: Awaited<ReturnType<Scene3DSequenceSpec['setup']>>;
+    let result: Awaited<ReturnType<Scene3DLayerSpec['setup']>>;
     try {
       result = await spec.setup(ctx);
     } catch (err) {
@@ -614,7 +614,7 @@ function idOf(fn: unknown): number {
  * such options that differ only inside the class may count as the same.
  * @internal exported for its unit test
  */
-export function reuseKeyOf(spec: Scene3DSequenceSpec, width: number, height: number): string | null {
+export function reuseKeyOf(spec: Scene3DLayerSpec, width: number, height: number): string | null {
   let view: string;
   try { view = JSON.stringify(spec.view ?? null) ?? 'null'; } catch { return null; }
   return JSON.stringify(['scene3d', spec.name, idOf(spec.setup), width, height, spec.resolution ?? 1, view, !!spec.followCamera, !!spec.followLights, !!spec.followFog]);

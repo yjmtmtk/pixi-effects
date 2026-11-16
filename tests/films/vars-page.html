@@ -34,7 +34,7 @@
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30,
         vars: { title: 'NORD', accent: '#e53935', shift: 0 },
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '{accent}' } },
           { type: 'text', text: '{title}', name: 'title', style: { fontSize: 24, fill: '#ffffff' }, initial: { x: 'W/2 + shift', y: 'H/2', anchorX: 0.5, anchorY: 0.5 } },
         ] },

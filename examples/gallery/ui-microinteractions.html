@@ -39,7 +39,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -199,7 +199,7 @@
       const BX = CX - 6, BY = CY - 40;                                // where the hook sits in the card
       const swing = [16, -14, 10, -7, 4, -2, 0], STEP = 0.075;
       const bellComp = { type: 'composition', name: 'bell', width: 120, height: 120, initial: { x: BX, y: BY, pivotX: 60, pivotY: 20 }, keyframes: [],
-        sequences: [
+        layers: [
           { type: 'shape', shape: 'circle', name: 'bell-hook', radius: 6, initial: { x: 60, y: 20, fill: C.ink } },
           { type: 'shape', shape: 'circle', name: 'bell-clapper', radius: 8.5, initial: { x: 60, y: 90, fill: C.ink } },
           { type: 'shape', shape: 'path', name: 'bell-body', d: 'M 60 24 C 40 24 32 40 32 58 L 32 72 L 22 84 L 98 84 L 88 72 L 88 58 C 88 40 80 24 60 24 Z',
@@ -243,7 +243,7 @@
           kf(play - 0.12, { y: cy - 4 }, 0.25, 'power2.out'), kf(play + 0.95, { y: cy + 4 }, 0.4, 'power2.inOut'),
           kf(TOGETHER - 0.12, { y: cy - 4 }, 0.25, 'power2.out'), kf(TOGETHER + 1.2, { y: cy + 4 }, 0.5, 'power2.inOut'),
         ],
-        sequences: [
+        layers: [
           { type: 'shape', shape: 'rect', name: 'shadow', width: CW + 24, height: CH + 26, initial: { x: LX, y: LY + 8 }, fillGradient: SHADOW(0.11) },
           liftShadow,
           { type: 'shape', shape: 'rect', name: 'card', width: CW, height: CH, cornerRadius: 22, initial: { x: LX, y: LY, fill: C.card, stroke: '#E6E8F0', strokeWidth: 1 } },
@@ -328,7 +328,7 @@
     const bgm = { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
                   keyframes: [kf(0, { volume: 0.3 }, 1.2), kf(-1.6, { volume: 0 }, 1.6)] };
 
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
         fillGradient: { stops: [[0, '#F6F7FB'], [1, '#ECEEF4']] } },
       ...header, ...statusPill,
@@ -347,7 +347,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: C.bg,
         assets: [{ name: 'bgm', src: '../_assets/bgm.mp3' }],
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

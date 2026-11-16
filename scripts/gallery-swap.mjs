@@ -50,7 +50,7 @@ function checkPage(html, id) {
 
 /** Point the `pixi-effects*` importmap entries (index, controller, present, 3d) at the local build (what every gallery page does). */
 export function localizeImportmap(html) {
-  return html.replace(/("pixi-effects(?:\/[a-z0-9]+)?"\s*:\s*)"https:\/\/cdn\.jsdelivr\.net\/npm\/pixi-effects@[^/"]+\/dist\/([A-Za-z0-9]+\.js)"/g, '$1"../../dist/$2"');
+  return html.replace(/("pixi-effects(?:\/[a-z0-9]+)?"\s*:\s*)"https:\/\/cdn\.jsdelivr\.net\/npm\/pixi-effects@[^/"]+\/dist\/([A-Za-z0-9]+\.js)"/g, (_, key, file) => `${key}"../../dist/${file === 'Controller.js' ? 'controller.js' : file}"`);   // the bar's file is controller.js since 1.0
 }
 
 function* walk(dir, base) {

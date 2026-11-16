@@ -33,7 +33,7 @@
       await movie.init({
         canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#0000ff',
         assets: [{ name: 'halves', src: pic.toDataURL('image/png') }],
-        composition: { sequences: [ { type: 'image', name: 'pic', asset: 'halves', initial } ] },
+        composition: { layers: [ { type: 'image', name: 'pic', asset: 'halves', initial } ] },
       });
       const img = await movie.snapshot(0, { as: 'imageData' });
       window.__size = [img.width, img.height];

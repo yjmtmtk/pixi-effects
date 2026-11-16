@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { withFade } from '../../src/transforms/withFade';
-import type { TextSequenceSpec, ImageSequenceSpec } from '../../src/types';
+import type { TextLayerSpec, ImageLayerSpec } from '../../src/types';
 
 describe('withFade()', () => {
   describe('in', () => {
     it('sets initial.alpha = 0 and appends a keyframe at 0 (sequence-local, whatever spec.at is)', () => {
-      const spec: TextSequenceSpec = {
+      const spec: TextLayerSpec = {
         type: 'text',
         text: 'hello',
         at: 5,
@@ -21,7 +21,7 @@ describe('withFade()', () => {
     });
 
     it('preserves pre-existing keyframes', () => {
-      const spec: TextSequenceSpec = {
+      const spec: TextLayerSpec = {
         type: 'text',
         text: 'hello',
         at: 0,
@@ -36,13 +36,13 @@ describe('withFade()', () => {
     });
 
     it('treats missing spec.at as 0', () => {
-      const spec: TextSequenceSpec = { type: 'text', text: 'h', duration: 3 };
+      const spec: TextLayerSpec = { type: 'text', text: 'h', duration: 3 };
       withFade(spec, { in: 0.3 });
       expect(spec.keyframes?.[0]).toEqual({ at: 0, to: { alpha: 1 }, duration: 0.3 });
     });
 
     it('skips emitting anything when in is 0 or omitted', () => {
-      const spec: TextSequenceSpec = { type: 'text', text: 'h', at: 0, duration: 1 };
+      const spec: TextLayerSpec = { type: 'text', text: 'h', at: 0, duration: 1 };
       withFade(spec, {});
       expect(spec.initial).toBeUndefined();
       expect(spec.keyframes).toBeUndefined();
@@ -51,7 +51,7 @@ describe('withFade()', () => {
 
   describe('out', () => {
     it('appends an alpha→0 keyframe at (duration - out), sequence-local', () => {
-      const spec: ImageSequenceSpec = {
+      const spec: ImageLayerSpec = {
         type: 'image', asset: 'p', at: 10, duration: 6,
       };
       withFade(spec, { out: 0.5 });
@@ -61,14 +61,14 @@ describe('withFade()', () => {
     });
 
     it('throws if spec.duration is not set', () => {
-      const spec: TextSequenceSpec = { type: 'text', text: 'h', at: 0 };
+      const spec: TextLayerSpec = { type: 'text', text: 'h', at: 0 };
       expect(() => withFade(spec, { out: 0.5 })).toThrow(/spec\.duration/);
     });
   });
 
   describe('in + out', () => {
     it('emits both keyframes and returns the same spec reference', () => {
-      const spec: ImageSequenceSpec = {
+      const spec: ImageLayerSpec = {
         type: 'image', asset: 'p', at: 2, duration: 5,
       };
       const result = withFade(spec, { in: 0.4, out: 0.6 });

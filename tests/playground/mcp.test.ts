@@ -7,7 +7,7 @@ const root = resolve(__dirname, '../..');
 const mcp: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'examples/playground/mcp.js')).href);
 
 function fakeApi() {
-  const calls: string[] = []; let code = 'const sequences = [];';
+  const calls: string[] = []; let code = 'const layers = [];';
   return { calls, api: {
     getCode: () => code, setCode: (c: string) => { calls.push('setCode'); code = c; },
     run: async () => { calls.push('run'); return { ready: true, logs: [], duration: 6, width: 1280, height: 720, frameRate: 30, totalFrames: 180 }; },
@@ -36,7 +36,7 @@ describe('WebMCP tools', () => {
   it('set_code replaces the code and runs it (run: true by default), and returns a short summary', async () => {
     const { api, calls } = fakeApi();
     const t = mcp.defineTools(api).find((x: any) => x.name === 'set_code');
-    const r = await t.execute({ code: 'const sequences = [1];' });
+    const r = await t.execute({ code: 'const layers = [1];' });
     expect(calls).toEqual(['setCode', 'run']);
     expect(JSON.parse(r.content[0].text)).toMatchObject({ ready: true, duration: 6 });
     calls.length = 0;

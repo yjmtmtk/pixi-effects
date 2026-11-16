@@ -3,7 +3,7 @@
 This document describes the declarative composition spec that you pass to `Movie.init({ composition })`. Every shape is exported as a TypeScript type from `pixi-effects` for editor autocomplete.
 
 - [Composition](#composition)
-- [Sequences](#sequences)
+- [Layers](#layers)
 - [3D layers & camera](#3d-layers--camera)
 - [Assets](#assets)
 - [Keyframes](#keyframes)
@@ -14,15 +14,15 @@ This document describes the declarative composition spec that you pass to `Movie
 
 ## Composition
 
-A composition is a tree node that has a width, a height, a duration, and a list of child sequences. The root composition is what you pass to `Movie.init({ composition })`. Nested compositions appear inside a parent as a `{ type: 'composition' }` sequence.
+A composition is a tree node that has a width, a height, a duration, and a list of child layers. The root composition is what you pass to `Movie.init({ composition })`. Nested compositions appear inside a parent as a `{ type: 'composition' }` sequence.
 
 ```ts
 interface CompositionSpec {
   width?: number;        // pixels; defaults to Movie width
   height?: number;       // pixels; defaults to Movie height
   duration?: number;     // seconds; defaults to Movie duration
-  sequences?: SequenceSpec[];
-  // (also: name, at, initial, keyframes, filters — same as SequenceCommon below)
+  layers?: LayerSpec[];
+  // (also: name, at, initial, keyframes, filters — same as LayerCommon below)
 }
 ```
 
@@ -30,12 +30,12 @@ Children of a nested composition use that composition's local coordinate system.
 
 ---
 
-## Sequences
+## Layers
 
 Every sequence shares this base shape:
 
 ```ts
-interface SequenceCommon {
+interface LayerCommon {
   name?: string;            // optional id, used for cross-references and debugging
   at?: number;              // start time in seconds, measured from the start of the PARENT composition (default 0)
   duration?: number;        // seconds; defaults to the parent's duration
@@ -333,7 +333,7 @@ Nested composition. Same shape as the root spec but with `type: 'composition'` a
                to:   { alpha: 1, rotation: 0 },
                duration: 0.7, ease: 'elastic.out(1, 0.5)' },
   ],
-  sequences: [
+  layers: [
     { type: 'text', text: 'inside', initial: { x: 300, y: 60, anchorX: 0.5, anchorY: 0.5 }, style: { fontSize: 28, fill: '#fff' } },
   ],
 }
@@ -345,7 +345,7 @@ A composition's content can also **step** and **repeat**:
 - **`loop: true`** — the content repeats for as long as the composition lasts: what repeats is what happens inside, up to the end of its last layer (`at + duration`) or last keyframe (repeats counted, a spring's `'auto'` length included). **`loop: { duration: 2 }`** repeats its first 2 seconds (a number alone, `loop: 2`, would read as a count: it warns). A loop that cannot repeat (the content lasts the whole composition, a keyframe measured from the end, a number not shorter than the composition) warns with what to write. Sounds inside play again each time round. A spinner, a blinking cursor, a walk cycle, a background that breathes: one cycle written once.
 
 ```js
-{ type: 'composition', width: 200, height: 200, duration: 6, loop: true, frameRate: 12, sequences: [
+{ type: 'composition', width: 200, height: 200, duration: 6, loop: true, frameRate: 12, layers: [
   { type: 'shape', shape: 'arc', radius: 60, startAngle: 0, endAngle: 270, initial: { x: 100, y: 100, stroke: '#ffffff', strokeWidth: 10 },
     keyframes: [{ at: 0, to: { rotation: 360 }, duration: 1 }] },          // one turn, repeated for 6 s, on 12 pictures a second
 ] }
@@ -363,13 +363,13 @@ composition: {
     lowerThird: {
       params: { name: 'Name', role: '', accent: '#e63946', indent: 0 },     // the names and their defaults: a number or a string
       width: 640, height: 110, duration: 3.5,                                // anything a composition layer has
-      sequences: [
+      layers: [
         { type: 'shape', shape: 'rect', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fill: '{accent}' } },
         { type: 'text', text: '{name}', initial: { x: '28 + indent', y: 34, anchorY: 0.5 } },
       ],
     },
   },
-  sequences: [
+  layers: [
     { use: 'lowerThird', name: 'host',  at: 0.5, params: { name: 'Aiko Mori' }, initial: { x: 80, y: 560 } },
     { use: 'lowerThird', name: 'guest', at: 4.5, params: { name: 'Ben Ito', accent: '#2a9d8f' }, initial: { x: 80, y: 560 } },
   ],
@@ -377,7 +377,7 @@ composition: {
 ```
 
 - **A param is read as a [variable](#variables) is:** `{name}` in any string of the component (a text, a colour, an asset, a layer name), and a number param as a word in its expressions (`'28 + indent'`). A param the place does not give keeps its default. A param's value may itself hold a movie variable (`params: { accent: '{brand}' }`). A number param takes a number (or a number written as text, or a `{variable}` holding one); an expression such as `'W * 0.1'` is not evaluated in `params` (it warns), so compute it inside the component instead (`x: 'W * 0.1 + indent'`). A number param is a word in the component's own `initial` and `keyframes` too.
-- **The place is a composition layer:** `type` may be left out (`{ use: … }` is enough). Its own keys (`name`, `at`, `duration`, `mask`, `blendMode`, `clip`, …) are put on top of the component's, and three are **added** to it: `initial` key by key (the place's `x` / `y` beside the component's `alpha: 0`), `keyframes` and `filters` after the component's (its slide-in, then the place's fade-out). The component gives the size, the time and the layers. A place has no `sequences` of its own (it warns).
+- **The place is a composition layer:** `type` may be left out (`{ use: … }` is enough). Its own keys (`name`, `at`, `duration`, `mask`, `blendMode`, `clip`, …) are put on top of the component's, and three are **added** to it: `initial` key by key (the place's `x` / `y` beside the component's `alpha: 0`), `keyframes` and `filters` after the component's (its slide-in, then the place's fade-out). The component gives the size, the time and the layers. A place has no `layers` of its own (it warns).
 - A place may also be a mask (`mask: { use: 'blob' }` or `mask: { layer: { use: 'blob' }, invert: true }`). What is built is an ordinary composition per place, so `inspect`, `check`, `pick` and `follow` see every layer by its path (`'guest/name'`).
 - Checked when the movie is built, each with what to write: a `use` with no such component (did you mean), a param the component does not have (did you mean, and its list), a value that is not a number or a string, a param nothing inside reads, a `{name}` in a component that is none of its params nor a movie variable, a component nothing uses, a component that uses itself. Param names follow the variable rules (reserved words are refused). Words other tools use warn with ours: `component:` / `ref:` → `use`, `props:` → `params`.
 
@@ -386,14 +386,14 @@ composition: {
 A layer's `at` may name a **moment** instead of a number of seconds, so a sound or a follower stays on the beat of a part wherever the part is placed (After Effects: composition markers, seen from outside the precomp):
 
 ```js
-components: { badge: { width: 360, height: 360, duration: 3, markers: { land: 0.5, leave: 2.4 }, sequences: [ … ] } },
+components: { badge: { width: 360, height: 360, duration: 3, markers: { land: 0.5, leave: 2.4 }, layers: [ … ] } },
 markers: { drop: 12.5 },                                         // the root's: moments of the whole movie
-sequences: [
+layers: [
   { use: 'badge', name: 'badge', at: 1 },
   { type: 'audio', sfx: 'hit', at: 'badge@land' },               // 1.5 s
   { type: 'audio', sfx: 'swoosh', at: 'badge@leave - 0.16' },    // 3.24 s
   { type: 'text', text: 'Out now', at: 'badge@end' },            // 4 s: where the badge's life ends
-  { type: 'composition', name: 'scene', at: 10, sequences: [ { type: 'text', text: 'DROP', at: '@drop' } ] },   // 2.5 s on the scene's clock
+  { type: 'composition', name: 'scene', at: 10, layers: [ { type: 'text', text: 'DROP', at: '@drop' } ] },   // 2.5 s on the scene's clock
 ]
 ```
 
@@ -689,7 +689,7 @@ Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY`:
 
 ```json
 {
-  "sequences": [
+  "layers": [
     { "type": "text", "text": "tilted", "threeD": true,
       "style": { "fontSize": 64, "fill": "#ffffff" },
       "initial": { "x": "GW/2", "y": "GH/2", "anchorX": 0.5, "anchorY": 0.5, "rotationY": -35 },
@@ -718,7 +718,7 @@ A flight through the scene is [`cameraPath()`](#camerapath) (a route as keyframe
 
 ```json
 {
-  "sequences": [
+  "layers": [
     { "type": "camera", "name": "cam",
       "keyframes": [
         { "at": 0, "from": { "x": "GW/2 - 260", "lookAtX": "GW/2 - 260" },
@@ -737,7 +737,7 @@ Moving the camera sideways makes the near rectangle slide faster than the far on
 
 ```json
 {
-  "sequences": [
+  "layers": [
     { "type": "camera",
       "keyframes": [{ "at": 0, "to": { "fov": 70 }, "duration": 3, "ease": "sine.inOut" }] },
     { "type": "shape", "shape": "circle", "radius": 120, "threeD": true,
@@ -756,7 +756,7 @@ Write `focus` (and, if you want, `aperture`) on the camera and the `threeD` laye
 
 ```json
 {
-  "sequences": [
+  "layers": [
     { "type": "camera", "initial": { "focus": "title" } },
     { "type": "text", "name": "title", "text": "Focus", "threeD": true, "style": { "fontSize": 96, "fill": "#ffffff" }, "initial": { "x": "GW/2", "y": "GH/2", "z": 0, "anchorX": 0.5, "anchorY": 0.5 } },
     { "type": "shape", "shape": "circle", "radius": 140, "threeD": true, "initial": { "x": "GW/2 + 260", "y": "GH/2", "z": -500, "fill": "#3a6ea5" } }
@@ -768,7 +768,7 @@ A focus pull is a normal keyframe on `focus`; a layer name works there too:
 
 ```json
 {
-  "sequences": [
+  "layers": [
     { "type": "camera", "initial": { "focus": "front", "aperture": 60 },
       "keyframes": [{ "at": 1, "to": { "focus": "back" }, "duration": 1, "ease": "power2.inOut" }] },
     { "type": "shape", "shape": "rect", "name": "front", "width": 300, "height": 200, "threeD": true, "initial": { "x": "GW/2 - 200", "y": "GH/2", "z": 100, "fill": "#d96a3a" } },
@@ -1010,7 +1010,7 @@ A layer can be named and used as the mask of **several** layers (After Effects' 
   initial: { x: 60, y: 300 }, keyframes: [{ at: 0.3, to: { width: 560 }, duration: 1.5 }] },
 { type: 'text', text: 'SHARED', mask: 'wipe' },
 { type: 'text', text: 'MASK', at: 0.2, mask: 'wipe' },
-{ type: 'composition', width: 400, height: 300, mask: 'wipe', sequences: [ /* a whole picture, cut as one */ ] },
+{ type: 'composition', width: 400, height: 300, mask: 'wipe', layers: [ /* a whole picture, cut as one */ ] },
 
 // by brightness instead of opacity (a grayscale image or a gradient layer), inverted, and a list
 { type: 'image', asset: 'photo', mask: { layer: 'vignette', channel: 'luma' } },
@@ -1087,7 +1087,7 @@ Checked against the W3C formulas on WebGPU and WebGL: every pixel within 2/255 (
 
 ## Assets
 
-Pass a flat list of named assets to `Movie.init({ assets })`. Sequences refer to them by `name`.
+Pass a flat list of named assets to `Movie.init({ assets })`. Layers refer to them by `name`.
 
 ```ts
 await movie.init({
@@ -1096,7 +1096,7 @@ await movie.init({
     { name: 'bgm',   src: '/audio/bgm.mp3' },
     { name: 'green', src: '/video/green.mp4' },
   ],
-  composition: { /* sequences reference 'logo', 'bgm', 'green' */ },
+  composition: { /* layers reference 'logo', 'bgm', 'green' */ },
 });
 ```
 
@@ -1305,7 +1305,7 @@ A **variable** is a name with a value you can change after the movie is built: t
 ```ts
 await movie.init({
   vars: { title: 'NORD', accent: '#e5399a', shift: 0 },           // a number or a string; no booleans (write 0 / 1)
-  composition: { sequences: [
+  composition: { layers: [
     { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '{accent}' } },
     { type: 'text', text: '{title}', initial: { x: 'W/2 + shift', y: 'H/2' } },
   ] },
@@ -1339,7 +1339,7 @@ A composition can declare scene-to-scene `transitions` that compress paired keyf
 
 ```ts
 {
-  sequences: [
+  layers: [
     { type: 'video', name: 'A', asset: 'a', at: 0, duration: 5 },
     { type: 'video', name: 'B', asset: 'b', at: 4, duration: 5 },
   ],
@@ -1354,7 +1354,7 @@ Common fields (`TransitionCommon`):
 | Field      | Type    | Notes                                                                                  |
 | ---------- | ------- | -------------------------------------------------------------------------------------- |
 | `from`     | string  | sibling sequence's `name`. Must exist in the same composition.                         |
-| `to`       | string  | sibling sequence's `name`. Must be declared **after** `from` in `sequences[]`.         |
+| `to`       | string  | sibling sequence's `name`. Must be declared **after** `from` in `layers[]`.         |
 | `at`       | number  | start of the transition, in the **parent composition's** time (like a sequence's `at`, not sequence-local); negative = back from the parent's end. |
 | `duration` | number  | seconds, must be > 0.                                                                  |
 | `ease`     | string? | Ease name. Default `'none'` (linear).                                           |
@@ -1402,7 +1402,7 @@ A circular reveal centered on the canvas.
 
 ### `slide`
 
-Both sequences slide together; the new scene comes in from the opposite side.
+Both layers slide together; the new scene comes in from the opposite side.
 
 ```ts
 {
@@ -1599,16 +1599,16 @@ Notes:
 
 ## Presets
 
-Presets are pure helpers that return a ready-to-use `SequenceSpec`. They expand into the existing keyframe / initial primitives — no engine surgery — so anything you can do with a preset you can also write by hand.
+Presets are pure helpers that return a ready-to-use `LayerSpec`. They expand into the existing keyframe / initial primitives — no engine surgery — so anything you can do with a preset you can also write by hand.
 
 ### `kenBurns`
 
-Per-image motion preset for slideshows. Returns an `ImageSequenceSpec`; drop the result straight into `sequences[]`. Pair with `crossfade` / `dip` etc. transitions for the cuts between images — `kenBurns` itself emits no fade.
+Per-image motion preset for slideshows. Returns an `ImageLayerSpec`; drop the result straight into `layers[]`. Pair with `crossfade` / `dip` etc. transitions for the cuts between images — `kenBurns` itself emits no fade.
 
 ```ts
 import { kenBurns } from 'pixi-effects';
 
-sequences: [
+layers: [
   kenBurns({ asset: 'photo1', name: 'p1', at: 0,  duration: 6, motion: 'scale',    origin: [0.25, 0.25], zoom: 1.2 }),
   kenBurns({ asset: 'photo2', name: 'p2', at: 5,  duration: 6, motion: 'rotation', angle: 6 }),
   kenBurns({ asset: 'photo3', name: 'p3', at: 10, duration: 6, motion: 'position', from: [0, 0], to: [1, 1] }),
@@ -1670,12 +1670,12 @@ Pan the image between two points within its over-scaled bounds.
 
 ### `orbit`
 
-A camera that circles a point. There is no per-frame expression in the DSL, so the circle is sampled into short linear keyframes (one per 0.1 s; the easing is applied to the angle). Returns a `camera` layer for `sequences[]`.
+A camera that circles a point. There is no per-frame expression in the DSL, so the circle is sampled into short linear keyframes (one per 0.1 s; the easing is applied to the angle). Returns a `camera` layer for `layers[]`.
 
 ```ts
 import { orbit } from 'pixi-effects';
 
-sequences: [
+layers: [
   orbit({ duration: 6, degrees: 40 }),                                   // ±20° around the middle of the movie, whatever its size
   // …threeD layers…
 ]
@@ -1717,7 +1717,7 @@ It returns `Keyframe[]`: spread it into `keyframes`, next to others. Do not put 
 
 ### `particles`
 
-Particles as plain layers: a burst, a fountain, snow, confetti, sparks. Each particle is a layer with its own **seeded** start, launch angle and speed, size, colour and life, and a path baked into keyframes, so playback, seeking and export agree; it exists only while it is alive. Spread the result into `sequences`.
+Particles as plain layers: a burst, a fountain, snow, confetti, sparks. Each particle is a layer with its own **seeded** start, launch angle and speed, size, colour and life, and a path baked into keyframes, so playback, seeking and export agree; it exists only while it is alive. Spread the result into `layers`.
 
 ```ts
 import { particles } from 'pixi-effects';
@@ -1822,22 +1822,22 @@ import { deck } from 'pixi-effects/present';
 await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, ...deck({
   transition: { kind: 'slide', direction: 'left', duration: 0.6, ease: 'power3.inOut' },
   pages: [
-    { name: 'Hello', duration: 3.2, stops: [2.6], sequences: [ /* the title, at: 0 = the start of the page */ ] },
-    { name: 'Why',   duration: 5.2, stops: [1.5, 3.0, 4.6], sequences: [ /* three bullets, each starting at the previous stop */ ] },
+    { name: 'Hello', duration: 3.2, stops: [2.6], layers: [ /* the title, at: 0 = the start of the page */ ] },
+    { name: 'Why',   duration: 5.2, stops: [1.5, 3.0, 4.6], layers: [ /* three bullets, each starting at the previous stop */ ] },
   ],
 }) });
 ```
 
 | Option | Notes |
 | ------ | ----- |
-| `pages[]` | required: `{ name?, duration, sequences, stops?, notes?, advance?, initial?, keyframes?, filters?, … }` |
+| `pages[]` | required: `{ name?, duration, layers, stops?, notes?, advance?, initial?, keyframes?, filters?, … }` |
 | `page.duration` | seconds; **a page should last its last stop plus the transition** (after the last stop the next press plays the rest of the page and the slide) |
 | `page.stops` | page-local times, or `{ at, pdf? }`: the first is the page settled, the others are steps (a bullet, a growing chart: **a step is a layer that starts at the previous stop and ends at this one**). Default: where the transition begins (the end for the last page) |
 | `page.notes`, `page.advance` | notes stay on the page's first stop; `advance` (seconds) on its last |
 | `transition` | `{ kind, duration, … }`: any [transition](#transitions) without `from` / `to` / `at`; the next page starts `duration` seconds early and the transition plays across the overlap. It must be shorter than every page |
 | movie options | `width`, `height`, `frameRate`, `background`, `canvas`, `assets`, `poster`, `motionBlur`, `loader` pass through |
 
-It returns `{ duration, composition: { sequences, transitions?, stops }, …your movie options }`, ready to spread into `movie.init`. The page layers are named `page-1`, `page-2`, …
+It returns `{ duration, composition: { layers, transitions?, stops }, …your movie options }`, ready to spread into `movie.init`. The page layers are named `page-1`, `page-2`, …
 
 ### `stagger`
 
@@ -1864,12 +1864,12 @@ With a layer array each layer's own `at` is kept and the delay is added to it. K
 
 ### `withFade`
 
-Spec helper that adds alpha fade-in / fade-out to **any** sequence spec. Mutates and returns the spec, so it composes with other presets (`kenBurns`, …) and drops straight into `sequences[]`.
+Spec helper that adds alpha fade-in / fade-out to **any** sequence spec. Mutates and returns the spec, so it composes with other presets (`kenBurns`, …) and drops straight into `layers[]`.
 
 ```ts
 import { kenBurns, withFade } from 'pixi-effects';
 
-sequences: [
+layers: [
   withFade(kenBurns({ asset: 'photo', at: 0, duration: 6, motion: 'scale' }), { in: 0.5, out: 0.5 }),
   withFade({ type: 'text', text: 'hi', at: 5, duration: 3, initial: { x: 'GW/2' } }, { in: 0.4 }),
 ]

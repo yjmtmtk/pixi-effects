@@ -39,7 +39,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":  "../../dist/present.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
@@ -51,7 +51,7 @@
     import { Movie, followPath, random } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
     // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
-    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, layers }] });
     //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
 
     const W = 1280, H = 720, FPS = 30, DURATION = 12;
@@ -363,13 +363,13 @@
       type: 'audio', name: `wash-${i + 1}`, at: L.start, duration: 1.6, volume: 0.4,
       sfx: { preset: 'swoosh', brightness: -0.8, pitch: -9, seed: 3 + i } }));
 
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'water', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: WATER } },
       { type: 'composition', name: 'map', width: W, height: H, duration: DURATION,
         // a slow settle from the west (where the trip begins) to the whole sheet, landing as the summary appears
         initial: { pivotX: 640, pivotY: 420, x: 690, y: 430, scale: 1.1 },
         keyframes: [{ at: 0, to: { x: 640, y: 420, scale: 1 }, duration: 10.2, ease: 'sine.inOut' }],
-        sequences: map },
+        layers: map },
       ...furniture,
       ...sound,
     ];
@@ -385,7 +385,7 @@
         poster: 10.4,                   // the finished journey: every harbour named, the summary in place
         background: WATER,
         // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

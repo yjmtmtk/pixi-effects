@@ -1,6 +1,6 @@
 # pixi-effects recipes
 
-Copy, adapt, run. Every block marked `@recipe` is a function body that **returns the composition's `sequences`** (or `{ sequences, transitions, duration }`); the repo's tests build each one and fail on any warning, so they stay correct. Blocks marked `@docs-only` need a browser (canvas / 3D / three.js) and are not executed by the tests.
+Copy, adapt, run. Every block marked `@recipe` is a function body that **returns the composition's `layers`** (or `{ layers, transitions, duration }`); the repo's tests build each one and fail on any warning, so they stay correct. Blocks marked `@docs-only` need a browser (canvas / 3D / three.js) and are not executed by the tests.
 
 Assumed canvas: 1280×720 @ 30 fps. `kenBurns`, `withFade` and `orbit` come from `pixi-effects`.
 
@@ -14,24 +14,24 @@ Slam = big scale + tiny rotation easing out fast, plus a white flash rect on the
 // @recipe slam-words
 const WORDS = [['KAFFE', '#ffd166'], ['NORD', '#ef476f'], ['ROAST', '#06d6a0']];
 const BEAT = 0.5;                                    // seconds per beat
-const sequences = [
+const layers = [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#111111' } },
 ];
 WORDS.forEach(([word, color], i) => {
   const at = i * BEAT * 2;
-  sequences.push({
+  layers.push({
     type: 'text', text: word, at, duration: BEAT * 2,
     style: { fontSize: 'GH * 0.4', fontWeight: '900', fill: color, fontFamily: 'Arial Black, Arial, sans-serif' },
     initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
     keyframes: [{ at: 0, from: { scale: 2.6, rotation: -5, alpha: 0 }, to: { scale: 1, rotation: 0, alpha: 1 }, duration: 0.16, ease: 'expo.out' }],
   });
-  sequences.push({                                   // white flash on the beat
+  layers.push({                                   // white flash on the beat
     type: 'shape', shape: 'rect', width: 'GW', height: 'GH', at, duration: 0.3,
     initial: { x: 'GW/2', y: 'GH/2', fill: '#ffffff', alpha: 0.8 },
     keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.28 }],
   });
 });
-return sequences;
+return layers;
 ```
 
 Size text by eye: Arial Black glyphs are ~0.8 × fontSize wide, monospace ~0.6 ×. Leave ~7 % of the frame for a hold-scale.
@@ -77,7 +77,7 @@ const components = {
   lowerThird: {
     params: { name: 'Name', role: 'Role', accent: '#e63946', indent: 0 },     // the defaults
     width: 640, height: 110, duration: 3.5,
-    sequences: [
+    layers: [
       { type: 'shape', shape: 'rect', name: 'bar', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fill: '{accent}', scaleY: 0 },
         keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 0.4, ease: 'power3.out' }] },
       { type: 'text', name: 'name', text: '{name}', style: { fontSize: 40, fontWeight: 'bold', fill: '#ffffff' },
@@ -91,7 +91,7 @@ const components = {
 return {
   components,
   duration: 12,
-  sequences: [
+  layers: [
     { use: 'lowerThird', name: 'host', at: 0.5, params: { name: 'Aiko Mori', role: 'Host' }, initial: { x: 80, y: 560 } },
     { use: 'lowerThird', name: 'guest', at: 4.5, params: { name: 'Ben Ito', role: 'Engineer', accent: '#2a9d8f' }, initial: { x: 80, y: 560 } },
     { use: 'lowerThird', name: 'guest2', at: 8.5, params: { name: 'Chika Sato', role: 'Designer', accent: '#e9c46a', indent: 12 }, initial: { x: 80, y: 560 } },
@@ -111,7 +111,7 @@ const components = {
   badge: {
     width: 360, height: 360, duration: 3,
     markers: { land: 0.5, leave: 2.4 },                       // its own seconds: where it lands and where it starts to leave
-    sequences: [
+    layers: [
       { type: 'shape', shape: 'circle', name: 'disc', radius: 150, initial: { x: 180, y: 180, fill: '#e63946', scale: 0 },
         keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.5, ease: 'back.out(2)' }, { at: 2.4, to: { scale: 0 }, duration: 0.4, ease: 'power2.in' }] },
       { type: 'text', name: 'label', text: 'NEW', style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
@@ -124,7 +124,7 @@ return {
   components,
   duration: 6,
   markers: { drop: 4.5 },                                     // a moment of the whole movie
-  sequences: [
+  layers: [
     { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1d3557' } },
     { use: 'badge', name: 'badge', at: 1, initial: { x: 'GW/2 - 180', y: 'GH/2 - 220' } },
     { type: 'audio', sfx: 'hit', at: 'badge@land' },                       // 1.5 s, and still on the landing if the badge moves to at: 2
@@ -180,7 +180,7 @@ const act = {
     { at: 4, to: { time: 0 }, duration: 0.4 },
     { at: 4.4, to: { time: 4.5 }, duration: 6, ease: 'cubic-bezier(.2, .8, .2, 1)' },
   ],
-  sequences: [
+  layers: [
     // everything in here is in the composition's own seconds: 0 … 4.5
     { type: 'shape', shape: 'rect', name: 'bar', width: 'GW', height: 16, anchorX: 0, anchorY: 0, at: 0, duration: 4.5,
       initial: { x: 0, y: 330, fill: '#ff4d3d', scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.8, ease: 'expo.out' }] },
@@ -198,7 +198,7 @@ return [
 ];
 ```
 
-The shortcuts, when one straight speed is enough: `{ type: 'composition', duration: 4, speed: 0.5, sequences: [ … ] }` (slow motion, the content plays half of its length), `speed: -1` (backward). For a **video file** the same words work on the layer itself:
+The shortcuts, when one straight speed is enough: `{ type: 'composition', duration: 4, speed: 0.5, layers: [ … ] }` (slow motion, the content plays half of its length), `speed: -1` (backward). For a **video file** the same words work on the layer itself:
 
 ```js
 // @docs-only video-speed
@@ -224,13 +224,13 @@ Write one cycle of a motion and let the composition repeat it: `loop: true` repe
 // @recipe loop-stepped
 return {
   duration: 6,
-  sequences: [
-    { type: 'composition', name: 'spinner', width: 200, height: 200, loop: true, frameRate: 12, initial: { x: 340, y: 260 }, sequences: [
+  layers: [
+    { type: 'composition', name: 'spinner', width: 200, height: 200, loop: true, frameRate: 12, initial: { x: 340, y: 260 }, layers: [
       { type: 'shape', shape: 'arc', radius: 60, startAngle: 0, endAngle: 270, strokeCap: 'round',
         initial: { x: 100, y: 100, stroke: '#ffd166', strokeWidth: 14 },
         keyframes: [{ at: 0, to: { rotation: 360 }, duration: 1 }] },
     ] },
-    { type: 'composition', name: 'bounce', width: 200, height: 240, loop: { duration: 1 }, initial: { x: 740, y: 240 }, sequences: [
+    { type: 'composition', name: 'bounce', width: 200, height: 240, loop: { duration: 1 }, initial: { x: 740, y: 240 }, layers: [
       { type: 'shape', shape: 'circle', radius: 24, initial: { x: 100, y: 200, fill: '#ef476f' },
         keyframes: [{ at: 0, to: { y: 60 }, duration: 0.5, ease: 'power2.out' }, { at: 0.5, to: { y: 200 }, duration: 0.5, ease: 'power2.in' }] },
     ] },
@@ -511,18 +511,18 @@ const BASE = 600, CHART_H = 380, BAR_W = 90, GAP = 40, DUR = 0.9, EASE = 'power3
 const EACH = 0.12;                                            // seconds between bars: 0.12 is a quick wave; EACH = DUR + 0.3 grows them one at a time
 const PEAK_AT = Math.max(4, 0.4 + (data.length - 1) * EACH + DUR + 0.2);   // the highlight and the callout come after the last bar has grown
 const X0 = (1280 - (data.length * BAR_W + (data.length - 1) * GAP)) / 2, X1 = X0 + data.length * BAR_W + (data.length - 1) * GAP;
-const sequences = [];
+const layers = [];
 for (let v = 0; v <= NICE; v += step) {                       // grid lines + tick labels
   const y = BASE - CHART_H * v / NICE;
-  sequences.push({ type: 'shape', shape: 'line', from: [X0 - 20, y], to: [X1 + 20, y], initial: { stroke: '#33405c', strokeWidth: 1 } });
-  sequences.push({ type: 'text', text: String(v), style: { fontSize: 20, fill: '#7f8bb0' }, initial: { x: X0 - 32, y, anchorX: 1, anchorY: 0.5 } });
+  layers.push({ type: 'shape', shape: 'line', from: [X0 - 20, y], to: [X1 + 20, y], initial: { stroke: '#33405c', strokeWidth: 1 } });
+  layers.push({ type: 'text', text: String(v), style: { fontSize: 20, fill: '#7f8bb0' }, initial: { x: X0 - 32, y, anchorX: 1, anchorY: 0.5 } });
 }
 const best = data.findIndex(d => d[1] === max);
 data.forEach(([label, value], i) => {
   const x = X0 + i * (BAR_W + GAP) + BAR_W / 2;
   const at = 0.4 + i * EACH;
   const h = CHART_H * value / NICE;
-  sequences.push({
+  layers.push({
     type: 'shape', shape: 'rect', width: BAR_W, height: 0, cornerRadius: 8, anchorY: 1, at, colorSpace: 'oklab',
     initial: { x, y: BASE, fill: '#4f6df5' },
     keyframes: [
@@ -530,24 +530,24 @@ data.forEach(([label, value], i) => {
       ...(i === best ? [{ at: PEAK_AT - at, to: { fill: '#ffd166' }, duration: 0.5 }] : [{ at: PEAK_AT - at, to: { alpha: 0.45 }, duration: 0.5 }]),   // highlight the maximum at t = 4 s
     ],
   });
-  sequences.push({                                            // value label: counts up while riding the bar's top
+  layers.push({                                            // value label: counts up while riding the bar's top
     type: 'text', text: '{value}', at,
     style: { fontSize: 28, fontWeight: 'bold', fill: '#ffffff' },
     initial: { x, y: BASE - 14, anchorX: 0.5, anchorY: 1, value: 0 },
     keyframes: [{ at: 0, to: { value, y: BASE - h - 14 }, duration: DUR, ease: EASE }],
   });
-  sequences.push({ type: 'text', text: label, at, style: { fontSize: 26, fill: '#aab4d4' }, initial: { x, y: BASE + 16, anchorX: 0.5, anchorY: 0 } });
+  layers.push({ type: 'text', text: label, at, style: { fontSize: 26, fill: '#aab4d4' }, initial: { x, y: BASE + 16, anchorX: 0.5, anchorY: 0 } });
 });
 // callout: a pill sized from its text (~0.58 x fontSize per glyph + padding), a pointer triangle, clamped inside the plot
 const text = 'Peak: ' + data[best][0] + ' ' + max, FS = 26;
 const PW = text.length * FS * 0.58 + 44, cx = Math.min(Math.max(X0 + best * (BAR_W + GAP) + BAR_W / 2, X0 + PW / 2), X1 - PW / 2), cy = BASE - CHART_H - 70;
-sequences.push({ type: 'shape', shape: 'rect', width: PW, height: 52, cornerRadius: 26, at: PEAK_AT + 0.2, initial: { x: cx, y: cy, fill: '#ffd166', alpha: 0 },
+layers.push({ type: 'shape', shape: 'rect', width: PW, height: 52, cornerRadius: 26, at: PEAK_AT + 0.2, initial: { x: cx, y: cy, fill: '#ffd166', alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
-sequences.push({ type: 'shape', shape: 'polygon', points: [[-10, 0], [10, 0], [0, 12]], at: PEAK_AT + 0.2, initial: { x: cx, y: cy + 32, fill: '#ffd166', alpha: 0 },
+layers.push({ type: 'shape', shape: 'polygon', points: [[-10, 0], [10, 0], [0, 12]], at: PEAK_AT + 0.2, initial: { x: cx, y: cy + 32, fill: '#ffd166', alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
-sequences.push({ type: 'text', text, at: PEAK_AT + 0.2, style: { fontSize: FS, fontWeight: 'bold', fill: '#1b1b2f' }, initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+layers.push({ type: 'text', text, at: PEAK_AT + 0.2, style: { fontSize: FS, fontWeight: 'bold', fill: '#1b1b2f' }, initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
-return sequences;
+return layers;
 ```
 
 ---
@@ -610,7 +610,7 @@ A `composition` with `threeD: true` is a card: its children are drawn into one t
 const card = (title, color, x, y, z, at) => ({
   type: 'composition', name: title, at, width: 300, height: 190, threeD: true,
   initial: { x, y, z, pivotX: 150, pivotY: 95 },                       // pivot = the centre, so x,y is where the centre sits
-  sequences: [
+  layers: [
     { type: 'shape', shape: 'rect', width: 300, height: 190, cornerRadius: 24, initial: { x: 150, y: 95, fill: color } },
     { type: 'text', text: title, style: { fontSize: 34, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 150, y: 95, anchorX: 0.5, anchorY: 0.5 } },
   ],
@@ -657,21 +657,21 @@ Scene `i` starts at `i × (L − T)` and overlaps the next by the transition len
 const photos = ['p1', 'p2', 'p3'], L = 4, T = 1, STEP = L - T;
 const kinds = ['crossfade', 'wipe', 'zoom'];
 const total = photos.length * STEP + T;
-const sequences = photos.map((asset, i) =>
+const layers = photos.map((asset, i) =>
   kenBurns({ asset, name: 'scene' + i, at: i * STEP, duration: L, motion: i % 2 ? 'position' : 'scale' }));
 const transitions = photos.slice(1).map((_, i) => ({
   kind: kinds[i % kinds.length], from: 'scene' + i, to: 'scene' + (i + 1), at: (i + 1) * STEP, duration: T,
   ...(kinds[i % kinds.length] === 'wipe' ? { direction: 'left' } : {}),
 }));
-photos.forEach((_, i) => sequences.push(withFade({
+photos.forEach((_, i) => layers.push(withFade({
   type: 'text', text: 'Scene ' + (i + 1), at: i * STEP + 0.5, duration: L - 1.5,
   style: { fontSize: 44, fill: '#ffffff', dropShadow: { color: '#000000', blur: 6, distance: 2, alpha: 0.7 } },
   initial: { x: 'GW/2', y: 600, anchorX: 0.5, anchorY: 0.5 },
 }, { in: 0.4, out: 0.4 })));
-sequences.push({ type: 'audio', asset: 'bgm', loop: true, volume: 0, duration: total,
+layers.push({ type: 'audio', asset: 'bgm', loop: true, volume: 0, duration: total,
   keyframes: [{ at: 0, to: { volume: 0.8 }, duration: 2 }, { at: -2, to: { volume: 0 }, duration: 2 }] });
-transitions.forEach(tr => sequences.push({ type: 'audio', sfx: 'swoosh', at: tr.at + tr.duration / 2 - 0.16 }));   // a swoosh is loudest 0.16 s in: centre it on the transition
-return { sequences, transitions, duration: total };
+transitions.forEach(tr => layers.push({ type: 'audio', sfx: 'swoosh', at: tr.at + tr.duration / 2 - 0.16 }));   // a swoosh is loudest 0.16 s in: centre it on the transition
+return { layers, transitions, duration: total };
 ```
 
 Source images should be at least canvas-sized (`kenBurns` zooms in): draw generated images at 1920×1080 for a 1280×720 movie.
@@ -681,16 +681,16 @@ Source images should be at least canvas-sized (`kenBurns` zooms in): draw genera
 ```js
 // @recipe slideshow-cuts
 const N = 3, L = 5, total = N * L;
-const sequences = Array.from({ length: N }, (_, i) =>
+const layers = Array.from({ length: N }, (_, i) =>
   kenBurns({ asset: 'p' + (i + 1), name: 'scene' + i, at: i * L, duration: L, motion: i % 2 ? 'position' : 'scale' }));
-sequences.push({ type: 'audio', at: 0, volume: 0.7, duration: total, music: {
+layers.push({ type: 'audio', at: 0, volume: 0.7, duration: total, music: {
   bpm: 96,
   tracks: [
     { inst: 'pad',  notes: 'Am:4 F:4 C:4 G:4 Am:4 F:4' },                     // 6 chords x 4 beats = 24 beats = 15 s
     { inst: 'bass', notes: 'a1:4 f1:4 c2:4 g1:4 a1:4 f1:4' },
   ],
 } });
-return { sequences, duration: total };
+return { layers, duration: total };
 ```
 
 ---
@@ -741,7 +741,7 @@ Check it without listening, then export — the file encodes this same mix (mp4 
 
 ```js
 // @docs-only render-and-verify
-await movie.init({ canvas, width: 1280, height: 720, duration: 5, composition: { sequences } });
+await movie.init({ canvas, width: 1280, height: 720, duration: 5, composition: { layers } });
 const a = movie.inspectAudio();
 console.log(a.issues);                                    // must be []
 console.log(a.sources.map(s => [s.layer, s.start, s.sound.loudestAt, s.sound.brightnessHz]));
@@ -758,7 +758,7 @@ Line up the LOUD point, not the start: a `riser` is loudest at its end (`at = hi
 // @recipe sfx-cues
 const BG = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } };
 const HIT = 1.5, RISE = 1.2;                         // the title slams in at 1.5 s; the riser leads into it
-const sequences = [BG,
+const layers = [BG,
   { type: 'audio', name: 'riser', sfx: 'riser', at: HIT - RISE, duration: RISE, volume: 0.7 },   // a riser is loudest at its END
   { type: 'audio', name: 'hit', sfx: 'hit', at: HIT },
   { type: 'text', name: 'title', text: 'LAUNCH', at: HIT, duration: 8 - HIT,
@@ -768,22 +768,22 @@ const sequences = [BG,
 ];
 ['PLAN', 'BUILD', 'SHIP'].forEach((label, i) => {   // each item pops in with a pop; pitch climbs a step per item
   const at = 2.4 + i * 0.5;
-  sequences.push({ type: 'text', name: 'item' + i, text: label, at, duration: 8 - at,
+  layers.push({ type: 'text', name: 'item' + i, text: label, at, duration: 8 - at,
     style: { fontSize: 44, fontWeight: 'bold', fill: '#ffd166' },
     initial: { x: 360 + i * 280, y: 430, anchorX: 0.5, anchorY: 0.5 },
     keyframes: [{ at: 0, from: { scale: 0, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.25, ease: 'back.out(2)' }] });
-  sequences.push({ type: 'audio', name: 'pop' + i, sfx: { preset: 'pop', pitch: i * 2 }, at });
+  layers.push({ type: 'audio', name: 'pop' + i, sfx: { preset: 'pop', pitch: i * 2 }, at });
 });
 const CAPTION = 'ships friday', T0 = 4.4, STEP = 0.07;   // typed caption: one letter + one key per step
 [...CAPTION].forEach((ch, i) => {
   const at = T0 + i * STEP;
-  sequences.push({ type: 'text', name: 'cap' + i, text: ch, at, duration: 8 - at,
+  layers.push({ type: 'text', name: 'cap' + i, text: ch, at, duration: 8 - at,
     style: { fontSize: 36, fill: '#9fb3d9', fontFamily: 'ui-monospace, Menlo, monospace' },
     initial: { x: 640 - (CAPTION.length * 22) / 2 + i * 22, y: 540, anchorY: 0.5 } });
-  if (ch !== ' ') sequences.push({ type: 'audio', sfx: { preset: 'typewriter', seed: i }, at, volume: 0.6 });   // seed: every key sounds a little different
+  if (ch !== ' ') layers.push({ type: 'audio', sfx: { preset: 'typewriter', seed: i }, at, volume: 0.6 });   // seed: every key sounds a little different
 });
-sequences.push({ type: 'audio', name: 'done', sfx: 'chime', at: T0 + CAPTION.length * STEP + 0.3 });
-return sequences;
+layers.push({ type: 'audio', name: 'done', sfx: 'chime', at: T0 + CAPTION.length * STEP + 0.3 });
+return layers;
 ```
 
 ---
@@ -855,18 +855,18 @@ Text content cannot change, so a per-letter or per-word effect is one text layer
 // @recipe split-text
 const style = { fontFamily: 'Arial, sans-serif', fontSize: 110, fontWeight: 'bold', fill: '#ffffff' };
 const sub = { fontFamily: 'Arial, sans-serif', fontSize: 44, fill: '#ffd166' };
-const sequences = [{ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } }];
-splitText('MAKE THINGS', style, { x: 640, y: 200, align: 'center' }).forEach(p => sequences.push({
+const layers = [{ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } }];
+splitText('MAKE THINGS', style, { x: 640, y: 200, align: 'center' }).forEach(p => layers.push({
   type: 'text', name: 'letter-' + p.index, text: p.text, style, at: 0.3 + p.index * 0.06,
   initial: { x: p.x, y: p.y, alpha: 0 },                                   // x / y are the top-left of the letter: anchorX / anchorY stay 0
   keyframes: [{ at: 0, from: { y: p.y + 40, alpha: 0 }, to: { y: p.y, alpha: 1 }, duration: 0.35, ease: 'back.out(2)' }],
 }));
-splitText('one word at a time', sub, { by: 'words', x: 640, y: 380, align: 'center' }).forEach(p => sequences.push({
+splitText('one word at a time', sub, { by: 'words', x: 640, y: 380, align: 'center' }).forEach(p => layers.push({
   type: 'text', name: 'word-' + p.index, text: p.text, style: sub, at: 1.4 + p.index * 0.25,
   initial: { x: p.x, y: p.y, alpha: 0 },
   keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }],
 }));
-return sequences;
+return layers;
 ```
 
 ---
@@ -994,13 +994,13 @@ const T = 0.6;
 const d = deck({
   transition: { kind: 'slide', direction: 'left', duration: T, ease: 'power3.inOut' },
   pages: [
-    { name: 'Hello', duration: 2 + T, stops: [2], sequences: [paper, ...line('The Quiet Hours', 260, 0.4, 2 + T)] },
+    { name: 'Hello', duration: 2 + T, stops: [2], layers: [paper, ...line('The Quiet Hours', 260, 0.4, 2 + T)] },
     { name: 'Two steps', duration: 3.4 + T, stops: [1.6, 3.4], notes: 'pause after the first line',
-      sequences: [paper, ...line('We measure speed.', 200, 0.4, 3.4 + T), ...line('We rarely measure attention.', 340, 1.6, 3.4 + T)] },
-    { name: 'Thanks', duration: 3, stops: [2], sequences: [paper, ...line('Go slowly.', 260, 0.4, 3)] },
+      layers: [paper, ...line('We measure speed.', 200, 0.4, 3.4 + T), ...line('We rarely measure attention.', 340, 1.6, 3.4 + T)] },
+    { name: 'Thanks', duration: 3, stops: [2], layers: [paper, ...line('Go slowly.', 260, 0.4, 3)] },
   ],
 });
-return { duration: d.duration, sequences: d.composition.sequences, transitions: d.composition.transitions };
+return { duration: d.duration, layers: d.composition.layers, transitions: d.composition.transitions };
 ```
 
 ```js
@@ -1024,9 +1024,9 @@ new Presenter(movie, { canvas });     // arrows / Space / Enter / click / swipe 
 const gate = (i, z) => ({
   type: 'composition', name: 'gate-' + i, threeD: true, hideBehindCamera: true, width: 360, height: 480,
   initial: { x: 640, y: 360, z, pivotX: 180, pivotY: 240 },
-  sequences: [{ type: 'shape', shape: 'rect', width: 330, height: 450, cornerRadius: 6, initial: { x: 180, y: 240, stroke: '#ffe9c4', strokeWidth: 6 } }],
+  layers: [{ type: 'shape', shape: 'rect', width: 330, height: 450, cornerRadius: 6, initial: { x: 180, y: 240, stroke: '#ffe9c4', strokeWidth: 6 } }],
 });
-return { duration: 8, sequences: [
+return { duration: 8, layers: [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0b0a10' } },
   ...Array.from({ length: 9 }, (_, i) => gate(i, -i * 380)),
   { type: 'camera', keyframes: [
@@ -1048,7 +1048,7 @@ const word = (name, text, x, z, fill) => ({
   type: 'text', name, text, threeD: true, style: { fontSize: 120, fill, fontFamily: 'sans-serif', fontWeight: '700' },
   initial: { x, y: 360, z, anchorX: 0.5, anchorY: 0.5 },
 });
-return { duration: 5, sequences: [
+return { duration: 5, layers: [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101626' } },
   { type: 'camera', initial: { focus: 'near', aperture: 40 },
     keyframes: [
@@ -1095,7 +1095,7 @@ return [
 
 ```js
 // @recipe particles-snow
-return { duration: 10, sequences: [
+return { duration: 10, layers: [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#16203d' } },
   ...particles({ count: 120, emit: 4, life: [4, 6], area: { x: 640, y: -20, width: 1400 }, angle: 90, speed: [40, 90],
     size: [2, 5], sway: { amp: 30, freq: 0.6 }, fade: { in: 0.5, out: 0.5 }, name: 'snow', seed: 4 }),     // drifting down, swaying
@@ -1133,7 +1133,7 @@ const skyline = Array.from({ length: 9 }, (_, i) => ({
   type: 'shape', shape: 'rect', name: 'block-' + i, width: 90 + (i % 3) * 30, height: 160 + ((i * 53) % 190), anchorX: 0, anchorY: 1,
   initial: { x: 40 + i * 140, y: 650, fill: '#0d1220' },
 }));
-return { duration: 6, sequences: [
+return { duration: 6, layers: [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0 },
     fillGradient: { stops: [[0, '#2a3b66'], [0.55, '#8a5a78'], [1, '#e8a060']] } },
   ...skyline,
@@ -1163,7 +1163,7 @@ const line = (y, text, mask, extra = {}) => ({
   type: 'text', text, mask, style: { fontSize: 120, fill: '#ffffff', fontWeight: 'bold' },
   initial: { x: 640, y, anchorX: 0.5, anchorY: 0.5 }, ...extra,
 });
-return { duration: 5, sequences: [
+return { duration: 5, layers: [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#101626' } },
   // the matte: a bright band that grows to the right; it lives as long as the layers it cuts
   { type: 'shape', shape: 'rect', name: 'band', anchorX: 0, anchorY: 0, width: 0, height: 720,
@@ -1185,13 +1185,13 @@ return { duration: 5, sequences: [
 // @recipe luma-wipe
 const scene = (name, at, color, label) => ({
   type: 'composition', name, at, duration: 4, width: 1280, height: 720,
-  sequences: [
+  layers: [
     { type: 'shape', shape: 'rect', width: 1280, height: 720, initial: { x: 640, y: 360, fill: color } },
     { type: 'text', text: label, style: { fontSize: 120, fill: '#ffffff', fontWeight: 'bold' }, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 } },
   ],
 });
 return {
-  sequences: [scene('a', 0, '#3b5bdb', 'One'), scene('b', 3, '#e64980', 'Two')],     // they overlap for 1 s: 3 to 4
+  layers: [scene('a', 0, '#3b5bdb', 'One'), scene('b', 3, '#e64980', 'Two')],     // they overlap for 1 s: 3 to 4
   transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 3, duration: 1, map: 'radial', softness: 0.15 }],
   duration: 7,
 };
@@ -1209,7 +1209,7 @@ const card = (name, x, fill) => ({
   type: 'shape', shape: 'rect', name, width: 300, height: 200, anchorX: 0.5, anchorY: 0.5, threeD: true, castsShadows: true,
   initial: { x, y: 300, z: 0, fill: fill },
 });
-return { duration: 6, sequences: [
+return { duration: 6, layers: [
   { type: 'light', kind: 'ambient', initial: { intensity: 0.18 } },
   { type: 'light', kind: 'spot', castsShadows: true,
     initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, lookAtZ: 0, coneAngle: 34, coneFeather: 0.7, intensity: 1.1, shadowDiffusion: 14 },
@@ -1232,7 +1232,7 @@ const posts = Array.from({ length: 10 }, (_, i) => ({
   type: 'shape', shape: 'rect', name: 'post-' + i, width: 80, height: 420, anchorX: 0.5, anchorY: 1, threeD: true,
   initial: { x: 200 + (i % 2) * 880, y: 620, z: -i * 220, fill: '#1f2a44' },
 }));
-return { duration: 6, sequences: [
+return { duration: 6, layers: [
   { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#9fb4d6' } },
   { type: 'camera', initial: { fogNear: 900, fogFar: 2600, fogColor: '#9fb4d6', fogAmount: 0.95 },
     keyframes: [{ at: 0, to: { offsetZ: -700 }, duration: 6, ease: 'sine.inOut' }] },        // dolly in: the nearer posts come out of the mist
@@ -1248,7 +1248,7 @@ A shader is a layer drawn by a formula: write a Shadertoy `mainImage`. `iTime` i
 
 ```js
 // @recipe shader-plasma
-return { duration: 6, sequences: [
+return { duration: 6, layers: [
   { type: 'shader', name: 'plasma',
     fragment: `
       void mainImage(out vec4 fragColor, in vec2 fragCoord) {
@@ -1271,7 +1271,7 @@ return { duration: 6, sequences: [
 
 ```js
 // @recipe warp-water
-return { duration: 6, sequences: [
+return { duration: 6, layers: [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0 },
     fillGradient: { stops: [[0, '#0b3a5c'], [1, '#021a2e']] } },
   { type: 'text', text: 'UNDER WATER', style: { fontSize: 120, fill: '#d8f3ff', fontWeight: 'bold', letterSpacing: 6 },
@@ -1363,7 +1363,7 @@ const scene = [
   { type: 'text', text: 'FILM', name: 'title', at: 0.3, duration: 3.7, style: { fontSize: 200, fontWeight: '900', fill: '#f4f1ea' },
     initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
 ];
-return [{ type: 'composition', name: 'film', width: 'GW', height: 'GH', sequences: scene, filters: [{ type: 'grain', name: 'g', amount: 0.06, size: 2, color: 0.2 }] }];
+return [{ type: 'composition', name: 'film', width: 'GW', height: 'GH', layers: scene, filters: [{ type: 'grain', name: 'g', amount: 0.06, size: 2, color: 0.2 }] }];
 ```
 
 ---
@@ -1595,7 +1595,7 @@ A 2D composition is the screen; a scene3d layer holds the object it is on. The c
 // composition 1280 x 720, 8 s
 return [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#e9e4dc' } },
-  { type: 'composition', name: 'screen', width: 390, height: 844, duration: 8, sequences: [                    // the app: any 2D layers; this is what the phone shows
+  { type: 'composition', name: 'screen', width: 390, height: 844, duration: 8, layers: [                    // the app: any 2D layers; this is what the phone shows
     { type: 'shape', shape: 'rect', width: 390, height: 844, initial: { x: 195, y: 422, fill: '#101a33' } },
     { type: 'text', text: 'Hello', style: { fontSize: 72, fill: '#ffffff', fontWeight: '800' }, initial: { x: 195, y: 160, anchorX: 0.5, anchorY: 0.5 },
       keyframes: [{ at: 0.4, from: { alpha: 0, y: 200 }, to: { alpha: 1, y: 160 }, duration: 0.8, ease: 'power3.out' }] },
@@ -1735,7 +1735,7 @@ An interactive page is the template with three changes: no `Controller` (it adds
 // @docs-only pick-click
 // the page: a title, and a fox (a scene3d layer, name 'fox', followCamera) running in front of it
 //   await movie.init({ canvas, width: 960, height: 540, duration: 6, frameRate: 30, loop: true, vars: { title: 'CATCH THE FOX', hint: 'click it' },
-//     composition: { sequences: [
+//     composition: { layers: [
 //       { type: 'text', name: 'title', text: '{title}', style: { fontSize: 110, fill: '#ffffff' }, initial: { x: 'GW/2', y: 150, anchorX: 0.5, anchorY: 0.5 } },
 //       { type: 'text', name: 'hint', text: '{hint}', style: { fontSize: 32, fill: '#8fa0c8' }, initial: { x: 'GW/2', y: 500, anchorX: 0.5, anchorY: 0.5 } },
 //       { type: 'scene3d', name: 'fox', followCamera: true, setup: ..., update: (t) => fox.pose(t) },      // recipe scene3d-in-space
@@ -1766,10 +1766,10 @@ A card with a label is two layers: name the card's group (a `composition` layer,
 ```js
 // @docs-only drag-drop
 // the page: a canvas with  style="touch-action: none"  (a finger dragging must not scroll the page)
-//   await movie.init({ canvas, width: 960, height: 540, vars: { cx: 200, cy: 270, doneLit: 0 }, composition: { sequences: [
+//   await movie.init({ canvas, width: 960, height: 540, vars: { cx: 200, cy: 270, doneLit: 0 }, composition: { layers: [
 //     { type: 'shape', shape: 'rect', name: 'done', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fill: '#182038' } },
 //     { type: 'shape', shape: 'rect', name: 'done-glow', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fill: '#3ddc97', alpha: 'doneLit' } },   // the light: a variable
-//     { type: 'composition', name: 'card', width: 200, height: 120, duration: 1, initial: { x: 'cx', y: 'cy', pivotX: 100, pivotY: 60 }, sequences: [   // the card and its label: ONE target (the group's name); a composition turns and sits about its pivot
+//     { type: 'composition', name: 'card', width: 200, height: 120, duration: 1, initial: { x: 'cx', y: 'cy', pivotX: 100, pivotY: 60 }, layers: [   // the card and its label: ONE target (the group's name); a composition turns and sits about its pivot
 //       { type: 'shape', shape: 'rect', name: 'face', width: 200, height: 120, cornerRadius: 14, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, fill: '#f2c14e' } },
 //       { type: 'text', name: 'label', text: 'Task', style: { fontSize: 34, fill: '#1b1b1b' }, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5 } },
 //     ] },
@@ -1910,11 +1910,11 @@ const photo = (key, x, y, w, h, duration) => {
     initial: { x: x + w / 2, y: y + h / 2, anchorX: 0.5, anchorY: 0.5, scale: cover },                                             // image anchors go in `initial`
     keyframes: [{ at: 0, to: { scale: cover * 1.1 }, duration, ease: 'sine.inOut' }] };                                             // a slow push
 };
-const scene = { type: 'composition', name: 'hook', at: 0, duration: 5.5, width: W, height: H, sequences: [
+const scene = { type: 'composition', name: 'hook', at: 0, duration: 5.5, width: W, height: H, layers: [
   photo('hero', 0, 0, W, H, 5.5),
   { type: 'text', text: 'Headline', initial: { x: MX, y: PORTRAIT ? 1150 : 620 }, style: { fontSize: PORTRAIT ? 100 : 112, fill: '#fff' } },   // wide: lower left; tall: lower third
 ] };
-// movie.init({ width: W, height: H, composition: { sequences: [scene] } })
+// movie.init({ width: W, height: H, composition: { layers: [scene] } })
 ```
 
 ---
@@ -1930,7 +1930,7 @@ const q = new URLSearchParams(location.search);
 const NAME = q.get('name') ?? 'World';
 const SCORE = q.get('score') ?? '0';
 // ...then use NAME and SCORE in the text layers of your composition:
-const sequences = [
+const layers = [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1d2433' } },
   { type: 'text', text: `Well done, ${NAME}!`, at: 0.3, duration: 3.7, style: { fontSize: 96, fontWeight: 'bold', fill: '#ffffff' },
     initial: { x: 'GW/2', y: 300, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0, y: 340 }, to: { alpha: 1, y: 300 }, duration: 0.6 }] },
@@ -1960,7 +1960,7 @@ const lang = new URLSearchParams(location.search).get('lang') ?? 'en';
 await movie.init({
   canvas, width: 1920, height: 1080, duration: 5,
   vars: { head: COPY[lang].head, sub: COPY[lang].sub, accent: '#e5399a', lift: 0 },        // numbers can be read in expressions, any value in {name}
-  composition: { sequences: [
+  composition: { layers: [
     { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#12151f' } },
     { type: 'text', text: '{head}', at: 0.3, duration: 4.7, style: { fontSize: 120, fontWeight: 'bold', fill: '{accent}' },
       initial: { x: 'GW/2', y: 'GH/2 - 40 - lift', anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
@@ -1981,7 +1981,7 @@ await movie.init({
 // @docs-only liquid-layout
 const layout = (w, h) => {
   const tall = h > w;
-  return { sequences: [
+  return { layers: [
     { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#12151f' } },
     { type: 'text', text: 'Headline', style: { fontSize: tall ? 'GW * 0.12' : 'GH * 0.14', fontWeight: 'bold', fill: '#ffffff' },
       initial: { x: tall ? 'GW * 0.08' : 'GW/2', y: tall ? 'GH * 0.7' : 'GH/2', anchorX: tall ? 0 : 0.5, anchorY: 0.5 } },

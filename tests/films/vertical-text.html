@@ -33,7 +33,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 720, height: 1280, duration: 4, frameRate: 30, background: '#efe9dc',
-        composition: { sequences: [
+        composition: { layers: [
           ...animateText('雨のあと、\nコーヒーは「ゆっくり」\nQ3は2倍。', style, { x: 600, y: 160, vertical: true, at: 0.2, duration: 3.6, in: 'fade', stagger: { each: 0.03 }, name: 'v' }),
         ] },
       });

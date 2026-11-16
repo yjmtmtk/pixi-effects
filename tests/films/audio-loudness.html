@@ -18,7 +18,7 @@
     const opts = q === null ? {} : { loudness: q === 'off' ? false : (Number.isNaN(Number(q)) ? q : Number(q)) };
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 4, frameRate: 30, background: '#101828', ...opts,
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'audio', sfx: 'chime', at: 0.2, volume: 0.15 },
           { type: 'audio', sfx: 'pop', at: 1.4, volume: 0.15 },
           { type: 'audio', sfx: 'chime', at: 2.4, volume: 0.15 },

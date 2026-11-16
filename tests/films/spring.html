@@ -36,7 +36,7 @@
       const sq = (x, y, c) => ({ type: 'shape', shape: 'rect', width: 90, height: 90, initial: { x, y, fill: c } });
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#10131c',
-        composition: { sequences: [
+        composition: { layers: [
           // 1 position, from + to, settles at 1050 after overshooting it
           { ...sq(150, 120, '#ffffff'), name: 'slider', keyframes: [{ at: 0.25, from: { x: 150 }, to: { x: 1050 }, duration: bad ? 1 : 'auto', ease: E }] },
           // 2 scale from 0 with a preset

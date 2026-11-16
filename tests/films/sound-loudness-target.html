@@ -39,17 +39,17 @@
     const BED = { quiet: 0.1, loud: 2.5, hit: 0.1, spike: 0.05, bare: 0.01 }[MIX];
     const movie = new Movie();
     window.movie = movie;
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 40, initial: { x: 160, y: 90, fill: '#3a86ff' } },
       { type: 'audio', name: 'bed', at: 0, duration: DURATION, volume: BED * VOL, sfx: { voices: [{ wave: 'sine', freq: 1000, envelope: 'hold' }] } },
     ];
-    if (MIX === 'hit') sequences.push({ type: 'audio', name: 'hit', sfx: 'click', at: CLICK_AT, volume: 1.2 });
-    if (MIX === 'spike' || MIX === 'bare') sequences.push({ type: 'audio', name: 'spike', sfx: 'click', at: CLICK_AT, volume: 2 });
+    if (MIX === 'hit') layers.push({ type: 'audio', name: 'hit', sfx: 'click', at: CLICK_AT, volume: 1.2 });
+    if (MIX === 'spike' || MIX === 'bare') layers.push({ type: 'audio', name: 'spike', sfx: 'click', at: CLICK_AT, volume: 2 });
     const l = q.get('loudness');
     const opts = l === null ? {} : { loudness: l === 'off' ? false : Number(l) };
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: DURATION, frameRate: 30, background: '#101828', ...opts,
-        composition: { sequences } });
+        composition: { layers } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
   </script>

@@ -31,7 +31,7 @@
 
   <script type="importmap">{ "imports": {
     "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
-    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/Controller.js" } }</script>
+    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/controller.js" } }</script>
 
   <script type="module">
     import { Movie } from 'pixi-effects';
@@ -297,7 +297,7 @@
       initial: { x: 64, y: 48 } });
     const LAST = DURATION - beat(4);
 
-    const sequences = [
+    const layers = [
       bg(0, PAPER), bg(1, INK), bg(2, PAPER), bg(3, INK), bg(4, PAPER, LAST),
       canvasBeat(0, 'line', (ctx, t) => drawLine(ctx, t)),
       canvasBeat(1, 'spiral', drawSpiral, { setup: setupSpiral }),
@@ -329,7 +329,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS,
         poster: 8.75,
         background: PAPER,
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

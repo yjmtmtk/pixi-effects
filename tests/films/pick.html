@@ -28,7 +28,7 @@
     window.clientPointFor = (x, y) => { const r = document.getElementById('stage').getBoundingClientRect(); return { clientX: r.left + x * r.width / 480, clientY: r.top + y * r.height / 270 }; };
     window.canvasPointOf = (ev) => movie.canvasPoint(ev);
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#102040', assets: [{ name: 'half', src: half.toDataURL('image/png') }], composition: { sequences: [
+      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#102040', assets: [{ name: 'half', src: half.toDataURL('image/png') }], composition: { layers: [
         { type: 'camera', name: 'cam', keyframes: [{ at: 0, to: { x: 400, lookAtX: 400 }, duration: 3, ease: 'none' }] },
         { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1c2b4d' } },
         { type: 'shape', shape: 'rect', name: 'button', width: 120, height: 20, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, rotation: 45, fill: '#f2c14e' } },

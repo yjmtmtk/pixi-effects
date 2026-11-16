@@ -93,7 +93,7 @@
     try {
       await movie.init({
         canvas, width: W, height: H, duration: 2, frameRate: 30, background: '#101018', ...(q.get('mb') ? { motionBlur: true } : {}),
-        composition: { sequences: mode === 'many' ? many : mode === 'texts' ? texts : mode === 'textsSolid' ? textsSolid : mode === 'static' ? manyStatic : mode === 'solid' ? solid : mode === 'color' ? color : mode === 'bad' ? bad : demo },
+        composition: { layers: mode === 'many' ? many : mode === 'texts' ? texts : mode === 'textsSolid' ? textsSolid : mode === 'static' ? manyStatic : mode === 'solid' ? solid : mode === 'color' ? color : mode === 'bad' ? bad : demo },
       });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = 'failed'; }

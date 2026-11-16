@@ -23,7 +23,7 @@
     try {
       const movie = new Movie();
       await movie.init({ width: 160, height: 90, duration: 1, background: '#000000', assets: [{ name: 'tone', src }],
-        composition: { sequences: [{ type: 'audio', name: 'tone', asset: 'tone' }] } });
+        composition: { layers: [{ type: 'audio', name: 'tone', asset: 'tone' }] } });
       window.movie = movie;
       window.sound = async () => { const a = await movie.inspectAudio(); return { sources: a.sources.length, peak: a.peakDb, issues: a.issues }; };
     } catch (e) { window.__error = String(e && e.message || e); }

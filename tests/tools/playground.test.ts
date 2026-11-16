@@ -139,7 +139,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Playgr
     await withPlayground(1440, async (cdp) => {
       const r = await cdp.eval(`(async () => {
         const p = window.__playground;
-        p.editor.set(p.editor.get().replace(/const sequences = \\[[\\s\\S]*?\\n    \\];|const sequences = \\[[\\s\\S]*?\\n\\];/, "const sequences = [ { type: 'nope' } ];"));
+        p.editor.set(p.editor.get().replace(/const layers = \\[[\\s\\S]*?\\n    \\];|const layers = \\[[\\s\\S]*?\\n\\];/, "const layers = [ { type: 'nope' } ];"));
         const r = await p.run();
         return { ready: r.status.ready, panel: document.getElementById('problems').dataset.state, text: document.getElementById('problems').textContent, alive: document.querySelectorAll('#host iframe').length };
       })()`);
@@ -155,7 +155,7 @@ const FILES_AND_FILTERS = `import { GlowFilter } from 'pixi-filters';
 const W = 1280, H = 720, FPS = 30, DURATION = 2;
 const BACKGROUND = '#0a0a0f';
 const glow = new GlowFilter({ outerStrength: 3, color: 0xff66cc, distance: 18 });
-const sequences = [
+const layers = [
   { type: 'image', asset: 'photo', initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, scale: 0.5 }, filters: [{ name: 'glow', type: 'custom', filter: glow }] },
 ];
 const INIT = { assets: [{ name: 'photo', src: '_assets/photos/lake-dusk.jpg' }] };
@@ -244,7 +244,7 @@ describe('share, save, copy', () => {
         let text = '';
         for (let i = 0; i < 50 && !text; i++) { text = await cdp.eval('window.__lastCopy || ""'); await check.sleep(100); }
         expect(text).toContain('raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/chat-template.html');
-        expect(text).toContain('const sequences');
+        expect(text).toContain('const layers');
         expect(text).toMatch(/```js\n[\s\S]*\n```$/);
       });
     }, 120000);

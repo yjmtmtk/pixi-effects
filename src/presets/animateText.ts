@@ -1,5 +1,5 @@
 import { secondsAt } from './_at';
-import type { Keyframe, TextSequenceSpec } from '../types';
+import type { Keyframe, TextLayerSpec } from '../types';
 import { warnUnknownOptions, suggestName } from '../core/options';
 import { measureText, splitText, type MeasureStyle, type TextPiece } from '../text/measure';
 import { stagger, type StaggerOptions } from './stagger';
@@ -72,7 +72,7 @@ interface Resolved { from: Record<string, number>; to: Record<string, number>; d
 /**
  * Per-character, per-word or per-line text animation in one call: one text layer per piece, laid out exactly like the
  * whole text, each entering (and optionally leaving) in a wave. It is `splitText` + `stagger` + a preset, so the result
- * is plain layers you can spread into `sequences`, add to, or change.
+ * is plain layers you can spread into `layers`, add to, or change.
  *
  * ```js
  * ...animateText('Hello world', style, { x: 640, y: 300, align: 'center', at: 0.5, duration: 5,
@@ -81,7 +81,7 @@ interface Resolved { from: Record<string, number>; to: Record<string, number>; d
  *
  * Pieces rotate and scale about their own centre. All pieces are gone at `at + duration`.
  */
-export function animateText(text: string, style: MeasureStyle, options: AnimateTextOptions): TextSequenceSpec[] {
+export function animateText(text: string, style: MeasureStyle, options: AnimateTextOptions): TextLayerSpec[] {
   warnUnknownOptions('animateText()', options, KEYS);
   const { by = 'chars', x = 0, y = 0, align = 'left', vertical = false, name = 'text', at: atRaw, duration, idle, styleFor } = options;
   const at = secondsAt('animateText', atRaw, 'layers');
@@ -157,7 +157,7 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
       at: start, duration: len,
       initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5, ...(rest.rotation !== 0 ? { rotation: rest.rotation } : {}) },
       keyframes,
-    } as TextSequenceSpec;
+    } as TextLayerSpec;
   });
 }
 

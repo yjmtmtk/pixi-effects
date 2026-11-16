@@ -36,7 +36,7 @@
     const opts = q === 'off' ? {} : { loudness: q === null ? -16 : Number(q) };
     const movie = new Movie();
     window.movie = movie;
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'card', width: 80, height: 40, initial: { x: 40, y: 90, fill: '#3a86ff' },
         keyframes: [{ at: 0, duration: 3, to: { x: 280 } }] },
       { type: 'audio', name: 'bed', at: 0, volume: 0.3,
@@ -48,7 +48,7 @@
     ];
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#101828', ...opts,
-        composition: { sequences } });
+        composition: { layers } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
   </script>

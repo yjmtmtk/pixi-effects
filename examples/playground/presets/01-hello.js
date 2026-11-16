@@ -4,7 +4,7 @@ export default `// Edit anything, then press ⌘↵ / Ctrl+↵ to Run. The video
 const W = 1280, H = 720, FPS = 30, DURATION = 4;
 const BACKGROUND = '#0a0a0f';
 
-const sequences = [
+const layers = [
   {
     type: 'text',
     text: 'hello',

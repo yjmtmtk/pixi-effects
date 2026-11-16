@@ -19,7 +19,7 @@
       keyframes: [{ at: 0, to: { x: 80 + i * 70 }, duration: 2, ease: 'power2.out' }] });
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 12, frameRate: 30, background: '#101828',
-        composition: { sequences: Array.from({ length: 8 }, (_, i) => layer(i)) } });
+        composition: { layers: Array.from({ length: 8 }, (_, i) => layer(i)) } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
   </script>

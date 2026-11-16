@@ -8,15 +8,15 @@ import '@pixi/3d';                                                     // the im
 import { AnimationPlayer, Model3D } from '@pixi/3d';
 import { VERSION } from 'pixi.js';
 import { registerSequenceType, type SequenceCtor } from '../core/Composition';
-import type { SequenceSpec } from '../types';
+import type { LayerSpec } from '../types';
 import { Scene3DSequence } from './Scene3DSequence';
-import type { Scene3DSequenceSpec } from './types';
+import type { Scene3DLayerSpec } from './types';
 
 export { layerTexture } from './layerTexture';
 export { loadModel, fitCamera } from './gltf';
 export type { LoadModelOptions, LoadedModel, FitCameraOptions } from './gltf';
 export type { LayerTexture, LayerTextureOptions } from './layerTexture';
-export type { Scene3DContext, Scene3DSetupResult, Scene3DSequenceSpec } from './types';
+export type { Scene3DContext, Scene3DSetupResult, Scene3DLayerSpec } from './types';
 
 let saidVersion = false;
 
@@ -42,7 +42,7 @@ export function register3D(): void {
   registerSequenceType('scene3d', Scene3DSequence as unknown as SequenceCtor);
 }
 
-/** Typing helper: accepts a strongly-typed scene3d spec and returns it as a core SequenceSpec, keeping `@pixi/3d` types out of the core union. */
-export function scene3d(spec: Scene3DSequenceSpec): SequenceSpec {
-  return spec as unknown as SequenceSpec;
+/** Typing helper: accepts a strongly-typed scene3d spec and returns it as a core LayerSpec, keeping `@pixi/3d` types out of the core union. */
+export function scene3d(spec: Scene3DLayerSpec): LayerSpec {
+  return spec as unknown as LayerSpec;
 }

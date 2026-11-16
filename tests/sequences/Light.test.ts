@@ -13,7 +13,7 @@ import { Sequence } from '../../src/sequences/Base';
 import { registerSequenceType } from '../../src/core/Composition';
 import { LitMaterial } from '../../src/space/LitMaterial';
 import type { Layer3D, SpaceHost } from '../../src/space/Layer3D';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 class Box extends Sequence {
@@ -22,8 +22,8 @@ class Box extends Sequence {
 registerSequenceType('__box', Box as never);
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
-async function build(sequences: unknown[]) {
-  const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration: 10, sequences } as unknown as SequenceSpec as never, shape, shape);
+async function build(layers: unknown[]) {
+  const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration: 10, layers } as unknown as LayerSpec as never, shape, shape);
   await comp.build();
   comp.bindTimeline(createTimeline({ paused: true }));
   return comp;
@@ -125,9 +125,9 @@ describe('lit layers (the shader is made only when there is something to light)'
 
 
 describe('a light that cannot do anything says so', () => {
-  const said = async (sequences: unknown[]) => { const warn = vi.spyOn(console, 'warn').mockImplementation(() => {}); await build(sequences); return warn.mock.calls.map(c => String(c[0])); };
+  const said = async (layers: unknown[]) => { const warn = vi.spyOn(console, 'warn').mockImplementation(() => {}); await build(layers); return warn.mock.calls.map(c => String(c[0])); };
   it('a light in a composition that has no threeD layer (lights do not reach into nested compositions)', async () => {
-    const w = await said([{ type: 'light', kind: 'ambient' }, { type: 'composition', name: 'scene', width: 100, height: 100, sequences: [card()] }]);
+    const w = await said([{ type: 'light', kind: 'ambient' }, { type: 'composition', name: 'scene', width: 100, height: 100, layers: [card()] }]);
     expect(w.some(m => m.includes('light') && m.includes('no threeD layers') && m.includes('inside the composition'))).toBe(true);
     expect((await said([{ type: 'light', kind: 'ambient' }, card()])).some(m => m.includes('no threeD layers'))).toBe(false);
   });

@@ -1,5 +1,5 @@
 import type {
-  CompositionSpec, CompositionSequenceSpec, SequenceSpec, TransitionSpec,
+  CompositionSpec, CompositionLayerSpec, LayerSpec, TransitionSpec,
   CrossfadeTransition, WipeTransition, IrisTransition, SlideTransition,
   DipTransition, ZoomTransition, DissolveTransition, LumaTransition,
   Keyframe, FilterSpec,
@@ -42,14 +42,14 @@ export function carryTransitionWindows<T extends object>(from: object, to: T): T
  *
  * Recurses into nested compositions.
  */
-export function expandTransitions<T extends CompositionSpec | CompositionSequenceSpec>(spec: T): T {
+export function expandTransitions<T extends CompositionSpec | CompositionLayerSpec>(spec: T): T {
   // Shallow-clone every sequence (and recurse into nested compositions) so we
   // can append keyframes / set initial without touching the user's input spec.
   const out = {
     ...spec,
-    sequences: spec.sequences
-      ? spec.sequences.map((s) => {
-          const cloned: SequenceSpec = {
+    layers: spec.layers
+      ? spec.layers.map((s) => {
+          const cloned: LayerSpec = {
             ...s,
             // Deep-clone the mutation surfaces only.
             initial: 'initial' in s && s.initial ? { ...s.initial } : undefined,
@@ -57,12 +57,12 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
             // Expansion only pushes new literals — never mutate existing ones.
             keyframes: 'keyframes' in s && s.keyframes ? s.keyframes.slice() : undefined,
             filters:   'filters'   in s && s.filters   ? s.filters.slice()   : undefined,
-          } as SequenceSpec;
+          } as LayerSpec;
           if (cloned.type === 'composition') {
             // Nested composition inherits its parent's dimensions when not
             // explicitly set, so expandTransitions can compute filterArea
             // for any wipe / iris transitions inside it.
-            const c = cloned as CompositionSequenceSpec;
+            const c = cloned as CompositionLayerSpec;
             if (c.width === undefined) c.width = spec.width;
             if (c.height === undefined) c.height = spec.height;
             return expandTransitions(c);
@@ -77,7 +77,7 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
   }
 
   const transitions = out.transitions;
-  const sequences = out.sequences ?? [];
+  const sequences = out.layers ?? [];
   // The layers of a composition with its own time (speed / time) live in its LOCAL time, which runs over the content length
   // (speed 2 reads twice as far as `duration`): measure them, and resolve a negative `at`, against that.
   const remap = out.duration !== undefined ? timeRemapOf(out as never) : null;
@@ -129,12 +129,12 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
   }
 
   // Build a name → { index, sequence } map for O(1) lookup, and detect duplicate names.
-  const byName = new Map<string, { index: number; seq: SequenceSpec }>();
+  const byName = new Map<string, { index: number; seq: LayerSpec }>();
   for (let i = 0; i < sequences.length; i++) {
     const s = sequences[i]!;
     if (!s.name) continue;
     if (byName.has(s.name)) {
-      throw new Error(`pixi-effects: composition has two sequences named "${s.name}" (transitions need unique names)`);
+      throw new Error(`pixi-effects: composition has two layers named "${s.name}" (transitions need unique names)`);
     }
     byName.set(s.name, { index: i, seq: s });
   }
@@ -156,11 +156,11 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
 
     const fromEntry = byName.get(t.from);
     if (!fromEntry) {
-      throw new Error(`pixi-effects: ${tag} \`from\` "${t.from}" is not found among sibling sequences`);
+      throw new Error(`pixi-effects: ${tag} \`from\` "${t.from}" is not found among its sibling layers`);
     }
     const toEntry = byName.get(t.to);
     if (!toEntry) {
-      throw new Error(`pixi-effects: ${tag} \`to\` "${t.to}" is not found among sibling sequences`);
+      throw new Error(`pixi-effects: ${tag} \`to\` "${t.to}" is not found among its sibling layers`);
     }
 
     if (toEntry.index <= fromEntry.index) {
@@ -258,7 +258,7 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
 // coords either way.
 //
 // If `seq` is already a Composition that fills the parent, no-op.
-function wrapAsFullComposition(seq: SequenceSpec, compW: number, compH: number): SequenceSpec {
+function wrapAsFullComposition(seq: LayerSpec, compW: number, compH: number): LayerSpec {
   // Centering initial: pivot at composition centre + position at composition
   // centre. Visually identity at scale 1, but it lets zoom scale the target
   // around the centre instead of around the top-left corner.
@@ -275,7 +275,7 @@ function wrapAsFullComposition(seq: SequenceSpec, compW: number, compH: number):
     (seq as { initial?: Record<string, unknown> }).initial = { ...centring, ...(existing ?? {}) };
     return seq;
   }
-  const inner: SequenceSpec = { ...(seq as object) } as SequenceSpec;
+  const inner: LayerSpec = { ...(seq as object) } as LayerSpec;
   // The inner sequence runs across the whole wrapper lifetime; its name
   // belongs to the wrapper now (so transitions still resolve), and so do
   // its at / duration on the parent timeline.
@@ -296,16 +296,16 @@ function wrapAsFullComposition(seq: SequenceSpec, compW: number, compH: number):
     width: compW,
     height: compH,
     initial: centring,
-    sequences: [inner],
-  } as SequenceSpec;
+    layers: [inner],
+  } as LayerSpec;
 }
 
-function keyframeCount(seq: SequenceSpec): number {
+function keyframeCount(seq: LayerSpec): number {
   return (seq as { keyframes?: Keyframe[] }).keyframes?.length ?? 0;
 }
 
 /** Keyframes the expanders appended (index >= `from`) carry parent-time `at`; make them sequence-local. */
-function rebaseNewKeyframes(seq: SequenceSpec, from: number, seqStart: number): void {
+function rebaseNewKeyframes(seq: LayerSpec, from: number, seqStart: number): void {
   const kfs = (seq as { keyframes?: Keyframe[] }).keyframes;
   if (!kfs) return;
   for (let i = from; i < kfs.length; i++) {
@@ -314,30 +314,30 @@ function rebaseNewKeyframes(seq: SequenceSpec, from: number, seqStart: number): 
   }
 }
 
-function ensureKeyframes(seq: SequenceSpec): Keyframe[] {
+function ensureKeyframes(seq: LayerSpec): Keyframe[] {
   // Sequences are loosely typed; treat keyframes as optional.
   const s = seq as { keyframes?: Keyframe[] };
   if (!s.keyframes) s.keyframes = [];
   return s.keyframes;
 }
 
-function ensureInitial(seq: SequenceSpec): Record<string, unknown> {
+function ensureInitial(seq: LayerSpec): Record<string, unknown> {
   const s = seq as { initial?: Record<string, unknown> };
   if (!s.initial) s.initial = {};
   return s.initial;
 }
 
-function ensureFilters(seq: SequenceSpec): FilterSpec[] {
+function ensureFilters(seq: LayerSpec): FilterSpec[] {
   const s = seq as { filters?: FilterSpec[] };
   if (!s.filters) s.filters = [];
   return s.filters;
 }
 
 function expandCrossfade(
-  _comp: CompositionSpec | CompositionSequenceSpec,
+  _comp: CompositionSpec | CompositionLayerSpec,
   t: CrossfadeTransition,
-  fromSeq: SequenceSpec,
-  toSeq: SequenceSpec,
+  fromSeq: LayerSpec,
+  toSeq: LayerSpec,
 ): void {
   const ease = t.ease ?? 'none';
 
@@ -375,10 +375,10 @@ function transitionFilterName(index: number): string {
 }
 
 function expandSlide(
-  _comp: CompositionSpec | CompositionSequenceSpec,
+  _comp: CompositionSpec | CompositionLayerSpec,
   t: SlideTransition,
-  fromSeq: SequenceSpec,
-  toSeq: SequenceSpec,
+  fromSeq: LayerSpec,
+  toSeq: LayerSpec,
 ): void {
   const ease = t.ease ?? 'none';
   const isHorizontal = t.direction === 'left' || t.direction === 'right';
@@ -420,10 +420,10 @@ function composeDimOffset(natural: unknown, sign: number, dim: 'W' | 'H'): strin
 }
 
 function expandMask(
-  comp: CompositionSpec | CompositionSequenceSpec,
+  comp: CompositionSpec | CompositionLayerSpec,
   t: WipeTransition | IrisTransition,
-  fromSeq: SequenceSpec,
-  toSeq: SequenceSpec,
+  fromSeq: LayerSpec,
+  toSeq: LayerSpec,
   transitionIndex: number,
   mode: TransitionMode,
   smoothing: number | undefined,
@@ -482,10 +482,10 @@ function expandMask(
 }
 
 function expandDip(
-  _comp: CompositionSpec | CompositionSequenceSpec,
+  _comp: CompositionSpec | CompositionLayerSpec,
   t: DipTransition,
-  fromSeq: SequenceSpec,
-  toSeq: SequenceSpec,
+  fromSeq: LayerSpec,
+  toSeq: LayerSpec,
 ): void {
   // A fades to 0 over the first half, B fades from 0 over the second half.
   // The visible color in between is whatever sits behind A and B (canvas
@@ -512,10 +512,10 @@ function expandDip(
 }
 
 function expandZoom(
-  _comp: CompositionSpec | CompositionSequenceSpec,
+  _comp: CompositionSpec | CompositionLayerSpec,
   t: ZoomTransition,
-  fromSeq: SequenceSpec,
-  toSeq: SequenceSpec,
+  fromSeq: LayerSpec,
+  toSeq: LayerSpec,
 ): void {
   // mode 'in' (default): B is the focus. B starts large + invisible, zooms
   //   to scale 1 + alpha 1. A simply fades.
@@ -547,10 +547,10 @@ function expandZoom(
 }
 
 function expandDissolve(
-  comp: CompositionSpec | CompositionSequenceSpec,
+  comp: CompositionSpec | CompositionLayerSpec,
   t: DissolveTransition,
-  fromSeq: SequenceSpec,
-  toSeq: SequenceSpec,
+  fromSeq: LayerSpec,
+  toSeq: LayerSpec,
   transitionIndex: number,
 ): void {
   const ease = t.ease ?? 'none';
@@ -603,9 +603,9 @@ function expandDissolve(
  * soft edge where the map is dark first; A holds until B has covered it (a hard cutoff, as wipe / iris / dissolve do).
  */
 function expandLuma(
-  comp: CompositionSpec | CompositionSequenceSpec,
+  comp: CompositionSpec | CompositionLayerSpec,
   t: LumaTransition,
-  fromSeq: SequenceSpec, toSeq: SequenceSpec, transitionIndex: number,
+  fromSeq: LayerSpec, toSeq: LayerSpec, transitionIndex: number,
 ): void {
   const ease = t.ease ?? 'none';
   const inName = transitionFilterName(transitionIndex);

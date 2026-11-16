@@ -20,10 +20,10 @@ vi.mock('pixi.js', async () => {
 import { TextSequence } from '../../src/sequences/Text';
 import { ShapeSequence } from '../../src/sequences/Shape';
 import { AudioSequence } from '../../src/sequences/Audio';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 12 };
-const mk = <T,>(C: new (s: SequenceSpec, p: CompositionShape, r: CompositionShape) => T, spec: unknown) => new C(spec as SequenceSpec, comp, comp);
+const mk = <T,>(C: new (s: LayerSpec, p: CompositionShape, r: CompositionShape) => T, spec: unknown) => new C(spec as LayerSpec, comp, comp);
 
 beforeEach(() => { vi.restoreAllMocks(); });
 

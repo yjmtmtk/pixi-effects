@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { TextSequence } from '../../src/sequences/Text';
 import { lintText } from '../../src/core/lint';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
-const make = (spec: unknown) => new TextSequence({ type: 'text', ...(spec as object) } as SequenceSpec, comp, comp);
+const make = (spec: unknown) => new TextSequence({ type: 'text', ...(spec as object) } as LayerSpec, comp, comp);
 const textOf = (s: TextSequence) => (s.target as unknown as { text: string }).text;
 async function bound(spec: unknown) {
   const s = make(spec);
@@ -65,7 +65,7 @@ describe('text `value` counter', () => {
 });
 
 describe('lintText', () => {
-  const run = (spec: unknown) => { const o: string[] = []; lintText(spec as SequenceSpec, m => o.push(m)); return o; };
+  const run = (spec: unknown) => { const o: string[] = []; lintText(spec as LayerSpec, m => o.push(m)); return o; };
   it('a {value} that only a swapped string (set: { text }) has is a placeholder too', () => {
     expect(run({ type: 'text', name: 'n', text: 'x', keyframes: [{ at: 1, set: { text: 'N: {value}', value: 0 } }, { at: 1, to: { value: 5 }, duration: 1 }] })).toEqual([]);
   });

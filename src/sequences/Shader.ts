@@ -7,7 +7,7 @@ import { suggestName } from '../core/options';
 import { acquireGl, currentGl, releaseGl } from '../core/glShared';
 import { glslErrors, shaderProblems, uniformFloats, uniformType, wrapFragment } from '../core/shaderChecks';
 import type { PathRouters } from '../core/Timeline';
-import type { PropValue, ShaderSequenceSpec } from '../types';
+import type { PropValue, ShaderLayerSpec } from '../types';
 
 const VERT = `#version 300 es
 void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
@@ -36,7 +36,7 @@ export class ShaderSequence extends Sequence {
   /** How many components each vector uniform has (a scalar is not listed). */
   private dims: Record<string, number> = {};
 
-  private get shaderSpec(): ShaderSequenceSpec { return this.spec as unknown as ShaderSequenceSpec; }
+  private get shaderSpec(): ShaderLayerSpec { return this.spec as unknown as ShaderLayerSpec; }
 
   protected override pathRouters(): PathRouters {
     return { uniforms: (path) => this.resolveUniform(path) };

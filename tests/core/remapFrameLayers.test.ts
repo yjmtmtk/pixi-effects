@@ -9,7 +9,7 @@ import { Sequence } from '../../src/sequences/Base';
 import { Container } from 'pixi.js';
 import { registerSequenceType } from '../../src/core/Composition';
 import { collectVideoSequences } from '../../src/core/Movie';
-import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import type { CompositionLayerSpec, CompositionShape } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 /** A frame-driven layer like a scene3d one: Movie asks it to draw for a time it works out. */
@@ -23,10 +23,10 @@ const shape: CompositionShape = { width: 320, height: 180, duration: 10 };
 beforeEach(() => { vi.restoreAllMocks(); });
 
 async function build(stage: Record<string, unknown>) {
-  const spec = { type: 'composition', width: 320, height: 180, duration: 10, sequences: [
-    { type: 'composition', name: 'stage', width: 320, height: 180, duration: 4, ...stage, sequences: [{ type: '__frame', name: 'f', at: 1, duration: 3 }] },
+  const spec = { type: 'composition', width: 320, height: 180, duration: 10, layers: [
+    { type: 'composition', name: 'stage', width: 320, height: 180, duration: 4, ...stage, layers: [{ type: '__frame', name: 'f', at: 1, duration: 3 }] },
     { type: '__frame', name: 'outside', at: 1, duration: 3 },
-  ] } as unknown as CompositionSequenceSpec;
+  ] } as unknown as CompositionLayerSpec;
   const comp = new CompositionSequence(spec, shape, shape);
   await comp.build();
   const tl = createTimeline({ paused: true });

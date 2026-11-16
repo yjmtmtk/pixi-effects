@@ -33,7 +33,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -100,7 +100,7 @@
         type: 'composition', name: 'crest-' + team.code, width: 240, height: 280, at: o.at, duration: o.duration,
         initial: { x: o.x, y: o.y, pivotX: 120, pivotY: 141, scale: o.scale ?? 1, ...(o.initial || {}) },
         keyframes: o.keyframes || [],
-        sequences: [
+        layers: [
           { type: 'shape', shape: 'path', name: 'shield', d: SHIELD, initial: { fill: C.white } },
           { type: 'shape', shape: 'path', name: 'shield-in', d: SHIELD_IN, fillGradient: { stops: [[0, team.color], [1, team.deep]] } },
           ...motif,
@@ -198,7 +198,7 @@
         seq.push(text('scorer', "⚽  OKAFOR 88'", 24, 380, 600, { font: SANS, weight: '800', ls: 2, fill: C.ink,
           keyframes: [{ at: 0.75, from: { alpha: 0, x: 360 }, duration: 0.4, ease: E }] }));
       }
-      return { type: 'composition', name, at, duration, width: W, height: H, sequences: seq };
+      return { type: 'composition', name, at, duration, width: W, height: H, layers: seq };
     }
 
     // ── SCENE B : match stats + momentum ───────────────────────────────────────
@@ -304,7 +304,7 @@
       seq.push(text('goal-tag-txt', "88'  GOAL", 18, px(GI) - 78, py(GI) - 14, { font: SANS, weight: '800', fill: C.ink,
         at: MARK, duration: duration - MARK, keyframes: [{ at: 0.1, from: { alpha: 0 }, duration: 0.2 }] }));
 
-      return { type: 'composition', name: 'stats', at, duration, width: W, height: H, sequences: seq };
+      return { type: 'composition', name: 'stats', at, duration, width: W, height: H, layers: seq };
     }
 
     // ── SCENE C : GOAL stinger ─────────────────────────────────────────────────
@@ -373,7 +373,7 @@
         keyframes: [{ at: 0.85, from: { alpha: 0, scale: 1.6 }, duration: 0.35, ease: 'expo.out' }] }));
 
       return {
-        type: 'composition', name: 'goal', at, duration, width: W, height: H, sequences: seq,
+        type: 'composition', name: 'goal', at, duration, width: W, height: H, layers: seq,
         // a mask's keyframes count from the MASK's own `at` (default 0 = the parent's start), not from the masked layer's start
         mask: slab('goal-mask', OFF_L, 360, SW, 780, SS, C.white, { at, duration, keyframes: sweepKeys(0, IN, OUT_AT, OUT) }),
       };
@@ -381,7 +381,7 @@
 
     // ── Assemble ───────────────────────────────────────────────────────────────
     const GOAL_DUR = 2.3;
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'base', width: W, height: H, initial: { x: 640, y: 360, fill: C.night } },
       matchup({ name: 'matchup', at: 0, duration: T_A_END, intro: true }),
       stats({ at: T_A_END, duration: T_GOAL + 0.4 - T_A_END }),
@@ -415,7 +415,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: C.night,
         assets: [{ name: 'bgm', src: '../_assets/bgm.mp3' }],
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

@@ -29,7 +29,7 @@ async function open<T>(fn: (cdp: any) => Promise<T>, query = ''): Promise<T> {
 
 const mine = (logs: string[]) => logs.filter(l => l.includes('pixi-effects:') && !l.includes('WebGPU'));
 const rgb = async (cdp: any, url: string, x: number, y: number): Promise<number[]> => cdp.eval(`px(${JSON.stringify(url)}, ${x}, ${y})`);
-const mk = async (cdp: any, sequences: unknown[], extra: Record<string, unknown> = {}) => cdp.eval(`mk(${JSON.stringify({ composition: { sequences }, ...extra })})`);
+const mk = async (cdp: any, layers: unknown[], extra: Record<string, unknown> = {}) => cdp.eval(`mk(${JSON.stringify({ composition: { layers }, ...extra })})`);
 const GRAD = 'void mainImage(out vec4 c, in vec2 f) { vec2 uv = f / iResolution.xy; c = vec4(uv.x, uv.y, 0.5 + 0.5 * sin(iTime * 3.0), 1.0); }';
 const near = (got: number[], want: number[], tol: number, label: string) => { for (let k = 0; k < 3; k++) expect(Math.abs(got[k]! - want[k]!), `${label} channel ${k}: got ${got} want ${want.map(v => Math.round(v))}`).toBeLessThanOrEqual(tol); };
 
@@ -140,7 +140,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       const t = 'void mainImage(out vec4 c, in vec2 f) { c = vec4(iTime / 4.0, 0.0, 0.0, 1.0); }';
       await mk(cdp, [{ type: 'shader', fragment: t, at: 1, duration: 1 }], { duration: 3 });
       near(await rgb(cdp, await cdp.eval('snap(45)'), 100, 100), [0.5 / 4 * 255, 0, 0], 3, 'at: 1, drawn at 1.5 s');
-      await mk(cdp, [{ type: 'composition', name: 'inner', width: 320, height: 180, duration: 2, speed: 2, initial: { x: 0, y: 0 }, sequences: [{ type: 'shader', fragment: t }] }], { duration: 2 });
+      await mk(cdp, [{ type: 'composition', name: 'inner', width: 320, height: 180, duration: 2, speed: 2, initial: { x: 0, y: 0 }, layers: [{ type: 'shader', fragment: t }] }], { duration: 2 });
       near(await rgb(cdp, await cdp.eval('snap(30)'), 100, 100), [2 / 4 * 255, 0, 0], 3, 'a composition at speed 2: 1 s of the movie is 2 s of its clock');
       const o = await cdp.eval('orders([0, 10, 20, 30, 40, 50, 59])');
       expect(o.bwdMax).toBe(0); expect(o.jmpMax).toBe(0);

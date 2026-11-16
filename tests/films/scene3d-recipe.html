@@ -27,8 +27,8 @@
       const body = md.split(`// @docs-only ${id}`)[1].split('```')[0]
         .replaceAll("'model.glb'", "'../fixtures/spin-box.gltf'").replaceAll("'Fox.glb'", "'../fixtures/spin-box.gltf'").replaceAll("animation: 'Run'", "animation: 'Spin'");      // the fixture model and its clip
       const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-      const sequences = await new AsyncFunction('loadModel', 'Mesh3D', 'Model3D', 'PlaneGeometry', 'CubeGeometry', 'Material3D', 'DirectionalLight', 'Assets', body)(loadModel, Mesh3D, Model3D, PlaneGeometry, CubeGeometry, Material3D, DirectionalLight, Assets);
-      await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 5, frameRate: 30, background: '#000000', composition: { sequences } });
+      const layers = await new AsyncFunction('loadModel', 'Mesh3D', 'Model3D', 'PlaneGeometry', 'CubeGeometry', 'Material3D', 'DirectionalLight', 'Assets', body)(loadModel, Mesh3D, Model3D, PlaneGeometry, CubeGeometry, Material3D, DirectionalLight, Assets);
+      await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 5, frameRate: 30, background: '#000000', composition: { layers } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
   </script>

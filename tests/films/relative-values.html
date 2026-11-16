@@ -20,7 +20,7 @@
   </script>
   <script type="module">
     import { Movie } from '../../dist/index.js';
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'slide', width: 100, height: 100, initial: { x: 500, y: 100, anchorX: 0, anchorY: 0, fill: '#ff5a36' },
         keyframes: [{ at: 0, duration: 1, from: { x: '-=200' } }] },
       { type: 'shape', shape: 'rect', name: 'fade', width: 100, height: 100, initial: { x: 100, y: 300, anchorX: 0, anchorY: 0, alpha: 1, fill: '#38c8ff' },
@@ -32,7 +32,7 @@
     ];
     const movie = new Movie();
     window.movie = movie;
-    await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 3, frameRate: 30, background: '#111', composition: { sequences } });
+    await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 3, frameRate: 30, background: '#111', composition: { layers } });
     window.__ready = true;
   </script>
 </body>

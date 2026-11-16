@@ -62,13 +62,13 @@
     // import { register3D } from 'pixi-effects/3d';   // a 3D scene (PixiJS 3D: meshes, glTF models, lights) as a layer: call register3D() before init; recipe scene3d-basics
     // import { Mesh3D, Model3D, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
     // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
-    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, layers }] });
     //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
 
     const W = 1280, H = 720, FPS = 30, DURATION = 6;
 
     // Build the composition as DATA. Repeated structure = a JS function / loop returning specs.
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0a0a0f' } },
       {
         type: 'text', text: 'Hello', at: 0.5, duration: DURATION - 0.5,
@@ -90,7 +90,7 @@
         poster: DURATION * 0.75,        // the moment that stands for the video before it plays (pick your most striking one)
         background: '#0a0a0f',
         // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

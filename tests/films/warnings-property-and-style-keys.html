@@ -43,7 +43,7 @@
     const wrong = (name) => q.get('mistakes') === '1' && !fixed.has(name);
     // each mistaken layer: the wrong key when it is wrong, the right way to write it otherwise
     const a = wrong('fader') ? 'alhpa' : 'alpha';
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'fader', width: 40, height: 20,
         initial: { x: 40, y: 30, fill: '#e04040', [a]: 0.5 },
         keyframes: [{ at: 0.5, from: { [a]: 0 }, to: { [a]: 1 }, duration: 1 }] },
@@ -75,7 +75,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30, background: '#101010',
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }

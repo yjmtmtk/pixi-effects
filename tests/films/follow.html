@@ -31,7 +31,7 @@
     window.screenOf = (label) => { const n = view.root.getChildByLabel(label, true); const g = n.getGlobalTransform(new P3D.Matrix4()); return window.worldToCanvas([g.elements[12], g.elements[13], g.elements[14]]); };
     window.worldToCanvas = (p) => { const s = view.worldToScreen({ x: p[0], y: p[1], z: p[2] }); return s ? [s.x, s.y] : null; };
     const dot = (name, follow, colour, extra = {}) => ({ type: 'shape', shape: 'rect', name, follow, width: 6, height: 6, ...extra, initial: { fill: colour, ...(extra.initial ?? {}) } });
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'backdrop', width: 480, height: 270, initial: { x: 240, y: 135, fill: '#000000' } },
       { type: 'scene3d', name: 'world',
         setup: ({ root, camera, view: v }) => {
@@ -50,7 +50,7 @@
         setup: ({ root }) => { const g = new Graphics({ label: 'dot' }).circle(0, 0, 3).fill(0x444444); root.addChild(g); return { objects: { dot: g } }; },
         update: (t, { objects }) => { objects.dot.position.set(60 + 40 * t, 200); } },
       { type: 'shape', shape: 'rect', name: 'box', width: 10, height: 10, initial: { x: 300, y: 60, fill: '#333333' }, keyframes: [{ at: 0, to: { x: 420 }, duration: 3, ease: 'none' }] },
-      { type: 'composition', name: 'group', width: 200, height: 100, initial: { x: 200, y: 0, anchorX: 0, anchorY: 0 }, sequences: [
+      { type: 'composition', name: 'group', width: 200, height: 100, initial: { x: 200, y: 0, anchorX: 0, anchorY: 0 }, layers: [
         { type: 'shape', shape: 'rect', name: 'inner', width: 4, height: 4, initial: { x: 40, y: 30, fill: '#333333' } },
       ] },
       { type: 'shape', shape: 'rect', name: 'late', at: 2, width: 4, height: 4, initial: { x: 440, y: 240, fill: '#333333' } },
@@ -61,10 +61,10 @@
       dot('fbehind', 'world/behind', '#ff00ff'),
       dot('flate', 'late', '#ff8800'),
     ];
-    if (q.get('bad')) sequences.push(dot('fbad', 'world/Marz', '#ffffff'));
-    if (q.get('flat3d')) sequences.push(dot('f3dcard', 'box', '#ffffff', { threeD: true }));
-    if (q.get('far')) sequences.push(dot('ffar', 'box', '#ffffff', { initial: { x: 640, y: 360 } }));
-    if (q.get('space')) sequences.push(
+    if (q.get('bad')) layers.push(dot('fbad', 'world/Marz', '#ffffff'));
+    if (q.get('flat3d')) layers.push(dot('f3dcard', 'box', '#ffffff', { threeD: true }));
+    if (q.get('far')) layers.push(dot('ffar', 'box', '#ffffff', { initial: { x: 640, y: 360 } }));
+    if (q.get('space')) layers.push(
       { type: 'camera', initial: { x: 240, y: 135 }, keyframes: [{ at: 0, to: { x: 340, y: 95 }, duration: 3, ease: 'none' }] },        // the composition's camera pans: the scene below follows it
       { type: 'shape', shape: 'rect', name: 'ref', threeD: true, width: 4, height: 4, initial: { x: 240, y: 135, z: 0, fill: '#333333' } },   // a card at the ball's place: where the composition draws that point
       { type: 'scene3d', name: 'orbit', followCamera: true,
@@ -76,9 +76,9 @@
         } },
       dot('fball', 'orbit/ball', '#ff0000'),
       { type: 'text', name: 'pass', text: 'pass {pass}', style: { fontSize: 10, fill: '#888888' }, initial: { x: 4, y: 4, anchorX: 0, anchorY: 0 } });   // what the variable changes: setVars rebuilds the movie
-    if (q.get('card')) sequences.push({ type: 'composition', name: 'cardcomp', threeD: true, width: 100, height: 100, initial: { x: 240, y: 135 }, sequences: [{ type: 'shape', shape: 'rect', name: 'incard', width: 4, height: 4, initial: { x: 50, y: 50 } }] }, dot('fcard', 'cardcomp/incard', '#ffffff'));
+    if (q.get('card')) layers.push({ type: 'composition', name: 'cardcomp', threeD: true, width: 100, height: 100, initial: { x: 240, y: 135 }, layers: [{ type: 'shape', shape: 'rect', name: 'incard', width: 4, height: 4, initial: { x: 50, y: 50 } }] }, dot('fcard', 'cardcomp/incard', '#ffffff'));
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#000000', composition: { sequences }, ...(q.get('space') ? { vars: { pass: 0 } } : {}) });
+      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#000000', composition: { layers }, ...(q.get('space') ? { vars: { pass: 0 } } : {}) });
       // the exported file, decoded in the page: the colour at (x, y) of `frame` (rendered once)
       let file = null;
       window.pixelInFile = async (frame, x, y) => {

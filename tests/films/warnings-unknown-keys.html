@@ -42,7 +42,7 @@
     const pillShape = q.get('pill') === 'circle' ? 'circle' : 'rect';
     const fill = (c) => ({ fill: c });
     // each mistaken layer: the wrong key when ?mistakes=1, the right way to write it otherwise
-    const sequences = [
+    const layers = [
       { type: 'shape', shape: 'rect', name: 'bar', width: 60, height: 12, ...(wrong ? { duraton: 2 } : { duration: 2 }), initial: { x: 40, y: 20, ...fill('#e04040') } },
       { type: 'shape', shape: 'rect', name: 'panel', width: 60, height: 12, ...(wrong ? { anchorx: 0 } : { anchorX: 0 }), initial: { x: 120, y: 20, ...fill('#40e040') } },
       { type: 'shape', shape: 'rect', name: 'card', width: 60, height: 30, ...(wrong ? { cornerradius: 8 } : { cornerRadius: 8 }), initial: { x: 220, y: 30, ...fill('#4040e0') } },
@@ -65,7 +65,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#101010',
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }

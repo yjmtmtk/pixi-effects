@@ -29,7 +29,7 @@ export function usesAdvancedBlend(spec: unknown): boolean {
     if (!n || typeof n !== 'object') return false;
     if (Array.isArray(n)) return n.some(visit);
     const o = n as Record<string, unknown>;
-    return isAdvancedBlend(o.blendMode) || visit(o.sequences) || visit(o.mask) || visit(o.layer);       // (`layer`: a mask written as { layer: <spec>, invert })
+    return isAdvancedBlend(o.blendMode) || visit(o.layers) || visit(o.mask) || visit(o.layer);       // (`layer`: a mask written as { layer: <spec>, invert })
   };
   return visit(spec);
 }
@@ -44,7 +44,7 @@ export function usesBackdropFilter(spec: unknown): boolean {
     if (Array.isArray(n)) return n.some(visit);
     const o = n as Record<string, unknown>;
     const own = Array.isArray(o.filters) && o.filters.some((f) => !!f && typeof f === 'object' && BACKDROP_FILTERS.has(String((f as { type?: unknown }).type)));
-    return own || visit(o.sequences) || visit(o.mask) || visit(o.layer);
+    return own || visit(o.layers) || visit(o.mask) || visit(o.layer);
   };
   return visit(spec);
 }
@@ -137,7 +137,7 @@ export async function enableAdvancedBlend(renderer: unknown): Promise<void> {
 /** This many layers with an advanced blend on screen at once is slow: each is a full-frame pass (measured on WebGL: about 1.5–2 ms each at 1080p). */
 export const MANY_ADVANCED = 10;
 
-type Counted = { at?: number; duration?: number; blendMode?: unknown; type?: string; sequences?: unknown };
+type Counted = { at?: number; duration?: number; blendMode?: unknown; type?: string; layers?: unknown };
 
 /**
  * The full-frame passes one layer costs while it is on screen: 1 for a layer with an advanced mode (a composition blends as one picture, so it is
@@ -146,7 +146,7 @@ type Counted = { at?: number; duration?: number; blendMode?: unknown; type?: str
  */
 function passesOf(l: Counted, span: number): number {
   const own = isAdvancedBlend(l.blendMode) ? 1 : 0;
-  const inside = l.type === 'composition' && Array.isArray(l.sequences) ? maxConcurrentAdvanced(l.sequences as Counted[], l.duration ?? span) : 0;
+  const inside = l.type === 'composition' && Array.isArray(l.layers) ? maxConcurrentAdvanced(l.layers as Counted[], l.duration ?? span) : 0;
   return own + inside;
 }
 

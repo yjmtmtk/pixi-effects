@@ -49,7 +49,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000',
-        composition: { sequences: [
+        composition: { layers: [
           { type: 'text', name: 'wrap', text: TEXT, style: wrapStyle, initial: { x: 20, y: 60 } },
           { type: 'text', name: 'nowrap', text: TEXT, style: nowrapStyle, initial: { x: 300, y: 10 } },
         ] },

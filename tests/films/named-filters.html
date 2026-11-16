@@ -60,7 +60,7 @@
       const { at, animate, ...rest } = f;
       const filter = at === 'centre' ? { ...rest, ...(f.type === 'twist' ? { offset: { x: x + TW / 2, y: y + TH / 2 } } : { center: { x: x + TW / 2, y: y + TH / 2 } }) } : f;
       return [
-        { type: 'composition', name: 'tile-' + i, width: TW, height: TH, initial: { x, y }, sequences: card(),
+        { type: 'composition', name: 'tile-' + i, width: TW, height: TH, initial: { x, y }, layers: card(),
           keyframes: animate ? [{ at: 0, to: { ['filters.' + f.name + '.' + animate[0]]: animate[1] }, duration: 2, ease: 'none' }] : undefined,
           filters: [filter], ...(PADDED.has(f.type) ? { filterArea: { x: -24, y: -24, width: TW + 48, height: TH + 48 } } : {}) },
         { type: 'text', text: label, style: { fontSize: 14, fill: '#9fb3d9', fontFamily: 'ui-monospace, Menlo, monospace' }, initial: { x: x + TW / 2, y: y + TH + 16, anchorX: 0.5, anchorY: 0.5 } },
@@ -72,7 +72,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30, background: '#0b1220',
-        composition: { sequences: tiles },
+        composition: { layers: tiles },
       });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }

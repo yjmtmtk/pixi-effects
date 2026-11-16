@@ -34,7 +34,7 @@ import { lintSequence } from '../../src/space/lint';
 import { lintTiming } from '../../src/core/lint';
 import { fakeGl, fake2d, installCanvas } from '../support/fakeGl';
 import { resetGl } from '../../src/core/glShared';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 // the bar chart can grow its bars one at a time (EACH) without the highlight and the callout landing before the last bar
@@ -56,10 +56,10 @@ const blocks = [...md.matchAll(/```js\n\/\/ @(recipe|docs-only)([^\n]*)\n([\s\S]
   .map(m => ({ kind: m[1]!, name: m[2]!.trim(), code: m[3]! }));
 const recipes = blocks.filter(b => b.kind === 'recipe');
 
-function walk(seqs: SequenceSpec[], fn: (s: SequenceSpec, parentDuration: number) => void, parentDuration: number): void {
+function walk(seqs: LayerSpec[], fn: (s: LayerSpec, parentDuration: number) => void, parentDuration: number): void {
   for (const s of seqs) {
     fn(s, parentDuration);
-    const kids = (s as { sequences?: SequenceSpec[] }).sequences;
+    const kids = (s as { layers?: LayerSpec[] }).layers;
     if (kids) walk(kids, fn, s.duration ?? parentDuration);
   }
 }
@@ -82,22 +82,22 @@ describe('skills/pixi-effects/reference/recipes.md', () => {
       if (/type: 'canvas'/.test(r.code)) installCanvas(fakeGl(), fake2d());       // a canvas layer says so when a browser gives no 2D context, and happy-dom's gives none
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', 'wiggle', 'stagger', 'animateText', 'followPath', 'cameraPath', 'particles', 'deck', 'react', 'bpmEnvelope', 'random', 'rand', 'noise', 'noise2', 'samplePath', 'ease', r.code)(kenBurns, withFade, orbit, splitText, measureText, wiggle, stagger, animateText, followPath, cameraPath, particles, deck, react, bpmEnvelope, random, rand, noise, noise2, samplePath, ease) as
-        SequenceSpec[] | { sequences: SequenceSpec[]; transitions?: unknown[]; duration?: number; components?: unknown; markers?: unknown };
+        LayerSpec[] | { layers: LayerSpec[]; transitions?: unknown[]; duration?: number; components?: unknown; markers?: unknown };
       // components are placed first and moments by name made seconds (as Movie does): what is linted and built is ordinary compositions
-      const placed = expandComponents({ sequences: Array.isArray(out) ? out : out.sequences, ...(!Array.isArray(out) && out.components ? { components: out.components } : {}) });
+      const placed = expandComponents({ layers: Array.isArray(out) ? out : out.layers, ...(!Array.isArray(out) && out.components ? { components: out.components } : {}) });
       expect(placed.warnings).toEqual([]);
       const transitions = Array.isArray(out) ? undefined : out.transitions;
       const duration = (!Array.isArray(out) && out.duration) || 8;
       const timed = resolveMoments({ ...placed.spec, ...(!Array.isArray(out) && out.markers ? { markers: out.markers } : {}) }, { duration, frameRate: 30 });
       expect(timed.warnings).toEqual([]);
-      const sequences = timed.spec.sequences as SequenceSpec[];
-      expect(sequences.length).toBeGreaterThan(0);
+      const layers = timed.spec.layers as LayerSpec[];
+      expect(layers.length).toBeGreaterThan(0);
 
       // static lint: the spec itself must not trigger any authoring warning
-      walk(sequences, (s, pd) => { lintSequence(s); lintTiming(s, pd); }, duration);
+      walk(layers, (s, pd) => { lintSequence(s); lintTiming(s, pd); }, duration);
 
       const root: CompositionShape = { width: 1280, height: 720, duration };
-      const spec = expandTransitions({ width: 1280, height: 720, duration, sequences, ...(transitions ? { transitions } : {}) } as never);
+      const spec = expandTransitions({ width: 1280, height: 720, duration, layers, ...(transitions ? { transitions } : {}) } as never);
       const comp = new CompositionSequence({ type: 'composition', ...spec } as never, null, root);
       await comp.build();
       comp.bindTimeline(createTimeline({ paused: true }));

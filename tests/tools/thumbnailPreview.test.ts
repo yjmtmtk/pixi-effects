@@ -9,7 +9,7 @@ import { launchPage } from '../support/browser';
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
 const chrome = check.findChrome();
-const built = existsSync(join(root, 'dist/Controller.js'));
+const built = existsSync(join(root, 'dist/controller.js'));
 const run = describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS);
 
 async function withPage(query: string, fn: (cdp: any) => Promise<void>): Promise<void> {

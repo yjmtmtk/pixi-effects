@@ -31,7 +31,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/3d":         "../../dist/3d.js",
       "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs"
     }
@@ -502,7 +502,7 @@
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
         ],
-        composition: { sequences },
+        composition: { layers: sequences },
       });
       window.__ready = true;
     } catch (e) {

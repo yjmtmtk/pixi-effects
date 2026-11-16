@@ -4,10 +4,10 @@ import {
   DEFAULT_APERTURE, MIN_BLUR, MAX_BLUR,
 } from '../../src/space/focus';
 import { homeDistance } from '../../src/space/math';
-import type { SequenceSpec } from '../../src/types';
+import type { LayerSpec } from '../../src/types';
 
 const focal = homeDistance(720, 40);          // the home camera: focal length = camera distance = 989.09 px at 720p
-const sp = (o: unknown) => o as SequenceSpec;
+const sp = (o: unknown) => o as LayerSpec;
 
 describe('blurRadius', () => {
   it('is 0 on the focal plane, and grows with |1/d − 1/s| and with aperture (closed form: aperture × focal × |1/d − 1/s| / 2)', () => {

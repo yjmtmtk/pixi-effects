@@ -16,11 +16,11 @@ describe('playground doc: the edit block of ai/chat-template.html', () => {
   it('editRegion gives the code of the block, without the page\'s 4-space indent; the default has the constants an AI writes', () => {
     const code = doc.editRegion(template);
     expect(code).toMatch(/^const W = 1280, H = 720, FPS = 30, DURATION = 6;/m);
-    expect(code).toMatch(/const sequences = \[/);
+    expect(code).toMatch(/const layers = \[/);
     expect(code.startsWith('    ')).toBe(false);
   });
   it('withRegion and editRegion round-trip any code, and the rest of the page is untouched', () => {
-    const code = 'const W = 640, H = 360, FPS = 24, DURATION = 2;\nconst BACKGROUND = "#000";\nconst sequences = [];\nconst POSTER = 1;';
+    const code = 'const W = 640, H = 360, FPS = 24, DURATION = 2;\nconst BACKGROUND = "#000";\nconst layers = [];\nconst POSTER = 1;';
     const html = doc.withRegion(template, code);
     expect(doc.editRegion(html)).toBe(code);
     expect(html).not.toContain('const W = 1280');
@@ -28,25 +28,25 @@ describe('playground doc: the edit block of ai/chat-template.html', () => {
     expect(strip(html)).toBe(strip(template));
   });
   it('a block with code that contains $ patterns is inserted literally', () => {
-    const code = "const x = '$&$1$`'; const sequences = [];";
+    const code = "const x = '$&$1$`'; const layers = [];";
     expect(doc.editRegion(doc.withRegion(template, code))).toBe(code);
   });
   it('standalone is just the replaced block, still pinned to the released library on the CDN', () => {
-    const html = doc.standalone(template, 'const sequences = [];');
+    const html = doc.standalone(template, 'const layers = [];');
     expect(html).toContain('cdn.jsdelivr.net/npm/pixi-effects@');
     expect(html).not.toContain('__pixiEffectsBridge');
   });
   it('standalone can carry the extra imports a piece needs and the address its files load from', () => {
-    const html = doc.standalone(template, 'const sequences = [];', { extraImports: { 'pixi-filters': 'https://cdn.example/pf.mjs' }, assetBase: 'https://site.example/pixi-effects/examples/' });
+    const html = doc.standalone(template, 'const layers = [];', { extraImports: { 'pixi-filters': 'https://cdn.example/pf.mjs' }, assetBase: 'https://site.example/pixi-effects/examples/' });
     expect(html).toContain('"pixi-filters": "https://cdn.example/pf.mjs"');
     expect(html).toContain('<base href="https://site.example/pixi-effects/examples/">');
     expect(html).toContain('cdn.jsdelivr.net/npm/pixi-effects@');             // still the released library
     expect(doc.standalone(template, 'x')).not.toContain('<base ');           // nothing added when not asked
   });
   it('compose points the library at this site, makes assets resolve from the examples folder, adds the bridge and any extra imports', () => {
-    const html = doc.compose(template, 'const sequences = [];', { distBase: 'https://site.example/pixi-effects/dist/', assetBase: 'https://site.example/pixi-effects/examples/', extraImports: { 'pixi-filters': 'https://cdn.example/pf.mjs' } });
+    const html = doc.compose(template, 'const layers = [];', { distBase: 'https://site.example/pixi-effects/dist/', assetBase: 'https://site.example/pixi-effects/examples/', extraImports: { 'pixi-filters': 'https://cdn.example/pf.mjs' } });
     expect(html).toContain('"pixi-effects":            "https://site.example/pixi-effects/dist/index.js"');
-    expect(html).toContain('"pixi-effects/controller": "https://site.example/pixi-effects/dist/Controller.js"');
+    expect(html).toContain('"pixi-effects/controller": "https://site.example/pixi-effects/dist/controller.js"');
     expect(html).not.toContain('cdn.jsdelivr.net/npm/pixi-effects@');
     expect(html).toContain('<base href="https://site.example/pixi-effects/examples/">');
     expect(html).toContain('"pixi-filters": "https://cdn.example/pf.mjs"');

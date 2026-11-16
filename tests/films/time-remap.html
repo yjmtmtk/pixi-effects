@@ -37,7 +37,7 @@
       });
       const canvas = document.createElement('canvas');
       const m = new Movie();
-      await m.init({ canvas, width: 160, height: 90, duration: CLIP_FRAMES / FPS, frameRate: FPS, background: '#202020', composition: { sequences: bits } });
+      await m.init({ canvas, width: 160, height: 90, duration: CLIP_FRAMES / FPS, frameRate: FPS, background: '#202020', composition: { layers: bits } });
       const blob = await m.render({ format: 'mp4' });
       await m.destroy();
       return URL.createObjectURL(blob) + '#clip.mp4';        // the loader recognises a video by the END of the url; fetch ignores the fragment
@@ -92,7 +92,7 @@
     // the content of the composition under test: features that keep state across a seek. `duration` is the composition's: the
     // unremapped oracle uses the remapped one's CONTENT length so its children live as long as they do there.
     window.stage = (extra = {}) => ({
-      type: 'composition', name: 'stage', duration: 4, ...extra, sequences: [
+      type: 'composition', name: 'stage', duration: 4, ...extra, layers: [
         { type: 'shape', shape: 'rect', name: 'to', width: 40, height: 40, initial: { x: 20, y: 20, fill: '#ff3d81' }, keyframes: [{ at: 0, to: { x: 260 }, duration: 3, ease: 'power1.inOut' }] },
         { type: 'shape', shape: 'circle', name: 'from', radius: 18, initial: { x: 160, y: 110, fill: '#3ddc97' }, keyframes: [{ at: 0.5, from: { alpha: 0, scale: 0.2 }, to: { alpha: 1, scale: 1 }, duration: 1 }] },
         { type: 'text', name: 'set', text: 'one', initial: { x: 20, y: 150, anchorX: 0, anchorY: 0 }, style: { fontSize: 24, fill: '#ffffff' }, keyframes: [{ at: 1.5, set: { text: 'two' } }, { at: 2.5, set: { text: 'three' } }] },
@@ -103,7 +103,7 @@
     });
     // the oracle: the SAME content, unremapped (a composition `content` seconds long), shown at the local time map(f / 30) for each output frame f
     window.plainAt = async (map, frames, content) => {
-      await window.mk({ duration: content, composition: { sequences: [window.stage({ duration: content })] } });
+      await window.mk({ duration: content, composition: { layers: [window.stage({ duration: content })] } });
       const out = {};
       for (const f of frames) out[f] = await window.snap(Math.round(map(f / 30) * 30));
       return out;

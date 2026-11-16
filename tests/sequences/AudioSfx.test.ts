@@ -7,11 +7,11 @@ vi.mock('pixi.js', async () => {
 import { CompositionSequence } from '../../src/sequences/Composition';
 import { mixdown } from '../../src/core/AudioMixer';
 import { sfxDefaultLength, renderSfx } from '../../src/audio/sfx';
-import type { AudioDescriptor, CompositionShape, SequenceSpec } from '../../src/types';
+import type { AudioDescriptor, CompositionShape, LayerSpec } from '../../src/types';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 3 };
-async function build(sequences: unknown[]) {
-  const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration: 3, sequences: sequences as SequenceSpec[] }, null, root);
+async function build(layers: unknown[]) {
+  const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration: 3, layers: layers as LayerSpec[] }, null, root);
   await comp.build();
   const audios: AudioDescriptor[] = [];
   comp.collectAudio(audios, 0);
@@ -63,7 +63,7 @@ describe('audio layer with sfx', () => {
   });
 
   it('a nested composition offsets its sfx like any child', async () => {
-    const audios = await build([{ type: 'composition', at: 1, duration: 2, sequences: [{ type: 'audio', sfx: 'click', at: 0.5 }] }]);
+    const audios = await build([{ type: 'composition', at: 1, duration: 2, layers: [{ type: 'audio', sfx: 'click', at: 0.5 }] }]);
     expect(audios[0]!.start).toBeCloseTo(1.5, 9);
   });
 

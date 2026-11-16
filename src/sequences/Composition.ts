@@ -21,13 +21,13 @@ import { applyBlendMode, maxConcurrentAdvanced, MANY_ADVANCED, usesBackdropFilte
 import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type CameraState } from '../space/math';
 import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap, type ClockTable } from '../core/remap';
 import { kfDuration } from '../core/spring';
-import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec, SpaceNow } from '../types';
+import type { CompositionLayerSpec, AudioDescriptor, CompositionShape, LayerSpec, SpaceNow } from '../types';
 import { layerAt } from '../core/layerAt';
 
 
 
 export class CompositionSequence extends Sequence {
-  declare spec: CompositionSequenceSpec;
+  declare spec: CompositionLayerSpec;
   private _innerContainer: Container | null = null;
   private _compositionShape: CompositionShape | null = null;
   _children: Sequence[] = [];
@@ -109,7 +109,7 @@ export class CompositionSequence extends Sequence {
     const blended = isBlended(this.spec.blendMode);
     // A composition whose layers blend with what is behind it (a screen glow over the scene, a backdropBlur) is not isolated: drawn as one picture,
     // they would blend with nothing, and the look would jump when a fade starts. Its alpha goes to each layer (After Effects' collapse, CSS without isolation).
-    const through = !blended && reachesBackdrop(this.spec.sequences);
+    const through = !blended && reachesBackdrop(this.spec.layers);
     this._group = through ? null : groupPicture(wrapper, blended, () => this.filters.length);
 
     this.target = wrapper;
@@ -135,23 +135,23 @@ export class CompositionSequence extends Sequence {
     this._compositionShape = { width, height, duration: span, ...(vars ? { vars } : {}), spaceAt: (t) => this._spaceAt(t), findLayer: (name) => this._children.find(c => c.spec.name === name) ?? null, layerNames: () => this._children.map(c => c.spec.name).filter((n): n is string => !!n) };
 
     const lateKeyframes: string[] = [];
-    for (const s of this.spec.sequences ?? []) {
+    for (const s of this.spec.layers ?? []) {
       lintSequence(s);
-      lintFocus(s, this.spec.sequences ?? []);
-      for (const message of matteProblems(s, this.spec.sequences ?? [], span)) console.warn(`pixi-effects: ${describeLayer(s)}: ${message}`);
+      lintFocus(s, this.spec.layers ?? []);
+      for (const message of matteProblems(s, this.spec.layers ?? [], span)) console.warn(`pixi-effects: ${describeLayer(s)}: ${message}`);
       lintTiming(s, span, (message, kind) => (kind === 'late-keyframe' ? lateKeyframes.push(message) : console.warn(message)));
       lintText(s);
       lintKeys(s);
     }
     for (const message of summarizeWarnings(lateKeyframes)) console.warn(message);
-    const crowd = maxConcurrentAdvanced((this.spec.sequences ?? []) as Array<{ at?: number; duration?: number; blendMode?: unknown; type?: string; sequences?: unknown }>, span);
+    const crowd = maxConcurrentAdvanced((this.spec.layers ?? []) as Array<{ at?: number; duration?: number; blendMode?: unknown; type?: string; layers?: unknown }>, span);
     if (crowd >= MANY_ADVANCED) {
       console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${crowd} layers with an advanced blendMode are on screen at once (counted through the compositions in it; a composition with a mode is one pass, as it blends as one picture); each is a full-frame pass (about 2 ms on WebGL). Put fewer layers in the blend (or draw the glow as one layer), or use add / screen / multiply`);
     }
 
     this._children = [];
     await buildSequenceTree(
-      this.spec.sequences ?? [],
+      this.spec.layers ?? [],
       this._compositionShape,
       this.root,
       this._children,
@@ -174,7 +174,7 @@ export class CompositionSequence extends Sequence {
     }
     // Lights taken together (no ambient light, shadows half set, too many lights or casters): said once per composition, only when it has a light
     if (this._children.some(c => c instanceof LightSequence)) {
-      for (const message of lightSetProblems((this.spec.sequences ?? []) as SequenceSpec[])) console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${message}`);
+      for (const message of lightSetProblems((this.spec.layers ?? []) as LayerSpec[])) console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${message}`);
     }
     // A camera's `focus: "title"` becomes that layer's first z, here, where the siblings exist (a camera sees only its parent's shape)
     const layerNames = new Set(this._children.map(c => c.spec.name).filter((n): n is string => !!n));
@@ -234,11 +234,11 @@ export class CompositionSequence extends Sequence {
         }
       }
       if (maskSrc.kind === 'inline') {
-        const maskSpec = maskSrc.spec as unknown as SequenceSpec;
+        const maskSpec = maskSrc.spec as unknown as LayerSpec;
         // The mask lives and animates with the layer it masks: with no `at` of its own its `at` and `duration` are the layer's, so its keyframes
         // are measured from the layer's start too. An explicit `at` is composition time, exactly like a layer's.
         const lifetime = maskSpec.at === undefined ? { at: child.at, duration: maskSpec.duration ?? child.duration } : {};
-        const built = await buildSequenceTree([{ ...maskSpec, ...lifetime } as SequenceSpec], this._compositionShape, this.root);
+        const built = await buildSequenceTree([{ ...maskSpec, ...lifetime } as LayerSpec], this._compositionShape, this.root);
         const maskSeq = built[0];
         if (maskSeq?.target) {
           child.maskSequence = maskSeq;                       // bound to the timeline, synced and destroyed with the layer
@@ -298,9 +298,9 @@ export class CompositionSequence extends Sequence {
     if (this._group && blended) wrapper.filters = [...this.filters, this._group];
   }
 
-  protected override displayProps(): { initial: CompositionSequenceSpec['initial']; keyframes: CompositionSequenceSpec['keyframes'] } {
+  protected override displayProps(): { initial: CompositionLayerSpec['initial']; keyframes: CompositionLayerSpec['keyframes'] } {
     const r = this._remap;
-    return r ? { initial: r.restInitial as CompositionSequenceSpec['initial'], keyframes: r.restKfs } : super.displayProps();
+    return r ? { initial: r.restInitial as CompositionLayerSpec['initial'], keyframes: r.restKfs } : super.displayProps();
   }
 
   override bindTimeline(timeline: Timeline, offset = 0): void {
@@ -396,7 +396,7 @@ export class CompositionSequence extends Sequence {
       if (d >= span) { console.warn(`pixi-effects: ${who}: loop: { duration: ${d} } is not shorter than the composition (${Number(span.toFixed(3))}s), so nothing repeats; ignored`); return null; }
       return d;
     }
-    const L = contentEnd(this.spec.sequences ?? [], span);
+    const L = contentEnd(this.spec.layers ?? [], span);
     if (L !== null && L <= 1e-9) { console.warn(`pixi-effects: ${who}: loop: nothing inside has a length (no duration, no keyframes), so it cannot tell what to repeat; give the length: loop: { duration: 2 }`); return null; }
     if (L === null || L >= span - 1e-9) { console.warn(`pixi-effects: ${who}: loop: what happens inside lasts the whole composition (${Number(span.toFixed(3))}s), so nothing repeats; give the length to repeat: loop: { duration: 2 }`); return null; }
     return L;
@@ -470,7 +470,7 @@ export class CompositionSequence extends Sequence {
       const init = (child.spec.initial ?? {}) as { x?: unknown; y?: unknown };
       const far = (typeof init.x === 'number' && Math.abs(init.x) > width) || (typeof init.y === 'number' && Math.abs(init.y) > height);
       if (far) console.warn(`pixi-effects: ${who}: follow "${want}": x / y are measured from the followed point, so x ${init.x ?? 0}, y ${init.y ?? 0} puts the layer that far away from it; leave x / y out (or small: 20, -14) to sit next to it`);
-      const carrier = new NullSequence({ type: 'null', at: 0, duration: this._contentSpan } as SequenceSpec, this._compositionShape, this.root);
+      const carrier = new NullSequence({ type: 'null', at: 0, duration: this._contentSpan } as LayerSpec, this._compositionShape, this.root);
       await carrier.build();
       this._children.splice(this._children.indexOf(child), 0, carrier);
       const holder = this._parentOf.get(child);
@@ -704,12 +704,12 @@ function alphaSetter(display: object): ((v: number) => void) | null {
 }
 
 /** Does any layer here (at any depth of nested compositions) blend with what is behind it: a `blendMode`, or a filter that reads the backdrop? */
-function reachesBackdrop(sequences: unknown): boolean {
-  if (!Array.isArray(sequences)) return false;
-  return sequences.some((q) => {
-    const o = q as { blendMode?: unknown; type?: string; sequences?: unknown } | null;
+function reachesBackdrop(layers: unknown): boolean {
+  if (!Array.isArray(layers)) return false;
+  return layers.some((q) => {
+    const o = q as { blendMode?: unknown; type?: string; layers?: unknown } | null;
     if (!o || typeof o !== 'object') return false;
-    return isBlended(o.blendMode) || usesBackdropFilter({ sequences: [{ ...o, sequences: undefined }] }) || (o.type === 'composition' && reachesBackdrop(o.sequences));
+    return isBlended(o.blendMode) || usesBackdropFilter({ layers: [{ ...o, layers: undefined }] }) || (o.type === 'composition' && reachesBackdrop(o.layers));
   });
 }
 
@@ -762,7 +762,7 @@ function loopTime(t: number, L: number): number {
  * otherwise the end of its last keyframe, a nested composition's own content when it has neither). Null when it cannot be known (a keyframe
  * measured from the end, a duration that is not a number): the content then lasts the whole composition.
  */
-function contentEnd(layers: readonly SequenceSpec[], span: number): number | null {
+function contentEnd(layers: readonly LayerSpec[], span: number): number | null {
   let end = 0;
   for (const l of layers) {
     const at = layerAt(l);
@@ -777,7 +777,7 @@ function contentEnd(layers: readonly SequenceSpec[], span: number): number | nul
       last = Math.max(last, at + kAt + d * (repeat + 1) + gap * repeat);
     }
     if (l.type === 'composition') {
-      const inner = contentEnd((l as { sequences?: SequenceSpec[] }).sequences ?? [], span);
+      const inner = contentEnd((l as { layers?: LayerSpec[] }).layers ?? [], span);
       if (inner === null) return null;
       last = Math.max(last, at + inner);
     }

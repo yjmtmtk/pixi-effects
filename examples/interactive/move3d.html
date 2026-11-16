@@ -51,7 +51,7 @@
       window.movie = movie;
       window.__pos = pos;
       window.__limits = { STAGE, REACH };
-      await movie.init({ canvas, width: W, height: H, duration: 1, frameRate: 30, background: '#0f1626', composition: { sequences: [
+      await movie.init({ canvas, width: W, height: H, duration: 1, frameRate: 30, background: '#0f1626', composition: { layers: [
         { type: 'camera', initial: { x: 640, y: 60, z: 1180, lookAtX: 640, lookAtY: 470, lookAtZ: 0 } },
         { type: 'light', kind: 'ambient', initial: { intensity: 0.55 } },
         { type: 'light', kind: 'parallel', castsShadows: true, initial: { x: 300, y: -500, z: 900, lookAtX: 640, lookAtY: FLOOR_Y, lookAtZ: 0, intensity: 1.15 } },

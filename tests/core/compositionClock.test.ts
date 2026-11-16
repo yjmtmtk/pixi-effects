@@ -4,7 +4,7 @@ import { CompositionSequence } from '../../src/sequences/Composition';
 import { Sequence } from '../../src/sequences/Base';
 import { Container } from 'pixi.js';
 import { registerSequenceType } from '../../src/core/Composition';
-import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import type { CompositionLayerSpec, CompositionShape } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 // A composition's own clock, two more ways: `frameRate` (its content steps, After Effects' Posterize Time) and `loop` (its content repeats).
@@ -19,7 +19,7 @@ const mover = { type: '__box', name: 'm', keyframes: [{ at: 0, from: { x: 0 }, t
 
 async function stage(extra: Record<string, unknown>, children: unknown[] = [mover]) {
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  const spec = { type: 'composition', width: 320, height: 180, duration: 10, sequences: [{ type: 'composition', name: 'stage', at: 1, duration: 6, width: 320, height: 180, ...extra, sequences: children }] } as unknown as CompositionSequenceSpec;
+  const spec = { type: 'composition', width: 320, height: 180, duration: 10, layers: [{ type: 'composition', name: 'stage', at: 1, duration: 6, width: 320, height: 180, ...extra, layers: children }] } as unknown as CompositionLayerSpec;
   const comp = new CompositionSequence(spec, shape, shape);
   await comp.build();
   const tl = createTimeline({ paused: true });

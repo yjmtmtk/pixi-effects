@@ -4,10 +4,10 @@ import { ShapeSequence } from '../../src/sequences/Shape';
 import { gradientOptions, paintRadial, cssColor } from '../../src/sequences/gradient';
 import { makeGradientFill } from '../../src/sequences/gradientFill';
 import { lintSequence } from '../../src/space/lint';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
-const make = (spec: unknown) => new ShapeSequence({ type: 'shape', shape: 'rect', width: 100, height: 50, ...(spec as object) } as SequenceSpec, comp, comp);
+const make = (spec: unknown) => new ShapeSequence({ type: 'shape', shape: 'rect', width: 100, height: 50, ...(spec as object) } as LayerSpec, comp, comp);
 beforeEach(() => { vi.restoreAllMocks(); });
 
 describe('gradientOptions', () => {
@@ -64,7 +64,7 @@ describe('ShapeSequence.fillGradient', () => {
 
   it('lint: a gradient and fill together is fine; stops given as a bare string is not silently accepted', () => {
     const w: string[] = [];
-    lintSequence({ type: 'shape', shape: 'rect', width: 1, height: 1, fillGradient: { stops: [[0, '#fff'], [1, '#000']] } } as unknown as SequenceSpec, m => w.push(m));
+    lintSequence({ type: 'shape', shape: 'rect', width: 1, height: 1, fillGradient: { stops: [[0, '#fff'], [1, '#000']] } } as unknown as LayerSpec, m => w.push(m));
     expect(w).toEqual([]);
   });
 });

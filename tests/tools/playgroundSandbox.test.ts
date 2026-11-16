@@ -53,7 +53,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Playgr
   it('the code in the frame cannot reach the page, the site\'s storage or the address of the top window', async () => {
     await withRunner(async (cdp) => {
       const title = await cdp.eval('document.title');
-      const code = `const sequences = [];
+      const code = `const layers = [];
 for (const [name, fn] of [['parent.document', () => parent.document.title], ['localStorage', () => localStorage.getItem('x')], ['top.location', () => { top.location = 'about:blank'; }]]) {
   try { fn(); window.__add('LEAK ' + name); } catch (e) { window.__add('blocked: ' + name); }
 }
@@ -99,7 +99,7 @@ const W = 640, H = 360, FPS = 30, DURATION = 1, BACKGROUND = '#000000', POSTER =
       const r = await cdp.eval(`(async () => {
         const rn = runnerWith({ startTimeoutMs: 2500 });
         const t0 = performance.now();
-        const status = await rn.run("const W = 640, H = 360, FPS = 30, DURATION = 2, BACKGROUND = '#000', POSTER = 1; const sequences = (() => { for (;;) {} })();");
+        const status = await rn.run("const W = 640, H = 360, FPS = 30, DURATION = 2, BACKGROUND = '#000', POSTER = 1; const layers = (() => { for (;;) {} })();");
         const frames = document.querySelectorAll('#host iframe').length;
         const after = await rn.call('status').then(() => 'answered', (e) => e.message);
         return { ready: status.ready, failed: status.failed, secs: Math.round((performance.now() - t0) / 100) / 10, frames, after };
@@ -128,7 +128,7 @@ const W = 640, H = 360, FPS = 30, DURATION = 1, BACKGROUND = '#000000', POSTER =
     await withRunner(async (cdp) => {
       const code = `const W = 640, H = 360, FPS = 30, DURATION = 2, BACKGROUND = '#000000', POSTER = 1;
 const INIT = { assets: [{ name: 'bg', src: '../../examples/_assets/photos/${photo}' }] };
-const sequences = [
+const layers = [
   { type: 'image', asset: 'bg', initial: { x: 0, y: 0 } },
   { type: 'audio', sfx: 'pop', at: 0.2 },
 ];`;

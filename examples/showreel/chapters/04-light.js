@@ -9,7 +9,7 @@ export default function chapter(P) {
   return {
     duration: 8,
     poster: 7.4,
-    sequences: [
+    layers: [
       P.bg(C.ink),
       { type: 'shape', shape: 'rect', name: 'sky', width: 1920, height: 1080, anchorX: 0, anchorY: 0,
         fillGradient: { type: 'linear', angle: 180, stops: [[0, C.ink], [0.24, HAZE], [1, HAZE]] }, initial: { x: 0, y: 0 } },

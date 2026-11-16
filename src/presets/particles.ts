@@ -1,5 +1,5 @@
 import { secondsAt } from './_at';
-import type { SequenceSpec, Keyframe } from '../types';
+import type { LayerSpec, Keyframe } from '../types';
 import { warnUnknownOptions, suggestName } from '../core/options';
 import { random, noise } from '../expr/random';
 
@@ -51,7 +51,7 @@ export interface ParticlesOptions {
   /** `'add'` makes overlapping particles glow. */
   blendMode?: string;
   /** Use this layer (any type: an image, a text) for every particle instead of a shape; its keyframes are kept. */
-  template?: SequenceSpec;
+  template?: LayerSpec;
   /** Samples per second of a curved path (gravity, wind, drag, sway): straight steps between them. Default 20. */
   samplesPerSecond?: number;
 }
@@ -59,7 +59,7 @@ export interface ParticlesOptions {
 /**
  * Particles as plain layers: a burst, a fountain, snow, confetti, sparks. Each one is a layer with its own seeded start,
  * velocity, size, colour and life, and a path baked into keyframes (so playback, seeking and export agree), living only
- * while it is alive. Spread the result into `sequences`.
+ * while it is alive. Spread the result into `layers`.
  *
  * ```js
  * ...particles({ count: 80, at: 2, life: [0.8, 1.6], area: { x: 640, y: 400 }, speed: [150, 450], gravity: 500,
@@ -68,7 +68,7 @@ export interface ParticlesOptions {
  *
  * A particle with no gravity, wind, drag or sway is one straight tween; a curved path is sampled `samplesPerSecond` times a second.
  */
-export function particles(opts: ParticlesOptions): SequenceSpec[] {
+export function particles(opts: ParticlesOptions): LayerSpec[] {
   warnUnknownOptions('particles()', opts, KEYS);
   const { count, at: atRaw, emit = 0, gravity = 0, wind = 0, drag = 0, sway, fade, colors = ['#ffffff'], shape = 'circle', seed = 0, name = 'particle', template, samplesPerSecond = 20 } = opts;
   const at = secondsAt('particles', atRaw, 'layers');
@@ -92,7 +92,7 @@ export function particles(opts: ParticlesOptions): SequenceSpec[] {
   }
 
   const round = (v: number) => Math.round(v * 1e6) / 1e6;
-  const out: SequenceSpec[] = [];
+  const out: LayerSpec[] = [];
   for (let i = 0; i < count; i++) {
     const r = random(seed * 1000003 + i * 7919 + 17);
     const pick = ([a, b]: [number, number]) => a + r() * (b - a);
@@ -138,19 +138,19 @@ export function particles(opts: ParticlesOptions): SequenceSpec[] {
     const common = { name: `${name}-${i}`, at: round(born), duration: round(lifetime), ...(opts.blendMode ? { blendMode: opts.blendMode } : {}) };
     if (template) {
       const t = template as unknown as Record<string, unknown> & { initial?: Record<string, unknown>; keyframes?: Keyframe[] };
-      out.push({ ...t, ...common, initial: { ...t.initial, ...initial }, keyframes: [...(t.keyframes ?? []), ...kfs] } as unknown as SequenceSpec);
+      out.push({ ...t, ...common, initial: { ...t.initial, ...initial }, keyframes: [...(t.keyframes ?? []), ...kfs] } as unknown as LayerSpec);
       continue;
     }
     const style = { ...initial, fill: color };
-    if (shape === 'circle') out.push({ type: 'shape', shape: 'circle', radius: round(s), ...common, initial: style, keyframes: kfs } as SequenceSpec);
-    else if (shape === 'rect') out.push({ type: 'shape', shape: 'rect', width: round(s * 2), height: round(s * 2), ...common, initial: style, keyframes: kfs } as SequenceSpec);
+    if (shape === 'circle') out.push({ type: 'shape', shape: 'circle', radius: round(s), ...common, initial: style, keyframes: kfs } as LayerSpec);
+    else if (shape === 'rect') out.push({ type: 'shape', shape: 'rect', width: round(s * 2), height: round(s * 2), ...common, initial: style, keyframes: kfs } as LayerSpec);
     else {
       const points: Array<[number, number]> = [];
       for (let p = 0; p < 10; p++) {
         const rad = (p % 2 === 0 ? s : s * 0.45), ang = -Math.PI / 2 + (p * Math.PI) / 5;
         points.push([round(rad * Math.cos(ang)), round(rad * Math.sin(ang))]);
       }
-      out.push({ type: 'shape', shape: 'polygon', points, ...common, initial: style, keyframes: kfs } as SequenceSpec);
+      out.push({ type: 'shape', shape: 'polygon', points, ...common, initial: style, keyframes: kfs } as LayerSpec);
     }
   }
   return out;

@@ -6,11 +6,11 @@ vi.mock('pixi.js', async () => {
 });
 import { CompositionSequence } from '../../src/sequences/Composition';
 import { mixdown } from '../../src/core/AudioMixer';
-import type { AudioDescriptor, CompositionShape, SequenceSpec } from '../../src/types';
+import type { AudioDescriptor, CompositionShape, LayerSpec } from '../../src/types';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 20 };
-async function build(sequences: unknown[], duration = 20) {
-  const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration, sequences: sequences as SequenceSpec[] }, null, { ...root, duration });
+async function build(layers: unknown[], duration = 20) {
+  const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration, layers: layers as LayerSpec[] }, null, { ...root, duration });
   await comp.build();
   const audios: AudioDescriptor[] = [];
   comp.collectAudio(audios, 0);

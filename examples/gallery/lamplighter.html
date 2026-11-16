@@ -35,7 +35,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present":  "../../dist/present.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
@@ -482,7 +482,7 @@
       ...JUMP_F.map((f, i) => ({ type: 'audio', name: 'jump' + i, at: D + fr(f), duration: 0.18, volume: 0.45, sfx: square(260, 900) })),
     ];
 
-    const sequences = [...title, ...demo, ...splash, ...sound];
+    const layers = [...title, ...demo, ...splash, ...sound];
 
     const movie = new Movie();
     window.movie = movie;
@@ -495,7 +495,7 @@
         poster: 4.5,
         background: INK,
         assets,
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

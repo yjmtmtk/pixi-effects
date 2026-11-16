@@ -6,7 +6,7 @@
     npx pixi-effects help <word>           # the docs about a word: mask, threeD, keyframes, music
     npx pixi-effects recipe [id]           # tested pieces to copy
 
-A video is data: `sequences` (text, shape, image, video, audio, composition, camera), each with `at`, `duration`, `initial`, `keyframes`.
+A video is data: `layers` (text, shape, image, video, audio, composition, camera), each with `at`, `duration`, `initial`, `keyframes`.
 
 ```js
 // @recipe quickstart

@@ -37,7 +37,7 @@ const IDENTITY = { type: 'colorMatrix', matrix: [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0
 const mine = (logs: string[]) => logs.filter(l => l.includes('pixi-effects:') && !l.includes('WebGPU'));
 
 /** A 160 x 90 scene: three bands (the backdrops) and over them three squares (the sources), each blended with `mode` at alpha `alpha`. */
-const scene = (mode: string, alpha: number, extra: Record<string, unknown> = {}) => ({ sequences: [
+const scene = (mode: string, alpha: number, extra: Record<string, unknown> = {}) => ({ layers: [
   ...BACK.map((c, i) => ({ type: 'shape', shape: 'rect', name: `back${i}`, width: 160, height: 30, anchorX: 0, anchorY: 0, initial: { x: 0, y: i * 30, fill: c } })),
   ...BACK.flatMap((_, i) => SRC.map((c, j) => ({ type: 'shape', shape: 'rect', name: `src${i}${j}`, width: 20, height: 20, anchorX: 0, anchorY: 0, blendMode: mode,
     initial: { x: 10 + j * 50, y: i * 30 + 5, fill: c, alpha }, ...extra }))),
@@ -120,9 +120,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('over nothing (a threeD composition draws into a transparent texture first) an advanced blend is the source colour, as W3C says for a backdrop of alpha 0', async () => {
     await withPage(async (cdp) => {
-      const comp = { sequences: [
+      const comp = { layers: [
         { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#b0703a' } },
-        { type: 'composition', name: 'card', width: 160, height: 90, duration: 1, threeD: true, initial: { x: 0, y: 0 }, sequences: [
+        { type: 'composition', name: 'card', width: 160, height: 90, duration: 1, threeD: true, initial: { x: 0, y: 0 }, layers: [
           { type: 'shape', shape: 'rect', width: 40, height: 40, anchorX: 0, anchorY: 0, blendMode: 'overlay', initial: { x: 60, y: 25, fill: '#ff8a3d' } },
         ] },
       ] };
@@ -136,7 +136,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('with the depth-of-field blur on a threeD layer the blend still lands on the backdrop (blur, then blend), and the filters are gone when the layer is sharp', async () => {
     await withPage(async (cdp) => {
-      const comp = (focus: string) => ({ sequences: [
+      const comp = (focus: string) => ({ layers: [
         { type: 'camera', initial: { focus, aperture: 40 } },
         { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#b0703a' } },
         { type: 'shape', shape: 'rect', name: 'sharp', width: 4, height: 4, threeD: true, initial: { x: 4, y: 4, z: 0, fill: '#ffffff' } },
@@ -159,7 +159,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   it('every seek order gives the same pictures (an advanced blend on a moving layer with a filter, and on a threeD layer)', async () => {
     await withPage(async (cdp) => {
       const move = [{ at: 0, to: { x: 120 }, duration: 1, ease: 'power1.inOut' }];
-      const comp = { sequences: [
+      const comp = { layers: [
         { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#2a3f6b' } },
         { type: 'shape', shape: 'circle', radius: 20, blendMode: 'overlay', filters: [IDENTITY], initial: { x: 30, y: 30, fill: '#ff8a3d' }, keyframes: move },
         { type: 'shape', shape: 'circle', radius: 20, blendMode: 'hue', threeD: true, initial: { x: 30, y: 60, fill: '#3dd6c8' }, keyframes: move },
@@ -176,7 +176,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     await withPage(async (cdp) => {
       const hole = { type: 'shape', shape: 'circle', radius: 15, initial: { x: 80, y: 45, fill: '#ffffff' } };
       for (const mode of ['multiply', 'overlay']) {
-        const comp = { sequences: [
+        const comp = { layers: [
           { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#b0703a' } },
           { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: mode, mask: { layer: hole, invert: true }, initial: { x: 0, y: 0, fill: '#3dd6c8' } },
         ] };
@@ -198,7 +198,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   it('a text layer as the mask with a blendMode: the letters show the blend, the rest the backdrop (the mask is a matte; no warning)', async () => {
     await withPage(async (cdp) => {
       const mask = { type: 'text', text: 'I', style: { fontSize: 90, fontWeight: '900', fill: '#ffffff', fontFamily: 'sans-serif' }, initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } };
-      const comp = { sequences: [
+      const comp = { layers: [
         { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#b0703a' } },
         { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: 'multiply', mask, initial: { x: 0, y: 0, fill: '#3dd6c8' } },
       ] };
@@ -220,7 +220,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       const hole = { type: 'shape', shape: 'circle', radius: 18, filters: [{ type: 'blur', strength: 5 }], initial: { x: 80, y: 45, fill: '#ffffff' } };
       const back = hexToRgb('#b0703a');
       for (const mode of ['multiply', 'overlay']) {
-        const comp = { sequences: [
+        const comp = { layers: [
           { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#b0703a' } },
           { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: mode, mask: { layer: hole, invert: true }, initial: { x: 0, y: 0, fill: '#3dd6c8' } },
         ] };
@@ -247,7 +247,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   it('an image layer as the mask with a blendMode: the disc shows the blend, the rest the backdrop (a matte; no warning)', async () => {
     await withPage(async (cdp) => {
       const disc: string = await cdp.eval(`(() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(32, 32, 28, 0, 7); g.fill(); return c.toDataURL('image/png'); })()`);
-      const comp = { sequences: [
+      const comp = { layers: [
         { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#b0703a' } },
         { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: 'multiply', initial: { x: 0, y: 0, fill: '#3dd6c8' },
           mask: { type: 'image', asset: 'disc', initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } } },
@@ -270,7 +270,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       const disc: string = await cdp.eval(`(() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(32, 32, 28, 0, 7); g.fill(); return c.toDataURL('image/png'); })()`);
       const back = hexToRgb('#b0703a');
       for (const mode of ['multiply', 'overlay']) {
-        const comp = { sequences: [
+        const comp = { layers: [
           { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#b0703a' } },
           { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: mode, initial: { x: 0, y: 0, fill: '#3dd6c8' },
             mask: { layer: { type: 'image', asset: 'disc', initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } }, invert: true } },

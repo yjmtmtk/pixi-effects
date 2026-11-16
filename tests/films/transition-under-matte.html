@@ -43,8 +43,8 @@
       keyframes: [{ at: 0, to: { x: 240 }, duration: 2, ease: 'none' }] };
     const bar = { type: 'shape', shape: 'rect', width: 320, height: 60, initial: { x: 160, y: 90, fill: '#00ff00' }, mask: 'blk' };
     const B = { type: 'shape', shape: 'rect', name: 'B', at: 0.5, duration: 1.5, width: 320, height: 180, initial: { x: 160, y: 90, fill: '#0000ff' } };
-    const sequences = SCENE === 'comp'
-      ? [{ type: 'composition', name: 'A', at: 0, duration: 2, width: 320, height: 180, sequences: [bg, blk, { ...bar, name: 'bar' }] }, B]
+    const layers = SCENE === 'comp'
+      ? [{ type: 'composition', name: 'A', at: 0, duration: 2, width: 320, height: 180, layers: [bg, blk, { ...bar, name: 'bar' }] }, B]
       : [bg, blk, { ...bar, name: 'A', at: 0, duration: 2 }, B];
     const extra = KIND === 'wipe' ? { direction: 'left', softness: 0.004 } : KIND === 'dissolve' ? { seed: 0 } : {};
     const transitions = [{ kind: KIND, from: 'A', to: 'B', at: 0.5, duration: DUR, ease: 'none', ...extra }];
@@ -64,7 +64,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30, background: '#000000',
-        composition: { sequences, transitions },
+        composition: { layers, transitions },
       });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }

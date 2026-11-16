@@ -20,8 +20,8 @@
     try {
       const md = await (await fetch('../../skills/pixi-effects/reference/recipes.md')).text();
       const body = md.split('// @docs-only scene2d-basics')[1].split('```')[0];
-      const sequences = new Function('random', 'Graphics', body)(random, Graphics);
-      await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000', composition: { sequences } });
+      const layers = new Function('random', 'Graphics', body)(random, Graphics);
+      await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000', composition: { layers } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
   </script>

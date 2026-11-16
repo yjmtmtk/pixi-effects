@@ -4,7 +4,7 @@ import { MAX_FOV, MIN_FOV, clampFov, homeCamera, homeDistance, type CameraState 
 import { collectPropKeys } from './specKeys';
 import { DEFAULT_APERTURE, withFocusResolved } from './focus';
 import type { CameraWindow } from './camera';
-import type { CameraSequenceSpec, Keyframe } from '../types';
+import type { CameraLayerSpec, Keyframe } from '../types';
 
 type Carrier = Container & {
   z: number; lookAtX: number; lookAtY: number; lookAtZ: number; fov: number; focus: number; aperture: number;
@@ -19,7 +19,7 @@ type Carrier = Container & {
  * the scene graph.
  */
 export class CameraSequence extends Sequence {
-  declare spec: CameraSequenceSpec;
+  declare spec: CameraLayerSpec;
   /** True when `z` is never specified anywhere: z then follows `fov`. */
   autoZ = true;
   private compH = 0;

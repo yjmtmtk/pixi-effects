@@ -29,8 +29,8 @@ const near = (got: number, want: number, pct = 3): void => {
   expect(got, `${got} Hz vs ${want} Hz`).toBeLessThan(want * (1 + pct / 100));
 };
 const audio = (extra: Record<string, unknown>) => JSON.stringify({ type: 'audio', asset: 'tone', ...extra });
-const withTone = (cdp: any, duration: number, sequences: string, assets = `[{ name: 'tone', src: toneUrl(440, 4) }]`) =>
-  cdp.eval(`mk({ duration: ${duration}, assets: ${assets}, composition: { sequences: [${sequences}] } })`);
+const withTone = (cdp: any, duration: number, layers: string, assets = `[{ name: 'tone', src: toneUrl(440, 4) }]`) =>
+  cdp.eval(`mk({ duration: ${duration}, assets: ${assets}, composition: { layers: [${layers}] } })`);
 
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap of sound, on a real browser', () => {
   it('an audio file: speed 2 doubles the pitch, speed 0.5 halves it, backward plays a sweep from high to low', async () => {
@@ -57,14 +57,14 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
 
   it('an audio file inside a composition at speed 2 is twice as high', async () => {
     await withPage(async (cdp) => {
-      await withTone(cdp, 2, JSON.stringify({ type: 'composition', duration: 2, speed: 2, sequences: [{ type: 'audio', asset: 'tone' }] }));
+      await withTone(cdp, 2, JSON.stringify({ type: 'composition', duration: 2, speed: 2, layers: [{ type: 'audio', asset: 'tone' }] }));
       near(await cdp.eval('mixHz(0.2, 1.8)'), 880);
     });
   }, 300000);
 
   it('an sfx inside a composition follows its clock: half as high at 0.5x, and heard at the END when the composition runs backward', async () => {
     await withPage(async (cdp) => {
-      const comp = (extra: Record<string, unknown>) => JSON.stringify({ type: 'composition', duration: 4, ...extra, sequences: [{ type: 'audio', sfx: 'chime' }] });
+      const comp = (extra: Record<string, unknown>) => JSON.stringify({ type: 'composition', duration: 4, ...extra, layers: [{ type: 'audio', sfx: 'chime' }] });
       await withTone(cdp, 4, comp({}));
       const plain: number = await cdp.eval('mixHz(0, 1.4)');
       await withTone(cdp, 4, comp({ speed: 0.5 }));
@@ -77,7 +77,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
 
   it('inspectAudio says when a sound inside a remapped composition plays in the MOVIE\'s time (no false "after the movie ends")', async () => {
     await withPage(async (cdp) => {
-      await withTone(cdp, 4, JSON.stringify({ type: 'composition', duration: 4, speed: 0.5, sequences: [{ type: 'audio', asset: 'tone', duration: 2 }] }));
+      await withTone(cdp, 4, JSON.stringify({ type: 'composition', duration: 4, speed: 0.5, layers: [{ type: 'audio', asset: 'tone', duration: 2 }] }));
       const r = await cdp.eval('movie.inspectAudio()');
       expect(r.sources[0].start).toBeCloseTo(0, 1);
       expect(r.sources[0].end).toBeCloseTo(4, 1);                                        // local 0..2 at half speed = movie 0..4

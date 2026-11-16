@@ -50,12 +50,12 @@ describe('blendProblem', () => {
 });
 
 describe('usesAdvancedBlend', () => {
-  const comp = (sequences: unknown[], extra: Record<string, unknown> = {}) => ({ type: 'composition', sequences, ...extra });
+  const comp = (layers: unknown[], extra: Record<string, unknown> = {}) => ({ type: 'composition', layers, ...extra });
   it('finds an advanced mode on a layer, in a nested composition, and on a mask layer', () => {
     expect(usesAdvancedBlend(comp([{ type: 'shape', shape: 'circle', blendMode: 'overlay' }]))).toBe(true);
     expect(usesAdvancedBlend(comp([comp([comp([{ type: 'text', text: 'a', blendMode: 'hue' }])])]))).toBe(true);
     expect(usesAdvancedBlend(comp([{ type: 'shape', shape: 'circle', mask: { type: 'shape', shape: 'rect', blendMode: 'difference' } }]))).toBe(true);
-    expect(usesAdvancedBlend(comp([{ type: 'composition', blendMode: 'color', sequences: [] }]))).toBe(true);
+    expect(usesAdvancedBlend(comp([{ type: 'composition', blendMode: 'color', layers: [] }]))).toBe(true);
   });
   it('is false for no blend mode, the basic four, a typo, and for things that are not specs', () => {
     expect(usesAdvancedBlend(comp([{ type: 'shape', shape: 'circle' }]))).toBe(false);
@@ -89,7 +89,7 @@ describe('maxConcurrentAdvanced', () => {
   });
   it('a composition with an advanced mode is ONE pass (it blends as one picture), whatever it holds; a basic mode is no heavy pass', () => {
     const shapes = (n: number) => Array.from({ length: n }, () => ({ type: 'shape' }));
-    const comp = (blendMode: unknown, sequences: unknown[], at = 0, duration?: number) => ({ type: 'composition', blendMode, sequences, at, duration });
+    const comp = (blendMode: unknown, layers: unknown[], at = 0, duration?: number) => ({ type: 'composition', blendMode, layers, at, duration });
     expect(maxConcurrentAdvanced([comp('overlay', shapes(12))], 10)).toBe(1);
     expect(maxConcurrentAdvanced([comp('overlay', [...shapes(2), comp(null, shapes(4))])], 10)).toBe(1);
     expect(maxConcurrentAdvanced([comp('overlay', [])], 10)).toBe(1);
@@ -103,7 +103,7 @@ describe('maxConcurrentAdvanced', () => {
   });
   it('counts through the compositions: a composition with no mode adds what is blended inside it, at the same time; one with a mode adds its own pass', () => {
     const shapes = (n: number, blendMode: unknown = 'overlay') => Array.from({ length: n }, () => ({ type: 'shape', blendMode }));
-    const comp = (blendMode: unknown, sequences: unknown[], at = 0, duration?: number) => ({ type: 'composition', blendMode, sequences, at, duration });
+    const comp = (blendMode: unknown, layers: unknown[], at = 0, duration?: number) => ({ type: 'composition', blendMode, layers, at, duration });
     expect(maxConcurrentAdvanced(Array.from({ length: 5 }, () => comp(undefined, shapes(3))), 10)).toBe(15);              // five cards on screen together, three blends in each
     expect(maxConcurrentAdvanced(Array.from({ length: 5 }, (_, i) => comp(undefined, shapes(3), i * 2, 2)), 10)).toBe(3);  // five cards one after another
     expect(maxConcurrentAdvanced([comp('overlay', shapes(4))], 10)).toBe(5);                                              // 4 blends inside, then the picture blends once

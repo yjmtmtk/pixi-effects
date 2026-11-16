@@ -19,7 +19,7 @@
     import * as P3D from '@pixi/3d';
     register3D();
     const q = new URLSearchParams(location.search);
-    const SCREEN = { type: 'composition', name: 'screen', width: 240, height: 135, sequences: [
+    const SCREEN = { type: 'composition', name: 'screen', width: 240, height: 135, layers: [
       { type: 'shape', shape: 'rect', name: 'top', width: 240, height: 68, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#e05030' }, keyframes: [{ at: 0, to: { fill: '#30e050', width: 120 }, duration: 3 }] },
       { type: 'shape', shape: 'rect', name: 'bottom', width: 240, height: 67, anchorX: 0, anchorY: 0, initial: { x: 0, y: 68, fill: '#3080e0' } },
       { type: 'shape', shape: 'rect', name: 'tilt', threeD: true, width: 60, height: 60, initial: { x: 200, y: 34, anchorX: 0.5, anchorY: 0.5, fill: '#ffffff', rotationY: 0 }, keyframes: [{ at: 0, to: { rotationY: 80 }, duration: 3 }] },
@@ -39,7 +39,7 @@
     };
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 240, height: 135, duration: 3, frameRate: 30, background: '#000000',
-        composition: { sequences: q.get('flat') === '1' ? [SCREEN] : [
+        composition: { layers: q.get('flat') === '1' ? [SCREEN] : [
           SCREEN,
           { type: 'scene3d', name: 'tv',
             setup: async (ctx) => {

@@ -14,7 +14,7 @@
   <!--
     The harness an author of ONE chapter checks it with:
       node ai/tools/check.mjs examples/showreel/chapter.html --query ch=03-space --no-export --at 1,3,5 --out <dir>
-    It loads examples/showreel/chapters/<ch>.js (one `export default function chapter(P)` that returns { duration, assets?, sequences, poster? }), plays it alone at
+    It loads examples/showreel/chapters/<ch>.js (one `export default function chapter(P)` that returns { duration, assets?, layers, poster? }), plays it alone at
     1920 x 1080 and 30 fps, and warns (into window.__logs, which `check` prints) when the duration is not the one the table in chapters.json promises.
   -->
   <div class="stage"><canvas id="stage" width="1920" height="1080"></canvas></div>
@@ -32,7 +32,7 @@
       "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny",
       "pixi-effects": "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/controller": "../../dist/controller.js",
       "pixi-effects/present": "../../dist/present.js",
       "pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js" } }
   </script>
@@ -62,7 +62,7 @@
       new Controller(movie, { canvas: document.getElementById('stage') });
       await movie.init({
         canvas: document.getElementById('stage'), width: 1920, height: 1080, duration: row.duration, frameRate: 30, background: '#000000',
-        assets: chapter.assets ?? [], poster: chapter.poster ?? row.duration * 0.6, composition: { sequences: chapter.sequences },
+        assets: chapter.assets ?? [], poster: chapter.poster ?? row.duration * 0.6, composition: { layers: chapter.layers },
       });
       window.__ready = true;
     } catch (err) {

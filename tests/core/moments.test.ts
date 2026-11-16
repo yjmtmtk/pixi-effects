@@ -4,12 +4,12 @@ import { resolveMoments } from '../../src/core/moments';
 // A layer's `at` may name a moment instead of a number of seconds: `host@in` (marker `in` of the composition `host`), `title@end`
 // (where the layer `title` ends), `@drop` (marker `drop` of the composition the layer is in, or of one around it), each with `+ 0.2` / `- 0.5`.
 // After Effects: composition markers, seen from outside the precomp. Resolved once, before anything is built: what is built has numbers.
-type L = { name?: string; type?: string; at?: unknown; duration?: number; markers?: Record<string, number>; sequences?: L[]; speed?: number; loop?: unknown; frameRate?: number; initial?: Record<string, unknown>; keyframes?: unknown[] };
-const run = (sequences: L[], extra: Record<string, unknown> = {}, duration = 10) =>
-  resolveMoments({ duration, sequences, ...extra } as never, { duration, frameRate: 30 });
-const ats = (r: { spec: unknown }) => (r.spec as { sequences: L[] }).sequences.map(l => l.at);
+type L = { name?: string; type?: string; at?: unknown; duration?: number; markers?: Record<string, number>; layers?: L[]; speed?: number; loop?: unknown; frameRate?: number; initial?: Record<string, unknown>; keyframes?: unknown[] };
+const run = (layers: L[], extra: Record<string, unknown> = {}, duration = 10) =>
+  resolveMoments({ duration, layers, ...extra } as never, { duration, frameRate: 30 });
+const ats = (r: { spec: unknown }) => (r.spec as { layers: L[] }).layers.map(l => l.at);
 
-const lowerThird = (name: string, at: unknown, more: Partial<L> = {}): L => ({ type: 'composition', name, at, duration: 3, markers: { in: 0.6, out: 2.4 }, sequences: [{ type: 'text', name: 'title' }], ...more });
+const lowerThird = (name: string, at: unknown, more: Partial<L> = {}): L => ({ type: 'composition', name, at, duration: 3, markers: { in: 0.6, out: 2.4 }, layers: [{ type: 'text', name: 'title' }], ...more });
 
 describe('resolveMoments: a moment by name', () => {
   it('a marker of a composition, from outside: its start plus the marker', () => {
@@ -26,16 +26,16 @@ describe('resolveMoments: a moment by name', () => {
   });
 
   it('@name: a marker of the composition the layer is in, or of one around it (the root too); @end is the end of its own composition', () => {
-    const r = run([{ type: 'composition', name: 'scene', at: 1, duration: 6, markers: { hit: 2 }, sequences: [{ type: 'text', name: 'a', at: '@hit' }, { type: 'text', name: 'b', at: '@drop' }, { type: 'text', name: 'c', at: '@end - 1' }] }], { markers: { drop: 5 } });
+    const r = run([{ type: 'composition', name: 'scene', at: 1, duration: 6, markers: { hit: 2 }, layers: [{ type: 'text', name: 'a', at: '@hit' }, { type: 'text', name: 'b', at: '@drop' }, { type: 'text', name: 'c', at: '@end - 1' }] }], { markers: { drop: 5 } });
     expect(r.warnings).toEqual([]);
-    const inner = (r.spec as { sequences: L[] }).sequences[0]!.sequences!.map(l => l.at);
+    const inner = (r.spec as { layers: L[] }).layers[0]!.layers!.map(l => l.at);
     expect(inner).toEqual([2, 4, 5]);                        // @drop is 5 s on the root's clock, the scene starts at 1: 4 s on the scene's
   });
 
   it('a moment inside another composition is brought onto the clock of the layer that names it (also through speed)', () => {
     const r = run([
-      { type: 'composition', name: 'scene', at: 2, duration: 4, sequences: [lowerThird('host', 1)] },
-      { type: 'composition', name: 'slow', at: 1, duration: 8, speed: 0.5, markers: { hit: 2 }, sequences: [{ type: 'text', name: 't' }] },
+      { type: 'composition', name: 'scene', at: 2, duration: 4, layers: [lowerThird('host', 1)] },
+      { type: 'composition', name: 'slow', at: 1, duration: 8, speed: 0.5, markers: { hit: 2 }, layers: [{ type: 'text', name: 't' }] },
       { type: 'audio', name: 'a', at: 'host@in' },          // 2 + 1 + 0.6
       { type: 'audio', name: 'b', at: 'slow@hit' },          // the slow clock reaches 2 after 4 s: 1 + 4
     ]);
@@ -44,17 +44,17 @@ describe('resolveMoments: a moment by name', () => {
   });
 
   it('a layer inside a composition names a layer outside it: the moment comes down onto its clock', () => {
-    const r = run([{ type: 'text', name: 'logo', at: 3, duration: 1 }, { type: 'composition', name: 'scene', at: 2, duration: 5, sequences: [{ type: 'text', name: 'x', at: 'logo@end' }] }]);
+    const r = run([{ type: 'text', name: 'logo', at: 3, duration: 1 }, { type: 'composition', name: 'scene', at: 2, duration: 5, layers: [{ type: 'text', name: 'x', at: 'logo@end' }] }]);
     expect(r.warnings).toEqual([]);
-    expect((r.spec as { sequences: L[] }).sequences[1]!.sequences![0]!.at).toBe(2);   // 4 s on the root = 2 s into the scene
+    expect((r.spec as { layers: L[] }).layers[1]!.layers![0]!.at).toBe(2);   // 4 s on the root = 2 s into the scene
   });
 
   it('moments may name moments (in any order); a name is looked for nearest first (a sibling before a layer elsewhere)', () => {
     const r = run([{ type: 'text', name: 'b', at: 'a@end' }, { type: 'text', name: 'a', at: 1, duration: 1 }, { type: 'text', name: 'c', at: 'b@start + 1' },
-      { type: 'composition', name: 'scene', at: 5, duration: 4, sequences: [{ type: 'text', name: 'a', at: 0.5, duration: 1 }, { type: 'text', name: 'x', at: 'a@end' }] }]);
+      { type: 'composition', name: 'scene', at: 5, duration: 4, layers: [{ type: 'text', name: 'a', at: 0.5, duration: 1 }, { type: 'text', name: 'x', at: 'a@end' }] }]);
     expect(r.warnings).toEqual([]);
     expect(ats(r).slice(0, 3)).toEqual([2, 1, 3]);
-    expect((r.spec as { sequences: L[] }).sequences[3]!.sequences![1]!.at).toBe(1.5);   // the `a` beside it, not the one outside
+    expect((r.spec as { layers: L[] }).layers[3]!.layers![1]!.at).toBe(1.5);   // the `a` beside it, not the one outside
   });
 
   it('a marker counted from the end (negative), a component\'s markers come with it, a number written as text is a number', () => {
@@ -64,7 +64,7 @@ describe('resolveMoments: a moment by name', () => {
   });
 
   it('lists every marker on the movie\'s clock (for check --at host@in), the root\'s with no layer name', () => {
-    const r = run([lowerThird('host', 2), { type: 'composition', name: 'scene', at: 1, duration: 5, sequences: [lowerThird('inner', 1)] }], { markers: { drop: 5 } });
+    const r = run([lowerThird('host', 2), { type: 'composition', name: 'scene', at: 1, duration: 5, layers: [lowerThird('inner', 1)] }], { markers: { drop: 5 } });
     expect(r.markers).toEqual(expect.arrayContaining([
       { layer: null, name: 'drop', time: 5 },
       { layer: 'host', name: 'in', time: expect.closeTo(2.6, 9) },
@@ -75,20 +75,20 @@ describe('resolveMoments: a moment by name', () => {
   it('a keyframe\'s at may name a moment too: it becomes seconds from the start of its layer (a moment before the layer starts is said)', () => {
     const r = run([lowerThird('host', 2), { type: 'text', name: 't', at: 1, keyframes: [{ at: 'host@out', to: { alpha: 0 }, duration: 0.3 }, { at: 0.5, to: { x: 1 }, duration: 1 }] }]);
     expect(r.warnings).toEqual([]);
-    const kfs = (r.spec as { sequences: L[] }).sequences[1]!.keyframes as Array<{ at: number }>;
+    const kfs = (r.spec as { layers: L[] }).layers[1]!.keyframes as Array<{ at: number }>;
     expect(kfs.map(k => k.at)).toEqual([expect.closeTo(3.4, 9), 0.5]);
     const early = run([lowerThird('host', 2), { type: 'text', name: 't', at: 3, keyframes: [{ at: 'host@in', to: { alpha: 0 }, duration: 0.3 }] }]);
     expect(early.warnings[0]).toMatch(/layer "t": keyframe at: "host@in" is 0\.4 s before the layer starts \(at 3\); at 0 instead/);
   });
 
   it('a spec with no markers and no named moments comes back as it is', () => {
-    const plain = { duration: 10, sequences: [{ type: 'text', at: 1 }] };
+    const plain = { duration: 10, layers: [{ type: 'text', at: 1 }] };
     expect(resolveMoments(plain, { duration: 10, frameRate: 30 }).spec).toBe(plain);
   });
 });
 
 describe('resolveMoments: what is wrong is said, with what to write', () => {
-  const say = (sequences: L[], extra: Record<string, unknown> = {}) => run(sequences, extra).warnings;
+  const say = (layers: L[], extra: Record<string, unknown> = {}) => run(layers, extra).warnings;
   it('an unknown layer or marker (did you mean), the markers a composition has', () => {
     expect(say([lowerThird('host', 1), { type: 'text', name: 'x', at: 'hots@in' }])[0]).toMatch(/layer "x": at: "hots@in": no layer named "hots" — did you mean "host"\?; at 0 instead/);
     expect(say([lowerThird('host', 1), { type: 'text', name: 'x', at: 'host@inn' }])[0]).toMatch(/at: "host@inn": composition "host" has no marker "inn" — did you mean "in"\? \(its markers: in, out; any layer also has start, mid, end\)/);
@@ -113,7 +113,7 @@ describe('resolveMoments: what is wrong is said, with what to write', () => {
   });
 
   it('a moment behind a keyframed `time` clock is said (its seconds are not on the outer clock)', () => {
-    const remapped = { type: 'composition', name: 'r', at: 0, duration: 4, keyframes: [{ at: 0, to: { time: 8 }, duration: 4 }], markers: { hit: 2 }, sequences: [{ type: 'text', name: 't' }] };
+    const remapped = { type: 'composition', name: 'r', at: 0, duration: 4, keyframes: [{ at: 0, to: { time: 8 }, duration: 4 }], markers: { hit: 2 }, layers: [{ type: 'text', name: 't' }] };
     const r = run([remapped, { type: 'text', name: 'x', at: 'r@hit' }]);
     expect(r.warnings).toEqual([]);
     expect(ats(r)[1]).toBeCloseTo(1, 2);                     // time runs 0 → 8 over 4 s: it reaches 2 after 1 s
@@ -124,14 +124,14 @@ describe('resolveMoments: what is wrong is said, with what to write', () => {
 
 describe('resolveMoments: review round', () => {
   it('a composition with no duration lasts its parent\'s whole clock (here 8 s inside a 4 s composition at speed 2), as the runtime does', () => {
-    const r = run([{ type: 'composition', name: 'A', duration: 4, speed: 2, sequences: [{ type: 'composition', name: 'B', markers: { x: 6 }, sequences: [{ type: 'text', name: 't' }] }] },
+    const r = run([{ type: 'composition', name: 'A', duration: 4, speed: 2, layers: [{ type: 'composition', name: 'B', markers: { x: 6 }, layers: [{ type: 'text', name: 't' }] }] },
       { type: 'audio', name: 'hit', sfx: 'hit', at: 'B@x' } as L]);
     expect(r.warnings).toEqual([]);
     expect(ats(r)[1]).toBeCloseTo(3, 9);
   });
 
   it('a composition whose time keyframe starts at a moment: its clock is built from the resolved keyframe', () => {
-    const r = run([{ type: 'composition', name: 'r', duration: 4, markers: { hit: 2 }, keyframes: [{ at: '@go', to: { time: 8 }, duration: 2 }], sequences: [{ type: 'text', name: 't' }] },
+    const r = run([{ type: 'composition', name: 'r', duration: 4, markers: { hit: 2 }, keyframes: [{ at: '@go', to: { time: 8 }, duration: 2 }], layers: [{ type: 'text', name: 't' }] },
       { type: 'text', name: 'x', at: 'r@hit' }], { markers: { go: 1 } });
     expect(r.warnings).toEqual([]);
     expect(ats(r)[1]).toBeCloseTo(1.5, 3);
@@ -140,11 +140,11 @@ describe('resolveMoments: review round', () => {
 
   it('an inline mask (and what is inside it) takes moments: its at is composition time, like a layer\'s', () => {
     const r = run([lowerThird('host', 2), { type: 'shape', name: 's', duration: 5, mask: { type: 'shape', shape: 'rect', width: 10, height: 10, at: 'host@in' } } as L,
-      { type: 'shape', name: 'u', duration: 5, mask: { layer: { type: 'composition', width: 10, height: 10, sequences: [{ type: 'shape', shape: 'rect', width: 5, height: 5, at: '@drop', keyframes: [{ at: 'host@out', set: { alpha: 0 } }] }] }, invert: true } } as L], { markers: { drop: 1 } });
+      { type: 'shape', name: 'u', duration: 5, mask: { layer: { type: 'composition', width: 10, height: 10, layers: [{ type: 'shape', shape: 'rect', width: 5, height: 5, at: '@drop', keyframes: [{ at: 'host@out', set: { alpha: 0 } }] }] }, invert: true } } as L], { markers: { drop: 1 } });
     expect(r.warnings).toEqual([]);
-    const seqs = (r.spec as { sequences: Array<Record<string, any>> }).sequences;
+    const seqs = (r.spec as { layers: Array<Record<string, any>> }).layers;
     expect(seqs[1]!.mask.at).toBeCloseTo(2.6, 9);
-    const inner = seqs[2]!.mask.layer.sequences[0];
+    const inner = seqs[2]!.mask.layer.layers[0];
     expect(inner.at).toBe(1);
     expect(inner.keyframes[0].at).toBeCloseTo(3.4, 9);
   });

@@ -40,7 +40,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: DURATION, frameRate: 30,
-        composition: { sequences: SOUNDS.map(([sfx, at]) => ({ type: 'audio', name: sfx, sfx, at })) },
+        composition: { layers: SOUNDS.map(([sfx, at]) => ({ type: 'audio', name: sfx, sfx, at })) },
       });
       window.__ready = true;
     } catch (e) { window.__logs.push('init: ' + e.message); }

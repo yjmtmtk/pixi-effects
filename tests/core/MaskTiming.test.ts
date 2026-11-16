@@ -5,7 +5,7 @@ vi.mock('pixi.js', async () => {
   return m;
 });
 import { CompositionSequence } from '../../src/sequences/Composition';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
@@ -18,7 +18,7 @@ function startsOfLayer(tl: Tl, prop: string): number[] {
 async function build(maskExtra: Record<string, unknown> = {}) {
   const spec = {
     type: 'composition', width: 1280, height: 720, duration: 10,
-    sequences: [{
+    layers: [{
       type: 'shape', shape: 'rect', width: 100, height: 100, at: 2, duration: 3,
       mask: {
         type: 'shape', shape: 'rect', width: 0, height: 100, initial: { anchorX: 0 },
@@ -26,7 +26,7 @@ async function build(maskExtra: Record<string, unknown> = {}) {
         ...maskExtra,
       },
     }],
-  } as unknown as SequenceSpec;
+  } as unknown as LayerSpec;
   const comp = new CompositionSequence(spec as never, shape, shape);
   await comp.build();
   const tl = createTimeline({ paused: true });
@@ -64,8 +64,8 @@ describe('an image used as a mask is a matte: it is drawn into the matte texture
   async function maskOf(mask: Record<string, unknown>) {
     const spec = {
       type: 'composition', width: 1280, height: 720, duration: 10,
-      sequences: [{ type: 'shape', shape: 'rect', width: 100, height: 100, at: 2, duration: 3, mask }],
-    } as unknown as SequenceSpec;
+      layers: [{ type: 'shape', shape: 'rect', width: 100, height: 100, at: 2, duration: 3, mask }],
+    } as unknown as LayerSpec;
     const comp = new CompositionSequence(spec as never, shape, shape);
     await comp.build();
     const target = (comp as unknown as { _children: Array<{ maskSequence: { target: { renderable: boolean } } | null }> })._children[0].maskSequence!.target;

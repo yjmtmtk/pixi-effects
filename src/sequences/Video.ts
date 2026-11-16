@@ -4,14 +4,14 @@ import { FrameCache, type FrameSink } from '../core/FrameCache';
 import { sourceLookup } from '../core/sourceTime';
 import { describeLayer } from '../core/lint';
 import { remapOf, bindClock, clockTable, type TimeRemap } from '../core/remap';
-import type { VideoSequenceSpec, AudioDescriptor } from '../types';
+import type { VideoLayerSpec, AudioDescriptor } from '../types';
 import type { VideoAssetData } from '../core/AssetLoader';
 import type { Timeline } from '../core/timelineEngine';
 
 
 
 export class VideoSequence extends Sequence {
-  declare spec: VideoSequenceSpec;
+  declare spec: VideoLayerSpec;
   private _sourceDuration = 0;
   private _audioBuffer: AudioBuffer | null = null;
   private _cache: FrameCache | null = null;
@@ -81,9 +81,9 @@ export class VideoSequence extends Sequence {
     this.buildFilters();
   }
 
-  protected override displayProps(): { initial: VideoSequenceSpec['initial']; keyframes: VideoSequenceSpec['keyframes'] } {
+  protected override displayProps(): { initial: VideoLayerSpec['initial']; keyframes: VideoLayerSpec['keyframes'] } {
     const r = this._remap;
-    return r ? { initial: r.restInitial as VideoSequenceSpec['initial'], keyframes: r.restKfs } : super.displayProps();
+    return r ? { initial: r.restInitial as VideoLayerSpec['initial'], keyframes: r.restKfs } : super.displayProps();
   }
 
   override bindTimeline(timeline: Timeline, offset = 0): void {

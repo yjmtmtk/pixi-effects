@@ -4,7 +4,7 @@ import { hash32, grainValue, GrainFilter } from '../../src/filters/Grain';
 import { createFilter } from '../../src/filters';
 import { collectTimeFilters } from '../../src/core/timeFilters';
 import { ShapeSequence } from '../../src/sequences/Shape';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 
 beforeEach(() => { vi.restoreAllMocks(); });
 const stats = (xs: number[]) => { const m = xs.reduce((a, b) => a + b, 0) / xs.length; const v = xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length; return { m, sd: Math.sqrt(v) }; };
@@ -95,12 +95,12 @@ describe('the grain filter', () => {
 describe('the movie feeds time to the filters that want it', () => {
   const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
   it('collectTimeFilters finds a filter with setTime on a layer and on the root, and nothing else', async () => {
-    const layer = new ShapeSequence({ type: 'shape', shape: 'rect', width: 10, height: 10, filters: [{ type: 'grain' }, { type: 'custom', filter: { apply() {} } }] } as unknown as SequenceSpec, comp, comp);
+    const layer = new ShapeSequence({ type: 'shape', shape: 'rect', width: 10, height: 10, filters: [{ type: 'grain' }, { type: 'custom', filter: { apply() {} } }] } as unknown as LayerSpec, comp, comp);
     await layer.build();
     const found = collectTimeFilters(layer);
     expect(found).toHaveLength(1);
     expect(typeof found[0]!.setTime).toBe('function');
-    const plain = new ShapeSequence({ type: 'shape', shape: 'rect', width: 10, height: 10 } as unknown as SequenceSpec, comp, comp);
+    const plain = new ShapeSequence({ type: 'shape', shape: 'rect', width: 10, height: 10 } as unknown as LayerSpec, comp, comp);
     await plain.build();
     expect(collectTimeFilters(plain)).toEqual([]);
   });

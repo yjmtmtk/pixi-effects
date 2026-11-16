@@ -37,7 +37,7 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/controller.js"
     }
   }
   </script>
@@ -321,7 +321,7 @@
 
     // ───────────────────────────── composition ─────────────────────────────
     const kSun = K(Z_SUN), kStars = K(Z_STARS);
-    const sequences = [
+    const layers = [
       // sky (2D, no parallax needed for a gradient)
       fullRect({ name: 'sky', fillGradient: { angle: 180, stops: [[0, C.skyTop], [0.3, C.skyMid], [0.52, C.skyLow], [0.61, C.skyHot], [1, C.skyHot]] } }),
 
@@ -388,7 +388,7 @@
           { name: 'stars', src: starsImage() },
           { name: 'scanlines', src: scanlinesImage() },
         ],
-        composition: { sequences },
+        composition: { layers },
       });
       window.__ready = true;
     } catch (e) {

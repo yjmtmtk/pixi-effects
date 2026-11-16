@@ -20,7 +20,7 @@ vi.mock('pixi.js', async () => {
   return m;
 });
 import { ShapeSequence } from '../../src/sequences/Shape';
-import type { CompositionShape, SequenceSpec } from '../../src/types';
+import type { CompositionShape, LayerSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
@@ -29,7 +29,7 @@ const SQUARE = 'M 0 0 L 100 0 L 100 100 L 0 100 Z';
 const BIG = 'M 0 0 L 200 0 L 200 200 L 0 200 Z';
 
 async function shape(spec: Record<string, unknown>) {
-  const seq = new ShapeSequence({ type: 'shape', ...spec } as unknown as SequenceSpec, comp, comp);
+  const seq = new ShapeSequence({ type: 'shape', ...spec } as unknown as LayerSpec, comp, comp);
   await seq.build();
   const g = seq.target as unknown as Record<string, (...a: unknown[]) => unknown> & { onRender: () => void };
   const calls: Call[] = [];

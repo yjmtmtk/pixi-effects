@@ -32,7 +32,7 @@ import { Movie } from 'pixi-effects';
 const movie = new Movie();
 await movie.init({
   canvas, width: 1280, height: 720, duration: 6, frameRate: 30, background: '#0a0a0f',
-  composition: { sequences: [
+  composition: { layers: [
     { type: 'text', text: 'Hello', at: 0.5, style: { fontSize: 120, fontWeight: 'bold', fill: '#fff' },
       initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
       keyframes: [{ at: 0, from: { alpha: 0, y: 'GH/2 + 40' }, to: { alpha: 1, y: 'GH/2' }, duration: 0.6, ease: 'power2.out' }] },

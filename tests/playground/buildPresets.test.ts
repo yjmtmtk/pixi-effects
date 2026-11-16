@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { recipeBody, presetCode, buildPresets, TEMPLATE_IMPORTS } from '../../scripts/build-presets.mjs';
 
 const root = resolve(__dirname, '../..');
-const MD = '# x\n\n```js\n// @recipe one\nreturn [ { type: \'text\', text: \'a\' } ];\n```\n\n```js\n// @recipe two\nreturn { duration: 6, transitions: [{ kind: \'dip\' }], sequences: [ { type: \'text\' } ] };\n```\n\n```js\n// @docs-only three\nreturn [];\n```\n';
+const MD = '# x\n\n```js\n// @recipe one\nreturn [ { type: \'text\', text: \'a\' } ];\n```\n\n```js\n// @recipe two\nreturn { duration: 6, transitions: [{ kind: \'dip\' }], layers: [ { type: \'text\' } ] };\n```\n\n```js\n// @docs-only three\nreturn [];\n```\n';
 const META = { id: 'x-one', recipe: 'one', label: 'One', duration: 5, background: '#101820', poster: 3 };
 
 describe('build-presets: a recipe becomes the edit block of the chat template', () => {
@@ -15,19 +15,19 @@ describe('build-presets: a recipe becomes the edit block of the chat template', 
     expect(() => recipeBody(MD, 'three')).toThrow(/no @recipe "three"/);
     expect(() => recipeBody(MD, 'nope')).toThrow(/no @recipe "nope"/);
   });
-  it('wraps a body that returns sequences: the template constants, the recipe untouched inside a function', () => {
+  it('wraps a body that returns layers: the template constants, the recipe untouched inside a function', () => {
     const code = presetCode(MD, META);
     expect(code).toMatch(/const W = 1280, H = 720, FPS = 30, DURATION = 5;/);
     expect(code).toContain("const BACKGROUND = '#101820';");
-    expect(code).toContain('const sequences = (() => {');
+    expect(code).toContain('const layers = (() => {');
     expect(code).toContain("return [ { type: 'text', text: 'a' } ];");
     expect(code).toContain('const POSTER = 3;');
     expect(code).not.toContain('@recipe');
   });
-  it('a body that returns { sequences, transitions } sets INIT, so the page passes the transitions on', () => {
+  it('a body that returns { layers, transitions } sets INIT, so the page passes the transitions on', () => {
     const code = presetCode(MD, { ...META, id: 'x-two', recipe: 'two' });
     expect(code).toContain('const RECIPE = (() => {');
-    expect(code).toContain('const sequences = RECIPE.sequences;');
+    expect(code).toContain('const layers = RECIPE.layers;');
     expect(code).toContain('const INIT = { composition: { transitions: RECIPE.transitions } };');
   });
   it('imports the helpers a recipe uses that the template does not import already (and none twice, which would be an error)', () => {
@@ -50,7 +50,7 @@ describe('build-presets: a recipe becomes the edit block of the chat template', 
   it('the real list builds: every recipe it names exists and the output is what the Playground loads', () => {
     const { presets } = buildPresets(root);
     expect(presets.length).toBeGreaterThanOrEqual(8);
-    for (const p of presets) { expect(p.code, p.id).toMatch(/const sequences\b/); expect(p.label, p.id).toBeTruthy(); }
+    for (const p of presets) { expect(p.code, p.id).toMatch(/const layers\b/); expect(p.label, p.id).toBeTruthy(); }
     expect(new Set(presets.map((p) => p.id)).size).toBe(presets.length);
   });
   it('a recipe that returns its own duration agrees with the list (DURATION is what the movie uses)', () => {

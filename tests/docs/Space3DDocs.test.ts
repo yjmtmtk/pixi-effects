@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { lintSequence } from '../../src/space/lint';
-import type { SequenceSpec } from '../../src/types';
+import type { LayerSpec } from '../../src/types';
 
 const md = readFileSync(resolve(__dirname, '../../docs/dsl.md'), 'utf8');
 
@@ -18,9 +18,9 @@ function jsonBlocks(text: string): string[] {
   return [...text.matchAll(/```json\n([\s\S]*?)```/g)].map(m => m[1]!);
 }
 
-function sequencesOf(node: unknown, out: SequenceSpec[] = []): SequenceSpec[] {
-  const n = node as { sequences?: SequenceSpec[] };
-  for (const s of n.sequences ?? []) {
+function sequencesOf(node: unknown, out: LayerSpec[] = []): LayerSpec[] {
+  const n = node as { layers?: LayerSpec[] };
+  for (const s of n.layers ?? []) {
     out.push(s);
     sequencesOf(s, out);
   }

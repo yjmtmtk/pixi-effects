@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { lintSequence, lintFocus } from '../../src/space/lint';
-import type { SequenceSpec } from '../../src/types';
+import type { LayerSpec } from '../../src/types';
 
 function run(spec: unknown): string[] {
   const out: string[] = [];
-  lintSequence(spec as SequenceSpec, m => out.push(m));
+  lintSequence(spec as LayerSpec, m => out.push(m));
   return out;
 }
 
@@ -95,7 +95,7 @@ describe('lintSequence', () => {
 
 function runFocus(camera: unknown, siblings: unknown[]): string[] {
   const out: string[] = [];
-  lintFocus(camera as SequenceSpec, siblings as SequenceSpec[], m => out.push(m));
+  lintFocus(camera as LayerSpec, siblings as LayerSpec[], m => out.push(m));
   return out;
 }
 
