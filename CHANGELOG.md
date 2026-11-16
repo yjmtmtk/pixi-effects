@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.55.0
 
 **Breaking: the names are settled for 1.0.** One word for each idea, the word an AI already knows (CSS, SVG, After Effects, GSAP, PixiJS, HTML media), and every old name warns with the new one (a change of meaning cannot warn: the gradient angle below; every angle this repository writes was converted).
 
