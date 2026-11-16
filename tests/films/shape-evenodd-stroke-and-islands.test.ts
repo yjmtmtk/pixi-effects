@@ -6,10 +6,11 @@ import { runFilms, withFilm, type Film } from './support/withFilm';
 // The film: three nested squares round (320, 180) in one path: outer half-size 150, hole 100, island 50; fill #ffcc00, stroke #0066ff, black background.
 //
 // Where the answers come from (written before the film was run):
-// - docs/dsl.md, "Holes (fillRule: 'evenodd') on a path": "With fillRule: 'evenodd' the biggest sub-path is the shape and every other one is a hole cut out of it
-//   (the stroke goes round the shape and each hole)" and "an island inside a hole is not drawn".
-//   skills/pixi-effects/reference/cheatsheet.md, the path row: "unless fillRule: 'evenodd': the biggest is the shape, the others are holes".
-//   So: the ring between the outer outline and the hole is the fill; the hole is empty; the island adds nothing (no fill anywhere inside the hole).
+// - docs/dsl.md, "Holes (fillRule: 'evenodd') on a path": "it is as in SVG: a sub-path inside another one is a hole cut out of it, a sub-path inside that hole
+//   (an island …) is filled again, and sub-paths side by side are separate pieces, each filled with its own holes (the stroke goes round every piece and every hole)".
+//   skills/pixi-effects/reference/cheatsheet.md, the path row says the same.
+//   So: the ring between the outer outline and the hole is the fill; between the hole and the island is empty; the island is filled and stroked;
+//   a piece beside the shape (?beside=1) is filled, with its own hole empty. (Until 0.55.0 an island and a piece beside were not drawn: found by the 0.55 trial.)
 // - docs/dsl.md, the Style table: "strokeWidth | Pixels. Default 0 (no stroke)"; "stroke ... Requires strokeWidth > 0 to render".
 // - docs/dsl.md, "Draw-on": trimStart / trimEnd (default 0 and 1) "are the part of the outline that is stroked" and "a path's several sub-paths count as one
 //   length": with no trim the stroke runs along every sub-path. Without fillRule "several sub-paths in one d are each filled on their own" (dsl.md, Holes).
@@ -55,9 +56,9 @@ function expectedLine(c: number, k: Case) {
     const r = { label: `inside the hole, outside the island (${side})`, ...span(h - s * m, k.island ? i + s * m : c - s * m), want: (k.evenodd ? 'bg' : 'fill') as Cls };
     (k.evenodd ? hole : outline).push(r);
   }
-  outline.push({ label: k.island ? 'inside the island' : 'the middle of the hole', from: c - 50 + m, to: c + 50 - m, want: k.evenodd ? 'bg' : 'fill' });
-  // the stroke is promised round the shape and each hole; without fillRule the trim text says every sub-path is stroked, the island too
-  const stroked = [c - 150, c + 150, c - 100, c + 100, ...(!k.evenodd && k.island ? [c - 50, c + 50] : [])];
+  outline.push({ label: k.island ? 'inside the island' : 'the middle of the hole', from: c - 50 + m, to: c + 50 - m, want: k.evenodd && !k.island ? 'bg' : 'fill' });
+  // the stroke is promised round every piece and every hole (the island is a piece); without fillRule the trim text says every sub-path is stroked
+  const stroked = [c - 150, c + 150, c - 100, c + 100, ...(k.island ? [c - 50, c + 50] : [])];
   return { outline, hole, stroked };
 }
 
@@ -99,21 +100,24 @@ async function probeOutline(film: Film, k: Case) {
       expect(s <= e + 1 && t >= e - 1, `${k.name}, ${where}: the stroke run ${s}..${t - 1} touches the outline at ${e}`).toBe(true);
     }
   }
-  // the island's inside, as a box: all background with evenodd ("an island inside a hole is not drawn"), all fill without
+  // the island's inside, as a box: all fill (evenodd fills an island again, as in SVG; without fillRule every sub-path is filled); with no island it is the hole's middle
   const m = k.W + 1, box = [CX - 50 + m, CY - 50 + m, CX + 50 - m, CY + 50 - m];
   const area = (box[2]! - box[0]!) * (box[3]! - box[1]!);
-  expect(await film.eval<number>(`countNear(${JSON.stringify(k.evenodd ? BG : FILL)}, ${box.join(', ')})`), `${k.name}: the ${area} px inside the island are all ${k.evenodd ? 'background' : 'fill'}`).toBe(area);
+  const want = k.evenodd && !k.island ? BG : FILL;
+  expect(await film.eval<number>(`countNear(${JSON.stringify(want)}, ${box.join(', ')})`), `${k.name}: the ${area} px inside the ${k.island ? 'island' : "hole's middle"} are all ${want === BG ? 'background' : 'fill'}`).toBe(area);
 }
 
-/** evenodd only: the hole is empty, the island adds nothing to it (no fill colour anywhere inside the hole's outline margin). */
+/** evenodd only: the hole is empty between its outline and the island (no fill colour there: an island once leaked a wedge of fill into the hole). */
 async function probeHole(film: Film, k: Case) {
   for (const [axis, at, c, where] of LINES) checkRegions(await readLine(film, axis, at), expectedLine(c, k).hole, `${k.name}, ${where}`);
   const m = k.W + 1;
-  const fillInHole = await film.eval<number>(`countNear(${JSON.stringify(FILL)}, ${CX - 100 + m}, ${CY - 100 + m}, ${CX + 100 - m}, ${CY + 100 - m})`);
-  expect(fillInHole, `${k.name}: pixels of the fill colour inside the hole (x ${CX - 100 + m}..${CX + 100 - m - 1}, y ${CY - 100 + m}..${CY + 100 - m - 1})`).toBe(0);
+  const inHole = await film.eval<number>(`countNear(${JSON.stringify(FILL)}, ${CX - 100 + m}, ${CY - 100 + m}, ${CX + 100 - m}, ${CY + 100 - m})`);
+  // the island and its stroke margin are fill on purpose: take them out (the margin box holds the island's fill and nothing else of that colour)
+  const inIsland = k.island ? await film.eval<number>(`countNear(${JSON.stringify(FILL)}, ${CX - 50 - m}, ${CY - 50 - m}, ${CX + 50 + m}, ${CY + 50 + m})`) : 0;
+  expect(inHole - inIsland, `${k.name}: pixels of the fill colour inside the hole, outside the island (x ${CX - 100 + m}..${CX + 100 - m - 1}, y ${CY - 100 + m}..${CY + 100 - m - 1})`).toBe(0);
 }
 
-runFilms("Shapes: fillRule 'evenodd' strokes the shape and every hole, and an island inside a hole is not drawn", () => {
+runFilms("Shapes: fillRule 'evenodd' as in SVG: strokes every piece and hole, fills an island inside a hole and a piece beside the shape", () => {
   for (const k of cases) {
     it(`${k.name}: background, stroke, fill, stroke along the middle row and column; the ${k.island ? "island's inside" : "hole's middle"} as documented`, async () => {
       await withFilm(FILM, (film) => probeOutline(film, k), { query: k.query });
@@ -123,8 +127,19 @@ runFilms("Shapes: fillRule 'evenodd' strokes the shape and every hole, and an is
   for (const k of cases.filter((c) => c.evenodd)) {
     // A library bug (see FOUND above): the documented answer is kept; it.fails until the wedge is gone. The control (no island) passes as a plain it.
     const test = it;                                                       // (the island case was it.fails until 0.47.5: a wedge of fill inside the hole)
-    test(`${k.name}: the hole is empty: no fill colour anywhere inside it${k.island ? ' (FAILS: an island leaks a wedge of fill into the hole)' : ''}`, async () => {
+    test(`${k.name}: the hole is empty${k.island ? ' between its outline and the island' : ''}: no fill colour there`, async () => {
       await withFilm(FILM, (film) => probeHole(film, k), { query: k.query });
     }, 120_000);
   }
+
+  it("a piece beside the shape (?beside=1) is filled, with its own hole empty: an icon's handle or saucer is not lost (found by the 0.55 trial)", async () => {
+    await withFilm(FILM, async (film) => {
+      expect(await film.eval<string[]>('window.__logs')).toEqual([]);
+      const m = 6;                                                     // half of strokeWidth 10 + 1: clear of a stroke centred on either outline
+      // the left band of the piece beside: x 530..548 (outer edge to its hole), y 30..90, away from both outlines by m
+      const ring = await film.eval<number>(`countNear(${JSON.stringify(FILL)}, ${530 + m}, ${30 + m}, ${548 - m}, ${90 - m})`);
+      expect(ring, 'the left band of the piece beside is all fill').toBe((548 - m - 530 - m) * (90 - m - 30 - m));
+      expect(await film.eval<number>(`countNear(${JSON.stringify(BG)}, 553, 53, 567, 67)`), "the piece's own hole is background").toBe(14 * 14);
+    }, { query: 'beside=1' });
+  }, 120_000);
 });

@@ -10,7 +10,7 @@ import { tweenColor } from '../expr/colorTween';
 import type { Scope } from '../expr/Scope';
 import { makeGradientFill } from './gradientFill';
 import { GradientPainter, gradStateFrom, bindGradientKeyframes, hasGradientKeys, validateGradientKeyframes, type GradState } from './gradientAnim';
-import { trimPolylines, rectOutline, ellipseOutline, flattenSvgPath, splitEvenOdd, type Polyline } from './trimPath';
+import { trimPolylines, rectOutline, ellipseOutline, flattenSvgPath, splitEvenOdd, type Polyline, type EvenOddPiece } from './trimPath';
 import { buildMorph, morphAt, type MorphPair } from './morphPath';
 import { collectPropKeys } from '../space/specKeys';
 import type { Timeline } from '../core/timelineEngine';
@@ -151,7 +151,7 @@ export class ShapeSequence extends Sequence {
     this._drawGeometry = makeDrawGeometry(this.spec, scope, this._state, morph);
     this._outline = makeOutline(this.spec, scope, this._state, morph);
     const eo = this.spec.shape === 'path' && this.spec.fillRule === 'evenodd' && !morph ? splitEvenOdd(this.spec.d) : null;
-    this._evenOdd = eo && eo.holes.length > 0 ? eo : null;
+    this._evenOdd = eo && eo.some(p => p.holes.length > 0) ? eo : null;   // with no hole anywhere, each sub-path filled on its own is the same picture
 
     // Measure the WHOLE shape (a layer that starts fully trimmed still has its size and centre).
     const { trimStart, trimEnd } = this._state;
@@ -234,21 +234,25 @@ export class ShapeSequence extends Sequence {
   private _painter: GradientPainter | null = null;
   private _gradDirty = false;
   private _outline: (() => Polyline[]) | null = null;
-  /** fillRule 'evenodd' on a path: the shape and the sub-paths cut out of it after it is filled (null: not used). */
-  private _evenOdd: { main: string; holes: string[] } | null = null;
+  /** fillRule 'evenodd' on a path: its pieces, each with the sub-paths cut out of it after it is filled (null: not used). */
+  private _evenOdd: EvenOddPiece[] | null = null;
 
-  /**
-   * fillRule 'evenodd': the shape is filled, each hole is cut out of that fill, and the stroke goes round the shape and every hole. (PIXI's `cut()` only reaches the
-   * LAST instruction, so it has to come between the fill and the stroke.)
-   */
+  /** fillRule 'evenodd': each piece is filled and its holes are cut out of that fill (PIXI's `cut()` only reaches the LAST instruction, so piece by piece). */
+  private _fillPieces(g: Graphics): void {
+    const s = this._state;
+    for (const piece of this._evenOdd!) {
+      g.beginPath(); g.path(new GraphicsPath(piece.outline)); applyFill(g, s);
+      for (const hole of piece.holes) { g.beginPath(); g.path(new GraphicsPath(hole)); g.cut(); }
+    }
+  }
+
+  /** fillRule 'evenodd': the fills with their holes, then one stroke round every piece and every hole. */
   private _fillWithHoles(g: Graphics): void {
-    const s = this._state, { main, holes } = this._evenOdd!;
-    applyFill(g, s);
-    for (const hole of holes) { g.beginPath(); g.path(new GraphicsPath(hole)); g.cut(); }
+    const s = this._state;
+    this._fillPieces(g);
     if (s.stroke !== undefined && s.strokeWidth > 0) {
       g.beginPath();
-      g.path(new GraphicsPath(main));
-      for (const hole of holes) g.path(new GraphicsPath(hole));
+      for (const piece of this._evenOdd!) for (const sub of [piece.outline, ...piece.holes]) g.path(new GraphicsPath(sub));
       applyStroke(g, s);
     }
   }
@@ -260,16 +264,16 @@ export class ShapeSequence extends Sequence {
     graphics.clear();
     const trimmed = (s.trimStart ?? 0) > 0 || (s.trimEnd ?? 1) < 1;
     if (!trimmed || !this._outline || !(s.stroke !== undefined && s.strokeWidth > 0)) {
-      this._drawGeometry(graphics);
       if (this._evenOdd) { this._fillWithHoles(graphics); return; }
+      this._drawGeometry(graphics);
       applyState(graphics, s);
       return;
     }
     // A trim is for the stroke (like After Effects): the fill, if any, is the whole shape; then only the part of
     // the outline between trimStart and trimEnd is stroked.
     if (s.fillStyle || s.fill !== undefined) {
-      this._drawGeometry(graphics);
-      applyFill(graphics, s);
+      if (this._evenOdd) this._fillPieces(graphics);                         // the holes stay cut while the stroke draws on
+      else { this._drawGeometry(graphics); applyFill(graphics, s); }
       graphics.beginPath();
     }
     const parts = trimPolylines(this._outline(), s.trimStart ?? 0, s.trimEnd ?? 1, s.trimEach === true);
@@ -518,8 +522,8 @@ function makePolygonDraw(spec: PolygonShapeSpec, scope: Scope): (g: Graphics) =>
 function makePathDraw(spec: PathShapeSpec): (g: Graphics) => void {
   // GraphicsPath accepts the SVG `d` directly; we apply it as a sub-path
   // so user fill / stroke aren't clobbered by the SVG parser's defaults.
-  const d = spec.fillRule === 'evenodd' ? splitEvenOdd(spec.d).main : spec.d;                 // evenodd: only the shape here, the holes are cut after the fill (see _redraw)
-  return (g: Graphics) => { g.path(new GraphicsPath(d)); };
+  // (evenodd: this whole outline is what is measured; the pieces and their holes are drawn by _fillWithHoles)
+  return (g: Graphics) => { g.path(new GraphicsPath(spec.d)); };
 }
 
 const STATE_DRAWERS: Partial<Record<ShapeLayerSpec['shape'], (g: Graphics, s: ShapeState) => void>> = {

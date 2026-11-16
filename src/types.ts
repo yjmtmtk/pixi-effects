@@ -865,7 +865,7 @@ export interface PathShapeSpec extends ShapeBase, Trimmable {
   shape: 'path';
   /** SVG path data (`d` attribute). Goes through PIXI's GraphicsContext.svg(). */
   d: string;
-  /** `'evenodd'`: with several sub-paths in `d` the biggest one is the shape and the others are holes (a donut is two circles). Default `'nonzero'`: each sub-path is filled on its own, no holes. */
+  /** `'evenodd'`, as in SVG: a sub-path inside another one is a hole in it, a sub-path inside that hole is filled again, and sub-paths side by side are separate pieces (a donut is two circles; a cup's body, handle and saucer are one `d`). Default `'nonzero'`: each sub-path is filled on its own, no holes. */
   fillRule?: 'nonzero' | 'evenodd';
   /**
    * A second outline (SVG path data, in the same canvas coordinates as `d`) to morph into. Animate `morph` from 0 (the

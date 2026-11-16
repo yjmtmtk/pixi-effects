@@ -60,10 +60,11 @@ vi.mock('pixi.js', () => {
   };
 });
 
-// the real splitEvenOdd measures curves with PIXI's own GraphicsPath (tests/sequences/trimPath.test.ts runs it); here it is told which sub-path is the big one
+// the real splitEvenOdd measures curves with PIXI's own GraphicsPath (tests/sequences/trimPath.test.ts runs it); here it is told the pieces:
+// sub-paths separated by ' | ' are pieces, and in each piece the first sub-path is the outline and the others its holes
 vi.mock('../../src/sequences/trimPath', async (orig) => ({
   ...(await orig<typeof import('../../src/sequences/trimPath')>()),
-  splitEvenOdd: (d: string) => { const [main, ...holes] = d.split(/(?=M)/).map(x => x.trim()); return { main: main!, holes }; },
+  splitEvenOdd: (d: string) => d.split(' | ').map(piece => { const [outline, ...holes] = piece.split(/(?=M)/).map(x => x.trim()); return { outline: outline!, holes }; }),
 }));
 
 import { ShapeSequence } from '../../src/sequences/Shape';
@@ -420,26 +421,34 @@ describe('ShapeSequence — auto-centring via pivot', () => {
   });
 });
 
-describe('a path with fillRule "evenodd": the biggest sub-path is filled and the others are cut out of it', () => {
-  const D = 'M 0 0 L 100 0 L 100 100 L 0 100 Z M 25 25 L 75 25 L 75 75 L 25 75 Z';
-  const run = async (extra: Record<string, unknown>) => {
+describe('a path with fillRule "evenodd": each piece is filled and its holes are cut out of it, as in SVG', () => {
+  const BIG = 'M 0 0 L 100 0 L 100 100 L 0 100 Z', SMALL = 'M 25 25 L 75 25 L 75 75 L 25 75 Z', AWAY = 'M 200 0 L 260 0 L 260 60 L 200 60 Z';
+  const D = `${BIG} ${SMALL}`;
+  const run = async (extra: Record<string, unknown>, d = D) => {
     calls.length = 0;
-    const seq = new ShapeSequence({ type: 'shape', shape: 'path', d: D, initial: { fill: '#ffcc00' }, ...extra } as unknown as ShapeLayerSpec, root, root);
+    const seq = new ShapeSequence({ type: 'shape', shape: 'path', d, initial: { fill: '#ffcc00' }, ...extra } as unknown as ShapeLayerSpec, root, root);
     await seq.build();
     calls.length = 0;
     (seq as unknown as { _redraw(): void })._redraw();
     return calls.map(c => c.method + (c.method === 'GraphicsPath' ? ':' + String(c.args[0]) : ''));
   };
 
-  it('draws the big outline, fills it, then draws the hole and cuts it', async () => {
+  it('draws the outline, fills it, then draws the hole and cuts it', async () => {
     const seen = await run({ fillRule: 'evenodd' });
-    expect(seen).toEqual(['clear', 'GraphicsPath:M 0 0 L 100 0 L 100 100 L 0 100 Z', 'path', 'fill', 'beginPath', 'GraphicsPath:M 25 25 L 75 25 L 75 75 L 25 75 Z', 'path', 'cut']);
+    expect(seen).toEqual(['clear', 'beginPath', `GraphicsPath:${BIG}`, 'path', 'fill', 'beginPath', `GraphicsPath:${SMALL}`, 'path', 'cut']);
   });
 
-  it('with a stroke the cut comes between the fill and the stroke (PIXI\'s cut only reaches the last instruction), and the stroke goes round the shape and the hole', async () => {
-    const seen = await run({ fillRule: 'evenodd', initial: { fill: '#ffcc00', stroke: '#ffffff', strokeWidth: 4 } });
-    expect(seen).toEqual(['clear', 'GraphicsPath:M 0 0 L 100 0 L 100 100 L 0 100 Z', 'path', 'fill', 'beginPath', 'GraphicsPath:M 25 25 L 75 25 L 75 75 L 25 75 Z', 'path', 'cut',
-      'beginPath', 'GraphicsPath:M 0 0 L 100 0 L 100 100 L 0 100 Z', 'path', 'GraphicsPath:M 25 25 L 75 25 L 75 75 L 25 75 Z', 'path', 'stroke']);
+  it('a second piece (outside the first) is filled too, after the first one\'s holes are cut', async () => {
+    const seen = await run({ fillRule: 'evenodd' }, `${BIG} ${SMALL} | ${AWAY}`);
+    expect(seen).toEqual(['clear', 'beginPath', `GraphicsPath:${BIG}`, 'path', 'fill', 'beginPath', `GraphicsPath:${SMALL}`, 'path', 'cut',
+      'beginPath', `GraphicsPath:${AWAY}`, 'path', 'fill']);
+  });
+
+  it('with a stroke the cut comes between the fill and the stroke (PIXI\'s cut only reaches the last instruction), and the stroke goes round every piece and hole', async () => {
+    const seen = await run({ fillRule: 'evenodd', initial: { fill: '#ffcc00', stroke: '#ffffff', strokeWidth: 4 } }, `${BIG} ${SMALL} | ${AWAY}`);
+    expect(seen).toEqual(['clear', 'beginPath', `GraphicsPath:${BIG}`, 'path', 'fill', 'beginPath', `GraphicsPath:${SMALL}`, 'path', 'cut',
+      'beginPath', `GraphicsPath:${AWAY}`, 'path', 'fill',
+      'beginPath', `GraphicsPath:${BIG}`, 'path', `GraphicsPath:${SMALL}`, 'path', `GraphicsPath:${AWAY}`, 'path', 'stroke']);
   });
 
   it('without it the path is drawn as it always was (both sub-paths filled, no cut)', async () => {

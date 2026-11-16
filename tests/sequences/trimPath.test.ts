@@ -78,32 +78,34 @@ describe('flattenSvgPath', () => {
   });
 });
 
-describe('splitEvenOdd — the biggest sub-path is the shape, every other one is a hole (fillRule: "evenodd")', () => {
+describe('splitEvenOdd — fillRule "evenodd" as in SVG: how deep a sub-path sits decides (even depth is filled, odd depth is a hole of the shape around it)', () => {
   const BIG = 'M 0 0 L 100 0 L 100 100 L 0 100 Z', SMALL = 'M 25 25 L 75 25 L 75 75 L 25 75 Z', TINY = 'M 40 40 L 60 40 L 60 60 L 40 60 Z';
+  const SIDE = 'M 80 10 L 90 10 L 90 20 L 80 20 Z';                               // inside BIG, beside SMALL
+  const AWAY = 'M 200 0 L 260 0 L 260 60 L 200 60 Z';                             // outside BIG: a piece of its own
 
   it('a square with a square hole', () => {
-    expect(splitEvenOdd(`${BIG} ${SMALL}`)).toEqual({ main: BIG, holes: [SMALL] });
+    expect(splitEvenOdd(`${BIG} ${SMALL}`)).toEqual([{ outline: BIG, holes: [SMALL] }]);
   });
 
   it('the order of the sub-paths does not matter, and there can be several holes', () => {
-    const SIDE = 'M 80 10 L 90 10 L 90 20 L 80 20 Z';                             // a second hole beside the first, not inside it
-    const r = splitEvenOdd(`${SMALL} ${BIG}  ${SIDE}`);
-    expect(r.main).toBe(BIG);
-    expect(r.holes).toEqual([SMALL, SIDE]);
+    expect(splitEvenOdd(`${SMALL} ${BIG}  ${SIDE}`)).toEqual([{ outline: BIG, holes: [SMALL, SIDE] }]);
   });
 
-  it('an island inside a hole is not a hole (it is not drawn, and cutting it out of the hole drew a wedge of fill: found by the island film)', () => {
-    const r = splitEvenOdd(`${BIG} ${SMALL} ${TINY}`);                           // TINY is inside SMALL
-    expect(r.main).toBe(BIG);
-    expect(r.holes).toEqual([SMALL]);
+  it('a sub-path outside every other one is a piece of its own, filled (a cup body, its handle and its saucer in one d)', () => {
+    expect(splitEvenOdd(`${BIG} ${SMALL} ${AWAY}`)).toEqual([{ outline: BIG, holes: [SMALL] }, { outline: AWAY, holes: [] }]);
+  });
+
+  it('an island inside a hole is filled again (a check mark inside a phone screen), and a hole in the island is its own', () => {
+    const DOT = 'M 48 48 L 52 48 L 52 52 L 48 52 Z';                               // inside TINY
+    expect(splitEvenOdd(`${BIG} ${SMALL} ${TINY} ${DOT}`)).toEqual([{ outline: BIG, holes: [SMALL] }, { outline: TINY, holes: [DOT] }]);
   });
 
   it('a curved outer and inner circle (the donut)', () => {
     const outer = 'M 0 -100 A 100 100 0 1 1 0 100 A 100 100 0 1 1 0 -100 Z', inner = 'M 0 -50 A 50 50 0 1 0 0 50 A 50 50 0 1 0 0 -50 Z';
-    expect(splitEvenOdd(`${inner} ${outer}`)).toEqual({ main: outer, holes: [inner] });
+    expect(splitEvenOdd(`${inner} ${outer}`)).toEqual([{ outline: outer, holes: [inner] }]);
   });
 
-  it('one sub-path has no holes', () => {
-    expect(splitEvenOdd(BIG)).toEqual({ main: BIG, holes: [] });
+  it('one sub-path is one piece with no holes', () => {
+    expect(splitEvenOdd(BIG)).toEqual([{ outline: BIG, holes: [] }]);
   });
 });

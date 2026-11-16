@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8" /><title>film · evenodd: the stroke round the holes, an island inside a hole</title></head>
+<head><meta charset="UTF-8" /><title>film · evenodd: the stroke round the holes, an island inside a hole, a piece beside</title></head>
 <body style="margin:0">
   <!--
     Test film (tests/films/shape-evenodd-stroke-and-islands.test.ts): one path of three nested squares, all centred on (320, 180), on black, 640 x 360, 1 s:
       outer  300 x 300 (x 170..470, y 30..330)   the shape
       hole   200 x 200 (x 220..420, y 80..280)   a hole cut out of it
-      island 100 x 100 (x 270..370, y 130..230)  an island inside the hole
+      island 100 x 100 (x 270..370, y 130..230)  an island inside the hole (filled again, as in SVG)
+      with ?beside=1, also: a piece 60 x 60 round (560, 60) (x 530..590, y 30..90) with its own hole 24 x 24 (x 548..572, y 48..72): beside the shape, off the middle row and column
     fill #ffcc00 (yellow), stroke #0066ff (blue), strokeWidth 10; no x / y (the path sits where its d says), fillRule: 'evenodd'.
-    Query: ?island=0 leaves the island out (two squares: a frame with a plain hole); ?rule=none leaves fillRule out; ?stroke=N sets strokeWidth to N; ?order=reverse writes the sub-paths island, hole, outer (the biggest is still the shape).
+    Query: ?island=0 leaves the island out (two squares: a frame with a plain hole); ?rule=none leaves fillRule out; ?stroke=N sets strokeWidth to N; ?order=reverse writes the sub-paths island, hole, outer (nesting, not order, decides); ?beside=1 adds the piece beside.
     The page gives the test line(axis, at) -> the [r, g, b] of every pixel of frame 0 along row y = at (axis 'x') or column x = at (axis 'y'),
     and countNear(rgb, x0, y0, x1, y1) -> how many pixels of frame 0 in that box are that colour (within 2 per channel).
   -->
@@ -28,6 +29,8 @@
     // a square of half-size h round (320, 180), one closed sub-path in absolute coordinates
     const square = (h) => `M ${320 - h} ${180 - h} L ${320 + h} ${180 - h} L ${320 + h} ${180 + h} L ${320 - h} ${180 + h} Z`;
     const subs = q.get('island') === '0' ? [square(150), square(100)] : [square(150), square(100), square(50)];
+    const box = (cx, cy, h) => `M ${cx - h} ${cy - h} L ${cx + h} ${cy - h} L ${cx + h} ${cy + h} L ${cx - h} ${cy + h} Z`;
+    if (q.get('beside') === '1') subs.push(box(560, 60, 30), box(560, 60, 12));
     const d = (reverse ? subs.reverse() : subs).join(' ');
     const movie = new Movie();
     window.movie = movie;

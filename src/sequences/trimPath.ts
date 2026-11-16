@@ -114,32 +114,54 @@ function slice(line: Polyline, a: number, b: number): number[] {
   return out;
 }
 
+/** One filled piece of an `evenodd` path: its outline and the holes cut out of it (each a sub-path of the `d`, as written). */
+export interface EvenOddPiece { outline: string; holes: string[] }
+
 /**
- * `fillRule: 'evenodd'` for a path with several sub-paths (a donut is two circles in one `d`): the biggest sub-path is the shape and every other one is a hole cut out of it.
- * Sub-paths start at an `M` / `m`; write them in absolute coordinates (a relative `m` after a closed one starts from the previous end). Islands inside a hole are not drawn.
+ * `fillRule: 'evenodd'` for a path with several sub-paths, as in SVG: how deep a sub-path sits inside the others decides. A sub-path inside no other one (depth 0)
+ * is a piece, filled; one inside a piece (depth 1) is a hole cut out of it; one inside a hole (depth 2, an island) is a piece again, and so on. So a donut is two
+ * circles, a cup's body, handle and saucer are three pieces of one `d`, and a check mark inside a phone's screen is drawn. Sub-paths start at an `M` / `m`; write
+ * them in absolute coordinates (a relative `m` after a closed one starts from the previous end). "Inside" is measured on the outlines: most of a sub-path's
+ * points inside a bigger one. Pieces and holes come in the order of the `d`.
  */
-export function splitEvenOdd(d: string): { main: string; holes: string[] } {
+export function splitEvenOdd(d: string): EvenOddPiece[] {
   const parts = d.split(/(?=[Mm])/).map(x => x.trim()).filter(Boolean);
-  if (parts.length < 2) return { main: d.trim(), holes: [] };
-  const area = (sub: string): number => flattenSvgPath(sub).reduce((sum, line) => {
+  if (parts.length < 2) return [{ outline: d.trim(), holes: [] }];
+  const lines = parts.map(sub => flattenSvgPath(sub).flatMap(l => l.pts));
+  const areas = parts.map(sub => flattenSvgPath(sub).reduce((sum, line) => {
     let a = 0;
     for (let i = 0; i < line.pts.length; i += 2) { const j = (i + 2) % line.pts.length; a += line.pts[i]! * line.pts[j + 1]! - line.pts[j]! * line.pts[i + 1]!; }
     return sum + Math.abs(a) / 2;
-  }, 0);
-  const areas = parts.map(area);
-  const big = areas.indexOf(Math.max(...areas));
-  const holes = parts.filter((_, i) => i !== big);
-  // An island inside a hole is not drawn (and not cut either: cutting a shape out of a hole that is already cut drew a wedge of fill inside the hole): a sub-path whose first point lies inside another hole is dropped
-  const pointOf = (sub: string): [number, number] => { const p0 = flattenSvgPath(sub)[0]?.pts ?? [0, 0]; return [p0[0]!, p0[1]!]; };
-  const inPoly = (sub: string, [x, y]: [number, number]): boolean => {
-    const line = flattenSvgPath(sub)[0]?.pts ?? [];
+  }, 0));
+  const inPoly = (poly: number[], x: number, y: number): boolean => {
     let inside = false;
-    for (let i = 0, j = line.length - 2; i < line.length; j = i, i += 2) {
-      const xi = line[i]!, yi = line[i + 1]!, xj = line[j]!, yj = line[j + 1]!;
+    for (let i = 0, j = poly.length - 2; i < poly.length; j = i, i += 2) {
+      const xi = poly[i]!, yi = poly[i + 1]!, xj = poly[j]!, yj = poly[j + 1]!;
       if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
     }
     return inside;
   };
-  const real = holes.filter((h, i) => !holes.some((o, k) => k !== i && area(o) > area(h) && inPoly(o, pointOf(h))));
-  return { main: parts[big]!, holes: real };
+  // a inside b: b is bigger and more than half of a's points lie inside b's outline
+  const inside = (a: number, b: number): boolean => {
+    if (a === b || areas[b]! <= areas[a]!) return false;
+    const pts = lines[a]!, n = pts.length / 2;
+    let hits = 0;
+    for (let i = 0; i < pts.length; i += 2) if (inPoly(lines[b]!, pts[i]!, pts[i + 1]!)) hits++;
+    return n > 0 && hits * 2 > n;
+  };
+  const containers = parts.map((_, a) => parts.map((__, b) => b).filter(b => inside(a, b)));
+  const depth = containers.map(c => c.length);
+  const parent = containers.map(c => (c.length ? c.reduce((m, b) => (areas[b]! < areas[m]! ? b : m)) : -1));
+  const pieces = new Map<number, EvenOddPiece>();
+  const pieceOf = (i: number): EvenOddPiece => { let p = pieces.get(i); if (!p) { p = { outline: parts[i]!, holes: [] }; pieces.set(i, p); } return p; };
+  const order: number[] = [];
+  parts.forEach((_, i) => {
+    const hole = depth[i]! % 2 === 1 && parent[i]! >= 0 && depth[parent[i]!]! % 2 === 0;
+    if (!hole) { pieceOf(i); order.push(i); }
+  });
+  parts.forEach((sub, i) => {
+    const hole = depth[i]! % 2 === 1 && parent[i]! >= 0 && depth[parent[i]!]! % 2 === 0;
+    if (hole) pieceOf(parent[i]!).holes.push(sub);
+  });
+  return order.map(i => pieces.get(i)!);
 }
