@@ -3,43 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pixi-effects — video, written as data</title>
-<meta name="description" content="Write motion-graphics video as plain data: it plays in the browser and exports MP4 with no server. Open source (MIT), built on PixiJS v8, made for AI to write.">
+<title>pixi-effects — one sentence, a finished video</title>
+<meta name="description" content="Ask your AI for a video in one sentence. It writes it with pixi-effects, checks it and hands you the MP4. Open source, MIT, made with PixiJS.">
 <link rel="canonical" href="https://yjmtmtk.github.io/pixi-effects/">
 <meta property="og:site_name" content="pixi-effects">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://yjmtmtk.github.io/pixi-effects/">
-<meta property="og:title" content="pixi-effects — video, written as data">
-<meta property="og:description" content="A tree of plain objects goes in, motion-graphics video comes out. It plays in the browser, scrubs frame by frame and exports MP4, WebM or MOV with no server. Tell any AI one sentence and it writes the video for you.">
-<meta property="og:image" content="https://yjmtmtk.github.io/pixi-effects/examples/showreel/poster.jpg">
-<meta property="og:image:width" content="1280">
-<meta property="og:image:height" content="720">
-<meta property="og:image:alt" content="The pixi-effects reel: the word pixi-effects with a red diamond and the line “a video is a file of data.”, drawn by the data shown beneath it.">
+<meta property="og:title" content="pixi-effects — one sentence, a finished video">
+<meta property="og:description" content="Tell your AI what you want to see. It writes the video with pixi-effects, checks every frame and hands you the MP4. Every video on this page was made that way, by Claude.">
+<meta property="og:image" content="https://yjmtmtk.github.io/pixi-effects/site/samples/placeholder-en/poster.jpg">
+<meta property="og:image:alt" content="A frame of a video Claude made with pixi-effects from one sentence.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:creator" content="@t_yjm">
-<meta name="twitter:title" content="pixi-effects — video, written as data">
-<meta name="twitter:description" content="Motion-graphics video written as plain data: it plays in the browser and exports MP4 with no server. Open source, MIT, made for AI to write.">
-<meta name="twitter:image" content="https://yjmtmtk.github.io/pixi-effects/examples/showreel/poster.jpg">
-<meta name="theme-color" content="#0b0d12" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
-<meta name="color-scheme" content="dark light">
-<script type="importmap">
-{ "imports": {
-  "pixi.js":      "https://esm.sh/pixi.js@8.23.0?bundle-deps",
-  "mediabunny":   "https://esm.sh/mediabunny",
-  "pixi-effects": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js"
-} }
-</script>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0d12'/%3E%3Crect x='9' y='9' width='14' height='14' transform='rotate(45 16 16)' fill='%23ff5a3c'/%3E%3C/svg%3E">
+<meta name="twitter:title" content="pixi-effects — one sentence, a finished video">
+<meta name="twitter:description" content="Ask your AI for a video in one sentence. It writes it with pixi-effects and hands you the MP4.">
+<meta name="twitter:image" content="https://yjmtmtk.github.io/pixi-effects/site/samples/placeholder-en/poster.jpg">
+<meta name="theme-color" content="#fcfbfd">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23fcfbfd'/%3E%3Crect x='9' y='9' width='14' height='14' rx='2' transform='rotate(45 16 16)' fill='%23e91e63'/%3E%3C/svg%3E">
 <!--site:head-->
 <link rel="stylesheet" href="site/shared/tokens.css">
 <link rel="stylesheet" href="site/shared/site.css">
 <script src="site/shared/live.js" defer></script>
 <!--/site:head-->
 <link rel="stylesheet" href="site/landing/landing.css">
+<script src="site/landing/landing.js" defer></script>
 </head>
 <body>
-<div id="playhead" aria-hidden="true"></div>
 <!--site:header-->
 <a class="skip" href="#main">Skip to content</a>
 <header class="top">
@@ -55,241 +45,164 @@
 
 <main id="main">
 
-<!-- ================= HERO ================= -->
-<section class="hero" aria-labelledby="h1" style="padding-top:56px">
-  <div class="wrap">
-    <p class="eyebrow mono"><span class="dia" aria-hidden="true"></span> 00 &nbsp;·&nbsp; Open source · MIT · built on PixiJS v8</p>
-    <h1 id="h1"><span class="w">Video,</span> <span class="w">written</span> <span class="w">as</span> <span class="w"><em>data.</em></span></h1>
-    <div class="hero-grid">
-      <div>
-        <p class="lede">A video is a tree of plain objects. <strong>Tell an AI one sentence and it writes one</strong>: it plays in the browser and exports MP4.</p>
-        <div class="cta">
-          <a class="btn primary" href="examples/gallery/">Watch the gallery <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z" fill="currentColor"/></svg></a>
-          <a class="btn" href="for-ai.html">For AI</a>
-          <a class="btn" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
-        </div>
-        <p class="cta-note"><a href="#one">Tell any AI one sentence ↓</a></p>
-        <p class="cta-note">Or give your agent the skill: <code>npx skills add yjmtmtk/pixi-effects</code></p>
-      </div>
+  <section class="hero wrap" id="hero" aria-labelledby="hero-title">
+    <span class="kf kf-a" aria-hidden="true"></span><span class="kf kf-b" aria-hidden="true"></span><span class="kf kf-c" aria-hidden="true"></span><span class="kf kf-d" aria-hidden="true"></span>
+    <h1 id="hero-title">One sentence.<br>A finished video.</h1>
+    <div class="hero-copy">
+      <p class="lede">Tell your AI what you want to see. It writes the video with pixi-effects, checks every frame, and hands you the MP4.</p>
+      <p class="hero-actions"><a class="pill" href="#start">Try it with your AI</a> <a class="text-link" href="#one-sentence">See what one sentence made</a></p>
     </div>
-
-    <!-- the reel: everything the library does, in one 81-second video (plays from the published page, same origin) -->
-    <div class="feature" id="reel">
-      <div class="facade" id="reelFacade">
-        <img src="examples/showreel/poster.jpg" width="1280" height="720" alt="Poster of the reel: the word pixi-effects with a red diamond and the line “a video is a file of data.”, above two lines of the data that draws them">
-        <button type="button" id="reelBtn" aria-label="Play the reel live: 81 seconds, twelve chapters, with sound">
-          <span class="play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 1.5l11 6.5-11 6.5z"/></svg></span>
-          <span class="hint" aria-hidden="true">play the reel · sound on</span>
-        </button>
-      </div>
-      <div class="feature-info">
-        <p class="lbl"><span class="dia" aria-hidden="true"></span>The reel</p>
-        <h3>Everything it does, in 81 seconds</h3>
-        <p>Twelve chapters, one HTML page of data, music written as text.</p>
-        <p class="fmeta"><span>1920×1080</span><span>81 s</span><span>no files, no assets</span><span><a href="examples/showreel/pixi-effects-reel.html">open the page with controls</a></span></p>
-      </div>
-    </div>
-
-    <!-- two more films, played live the same way as the reel: a click starts the page behind the poster -->
-    <div class="films" id="films">
-      <div class="feature">
-        <div class="facade" id="inkFacade">
-          <img src="examples/films/ink-and-paper.jpg" width="1280" height="720" alt="Poster of the film “Ink and paper”: the word pixi-effects in heavy serif type over a red hatched circle, with a hand-written note above it." loading="lazy">
-          <button type="button" id="inkBtn" aria-label="Play the film “Ink and paper” live: 45 seconds, with sound">
-            <span class="play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 1.5l11 6.5-11 6.5z"/></svg></span>
-            <span class="hint" aria-hidden="true">play · sound on</span>
-          </button>
-        </div>
-        <div class="feature-info">
-          <p class="lbl"><span class="dia" aria-hidden="true"></span>A film · paper and ink</p>
-          <h3>A film an AI wrote, in one page</h3>
-          <p>Hand-drawn data, a PixiJS 3D knot, a paper diorama lit by one spot, and sound written as text.</p>
-          <p class="fmeta"><span>1920×1080</span><span>45 s</span><span>Rough.js · D3 · PixiJS 3D</span><span><a href="examples/films/ink-and-paper.html">open the page with controls</a></span></p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="facade" id="lightFacade">
-          <img src="examples/films/light-as-material.jpg" width="1280" height="720" alt="Poster of the film “Light as a material”: 2,880 thin rods in a wave, lit blue in the dark, above the word MATERIAL in thin capitals." loading="lazy">
-          <button type="button" id="lightBtn" aria-label="Play the film “Light as a material” live: 45 seconds, with sound">
-            <span class="play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 1.5l11 6.5-11 6.5z"/></svg></span>
-            <span class="hint" aria-hidden="true">play · sound on</span>
-          </button>
-        </div>
-        <div class="feature-info">
-          <p class="lbl"><span class="dia" aria-hidden="true"></span>A film · light as a material</p>
-          <h3>The same idea, at night</h3>
-          <p>A spot light with cast shadows, 2,880 rods, a camera flight with focus pulls.</p>
-          <p class="fmeta"><span>1920×1080</span><span>45 s</span><span>PixiJS 3D · D3 · Rough.js</span><span><a href="examples/films/light-as-material.html">open the page with controls</a></span></p>
-        </div>
-      </div>
-    </div>
-
-    <!-- the composition panel: data in, video out -->
-    <div class="comp" id="demo">
-      <div class="comp-bar" aria-hidden="true">
-        <span class="dots"><i></i><i></i><i></i></span>
-        <span class="in">composition.js</span>
-        <span class="arrow">→</span>
-        <span>movie.play()</span>
-        <span class="out">live · 1280×720 · 6 s · 30 fps</span>
-      </div>
-      <div class="comp-body">
-        <div class="comp-code">
-          <p class="sr">The complete minimal composition, as JavaScript. The play button on the right runs this very text in your browser:</p>
-<pre><code id="heroCode"><span class="k">import</span> { Movie } <span class="k">from</span> <span class="s">'pixi-effects'</span>;
-<span class="k">const</span> movie = <span class="k">new</span> Movie();
-<span class="k">await</span> movie.init({
-  canvas, width: <span class="n">1280</span>, height: <span class="n">720</span>, duration: <span class="n">6</span>, frameRate: <span class="n">30</span>,
-  background: <span class="s">'#0a0a0f'</span>,
-  composition: { layers: [
-    <span class="hl">{ type: <span class="s">'text'</span>, text: <span class="s">'Hello'</span>, at: <span class="n">0.5</span>,</span>
-      style: { fontSize: <span class="n">120</span>, fontWeight: <span class="s">'bold'</span>, fill: <span class="s">'#fff'</span> },
-      initial: { x: <span class="s">'GW/2'</span>, y: <span class="s">'GH/2'</span>, anchorX: <span class="n">0.5</span>, anchorY: <span class="n">0.5</span> },
-      keyframes: [{ at: <span class="n">0</span>, from: { alpha: <span class="n">0</span>, y: <span class="s">'GH/2 + 40'</span> },
-                    to: { alpha: <span class="n">1</span>, y: <span class="s">'GH/2'</span> },
-                    duration: <span class="n">0.6</span>, ease: <span class="s">'power2.out'</span> }] },
-    <span class="hl">{ type: <span class="s">'audio'</span>, sfx: <span class="s">'chime'</span>, at: <span class="n">1.1</span> },</span>
-  ] },
-});
-movie.play();
-<span class="c">// or: const mp4 = await movie.render({ format: 'mp4' })</span></code></pre>
-          <!-- the two layers above, plotted as a timeline -->
-          <div class="tl" aria-label="The two layers of the snippet plotted on a six-second timeline" role="img">
-            <div class="tl-head"><span>timeline · 6 s</span><span>◆ keyframe</span></div>
-            <div class="tl-grid">
-              <div class="tl-ruler" aria-hidden="true"><span style="left:0">0 s</span><span style="left:16.667%">1</span><span style="left:33.333%">2</span><span style="left:50%">3</span><span style="left:66.667%">4</span><span style="left:83.333%">5</span><span style="left:100%">6</span></div>
-              <div class="tl-name">text “Hello”</div>
-              <div class="tl-track"><div class="tl-bar text"><div class="tween"></div></div><div class="tl-key" style="left:8.333%" title="keyframe at 0.5 s: alpha 0→1, y +40→0, 0.6 s, power2.out"></div></div>
-              <div class="tl-name">audio chime</div>
-              <div class="tl-track"><div class="tl-key audio" style="left:18.333%" title="sfx chime at 1.1 s"></div></div>
-            </div>
-            <div class="tl-play" aria-hidden="true"></div>
-          </div>
-        </div>
-        <div class="comp-video">
-          <div class="facade" id="facade">
-            <img id="heroStill" src="data:image/jpeg;base64,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ifX4FuKp8vMR56p83HFNEoKA1JgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//Z" width="640" height="360" alt="The real frame at 1.2 seconds of the composition on the left: the word Hello in white bold type, centred on near-black">
-            <button type="button" id="playBtn" aria-label="Run this data live: imports pixi-effects from a CDN and plays the composition on the left in a canvas, with sound">
-              <span class="play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 1.5l11 6.5-11 6.5z"/></svg></span>
-              <span class="hint" aria-hidden="true">run this data live</span>
-            </button>
-          </div>
-          <div class="vbar" id="vbar" hidden>
-            <span id="vstatus" role="status">loading pixi-effects from the CDN…</span>
-            <button type="button" class="replay" id="replayBtn" hidden>Replay</button>
-          </div>
-          <div class="vinfo">
-            <p class="vtitle">This exact data, running live in your browser</p>
-            <p class="vsub">Press play: nothing is pre-rendered; this text runs as written.</p>
-            <p class="vmeta"><span>1280×720</span><span>6 s</span><span>30 fps</span><span>sfx chime · no audio file</span></p>
-          </div>
-          <div class="comp-foot">
-            <span>same frame path for play · scrub · export</span>
-            <span><a href="#gallery">a real, bigger piece, live ↓</a></span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div class="hero-stage">
+<!--site:samples-hero-->
+<div class="hero-tabs" role="tablist" aria-label="The sentence, in 5 languages">
+  <button type="button" role="tab" id="tab-en" aria-selected="true" tabindex="0" aria-controls="hero-panel" data-card="sample-placeholder-en" data-page="site/samples/placeholder-en/index.html" data-poster="site/samples/placeholder-en/poster.jpg" data-alt="Placeholder for the Bakery title sample" data-title="Bakery title" data-meta="Claude Opus · 1 message · 3 min · unedited">English</button>
+  <button type="button" role="tab" id="tab-ja" aria-selected="false" tabindex="-1" aria-controls="hero-panel" data-card="sample-placeholder-ja" data-page="site/samples/placeholder-ja/index.html" data-poster="site/samples/placeholder-ja/poster.jpg" data-alt="Placeholder for the Neon OPEN sample" data-title="Neon OPEN" data-meta="Claude Opus · 1 message · 3 min · unedited">日本語</button>
+  <button type="button" role="tab" id="tab-zh" aria-selected="false" tabindex="-1" aria-controls="hero-panel" data-card="sample-placeholder-zh" data-page="site/samples/placeholder-zh/index.html" data-poster="site/samples/placeholder-zh/poster.jpg" data-alt="Placeholder for the 3D product sample" data-title="3D product" data-meta="Claude Opus · 1 message · 3 min · unedited">中文</button>
+  <button type="button" role="tab" id="tab-es" aria-selected="false" tabindex="-1" aria-controls="hero-panel" data-card="sample-placeholder-es" data-page="site/samples/placeholder-es/index.html" data-poster="site/samples/placeholder-es/poster.jpg" data-alt="Placeholder for the Rain chart sample" data-title="Rain chart" data-meta="Claude Opus · 1 message · 3 min · unedited">Español</button>
+  <button type="button" role="tab" id="tab-ko" aria-selected="false" tabindex="-1" aria-controls="hero-panel" data-card="sample-placeholder-ko" data-page="site/samples/placeholder-ko/index.html" data-poster="site/samples/placeholder-ko/poster.jpg" data-alt="Placeholder for the Beat words sample" data-title="Beat words" data-meta="Claude Opus · 1 message · 3 min · unedited">한국어</button>
+</div>
+<div class="hero-panel" id="hero-panel" role="tabpanel" aria-labelledby="tab-en">
+  <p class="sentence" lang="en" data-tab="tab-en">Use https://github.com/yjmtmtk/pixi-effects to make a video: a 10-second title for a bakery, warm cream colours, a soft chime at the end.</p>
+  <p class="sentence" lang="ja" data-tab="tab-ja" hidden>https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型 15 秒、夜の街のネオンで「OPEN」が点く、短いジングル付き。</p>
+  <p class="sentence" lang="zh" data-tab="tab-zh" hidden>用 https://github.com/yjmtmtk/pixi-effects 做一个视频：一个在 3D 空间里慢慢旋转的产品盒子，柔和的灯光，最后出现品牌名。</p>
+  <p class="sentence" lang="es" data-tab="tab-es" hidden>Usa https://github.com/yjmtmtk/pixi-effects para hacer un vídeo: un gráfico de barras de las lluvias de cinco ciudades que crece y se ordena.</p>
+  <p class="sentence" lang="ko" data-tab="tab-ko" hidden>https://github.com/yjmtmtk/pixi-effects 를 사용해서 영상을 만들어 줘: 음악 비트에 맞춰 네 단어가 튀어나오는 12초짜리 클립.</p>
+  <div class="hero-video">
+<figure class="live" data-page="site/samples/placeholder-en/index.html" data-autoplay>
+  <img src="site/samples/placeholder-en/poster.jpg" alt="Placeholder for the Bakery title sample" width="640" height="360">
+  <button class="live-play" type="button" aria-label="Play Bakery title">▶</button>
+</figure>
+  <div class="hero-facts"><ul class="facts"><li>Claude Opus</li><li>1 message</li><li>3 min</li><li>unedited</li></ul></div>
   </div>
-</section>
+</div>
+<!--/site:samples-hero-->
+    </div>
+  </section>
 
-<!-- ================= 01 ONE SENTENCE ================= -->
-<section id="one" aria-labelledby="h-one">
-  <div class="wrap">
-    <header class="ch"><span class="n">01</span><span class="dia" aria-hidden="true"></span><h2 id="h-one">One sentence</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="deck">Tell any AI this. <strong>It reads the repository and checks what it makes.</strong></p>
+  <section class="band promo-band" id="promo" aria-labelledby="promo-title">
+    <div class="wrap">
+      <h2 id="promo-title">Make a promo video for this project.</h2>
+      <p class="lede">That is the whole message. An AI with the pixi-effects repository open was asked exactly that, and made the video below. Open your own project and ask the same.</p>
+<!--site:samples-promo-->
+<div class="promo" id="sample-placeholder-promo">
+<figure class="live" data-page="site/samples/placeholder-promo/index.html">
+  <img src="site/samples/placeholder-promo/poster.jpg" alt="Placeholder for the promo of this project" width="640" height="360" loading="lazy">
+  <button class="live-play" type="button" aria-label="Play pixi-effects">▶</button>
+</figure>
+<div class="promo-chat">
+  <p class="msg you"><span class="prompt" aria-hidden="true">&gt;</span> Make a promo video for this project.</p>
+  <div class="msg done"><span class="ok" aria-hidden="true">✓</span> promo video delivered <ul class="facts"><li>Claude Opus</li><li>1 message</li><li>6 min</li><li>unedited</li></ul></div>
+</div>
+</div>
+<!--/site:samples-promo-->
+    </div>
+  </section>
 
-    <div class="prompt">
-      <div class="prompt-bar"><span>the sentence</span><span>tap an ending to swap it, then copy</span></div>
-      <p class="prompt-text" id="promptText">Use <span class="url">https://github.com/yjmtmtk/pixi-effects</span> to make a video: <span class="ending" id="ending">a 10-second title for a bakery, warm cream colours, a soft chime at the end</span></p>
-      <div class="prompt-foot">
-        <div class="chips" role="group" aria-label="Example endings">
-          <span class="lbl">Endings</span>
-          <button type="button" class="chip" aria-pressed="true" data-ending="a 10-second title for a bakery, warm cream colours, a soft chime at the end">Bakery title</button>
-          <button type="button" class="chip" aria-pressed="false" data-ending="a lo-fi loop with a clock counting down to midnight">Lo-fi midnight loop</button>
-          <button type="button" class="chip" aria-pressed="false" data-ending="a 20-second launch teaser for headphones, dark, 2.5D">Headphones teaser, 2.5D</button>
-        </div>
-        <button type="button" class="btn primary" id="copyPrompt">Copy the sentence</button>
+  <section class="wrap section" id="one-sentence" aria-labelledby="one-title">
+    <h2 id="one-title">One sentence each</h2>
+    <p class="lede">Each video is the answer to one message, exactly as it came out. Press play: it runs live, right here.</p>
+    <div class="cards">
+<!--site:samples-one-->
+<article class="sample card" id="sample-placeholder-en">
+<figure class="live" data-page="site/samples/placeholder-en/index.html">
+  <img src="site/samples/placeholder-en/poster.jpg" alt="Placeholder for the Bakery title sample" width="640" height="360" loading="lazy">
+  <button class="live-play" type="button" aria-label="Play Bakery title">▶</button>
+</figure>
+<div class="sample-body">
+  <p class="sentence" lang="en">Use https://github.com/yjmtmtk/pixi-effects to make a video: a 10-second title for a bakery, warm cream colours, a soft chime at the end.</p>
+  <ul class="facts"><li>Claude Opus</li><li>1 message</li><li>3 min</li><li>unedited</li></ul>
+</div>
+</article>
+<article class="sample card" id="sample-placeholder-ja">
+<figure class="live" data-page="site/samples/placeholder-ja/index.html">
+  <img src="site/samples/placeholder-ja/poster.jpg" alt="Placeholder for the Neon OPEN sample" width="640" height="360" loading="lazy">
+  <button class="live-play" type="button" aria-label="Play Neon OPEN">▶</button>
+</figure>
+<div class="sample-body">
+  <p class="sentence" lang="ja">https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型 15 秒、夜の街のネオンで「OPEN」が点く、短いジングル付き。</p>
+  <ul class="facts"><li>Claude Opus</li><li>1 message</li><li>3 min</li><li>unedited</li></ul>
+</div>
+</article>
+<article class="sample card" id="sample-placeholder-zh">
+<figure class="live" data-page="site/samples/placeholder-zh/index.html">
+  <img src="site/samples/placeholder-zh/poster.jpg" alt="Placeholder for the 3D product sample" width="640" height="360" loading="lazy">
+  <button class="live-play" type="button" aria-label="Play 3D product">▶</button>
+</figure>
+<div class="sample-body">
+  <p class="sentence" lang="zh">用 https://github.com/yjmtmtk/pixi-effects 做一个视频：一个在 3D 空间里慢慢旋转的产品盒子，柔和的灯光，最后出现品牌名。</p>
+  <ul class="facts"><li>Claude Opus</li><li>1 message</li><li>3 min</li><li>unedited</li></ul>
+</div>
+</article>
+<article class="sample card" id="sample-placeholder-es">
+<figure class="live" data-page="site/samples/placeholder-es/index.html">
+  <img src="site/samples/placeholder-es/poster.jpg" alt="Placeholder for the Rain chart sample" width="640" height="360" loading="lazy">
+  <button class="live-play" type="button" aria-label="Play Rain chart">▶</button>
+</figure>
+<div class="sample-body">
+  <p class="sentence" lang="es">Usa https://github.com/yjmtmtk/pixi-effects para hacer un vídeo: un gráfico de barras de las lluvias de cinco ciudades que crece y se ordena.</p>
+  <ul class="facts"><li>Claude Opus</li><li>1 message</li><li>3 min</li><li>unedited</li></ul>
+</div>
+</article>
+<article class="sample card" id="sample-placeholder-ko">
+<figure class="live" data-page="site/samples/placeholder-ko/index.html">
+  <img src="site/samples/placeholder-ko/poster.jpg" alt="Placeholder for the Beat words sample" width="640" height="360" loading="lazy">
+  <button class="live-play" type="button" aria-label="Play Beat words">▶</button>
+</figure>
+<div class="sample-body">
+  <p class="sentence" lang="ko">https://github.com/yjmtmtk/pixi-effects 를 사용해서 영상을 만들어 줘: 음악 비트에 맞춰 네 단어가 튀어나오는 12초짜리 클립.</p>
+  <ul class="facts"><li>Claude Opus</li><li>1 message</li><li>3 min</li><li>unedited</li></ul>
+</div>
+</article>
+<!--/site:samples-one-->
+    </div>
+  </section>
+
+  <section class="wrap section" id="refined" aria-labelledby="refined-title">
+    <h2 id="refined-title">A few more messages</h2>
+    <p class="lede">Start with one sentence, then say what to change. The whole conversation sits next to the result.</p>
+    <div class="refined-list">
+<!--site:samples-refined-->
+<article class="sample refined card" id="sample-placeholder-refined">
+<figure class="live" data-page="site/samples/placeholder-refined/index.html">
+  <img src="site/samples/placeholder-refined/poster.jpg" alt="Placeholder for a refined sample" width="640" height="360" loading="lazy">
+  <button class="live-play" type="button" aria-label="Play Refined">▶</button>
+</figure>
+<div class="sample-body">
+  <ol class="chat">
+    <li class="msg" lang="en"><span class="who">You</span>Use https://github.com/yjmtmtk/pixi-effects to make a video: a launch teaser for a coffee app.</li>
+    <li class="msg" lang="en"><span class="who">Then</span>Warmer colours, please.</li>
+    <li class="msg" lang="en"><span class="who">Then</span>Slow the ending down and add the logo.</li>
+  </ol>
+  <ul class="facts"><li>Claude Opus</li><li>3 messages</li><li>9 min</li></ul>
+</div>
+</article>
+<!--/site:samples-refined-->
+    </div>
+  </section>
+
+  <section class="wrap section" id="start" aria-labelledby="start-title">
+    <h2 id="start-title">Start in 30 seconds</h2>
+    <div class="ways">
+      <div class="way card">
+        <h3>In Claude Code, Cursor or Codex</h3>
+        <p>Add the skill once:</p>
+        <p class="code-chip"><code id="cmd-skill">npx skills add yjmtmtk/pixi-effects</code><button type="button" data-copy="cmd-skill">Copy</button></p>
+        <p>Then ask for a video, in any words. It checks its own work and renders the MP4.</p>
+      </div>
+      <div class="way card">
+        <h3>In any chat</h3>
+        <p>Paste one sentence and say what you want:</p>
+        <p class="sentence-chip"><code id="cmd-chat">Use https://github.com/yjmtmtk/pixi-effects to make a video: …</code><button type="button" data-copy="cmd-chat">Copy</button></p>
+        <p>You get one HTML page. Open it: the download button under the video saves the MP4.</p>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- ================= 04 GALLERY ================= -->
-<section id="gallery" aria-labelledby="h-gal">
-  <div class="wrap">
-    <header class="ch"><span class="n">02</span><span class="dia" aria-hidden="true"></span><h2 id="h-gal">43 pieces, each one file of data</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="deck">Every poster opens the piece, playing live.</p>
-
-    <div class="feature">
-      <div class="facade" id="kmFacade">
-        <img src="examples/gallery/posters/kinetic-manifesto.jpg" width="640" height="360" loading="lazy" alt="Poster of the gallery piece Kinetic Manifesto: the words MAKE THINGS in huge white type on black, with つくる in red across the middle">
-        <button type="button" id="kmBtn" aria-label="Play Kinetic Manifesto live: loads the piece from yjmtmtk.github.io">
-          <span class="play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 1.5l11 6.5-11 6.5z"/></svg></span>
-          <span class="hint" aria-hidden="true">click to play live</span>
-        </button>
-      </div>
-      <div class="feature-info">
-        <p class="lbl"><span class="dia" aria-hidden="true"></span>A real piece, live</p>
-        <h3>Kinetic Manifesto</h3>
-        <p>Five bilingual statements slammed onto a 100 BPM grid, written by an AI model.</p>
-        <p class="fmeta"><span>1280×720</span><span>12 s</span><span>sfx · no audio files</span><span>loads from yjmtmtk.github.io</span></p>
-      </div>
-    </div>
-
-    <div class="masonry">
-      <a class="piece" href="examples/gallery/#ma" data-piece="ma"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/ma.jpg" width="960" height="540" loading="lazy" alt="間 MA: a large black 間 character with its lower strokes in red, beside the word MA and the line “the space between things”, on warm paper"></div><figcaption><b>間 MA — the space between</b><span>1920×1080 · 48 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="examples/gallery/#isometric-city" data-piece="isometric-city"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/isometric-city.jpg" width="640" height="360" loading="lazy" alt="Kōbe, 2040: an isometric city of lit blocks at dusk"></div><figcaption><b>Kōbe, 2040</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="examples/gallery/#pythagoras-rearranged" data-piece="pythagoras-rearranged"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/pythagoras-rearranged.jpg" width="640" height="360" loading="lazy" alt="Pythagoras rearranged: four triangles slide inside a square and the vermilion area turns from c² into a² + b²"></div><figcaption><b>Pythagoras, Rearranged</b><span>1280×720 · 12.5 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="examples/gallery/#synthwave-drive" data-piece="synthwave-drive"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/synthwave-drive.jpg" width="640" height="360" loading="lazy" alt="Synthwave Drive: a striped sun over a neon grid and the glowing title SYNTHWAVE DRIVE"></div><figcaption><b>Synthwave Drive</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="examples/gallery/#loop-morph" data-piece="loop-morph"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/loop-morph.jpg" width="540" height="540" loading="lazy" alt="Small Motions: a single ink dot becomes typing dots, a progress bar, a toggle and a check mark on warm paper with one vermilion accent"></div><figcaption><b>Small Motions</b><span>1080×1080 · 12 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="examples/gallery/#film-titles" data-piece="film-titles"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/film-titles.jpg" width="640" height="360" loading="lazy" alt="The Long Night: a dark faceted shard in fog with a ring around it, over the title in spaced serif capitals"></div><figcaption><b>The Long Night</b><span>1280×720 · 14 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="examples/gallery/#wedding-invitation" data-piece="wedding-invitation"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/wedding-invitation.jpg" width="540" height="675" loading="lazy" alt="Wedding Invitation: a cream card with a double gold border, botanical sprigs, and the names Aiko and Daniel in serif"></div><figcaption><b>Wedding Invitation</b><span>1080×1350 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="examples/gallery/#news-package" data-piece="news-package"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/news-package.jpg" width="640" height="360" loading="lazy" alt="NORTH 24 Breaking: a rainy harbour bridge at night with a BREAKING lower third and a news ticker"></div><figcaption><b>NORTH 24 — Breaking</b><span>1280×720 · 12 s · opus</span></figcaption></figure></a>
-    </div>
-
-    <div class="gal-foot">
-      <p class="tally"><span>43 pieces</span><span>written by <b>fable 9</b> · <b>opus 32</b> · <b>sonnet 2</b></span></p>
-      <a class="btn" href="examples/gallery/">Open the live gallery <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z" fill="currentColor"/></svg></a>
-    </div>
-  </div>
-</section>
-
-<!-- ================= 05 INTERACTIVE MOVIES ================= -->
-<section id="interactive" aria-labelledby="h-int">
-  <div class="wrap">
-    <header class="ch"><span class="n">03</span><span class="dia" aria-hidden="true"></span><h2 id="h-int">Change it while it plays</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="deck">A name, a colour, the pointer: change one and the film is built again at the same frame.</p>
-
-    <div class="masonry">
-      <a class="ipiece" href="examples/interactive/janken.html"><figure style="margin:0"><div class="frame"><img src="examples/interactive/posters/janken.jpg" width="640" height="360" loading="lazy" alt="Rock paper scissors: a hand and a fist under the words YOU WIN with confetti"></div><figcaption><b>Rock paper scissors</b><span>A new throw every time you seek back before “SHOOT!”</span></figcaption></figure></a>
-      <a class="ipiece" href="examples/interactive/scroll-city.html"><figure style="margin:0"><div class="frame"><img src="examples/interactive/posters/scroll-city.jpg" width="640" height="360" loading="lazy" alt="A dusk street seen from the middle of the road: dark towers on both sides, lit windows and street lamps, a purple sky ahead"></div><figcaption><b>Scroll through a city</b><span>The page’s scroll is one variable</span></figcaption></figure></a>
-      <a class="ipiece" href="examples/interactive/chords.html"><figure style="margin:0"><div class="frame"><img src="examples/interactive/posters/chords.jpg" width="640" height="360" loading="lazy" alt="Four chord cards, C G Am F, the second one lit blue, with sixteen beat dots under them"></div><figcaption><b>Write a tune with four chords</b><span>The music is text, so a chord is a variable</span></figcaption></figure></a>
-      <a class="ipiece" href="examples/interactive/card.html"><figure style="margin:0"><div class="frame"><img src="examples/interactive/posters/card.jpg" width="640" height="360" loading="lazy" alt="A birthday card for Aiko: balloons, confetti and the words Happy Birthday, turning 30, three candles"></div><figcaption><b>A card for anyone</b><span>One MP4 per name, made in the browser</span></figcaption></figure></a>
-    </div>
-
-    <div class="gal-foot">
-      <p class="tally"><span>9 live samples</span><span>seekable · loopable · renderable</span></p>
-      <a class="btn" href="examples/interactive/">Open the interactive movies <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z" fill="currentColor"/></svg></a>
-    </div>
-  </div>
-</section>
-
-<!-- ================= WAY IN ================= -->
-<section id="way" aria-labelledby="h-way">
-  <div class="wrap">
-    <header class="ch"><span class="n">04</span><span class="dia" aria-hidden="true"></span><h2 id="h-way">Start</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="cta"><a class="btn primary" href="for-ai.html">Tell an AI: For AI</a> <a class="btn" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a> <a class="btn" href="https://www.npmjs.com/package/pixi-effects">npm</a></p>
-    <p class="way-status mono">v1.0.0 · stable · MIT</p>
-  </div>
-</section>
+  <section class="wrap curious" id="curious" aria-label="For the curious">
+    <p>For the curious: <a href="lab/">a video that is not a file</a>, and <a href="for-ai.html">the docs an AI reads</a>.</p>
+  </section>
 
 </main>
-
-<dialog id="player" aria-label="A piece from the gallery, playing live">
-  <div class="pbar"><b id="ptitle"></b><a id="popen" href="examples/gallery/">Open in the gallery</a><button type="button" id="pclose">Close</button></div>
-  <div class="pframe" id="pframe"></div>
-</dialog>
 
 <!--site:footer-->
 <footer class="site-foot">
@@ -305,172 +218,5 @@ movie.play();
   </div>
 </footer>
 <!--/site:footer-->
-
-<script>
-(function(){
-  // scroll progress (the bar along the top edge)
-  var ph=document.getElementById('playhead'), raf=0;
-  function tick(){ raf=0; var max=document.documentElement.scrollHeight-window.innerHeight; var p=max>0?Math.min(1,Math.max(0,window.scrollY/max)):0;
-    ph.style.transform='scaleX('+p+')'; }
-  window.addEventListener('scroll',function(){ if(!raf) raf=requestAnimationFrame(tick); },{passive:true}); tick();
-
-  // the hero: run the code panel's own text, live. The import map above resolves 'pixi-effects' (and its peers) from CDNs; nothing loads until this click.
-  var play=document.getElementById('playBtn'), facade=document.getElementById('facade'), vbar=document.getElementById('vbar'), vstatus=document.getElementById('vstatus'), replay=document.getElementById('replayBtn');
-  if(play) play.addEventListener('click',function(){
-    play.disabled=true; vbar.hidden=false; vstatus.textContent='loading pixi-effects from the CDN…';
-    var src=document.getElementById('heroCode').textContent;
-    var text="const canvas = document.getElementById('heroCanvas');\n"+src+"\nexport default movie;\n";
-    var canvas=document.createElement('canvas'); canvas.id='heroCanvas'; canvas.width=1280; canvas.height=720; facade.insertBefore(canvas, facade.firstChild);
-    var url=URL.createObjectURL(new Blob([text],{type:'text/javascript'}));
-    import(url).then(function(m){
-      var movie=m.default; window.heroMovie=movie; play.remove(); document.getElementById('heroStill').remove();
-      vstatus.textContent='playing: the data on the left, drawn by pixi-effects in this canvas';
-      movie.on('ended',function(){ vstatus.textContent='ended at 6 s'; replay.hidden=false; });
-      replay.addEventListener('click',function(){ replay.hidden=true; vstatus.textContent='playing again'; movie.gotoFrame(0).then(function(){ movie.play(); }); });
-    }).catch(function(e){
-      canvas.remove(); play.disabled=false;
-      vstatus.textContent='Could not load the library (it needs the network): '+((e&&e.message)||e)+'. The still is the real frame at 1.2 s; the code is unchanged.';
-    });
-  });
-
-  // Playing a gallery piece here. A piece opens at its poster and waits for its own play button. The click that opened it is the gesture that
-  // lets the sound start, so when the frame is on this page's own origin (the published site) play it from here once it is ready, as the
-  // the old guide demos did. From another origin (a local preview) the frame cannot be reached: press play in it.
-  var GALLERY=window.__GALLERY_BASE||'https://yjmtmtk.github.io/pixi-effects/examples/gallery/';
-  function openPiece(id,host,url){
-    var f=document.createElement('iframe'); f.src=url||(GALLERY+id+'.html'); f.allow='autoplay; fullscreen'; f.loading='eager'; host.appendChild(f);
-    // the poster stands in for the piece until the piece is on screen; it sits above the frame (z-index), so take it away once the frame
-    // shows the piece's own first picture (or, when the frame cannot be reached, once it has loaded: the frame has its own play button)
-    var reveal=function(){ var im=host.querySelector('img'); if(im) im.style.display='none'; };
-    var tries=0;
-    (function wait(){
-      var w=null;
-      try{ w=f.contentWindow; if(w && w.__ready===true && w.movie){ fitFrame(f); Promise.resolve(w.movie.gotoFrame(0,true)).then(function(){
-          reveal();
-          var go=function(){ var s0=(w.movie.stops||[]).filter(function(s){return s.frame>0;})[0]; if(s0) w.movie.playUntil(s0.at); else w.movie.play(); };
-          // The click that opened the frame was made in THIS page. Some browsers (iOS Safari) do not carry it into the frame, so the sound would stay
-          // locked until the viewer pauses and plays again: when the movie says its sound is blocked, ask for one tap INSIDE the frame and start there.
-          if(w.movie.audioBlocked) tapForSound(f,w,go); else go();
-        }); return; } }catch(e){ f.addEventListener('load',reveal); return; }      // another origin: the frame has its own play button; show it once it has loaded
-      if(++tries<250 && f.isConnected) setTimeout(wait,100); else reveal();
-    })();
-    return f;
-  }
-  function tapForSound(f,w,go){
-    try{
-      var d=f.contentDocument, c=d.querySelector('#stage')||d.querySelector('canvas'), r=c.getBoundingClientRect(), k=f.parentNode.clientWidth/r.width, b=d.createElement('button');
-      if(!(r.width>0)){ go(); return; }
-      b.type='button'; b.textContent='▶  Tap to play with sound';
-      b.style.cssText='position:absolute;z-index:99999;left:'+(r.left+scrollX(d))+'px;top:'+(r.top+scrollY(d))+'px;width:'+r.width+'px;height:'+r.height+'px;border:0;margin:0;cursor:pointer;'
-        +'background:rgba(11,13,18,.45);color:#fff;font:600 '+Math.round(22/k)+'px/1.2 -apple-system,system-ui,sans-serif;letter-spacing:.02em';
-      b.addEventListener('click',function(e){ e.stopPropagation(); b.remove(); go(); });
-      d.body.appendChild(b);
-      if(w.movie.on) w.movie.on('play',function(){ b.remove(); });   // started with the player bar instead
-    }catch(e){ go(); }
-  }
-  function scrollX(d){ return (d.defaultView&&d.defaultView.pageXOffset)||0; }
-  function scrollY(d){ return (d.defaultView&&d.defaultView.pageYOffset)||0; }
-
-  // A piece's page has its own margin around the picture, sizes the picture by its own rules and scrolls when the frame is a little small
-  // for it. Show only the picture: the page is laid out in a big, fixed viewport (so it is at its natural size), the scrollbars are hidden,
-  // and the page is scaled and moved so that its canvas sits exactly on the frame.
-  function fitFrame(f){
-    try{
-      var d=f.contentDocument, c=d.querySelector('#stage')||d.querySelector('canvas'), box=f.parentNode;
-      if(!c) return;
-      // Fullscreen: the browser lifts the frame out of its box and drops its scale, so the page is at its natural size and the bar needs no zoom
-      // (the zoom set below was for the small frame: left on, the bar was 2.4 times too big on a 4K screen). Leaving fullscreen fits it again.
-      if(!f.fsHooked){
-        f.fsHooked=true;
-        var onFs=function(){
-          var on=document.fullscreenElement===f||!!d.fullscreenElement, z=d.getElementById('fitZoom');
-          if(on){ if(z) z.textContent=''; } else setTimeout(function(){ fitFrame(f); },60);
-        };
-        d.addEventListener('fullscreenchange',onFs); document.addEventListener('fullscreenchange',onFs);
-      }
-      if(document.fullscreenElement===f||d.fullscreenElement){ var z0=d.getElementById('fitZoom'); if(z0) z0.textContent=''; return; }
-      d.documentElement.style.overflow='hidden'; d.body.style.overflow='hidden';
-      f.style.cssText='position:absolute;inset:auto;left:0;top:0;width:1400px;height:1400px;max-width:none;transform-origin:0 0';
-      var r=c.getBoundingClientRect(), k=box.clientWidth/r.width;
-      f.style.transform='scale('+k+') translate('+(-r.left)+'px,'+(-r.top)+'px)';
-      // the page is drawn small, so its player bar would be too: grow the bar's parts back to about their natural size on screen
-      var st=d.getElementById('fitZoom'); if(!st){ st=d.createElement('style'); st.id='fitZoom'; d.head.appendChild(st); }
-      st.textContent='.movie-controller > *{zoom:'+Math.min(2.4,Math.max(1,1/k)).toFixed(3)+'}';
-    }catch(e){ /* another origin: leave the frame as it is */ }
-  }
-  var fitting=0; window.addEventListener('resize',function(){ clearTimeout(fitting); fitting=setTimeout(function(){ document.querySelectorAll('#player iframe, #kmFacade iframe, #reelFacade iframe, #inkFacade iframe, #lightFacade iframe').forEach(fitFrame); },120); });
-
-  // the reel and the two films: the same page the link opens, played in the frame from this origin
-  function liveFilm(btnId,hostId,url,title,what){
-  var rb=document.getElementById(btnId), rf=document.getElementById(hostId);
-  if(rb) rb.addEventListener('click',function(){
-    var f=openPiece(hostId,rf,url); f.title=title; rb.remove();
-    // the poster stays until the page behind it has drawn its first frame; a spinner and a line say that it is loading, not stuck
-    var still=rf.querySelector('img'), ld=document.createElement('div'), n=0;
-    ld.className='ld'; ld.setAttribute('role','status'); ld.innerHTML='<b><i aria-hidden="true"></i><span>loading '+what+'…</span></b><u class="bar" aria-hidden="true"></u>'; rf.appendChild(ld);
-    function done(msg){ if(msg){ ld.querySelector('span').textContent=msg; ld.querySelector('i').remove(); } else { still.style.display='none'; ld.remove(); } }
-    // the page in the frame says how far it is on its own loader (data-stage / data-percent, the library writes them); say it here too
-    var label=ld.querySelector('span'), bar=ld.querySelector('.bar');
-    function progress(){
-      try{
-        var l=f.contentDocument.querySelector('.pe-loader'), st=l&&l.getAttribute('data-stage'), pc=l&&l.getAttribute('data-percent');
-        if(st&&pc){ label.textContent=st.toLowerCase()+' · '+pc+' %'; bar.style.setProperty('--p',(Number(pc)/100).toFixed(3)); }
-      }catch(e){ /* another origin: the plain line stays */ }
-    }
-    (function wait(){
-      progress();
-      try{ if(f.contentWindow.__ready===true){ setTimeout(function(){ done(); },400); return; } }catch(e){ done(); return; }
-      if(++n<250) setTimeout(wait,100); else done('could not load '+what+' here: open the page with controls');
-    })();
-  });
-  }
-  liveFilm('reelBtn','reelFacade','examples/showreel/pixi-effects-reel.html','The pixi-effects reel, playing live','the reel');
-  liveFilm('inkBtn','inkFacade','examples/films/ink-and-paper.html','The film Ink and paper, playing live','the film');
-  liveFilm('lightBtn','lightFacade','examples/films/light-as-material.html','The film Light as a material, playing live','the film');
-
-  // a real piece, live (a video facade for the published gallery page)
-  var km=document.getElementById('kmBtn'), kmFacade=document.getElementById('kmFacade');
-  if(km) km.addEventListener('click',function(){
-    var f=openPiece('kinetic-manifesto',kmFacade); f.title='Kinetic Manifesto, playing live from the pixi-effects gallery'; km.remove();
-  });
-
-  // a poster in the gallery strip plays that piece in a player; the link itself (a new tab, no JavaScript) goes to the piece in the gallery
-  var player=document.getElementById('player'), pframe=document.getElementById('pframe');
-  function closePlayer(){ if(player.open && player.close) player.close(); pframe.textContent=''; }
-  if(player && player.showModal){
-    document.querySelectorAll('a.piece[data-piece]').forEach(function(a){
-      a.addEventListener('click',function(e){
-        if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0) return;
-        e.preventDefault();
-        var img=a.querySelector('img'), id=a.getAttribute('data-piece');
-        document.getElementById('ptitle').textContent=a.querySelector('figcaption b').textContent;
-        document.getElementById('popen').setAttribute('href',a.getAttribute('href'));
-        pframe.textContent=''; pframe.style.setProperty('--r',String(img.getAttribute('width')/img.getAttribute('height')));
-        player.showModal();
-        var f=openPiece(id,pframe); f.title=a.querySelector('figcaption b').textContent+', playing live from the pixi-effects gallery';
-      });
-    });
-    document.getElementById('pclose').addEventListener('click',closePlayer);
-    player.addEventListener('close',function(){ pframe.textContent=''; });
-    player.addEventListener('click',function(e){ if(e.target===player) closePlayer(); });
-  }
-
-  // the one sentence: swap the ending, copy the whole line
-  var ending=document.getElementById('ending'), chips=document.querySelectorAll('.chip'), cp=document.getElementById('copyPrompt');
-  chips.forEach(function(c){ c.addEventListener('click',function(){ ending.textContent=c.getAttribute('data-ending'); chips.forEach(function(x){ x.setAttribute('aria-pressed', x===c ? 'true' : 'false'); }); }); });
-  if(cp) cp.addEventListener('click',function(){
-    var text=document.getElementById('promptText').textContent.replace(/\s+/g,' ').trim(); var orig=cp.textContent;
-    var done=function(){ cp.textContent='Copied'; setTimeout(function(){ cp.textContent=orig; },1400); };
-    if(navigator.clipboard) navigator.clipboard.writeText(text).then(done,done); else done();
-  });
-
-  // copy buttons
-  document.querySelectorAll('.copy').forEach(function(b){ b.addEventListener('click',function(){
-    var el=document.getElementById(b.getAttribute('data-copy')); var t=el.cloneNode(true); t.querySelectorAll('button').forEach(function(x){x.remove();});
-    var text=t.textContent.trim(); var done=function(){ b.textContent='Copied'; setTimeout(function(){b.textContent='Copy';},1400); };
-    if(navigator.clipboard) navigator.clipboard.writeText(text).then(done,done); else done();
-  });});
-})();
-</script>
 </body>
 </html>

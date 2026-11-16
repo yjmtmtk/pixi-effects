@@ -69,6 +69,8 @@
     }
   }
 
+  window.peLive = { start: start, stop: stop };                 // for a page that swaps what a player plays (the landing page's language tabs)
+
   function init() { var all = document.querySelectorAll('figure.live'); for (var i = 0; i < all.length; i++) wire(all[i]); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

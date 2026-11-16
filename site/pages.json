@@ -2,7 +2,13 @@
   "pages": [
     {
       "file": "index.html",
-      "current": "home"
+      "current": "home",
+      "regions": [
+        "samples-hero",
+        "samples-promo",
+        "samples-one",
+        "samples-refined"
+      ]
     },
     {
       "file": "for-ai.html",
@@ -18,6 +24,10 @@
     {
       "file": "examples/interactive/index.html",
       "current": "interactive"
+    },
+    {
+      "file": "lab/index.html",
+      "current": "lab"
     }
   ]
 }

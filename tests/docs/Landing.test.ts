@@ -1,76 +1,62 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve } from 'node:path';
 
+// The 1.0 landing page (docs/superpowers/specs/2026-11-16-site-v1-design.md, "Pages · 1"; plan Task 7).
 const root = resolve(__dirname, '../..');
 const read = (p: string) => readFileSync(resolve(root, p), 'utf8');
 const html = read('index.html');
-const version: string = JSON.parse(read('package.json')).version;
+const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
+const visibleWords = () => main.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<!--site:samples-[\s\S]*?<!--\/site:samples-[a-z]+-->/g, ' ')
+  .replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').split(/\s+/).filter(Boolean).length;
 
 describe('the landing page (index.html at the repository root, deployed as the site root)', () => {
-  it('gives an agent the one command that registers the skill, once, near the one-sentence request', () => {
+  it('has the sections of the design, in order: hero, the promo of this project, one sentence, a few more messages, start, for the curious', () => {
+    const ids = ['hero', 'promo', 'one-sentence', 'refined', 'start', 'curious'];
+    const at = ids.map((id) => main.indexOf(`id="${id}"`));
+    at.forEach((i, n) => expect(i, ids[n]).toBeGreaterThan(-1));
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+  });
+
+  it('the hero says it in one line and carries the generated sentence tabs and player', () => {
+    expect(main).toMatch(/<h1[^>]*>\s*One sentence\.\s*(<br>)?\s*A finished video\.\s*<\/h1>/);
+    expect(main).toContain('<!--site:samples-hero-->');
+  });
+
+  it('section 2 is the literal message, with the generated promo', () => {
+    expect(main).toMatch(/<h2[^>]*>Make a promo video for this project\.<\/h2>/);
+    expect(main).toContain('<!--site:samples-promo-->');
+  });
+
+  it('carries the one-sentence cards and the refined cards', () => {
+    expect(main).toContain('<!--site:samples-one-->');
+    expect(main).toContain('<!--site:samples-refined-->');
+  });
+
+  it('gives the install command exactly once, as a chip with a copy button, in "Start"', () => {
     expect(html.split('npx skills add yjmtmtk/pixi-effects').length - 1).toBe(1);
+    const start = main.slice(main.indexOf('id="start"'), main.indexOf('id="curious"'));
+    expect(start).toMatch(/class="code-chip"[\s\S]*npx skills add yjmtmtk\/pixi-effects[\s\S]*<button[^>]*data-copy/);
   });
 
-  it('is staged as the Pages site root by the stage script, which the workflow runs', () => {
-    expect(read('.github/workflows/pages.yml')).toContain('node scripts/stage-site.mjs _site');
-    expect(read('scripts/stage-site.mjs')).toContain("copy('index.html')");
+  it('points to the Lab and the For AI page, quietly, and to no removed page', () => {
+    const curious = main.slice(main.indexOf('id="curious"'));
+    expect(curious).toContain('href="lab/"');
+    expect(curious).toContain('href="for-ai.html"');
+    const removed = new RegExp(`examples/(gallery|films|showreel)|examples/interactive/(index\\.html)?"|${'play'}ground`, 'i');   // (spelt in two: a docs test greps the repository for the removed page's name)
+    expect(html).not.toMatch(removed);
   });
 
-  it('every picture it links to exists, from the repository root (which is the site root)', () => {
-    const srcs = [...html.matchAll(/(?:src|data-src|srcset)="((?:examples)\/[^"]+\.(?:jpg|png|webp))"/g)].map(m => m[1]!);
-    expect(srcs.length).toBeGreaterThan(15);
-    const missing = [...new Set(srcs)].filter(s => !existsSync(resolve(root, s)));
-    expect(missing).toEqual([]);
+  it('stays short: at most 500 visible words of its own in <main> (the generated samples aside)', () => {
+    expect(visibleWords()).toBeLessThanOrEqual(500);
   });
 
-  it('says the current release (bump it with the other pins when you release)', () => {
-    const mentioned = [...html.matchAll(/v?(\d+\.\d+\.\d+)/g)].map(m => m[1]!).filter(v => /^[01]\.\d+\.\d+$/.test(v));      // pixi-effects is 0.x or 1.x; PixiJS (8.x) and other libraries are left out
-    expect(mentioned.length).toBeGreaterThanOrEqual(2);      // the importmap pin and the status line
-    expect(new Set(mentioned)).toEqual(new Set([version]));
-  });
-
-  it('has the one-sentence start, and it is the README\'s sentence', () => {
-    const plain = html.replace(/<[^>]+>/g, '');                       // the sentence is built from spans (the ending swaps)
-    expect(plain).toContain('Use https://github.com/yjmtmtk/pixi-effects to make a video:');
-    expect(read('README.md')).toContain('Use https://github.com/yjmtmtk/pixi-effects to make a video');
-    expect(read('for-ai.html')).toContain('AGENTS.md');                 // the reading list lives on the For AI page
-    expect(read('for-ai.html')).toContain('ai/CHAT.md');
-  });
-
-  const mainText = () => html.slice(html.indexOf('<main'), html.indexOf('</main>'))
-    .replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<pre[\s\S]*?<\/pre>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ')
-    .replace(/<figcaption[\s\S]*?<\/figcaption>/g, ' ').replace(/<p class="(?:fmeta|tally|sr)"[\s\S]*?<\/p>/g, ' ')    // labels and captions are not copy
-    .replace(/<[^>]+>/g, ' ');
-  it('is short: at most 400 visible words in <main>, captions and labels aside (measured 381 on 2026-10-15; it was 3,420)', () => {
-    expect(mainText().split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(400);
-  });
-  it('shows, it does not teach: no Guide link, no comparison, no music lab, and the removed sections are gone', () => {
-    expect(html).not.toMatch(/href="(?:\.\/)?guide\//);
-    expect(html).not.toMatch(/remotion|fframes|music-lab/i);
-    for (const id of ['get', 'ai', 'compare', 'start']) expect(html, id).not.toContain(`<section id="${id}"`);
-    for (const id of ['reel', 'films', 'one', 'gallery', 'interactive', 'way']) expect(html, id).toMatch(new RegExp(`id="${id}"`));
-  });
-  it('keeps both films at the top, before the sentence', () => {
-    expect(html.indexOf('id="films"')).toBeGreaterThan(0);
-    expect(html.indexOf('id="films"')).toBeLessThan(html.indexOf('id="one"'));
-    expect(html).toContain('examples/films/ink-and-paper.html');
-    expect(html).toContain('examples/films/light-as-material.html');
-  });
-  it('points to the For AI page', () => { expect(html).toContain('href="for-ai.html"'); });
-
-  it('runs its hero demo from the snippet it shows: one source, shown and executed (no second copy of the data)', () => {
-    expect(html).toContain('importmap');
-    expect(html).toContain('pixi-effects@' + version);
-    expect(html).toMatch(/textContent/);
-  });
-
-  it('stays small and loads nothing from third parties at page load (fonts, trackers, libraries): only on a click', () => {
-    const css = readFileSync(resolve(root, 'site/landing/landing.css'), 'utf8');
+  it('stays small and loads nothing from third parties at page load (fonts, trackers, libraries)', () => {
+    const css = read('site/landing/landing.css');
     expect(statSync(resolve(root, 'index.html')).size + css.length).toBeLessThan(130 * 1024);
     for (const m of html.matchAll(/<link[^>]+rel="stylesheet"[^>]*>/gi)) expect(m[0], 'same-site stylesheets only').toMatch(/href="(?!https?:|\/\/)[^"]+"/);
     for (const m of html.matchAll(/<script[^>]+src="([^"]+)"/gi)) expect(m[1], 'same-site scripts only').not.toMatch(/^(https?:)?\/\//);
-    expect(html).not.toMatch(/fonts\.googleapis|google-analytics|googletagmanager/i);
+    expect(html).not.toMatch(/fonts\.googleapis|google-analytics|googletagmanager|importmap/i);
   });
 
   it('keeps its source facts next to it, and they match the repository: the browser table in FACTS.md is the README\'s', () => {
@@ -87,7 +73,7 @@ describe('the landing page (index.html at the repository root, deployed as the s
       const d = meta('description')!;
       expect(d.length).toBeGreaterThanOrEqual(80);
       expect(d.length).toBeLessThanOrEqual(165);                         // search results cut at about 160
-      expect(d).toMatch(/plain objects|plain data/i);
+      expect(d).toMatch(/AI/);
       expect(d).toMatch(/MP4/);
     });
 
@@ -104,11 +90,10 @@ describe('the landing page (index.html at the repository root, deployed as the s
       expect(meta('twitter:image')).toBe(image);
     });
 
-    it('has a canonical link and a theme colour for each scheme', () => {
+    it('has a canonical link and one theme colour (light only)', () => {
       expect(html).toContain(`<link rel="canonical" href="${SITE}">`);
-      expect(html).toMatch(/<meta name="theme-color" content="#[0-9a-f]{6}" media="\(prefers-color-scheme: dark\)">/i);
-      expect(html).toMatch(/<meta name="theme-color" content="#[0-9a-f]{6}" media="\(prefers-color-scheme: light\)">/i);
+      expect(html).toMatch(/<meta name="theme-color" content="#[0-9a-f]{6}">/i);
+      expect(html).toMatch(/<meta name="color-scheme" content="light">/);
     });
   });
 });
-

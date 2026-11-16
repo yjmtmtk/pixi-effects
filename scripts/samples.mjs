@@ -50,13 +50,15 @@ export function jpegSize(file) {
   return null;
 }
 
-/** "Claude Opus · 1 message · 3 min · unedited" (and "best of N" when it was picked from several runs). */
-export function caption(s) {
+/** What a piece's card says about how it was made: ["Claude Opus", "1 message", "3 min", "unedited"] (and "best of N" when it was picked from several runs). */
+export function facts(s) {
   const parts = [s.model, `${s.messages.length} message${s.messages.length === 1 ? '' : 's'}`, `${s.minutes} min`];
   if (s.kind !== 'refined') parts.push('unedited');
   if (s.runs > 1) parts.push(`best of ${s.runs}`);
-  return parts.join(' · ');
+  return parts;
 }
+export const caption = (s) => facts(s).join(' · ');
+const factsHtml = (s) => `<ul class="facts">${facts(s).map((f) => `<li>${esc(f)}</li>`).join('')}</ul>`;
 
 const pagePath = (ctx, s) => `${ctx.root}site/samples/${s.id}/${s.page}`;
 const posterPath = (ctx, s) => `${ctx.root}site/samples/${s.id}/${s.poster}`;
@@ -77,7 +79,7 @@ export function renderOne(ctx) {
 ${figure(ctx, s)}
 <div class="sample-body">
   <p class="sentence" lang="${esc(s.lang)}">${esc(s.messages[0])}</p>
-  <p class="meta">${esc(caption(s))}</p>
+  ${factsHtml(s)}
 </div>
 </article>`).join('\n');
 }
@@ -89,7 +91,7 @@ ${figure(ctx, s)}
   <ol class="chat">
 ${s.messages.map((m, i) => `    <li class="msg" lang="${esc(s.lang)}"><span class="who">${i === 0 ? 'You' : 'Then'}</span>${esc(m)}</li>`).join('\n')}
   </ol>
-  <p class="meta">${esc(caption(s))}</p>
+  ${factsHtml(s)}
 </div>
 </article>`).join('\n');
 }
@@ -101,7 +103,7 @@ export function renderPromo(ctx) {
 ${figure(ctx, s)}
 <div class="promo-chat">
   <p class="msg you"><span class="prompt" aria-hidden="true">&gt;</span> ${esc(s.messages[0])}</p>
-  <p class="msg done">✓ ${esc(caption(s))}</p>
+  <div class="msg done"><span class="ok" aria-hidden="true">✓</span> promo video delivered ${factsHtml(s)}</div>
 </div>
 </div>`;
 }
@@ -119,7 +121,7 @@ export function renderHero(ctx) {
   ${sentences}
   <div class="hero-video">
 ${figure(ctx, first, { autoplay: true, lazy: false })}
-  <p class="meta"><span class="hero-meta">${esc(caption(first))}</span> · <a class="hero-card" href="#sample-${esc(first.id)}">see it below</a></p>
+  <div class="hero-facts">${factsHtml(first)}</div>
   </div>
 </div>`;
 }
