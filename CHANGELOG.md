@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1
 
 - **A rotation that swings with `yoyo` no longer jumps back for one frame where a swing turns.** With an odd `repeat`, the frame exactly at the end of a forward swing showed the value the whole tween ends on (its start), so a lantern swinging 1.6 s a swing at 30 fps jumped every 3.2 s. Only `rotation` was affected, and only when a turn fell exactly on a frame.
 - **`setVars` (and `vars`, `components` and filter options) take an object made in another window.** When a page called `movie.setVars({ … })` on a movie in its iframe, the object was refused with "vars must be an object" and nothing changed, because its prototype is that window's `Object.prototype`. A plain object from any window is now plain.
