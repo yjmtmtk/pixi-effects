@@ -240,6 +240,44 @@ return {
 
 ---
 
+## A video that loops with no seam (a hero background, a GIF): periodic motion, grain `loop`, `check --seam`
+
+A loop is seamless when the frame after the last one is the first one again. Three rules. **Every movement is periodic, and its period divides the movie's length:** a closed path sampled into short keyframes (a lap per period: there is no per-frame expression, so write the samples with a loop), a yoyo there and back (`repeat` odd, `yoyo: true`, `sine.inOut` so the turn has no kink), whole turns (`rotation: 360` per period). **What changes by itself loops too:** grain `loop: true` starts its pattern again at the movie's length (grain covers what its layer draws: put it on a composition that holds a full-frame background, or the grain stops at a box round the shapes); a composition with `loop: true` / `loop: { duration }` repeats its content (recipe `loop-stepped`). **Check the seam:** `pixi-effects check page.html --seam` compares the last frame with the first and fails when the step between them is bigger than the movie's ordinary steps; `init({ loop: true })` plays it round and round. Grain is noise, the hardest thing to compress: a 6 s 1080 x 1080 loop with grain 0.07 is 20-30 MB; for a web page use less grain (0.03-0.04) or `render --quality medium`.
+
+```js
+// @recipe seamless-loop
+const T = 6, N = 48;                                         // the movie's length = one lap; 48 samples a lap
+// a closed lap round (cx, cy): N short linear keyframes, the last one back where the first started
+const lap = (cx, cy, rx, ry, phase) => Array.from({ length: N }, (_, i) => {
+  const a = phase + (2 * Math.PI * (i + 1)) / N;
+  return { at: (i * T) / N, to: { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) }, duration: T / N };
+});
+const blob = (name, colour, r, cx, cy, rx, ry, phase) => ({
+  type: 'shape', shape: 'ellipse', name, radiusX: r * 1.2, radiusY: r,
+  initial: { x: cx + rx * Math.cos(phase), y: cy + ry * Math.sin(phase), fill: colour, alpha: 0.85 },
+  filters: [{ type: 'blur', strength: 60 }],
+  keyframes: [
+    ...lap(cx, cy, rx, ry, phase),
+    { at: 0, to: { rotation: 360 }, duration: T },                                       // one whole turn per lap
+    { at: 0, to: { scaleY: 1.25 }, duration: T / 2, ease: 'sine.inOut', repeat: 1, yoyo: true },   // there and back: 2 plays = T
+  ],
+});
+return {
+  duration: T,
+  layers: [
+    // the grain covers what its composition draws: put the background inside, so the grain covers the whole frame (not a box round the blobs)
+    { type: 'composition', name: 'field', width: 1280, height: 720, filters: [{ type: 'grain', amount: 0.04, loop: true }], layers: [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#f4efe7' } },
+      blob('apricot', '#f6b48f', 170, 520, 330, 140, 70, 0),
+      blob('sky', '#9bb7e8', 190, 760, 380, 120, 90, 2.1),
+      blob('sage', '#a8d5b8', 150, 640, 300, 160, 60, 4.2),
+    ] },
+  ],
+};
+```
+
+---
+
 ## Push in on a whole flat scene (the 2D "camera"): a null that scales, and text drawn big enough
 
 There is no second camera for flat scenes: the camera of the 2.5D layers is for `threeD` layers. For a push-in or pull-back of an ordinary 2D scene, put everything in a `null` layer that sits at the middle of the canvas and scale THAT (children use `parent: 'world'`, and their x / y are measured from the null's origin, so the middle of the canvas is 0, 0). Text is drawn once at its own size and then stretched, so give every text `resolution: R` where R is the biggest scale the group reaches (R 1–8); otherwise it goes soft.

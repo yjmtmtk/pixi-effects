@@ -137,6 +137,7 @@ export function createPixiMock() {
   class FillGradient { destroyed = false; constructor(public options: Record<string, unknown>) {} destroy() { this.destroyed = true; } }
   class Filter { resources: Record<string, unknown> = {}; padding = 0; blendMode = 'normal'; constructor(opts?: { resources?: Record<string, unknown> }) { if (opts?.resources) this.resources = opts.resources; } apply() {} destroy() {} }
   class AlphaFilter extends Filter { alpha = 1; constructor(o?: { alpha?: number }) { super(); if (o?.alpha !== undefined) this.alpha = o.alpha; } }
+  class BlurFilter extends Filter { strength = 8; quality = 4; constructor(o?: { strength?: number; quality?: number }) { super(); if (o?.strength !== undefined) this.strength = o.strength; if (o?.quality !== undefined) this.quality = o.quality; } }
   class BlendModeFilter extends Filter { options: unknown; constructor(options: unknown) { super(); this.options = options; } }
   const ExtensionType = { BlendMode: 'blend-mode' };
   const added: unknown[] = [];
@@ -169,7 +170,7 @@ export function createPixiMock() {
   return {
     Container, Rectangle, Matrix, Color, Texture, RenderTexture, PerspectiveMesh, AlphaMask,
     Sprite, Text, Graphics, GraphicsPath, FillGradient, TextStyle, CanvasTextMetrics,
-    Filter, GlProgram, GpuProgram, UniformGroup, Shader, compileHighShaderGpuProgram, BlendModeFilter, AlphaFilter, ExtensionType, extensions, defaultFilterVert: '',
+    Filter, GlProgram, GpuProgram, UniformGroup, Shader, compileHighShaderGpuProgram, BlendModeFilter, AlphaFilter, BlurFilter, ExtensionType, extensions, defaultFilterVert: '',
     Assets: { get: async () => null },
     // (the Movie module, loaded by anything that imports the library's index, names these at import time)
     Application: class {}, Culler: class {}, CullerPlugin: class {},

@@ -1123,7 +1123,7 @@ interface Keyframe {
 The four kinds are mutually exclusive per keyframe:
 
 - **`set`** — instantaneous property assignment at `at`.
-- **`to`** — tween from whatever the property is at `at` to the given values, over `duration`. **Keyframes on one property run in the order of their `at`, not of the list** (written backwards they play the same). A `to` starts from where the keyframe before it ENDED, so two keyframes of one property that overlap in time make the picture jump: the later one takes over at its `at`, starting from the earlier one's end value (A: x 40 → 160 over 0.5–1.5 s, B: → 280 from 1 s: the layer is at 96 just before 1 s and at 160 just after). Start the second after the first ends. Two keyframes of one property with the SAME `at` are decided by the list: the one listed later writes the property from that `at` on, starting from the end value of the one before (a jump, silently). Pinned by `tests/films/time-keyframe-order` and `time-same-at-and-speed-edges`.
+- **`to`** — tween from whatever the property is at `at` to the given values, over `duration`. **Keyframes on one property run in the order of their `at`, not of the list** (written backwards they play the same). A `to` starts from where the keyframe before it ENDED, so two keyframes of one property that overlap in time make the picture jump: the later one takes over at its `at`, starting from the earlier one's end value (A: x 40 → 160 over 0.5–1.5 s, B: → 280 from 1 s: the layer is at 96 just before 1 s and at 160 just after). Start the second after the first ends; a warning names both keyframes, their spans and the property when they overlap by 0.1 s or more (not for a `set`, nor after a spring, whose tail is at rest). Two keyframes of one property with the SAME `at` are decided by the list: the one listed later writes the property from that `at` on, starting from the end value of the one before (a jump; the same warning says it). Pinned by `tests/films/time-keyframe-order` and `time-same-at-and-speed-edges`.
 - **`from`** — tween from the given values back to the current property, over `duration`.
 - **`from` + `to`** — full fromTo tween, with explicit start and end values.
 
@@ -1170,6 +1170,10 @@ A colour is clamped in its colour space when it overshoots, and `alpha` past 1 i
 ```
 
 Total time = `duration × (repeat + 1)` (+ delays). Endless repeats are not allowed (the timeline needs a fixed length); `repeat: -1` / `Infinity` is ignored with a warning — repeat as many times as the layer lasts.
+
+### Seamless loops
+
+A video made to play round and round (a hero background, a GIF, a looping clip) has no jump where it starts again when the frame after its last one is its first one. **Every movement is periodic and its period divides the movie's length:** a closed path sampled into short keyframes (one lap per period: there is no per-frame expression, so write the samples with a JS loop), a yoyo there and back (`repeat` odd, `yoyo: true`, `sine.inOut`), whole turns (`rotation: 360` per period). **What changes by itself loops too:** the `grain` filter with `loop: true` starts its pattern again at the movie's length, and a composition with `loop: true` or `loop: { duration }` repeats its content. **Check it:** `pixi-effects check page.html --seam` compares the last frame with the first and fails when that step is bigger than the movie's ordinary steps; `init({ loop: true })` plays it round in the player. Grain is noise, the hardest picture to compress: a 6 s 1080 x 1080 loop with grain 0.07 is 20-30 MB, so for a web page use less grain or `render --quality medium`. The whole pattern, tested: recipe `seamless-loop`.
 
 ### Negative `at`
 
