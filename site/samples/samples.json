@@ -88,12 +88,13 @@
       "messages": [
         "Use https://github.com/yjmtmtk/pixi-effects to make a video: a 15-second launch teaser for a coffee-ordering app called Brewly.",
         "Warmer colours, please, and let the phone screen show an order being placed.",
-        "Slow the ending down and finish on the logo with “Download free”."
+        "Slow the ending down and finish on the logo with “Download free”.",
+    "The corners of the phone screen stick out past the phone's rounded frame. Please fix that."
       ],
       "page": "brewly-teaser.html",
       "poster": "poster.jpg",
       "alt": "A warm coffee-app teaser: the queue, an order placed on a phone, and the Brewly logo with Download free.",
-      "minutes": 16,
+      "minutes": 18,
       "runs": 1,
       "model": "Claude Opus",
       "version": "1.0.0"

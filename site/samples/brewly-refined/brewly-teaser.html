@@ -152,7 +152,7 @@
     const PHONE_X = 880, PHONE_Y = 360, SW = 274, SH = 574, SX = SW / 2;          // the screen: its own 274×574 space, origin top-left
     const DRINKS = [['Latte', '#c98f5a'], ['Cold brew', '#4a2414'], ['Flat white', '#ecc99a']];
     const CARD_Y = (i) => 175 + i * 92;
-    const SHEET_TOP = 190;
+    const SHEET_TOP = 190, SCREEN_R = 36;
     const card = (i) => {
       const [label, swatch] = DRINKS[i], rig = `card${i}`, cy = CARD_Y(i);
       return [
@@ -167,7 +167,9 @@
     const CHIP_X = [-78, 0, 78], CHIP_Y = 150, ROW_Y = 206, BTN_Y = 272;
     const screenUI = { type: 'composition', name: 'screenUI', parent: 'phone', width: SW, height: SH, clip: true,
       initial: { x: -SX, y: -SH / 2 }, layers: [
-      { type: 'shape', shape: 'rect', name: 'screen', width: SW, height: SH, initial: { x: SX, y: SH / 2, fill: C.cream } },
+      // the screen's shape: a rounded matte (not drawn) that every full-screen layer is cut to, so no square corner shows past the phone's frame
+      { type: 'shape', shape: 'rect', name: 'screenShape', width: SW, height: SH, cornerRadius: SCREEN_R, initial: { x: SX, y: SH / 2, fill: C.white } },
+      { type: 'shape', shape: 'rect', name: 'screen', mask: 'screenShape', width: SW, height: SH, initial: { x: SX, y: SH / 2, fill: C.cream } },
       { type: 'text', name: 'app-name', text: 'brewly', style: type(30, C.caramel, { letterSpacing: -0.5 }), initial: { x: 19, y: 65, anchorX: 0, anchorY: 0.5 } },
       { type: 'text', name: 'app-prompt', text: 'Pick your drink', style: type(18, C.muted, { fontWeight: '600' }), initial: { x: 19, y: 99, anchorX: 0, anchorY: 0.5 } },
       ...DRINKS.map((_, i) => card(i)).flat(),
@@ -176,11 +178,11 @@
         initial: { x: 0, y: 0, stroke: C.caramel, strokeWidth: 4, fillAlpha: 0 }, keyframes: [drawOn(0, 0.2, 'power2.out')] },
       ripple('tap-latte', T_TAP, SX + 70, CARD_Y(0)),
       // the order sheet slides up over the menu
-      { type: 'shape', shape: 'rect', name: 'shade', at: T_TAP + 0.2, width: SW, height: SH, initial: { x: SX, y: SH / 2, fill: C.roast, alpha: 0 },
+      { type: 'shape', shape: 'rect', name: 'shade', mask: 'screenShape', at: T_TAP + 0.2, width: SW, height: SH, initial: { x: SX, y: SH / 2, fill: C.roast, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 0.3 }, duration: 0.3 }] },
-      { type: 'null', name: 'sheet', initial: { x: SX, y: SH + 10, alpha: 0 }, keyframes: [{ at: T_TAP + 0.2, set: { alpha: 1 } }, { at: T_TAP + 0.2, to: { y: SHEET_TOP }, duration: 0.4, ease: 'power3.out' }] },
+      { type: 'null', name: 'sheet', mask: 'screenShape', initial: { x: SX, y: SH + 10, alpha: 0 }, keyframes: [{ at: T_TAP + 0.2, set: { alpha: 1 } }, { at: T_TAP + 0.2, to: { y: SHEET_TOP }, duration: 0.4, ease: 'power3.out' }] },
       ...[
-        { type: 'shape', shape: 'rect', name: 'sheet-bg', width: SW, height: SH - SHEET_TOP, cornerRadius: 36, initial: { x: 0, y: (SH - SHEET_TOP) / 2, fill: C.card } },
+        { type: 'shape', shape: 'rect', name: 'sheet-bg', width: SW, height: SH - SHEET_TOP + 60, cornerRadius: SCREEN_R, initial: { x: 0, y: (SH - SHEET_TOP + 60) / 2, fill: C.card } },
         { type: 'shape', shape: 'rect', name: 'grabber', width: 40, height: 5, cornerRadius: 3, initial: { x: 0, y: 14, fill: C.muted, alpha: 0.5 } },
         { type: 'shape', shape: 'circle', name: 'sheet-swatch', radius: 24, initial: { x: -90, y: 60, fill: DRINKS[0][1] } },
         { type: 'text', name: 'sheet-title', text: 'Latte', style: type(30, C.roast), initial: { x: -54, y: 48, anchorX: 0, anchorY: 0.5 } },
@@ -205,7 +207,7 @@
       ripple('tap-oat', T_OAT, SX + 88, SHEET_TOP + ROW_Y),
       ripple('tap-order', T_ORDER, SX + 50, SHEET_TOP + BTN_Y),
       // Pick up: the screen dims and the "Ready" card springs up with a check mark
-      { type: 'shape', shape: 'rect', name: 'scrim', at: T_READY, width: SW, height: SH, initial: { x: SX, y: SH / 2, fill: C.espresso, alpha: 0 },
+      { type: 'shape', shape: 'rect', name: 'scrim', mask: 'screenShape', at: T_READY, width: SW, height: SH, initial: { x: SX, y: SH / 2, fill: C.espresso, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 0.5 }, duration: 0.25 }] },
       { type: 'null', name: 'ready', at: T_READY, initial: { x: SX, y: SH / 2 - 20, scale: 0.6, alpha: 0 },
         keyframes: [{ at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.bouncy' }, { at: 0, to: { alpha: 1 }, duration: 0.15 }] },
