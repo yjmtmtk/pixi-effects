@@ -26,6 +26,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check and 
     expect(report.rebuilt).toMatchObject({ reason: 'rebuild' });
     expect(report.sizes.map((s: any) => s.size)).toEqual(['640x360', '360x640']);
     expect(existsSync(join(out, 'sheet.png')) && statSync(join(out, 'sheet-360x640.png')).size > 500).toBe(true);
+    expect(report.files['sheet-360x640']).toMatch(/sheet-360x640\.png$/);                // the key is the file's name (it was 'sheet 360x640')
+    expect(Object.keys(report.files).some(k => /\s/.test(k))).toBe(false);
     expect(stdout).toMatch(/vars\s+title=SÜD, accent=#3949ab, shift=12/);
     expect(stdout).toMatch(/sizes\s+640x360 no layout issue · 360x640 no layout issue/);
   });

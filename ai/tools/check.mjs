@@ -442,6 +442,12 @@ export const LOAD_PRESENT = `(async () => {
   if (!lib) throw new Error('the page has no "pixi-effects" in its import map');
   return import(new URL('present.js', new URL(lib, document.baseURI)).href);
 })()`;
+/**
+ * The version of report.json. The contract is `version`, `ok`, `problems`, `files` (keys are the file names without extension: sheet, sheet-1080x1920, at, …),
+ * `exports`, `logs` and `audio`; every other field is informational and may change. A change to the contract raises this number.
+ */
+export const REPORT_VERSION = 1;
+
 /** A path for display: relative to the cwd when it is inside it, absolute otherwise. */
 export const shown = f => { const r = path.relative(process.cwd(), f); return r.startsWith('..') || path.isAbsolute(r) ? f : r; };
 const kb = n => (n >= 1048576 ? `${(n / 1048576).toFixed(2)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
@@ -462,7 +468,7 @@ export async function runCheck(opts, log = console.log) {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixi-effects-check-'));
   const { server, port } = await serve(root);
   let chromeProc = null;
-  const report = { page: shown(pagePath), problems: [], files: {} };
+  const report = { version: REPORT_VERSION, page: shown(pagePath), problems: [], files: {} };
   try {
     const { proc, cdp } = await launchChrome(chrome, userDataDir);
     chromeProc = proc;
@@ -730,7 +736,7 @@ export async function runCheck(opts, log = console.log) {
         const sheetAt = await cdp.eval(`movie.contactSheet({ count: ${opts.frames}, as: 'dataURL' })`);
         const file = path.join(outDir, `sheet-${label}.png`);
         fs.writeFileSync(file, Buffer.from(sheetAt.slice(sheetAt.indexOf(',') + 1), 'base64'));
-        report.files[`sheet ${label}`] = shown(file);
+        report.files[`sheet-${label}`] = shown(file);
         report.sizes.push({ size: label, sheet: shown(file), issues: r.problems, review: r.review });
         if (r.problems.length) report.problems.push(`${r.problems.length} kind(s) of layout issue from movie.inspect at ${label}`);
       }

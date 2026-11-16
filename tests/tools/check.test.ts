@@ -87,6 +87,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     ], { timeout: 170_000 });                                  // a non-zero exit would reject
     expect(stdout).toContain('RESULT: OK');
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(report.version).toBe(1);                                              // report.json is a contract: version, ok, problems, files, exports, logs, audio
+    expect(Object.keys(report).slice(0, 2)).toEqual(['version', 'page']);
     expect(report.ok).toBe(true);
     expect(report.problems).toEqual([]);
     expect(report.logs).toEqual([]);
