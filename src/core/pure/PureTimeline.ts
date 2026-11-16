@@ -506,7 +506,8 @@ function mix(s: Segment, r: number, ended: boolean): any {
   if (acc.kind === 'raw') return s.to;
   if (acc.kind === 'css') return (s.interp ??= rgbInterp(String(s.from), String(s.to)))(r);
   if (acc.kind === 'color') return ended ? endValue(s) : lerpColor(s.from!, s.to, r);
-  if ((ended || r === 1) && acc.exactEnd) return endValue(s);
+  if (acc.exactEnd && ended) return endValue(s);
+  if (acc.exactEnd && r === 1) return s.to;                  // the far end of this swing (r has the yoyo folded in), not where the whole tween ends
   const k = acc.round;
   return Math.round((s.from! + (s.to - s.from!) * r) * k) / k;
 }
