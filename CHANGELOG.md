@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased
+
+**Breaking: the names are settled for 1.0.** One word for each idea, the word an AI already knows (CSS, SVG, After Effects, GSAP, PixiJS, HTML media), and every old name warns with the new one (a change of meaning cannot warn: the gradient angle below; every angle this repository writes was converted).
+
+| Before | Now | Why |
+|---|---|---|
+| `sequences: [ … ]` (a composition's children) | **`layers: [ … ]`** | the library's word was layer everywhere else (`inspect().layers`, `mask.layer`, the warnings) |
+| `SequenceSpec`, `TextSequenceSpec`, `CompositionSequenceSpec`, …, `SequenceCommon` | `LayerSpec`, `TextLayerSpec`, `CompositionLayerSpec`, …, `LayerCommon` | the same |
+| shape `fillColor`, `strokeColor` | **`fill`**, **`stroke`** (also `stroke: { color, width, alpha }`, `fill: { color, alpha }`, `'none'`) | SVG, CSS, PixiJS v8 and a text's `fill` |
+| `fillGradient.angle`: 0 = left → right, 90 = top → bottom (default) | **CSS degrees**: 0 = to the top, 90 = to the right, **180 = to the bottom (default)** (old + 90) | CSS `linear-gradient` and the `colorGradient` filter |
+| composition `loop: 2`; grain `loop: 10` | `loop: { duration: 2 }`; grain `loop: true` (the movie's length) or `{ duration: 10 }` | a number alone read as a count |
+| transitions `smoothing` (wipe, iris, dissolve), luma `flip` | `softness`, `invert` | After Effects; the mask's `invert` |
+| canvas `smoothing: false` | `scaleMode: 'nearest'` | an image's `scaleMode` |
+| followPath / cameraPath / react `frameRate`, particles `sampleRate`, orbit `stepsPerSecond` | `samplesPerSecond` | not a composition's stepped `frameRate`; not audio Hz |
+| orbit `start`, `width`, `height` | `startAngle`; the centre and radius follow the movie's size (it assumed 1280 × 720) | |
+| `position`, `positionX`, `positionY`, `tilePosition*`, `tileScale*` | `x`, `y` (the tile ones did nothing) | one name for a place |
+| `movie.on('progress')` (0–100), type `ProgressEvent` | `'renderprogress'` (0–1, as `loadprogress`), `RenderProgressEvent` | `<video>`'s `progress` is the download |
+| scene2d / scene3d `dispose`, `layerTexture().dispose()` | `destroy` | PixiJS and the movie |
+| `loadModel().clips` | `animations` | PixiJS 3D |
+| present `goToStop`, `goToPage`; `StopImage.page` (a number) | `gotoStop`, `gotoPage` (as `gotoFrame`); `pageIndex` (`page` is the name) | |
+| `render({ range: 'name' })` | `render({ scene: 'name' })` (`range` is seconds) | the CLI's `--range` / `--scene` |
+| `gotoFrame(n, true)` | `gotoFrame(n)`; `redraw()` draws the same frame again | |
+| sound reports' spans `{ from, to }` | `{ start, end }` | everywhere else |
+| `dist/Controller.js` | `dist/controller.js` | the only capitalised file (it loaded on a Mac and 404'd on jsDelivr) |
+| CLI `check --formats`, `frames --size 480`, env `CHROME` | `--format`, `frames --width 480`, `CHROME_PATH` (`CHROME` was not read by the media tools) | |
+
+**No longer part of the promise:** writing `movie.currentFrame` / `isPlaying` / `duration` / `width` … (read-only now: a write says which call does it), `movie.timeline`, `canvasProblems()`, `canvasReport()`, `computeEnvelope`, `resolveLoader` / `dismissLoader` / `failLoader`, `Sequence` / `registerSequenceType` / `CompositionShape` (a picture nothing else draws is a canvas, scene2d, shader or scene3d layer), `Scene3DSequence`, `rebuild()`'s second argument.
+
+**New and said:**
+- A keyframe's unknown key (`easing` → `ease`, `delay` → `at`, a property written on the keyframe → `to` / `set`).
+- A transition's unknown `kind` (`fade` → `crossfade`) or key; it used to vanish.
+- An unknown layer type or shape (`type: 'rect'` → `type: 'shape', shape: 'rect'`; `shape: 'rectangle'` stopped the build with a TypeError).
+- A colour key of another kind (`color` on a rect → `fill`, `fill` on an image → `tint`).
+- An `init()` size or length that differs from the composition's (the composition's alone is enough now).
+- `movie.on` with an event it does not have.
+- CSS's `ease`, `ease-in`, `ease-out`, `ease-in-out`; Penner's names get a guess; an unknown ease runs as `'none'`, as an omitted one.
+- Moments by name in a transition's, a mask's and a stop's `at`; `stagger()` keeps one.
+- `anchorX` / `anchorY` at the top of a text, image or video.
+- CLI: one argument reader (`--help` lists every option, `--flag=value`, did-you-mean), `pixi-effects --version`, exit codes 0 / 1 / 2 as a contract, `report.json` `version: 1`, `check --at start` / `end`.
+
 ## 0.54.0
 
 - **New: markers, moments by name.** `markers: { in: 0.6, out: 2.4 }` on a composition (a component's come with every place; the root's are the movie's), and a layer's `at` may name a moment instead of seconds: `'host@in'`, `'title@end + 0.2'` (any layer has `@start`, `@mid`, `@end`), `'@drop'` (a marker of the composition the layer is in, or of one around it); a keyframe's `at` too (`{ at: 'host@out', to: { alpha: 0 } }`, made seconds from the start of its layer), an inline mask's and a transition's; `stagger()` keeps a moment and adds its delay (`'host@in + 0.1'`). The name is looked for nearest first and the moment is brought onto the layer's own clock (through `speed` and `time`), so a sound or a follower stays on the beat of a part wherever the part is placed (After Effects: composition markers). Resolved once before the movie is built (what is built has seconds). `check --at host@in` / `--at @drop` and `movie.resolveAt` know the markers. Mistakes say what to write (unknown layer or marker with did-you-mean, a circle, two layers of one name, a marker past the end, a clock that never reaches it, an end not known before a file loads); `cues`, `cuePoints`, `marks` warn "did you mean `markers`". Recipe `markers-sync`; test film `tests/films/markers`.

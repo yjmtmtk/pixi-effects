@@ -266,3 +266,10 @@ describe('lintKeys: a colour is said with the name this kind of layer uses', () 
     expect(warns({ type: 'light', initial: { color: '#fff', intensity: 1 } })).toEqual([]);
   });
 });
+
+describe('lintKeys: the layers of a composition are layers', () => {
+  it('sequences (the old key) says layers', () => {
+    expect(warns({ type: 'composition', width: 10, height: 10, sequences: [] })[0]).toMatch(/"sequences" is not a composition layer key: the layers of a composition are `layers: \[ … \]`/);
+    expect(warns({ type: 'composition', width: 10, height: 10, layers: [] })).toEqual([]);
+  });
+});
