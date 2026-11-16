@@ -17,17 +17,17 @@
       "version": "1.0.0"
     },
     {
-      "id": "neon-shotengai",
+      "id": "natsumatsuri",
       "kind": "one",
       "lang": "ja",
-      "title": "Neon shopping street",
+      "title": "夏祭り fireworks",
       "messages": [
-        "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型（1080×1920）15秒。夜の商店街のネオン看板の文字が一つずつ点灯していき、最後に「OPEN」が大きく光る。短いジングル付き。"
+        "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型（1080×1920）15秒。夏祭りの告知：夜空に花火が次々と上がり、提灯が揺れ、最後に「夏祭り 8.15」が大きく出る。太鼓の音付き。"
       ],
-      "page": "neon-shotengai.html",
+      "page": "natsumatsuri.html",
       "poster": "poster.jpg",
-      "alt": "A vertical night street where neon signs light up one by one, then a big pink OPEN.",
-      "minutes": 8,
+      "alt": "A vertical summer-festival night: rows of red lanterns, fireworks bursting one after another, and 夏祭り 8.15 glowing at the end.",
+      "minutes": 5,
       "runs": 3,
       "model": "Claude Opus",
       "version": "1.0.0"

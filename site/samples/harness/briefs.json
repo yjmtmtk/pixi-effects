@@ -6,10 +6,10 @@
     "message": "Use https://github.com/yjmtmtk/pixi-effects to make a video: a 12-second launch film for a fictional mechanical keyboard called \"Clack\" — the keyboard in 3D turning slowly under a soft spotlight, keys pressing in rhythm with a punchy beat, and the name slamming in at the end."
   },
   {
-    "id": "neon-shotengai",
+    "id": "natsumatsuri",
     "lang": "ja",
     "kind": "one",
-    "message": "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型（1080×1920）15秒。夜の商店街のネオン看板の文字が一つずつ点灯していき、最後に「OPEN」が大きく光る。短いジングル付き。"
+    "message": "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型（1080×1920）15秒。夏祭りの告知：夜空に花火が次々と上がり、提灯が揺れ、最後に「夏祭り 8.15」が大きく出る。太鼓の音付き。"
   },
   {
     "id": "shanshui-ink",
