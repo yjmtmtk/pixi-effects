@@ -38,6 +38,46 @@ describe('lintTiming', () => {
   });
 });
 
+describe('lintTiming: two keyframes that animate the same property at the same time (the later one takes over from the earlier one\'s END value: a jump)', () => {
+  const dot = (keyframes: unknown[]) => ({ type: 'shape', shape: 'circle', radius: 10, name: 'dot', keyframes });
+
+  it('says both spans, the property, the rule and what to write (the 0.55 trial: a label dimmed while it was still fading back in)', () => {
+    const w = run(dot([{ at: 0, to: { alpha: 1 }, duration: 2 }, { at: 1, to: { alpha: 0.2 }, duration: 0.5 }]));
+    expect(w).toHaveLength(1);
+    expect(w[0]).toContain('layer "dot"');
+    expect(w[0]).toContain('keyframes[0] (0–2 s)');
+    expect(w[0]).toContain('keyframes[1] (1–1.5 s)');
+    expect(w[0]).toMatch(/both animate alpha/);
+    expect(w[0]).toMatch(/from 1 s keyframes\[1\] alone writes alpha, starting from where keyframes\[0\] ends \(1\)/);
+    expect(w[0]).toMatch(/at: 2/);
+  });
+
+  it('the list order does not matter, and several shared properties are named together', () => {
+    const w = run(dot([{ at: 1, to: { alpha: 0.2, x: 5 }, duration: 0.5 }, { at: 0, to: { alpha: 1, x: 100 }, duration: 2 }]));
+    expect(w).toHaveLength(1);
+    expect(w[0]).toMatch(/keyframes\[1\] \(0–2 s\) and keyframes\[0\] \(1–1.5 s\) both animate alpha and x/);
+  });
+
+  it('counts the repeats of a keyframe as its span, and a from and a fromTo as writing their properties', () => {
+    expect(run(dot([{ at: 0, from: { scale: 0 }, duration: 0.5, repeat: 3 }, { at: 1, to: { scale: 2 }, duration: 0.5 }]))).toHaveLength(1);
+    expect(run(dot([{ at: 0, from: { y: 0 }, to: { y: 50 }, duration: 1 }, { at: 0.5, to: { y: 9 }, duration: 1 }]))).toHaveLength(1);
+  });
+
+  it('is silent when one ends as the next starts, for different properties, for a set, for a spring settling and for an overlap under 0.1 s', () => {
+    expect(run(dot([{ at: 0, to: { alpha: 1 }, duration: 1 }, { at: 1, to: { alpha: 0 }, duration: 1 }]))).toEqual([]);
+    expect(run(dot([{ at: 0, to: { alpha: 1 }, duration: 2 }, { at: 1, to: { x: 50 }, duration: 2 }]))).toEqual([]);
+    expect(run(dot([{ at: 0, to: { alpha: 1 }, duration: 2 }, { at: 1, set: { alpha: 0.5 } }]))).toEqual([]);
+    expect(run(dot([{ at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.bouncy' }, { at: 0.6, to: { scale: 1.2 }, duration: 0.3 }]))).toEqual([]);
+    expect(run(dot([{ at: 0, to: { alpha: 1 }, duration: 1 }, { at: 0.95, to: { alpha: 0 }, duration: 1 }]))).toEqual([]);
+  });
+
+  it('a negative `at` counts back from the end of the layer', () => {
+    const w = run({ ...dot([{ at: 0, to: { alpha: 1 }, duration: 3 }, { at: -2, to: { alpha: 0 }, duration: 1 }]), duration: 4 });
+    expect(w).toHaveLength(1);
+    expect(w[0]).toContain('keyframes[1] (2–3 s)');
+  });
+});
+
 describe('summarizeWarnings', () => {
   const many = (n: number) => Array.from({ length: n }, (_, i) => `pixi-effects: layer "bar${i}": keyframes[360] starts at 12s, after the layer ends (duration 12s), so it never plays.`);
 

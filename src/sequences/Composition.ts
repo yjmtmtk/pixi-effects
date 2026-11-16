@@ -134,16 +134,16 @@ export class CompositionSequence extends Sequence {
     const vars = Object.keys(numbers).length ? { ...(inherited ?? {}), ...numbers } : inherited;
     this._compositionShape = { width, height, duration: span, ...(vars ? { vars } : {}), spaceAt: (t) => this._spaceAt(t), findLayer: (name) => this._children.find(c => c.spec.name === name) ?? null, layerNames: () => this._children.map(c => c.spec.name).filter((n): n is string => !!n) };
 
-    const lateKeyframes: string[] = [];
+    const lateKeyframes: string[] = [], overlaps: string[] = [];
     for (const s of this.spec.layers ?? []) {
       lintSequence(s);
       lintFocus(s, this.spec.layers ?? []);
       for (const message of matteProblems(s, this.spec.layers ?? [], span)) console.warn(`pixi-effects: ${describeLayer(s)}: ${message}`);
-      lintTiming(s, span, (message, kind) => (kind === 'late-keyframe' ? lateKeyframes.push(message) : console.warn(message)));
+      lintTiming(s, span, (message, kind) => (kind === 'late-keyframe' ? lateKeyframes.push(message) : kind === 'overlap' ? overlaps.push(message) : console.warn(message)));
       lintText(s);
       lintKeys(s);
     }
-    for (const message of summarizeWarnings(lateKeyframes)) console.warn(message);
+    for (const message of [...summarizeWarnings(lateKeyframes), ...summarizeWarnings(overlaps)]) console.warn(message);
     const crowd = maxConcurrentAdvanced((this.spec.layers ?? []) as Array<{ at?: number; duration?: number; blendMode?: unknown; type?: string; layers?: unknown }>, span);
     if (crowd >= MANY_ADVANCED) {
       console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${crowd} layers with an advanced blendMode are on screen at once (counted through the compositions in it; a composition with a mode is one pass, as it blends as one picture); each is a full-frame pass (about 2 ms on WebGL). Put fewer layers in the blend (or draw the glow as one layer), or use add / screen / multiply`);

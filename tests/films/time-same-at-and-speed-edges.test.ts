@@ -34,6 +34,13 @@ import { runFilms, withFilm, type Film } from './support/withFilm';
 //     22 (u 1.467) at x 153.33, 29 (u 1.933) the last inside at x 246.67, 30 (u 2) out. (At speed 1 the same child would live on frames 30..59.)
 //   - docs/dsl.md shapes: a rect is centred on x, y; docs/api.md inspect(): visible = "alive at this frame, not hidden by an ancestor, alpha > 0", bounds in canvas px.
 
+/** The page always holds 'tie' (two keyframes on x with the same `at`): that overlap is said once (since 0.55.x), and nothing else is. */
+async function onlyTheTieIsSaid(film: Film): Promise<void> {
+  const logs = await film.eval<string[]>('window.__logs');
+  expect(logs).toHaveLength(1);
+  expect(logs[0]).toMatch(/layer "tie": keyframes\[\d\] .* both animate x at the same time/);
+}
+
 const RED = [255, 0, 0];
 const GREEN = [0, 255, 0];
 const BLACK = [0, 0, 0];
@@ -67,7 +74,7 @@ runFilms('Time: two keyframes on one property with the same `at`', () => {
         const got = await read(film, 'tie', FRAMES.filter((f) => f < 15));
         got.forEach((s, f) => expect(s.cx, `order ${order}, frame ${f}: neither keyframe has started`).toBeCloseTo(40, 2));
         expect(await px(film, 14, 40, 40), 'frame 14: the rect at its initial x').toEqual(RED);
-        expect(await film.eval<string[]>('window.__logs')).toEqual([]);
+        await onlyTheTieIsSaid(film);
       }, { query: order === 'reverse' ? 'tie=reverse' : '' });
     }, 120_000);
 
@@ -120,7 +127,7 @@ runFilms('Time: the lifespan edges of a child inside a composition with `speed`,
         expect(await px(film, c.last, x1, 130), `frame ${c.last}: the last frame inside, at x ${x1.toFixed(2)}`).toEqual(GREEN);
         expect(await px(film, c.last + 1, x1, 130), `frame ${c.last + 1}: the end is not inside`).toEqual(BLACK);
         expect(await px(film, c.last + 1, 260, 130), `frame ${c.last + 1}: not left at its last value either`).toEqual(BLACK);
-        expect(await film.eval<string[]>('window.__logs')).toEqual([]);
+        await onlyTheTieIsSaid(film);
       }, { query: c.query });
     }, 120_000);
   }
