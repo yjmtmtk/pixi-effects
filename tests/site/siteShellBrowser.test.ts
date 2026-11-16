@@ -45,7 +45,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the shared
           };
         })()`);
         expect(r.overflow).toBeLessThanOrEqual(0);
-        expect(r.names).toEqual(expect.arrayContaining(['Gallery', 'Interactive', 'For AI']));
+        expect(r.names).toEqual(expect.arrayContaining(['For AI', 'GitHub']));
         expect(r.inside).toBe(true);
         expect(r.main).toBe(true);
         expect(r.mainRight).toBeLessThanOrEqual(r.width + 1);
@@ -53,18 +53,13 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the shared
     }, 30000);
   }
 
-  it.each(PAGES)('%s: the theme button switches to a theme and the colour really changes', async (path) => {
+  it.each(PAGES)('%s: light only, in the 1.0 look (no theme button; the page background is the lavender of the tokens)', async (path) => {
     await withPage(path, 1440, async (cdp) => {
-      const before = await cdp.eval(`({ bg: getComputedStyle(document.body).backgroundColor, theme: document.documentElement.getAttribute('data-theme') })`);
-      await cdp.eval(`(() => { const b = document.getElementById('themeBtn'); b.click(); b.click(); })()`);     // auto -> light -> dark
-      const dark = await cdp.eval(`({ bg: getComputedStyle(document.body).backgroundColor, theme: document.documentElement.getAttribute('data-theme') })`);
-      await cdp.eval(`document.getElementById('themeBtn').click()`);                                                // -> auto
-      await cdp.eval(`document.getElementById('themeBtn').click()`);                                                // -> light
-      const light = await cdp.eval(`({ bg: getComputedStyle(document.body).backgroundColor, theme: document.documentElement.getAttribute('data-theme') })`);
-      expect(before.theme).toBe(null);
-      expect(dark.theme).toBe('dark');
-      expect(light.theme).toBe('light');
-      expect(dark.bg).not.toBe(light.bg);
+      const r = await cdp.eval(`({ btn: !!document.getElementById('themeBtn'), theme: document.documentElement.getAttribute('data-theme'), bg: getComputedStyle(document.documentElement).backgroundColor, scheme: getComputedStyle(document.documentElement).colorScheme })`);
+      expect(r.btn).toBe(false);
+      expect(r.theme).toBe(null);
+      expect(r.bg).toBe('rgb(239, 236, 248)');                                  // --bg-bottom #efecf8
+      expect(r.scheme).toBe('light');
     });
   }, 30000);
 });

@@ -15,13 +15,13 @@ describe('site-parts: the header, footer and head every page shares', () => {
     expect([0, 1, 2].map(rootPrefix)).toEqual(['', '../', '../../']);
   });
 
-  it('the header has the brand and the four entrances, relative to the page, and marks the current one', () => {
-    const h = renderHeader({ root: '../../', current: 'gallery' });
-    expect(hrefs(h)).toEqual(expect.arrayContaining(['../../', '../../examples/gallery/', '../../examples/interactive/', '../../for-ai.html']));
-    expect(NAV.map((n: any) => n.id)).toEqual(['gallery', 'interactive', 'forai']);
+  it('the header has the brand, the entrances and GitHub, relative to the page, and marks the current one; there is no theme switch', () => {
+    const h = renderHeader({ root: '../../', current: 'forai' });
+    expect(hrefs(h)).toEqual(expect.arrayContaining(['../../', '../../for-ai.html', 'https://github.com/yjmtmtk/pixi-effects']));
+    expect(NAV.map((n: any) => n.id)).toEqual(['forai']);                       // Lab joins when its page exists (plan Task 8)
     expect(h.match(/aria-current="page"/g)).toHaveLength(1);
-    expect(h).toMatch(/<a href="\.\.\/\.\.\/examples\/gallery\/" aria-current="page">Gallery<\/a>/);
-    expect(h).toContain('id="themeBtn"');
+    expect(h).toMatch(/<a href="\.\.\/\.\.\/for-ai\.html" aria-current="page">For AI<\/a>/);
+    expect(h).not.toContain('themeBtn');
   });
 
   it('home marks the brand, an unknown current marks nothing', () => {
@@ -29,11 +29,13 @@ describe('site-parts: the header, footer and head every page shares', () => {
     expect(renderHeader({ root: '', current: '' })).not.toContain('aria-current');
   });
 
-  it('the footer links to every entrance, the repository, npm and the AI entry', () => {
+  it('the footer: GitHub, npm, CHANGELOG, the entrances, MIT and "made with PixiJS"', () => {
     const f = renderFooter({ root: '../' });
-    for (const need of ['../for-ai.html', '../examples/gallery/', '../examples/interactive/', '../llms.txt', 'https://github.com/yjmtmtk/pixi-effects', 'https://www.npmjs.com/package/pixi-effects', 'https://x.com/t_yjm']) {
+    for (const need of ['../for-ai.html', 'https://github.com/yjmtmtk/pixi-effects', 'https://www.npmjs.com/package/pixi-effects', 'https://github.com/yjmtmtk/pixi-effects/blob/main/CHANGELOG.md']) {
       expect(hrefs(f), need).toContain(need);
     }
+    expect(f).toMatch(/MIT/);
+    expect(f).toMatch(/made with PixiJS/i);
   });
 
   it('the footer follows NAV: an entrance added to NAV shows up in the footer without touching it', () => {
@@ -41,12 +43,12 @@ describe('site-parts: the header, footer and head every page shares', () => {
     try { expect(hrefs(renderFooter({ root: '../' }))).toContain('../extra/'); } finally { NAV.pop(); }
   });
 
-  it('the head loads the tokens, then the shared styles, then the script; the theme is applied before paint', () => {
+  it('the head loads the tokens, then the shared styles, then the live player; no theme script (light only)', () => {
     const h = renderHead({ root: '' });
-    const order = ['site/shared/tokens.css', 'site/shared/site.css', 'site/shared/site.js'].map((s) => h.indexOf(s));
+    const order = ['site/shared/tokens.css', 'site/shared/site.css', 'site/shared/live.js'].map((s) => h.indexOf(s));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(h).toContain("localStorage.getItem('pe-theme')");
+    expect(h).not.toContain('pe-theme');
   });
 });
 

@@ -88,7 +88,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the galler
         tokens: getComputedStyle(document.documentElement).getPropertyValue('--model-opus').trim(),
         sheets: [...document.styleSheets].map(s => s.href || '').filter(Boolean).map(h => h.split('/').slice(-2).join('/')),
       })`);
-      expect(r.current).toBe('Gallery');
+      expect(r.current).toBeUndefined();                                        // the gallery left the navigation at 1.0 (the page goes in plan Task 10)
       expect(r.footer).toBe(true);
       expect(r.main).toBe(true);
       expect(r.tokens).not.toBe('');

@@ -5,10 +5,8 @@ export const NPM = 'https://www.npmjs.com/package/pixi-effects';
 /** The author's X account. */
 export const AUTHOR_X = 'https://x.com/t_yjm';
 
-/** The entrances, with their address from the site root. */
+/** The entrances, with their address from the site root (the Lab joins when its page exists: plan Task 8). */
 export const NAV = [
-  { id: 'gallery', label: 'Gallery', href: 'examples/gallery/' },
-  { id: 'interactive', label: 'Interactive', href: 'examples/interactive/' },
   { id: 'forai', label: 'For AI', href: 'for-ai.html' },
 ];
 
@@ -19,8 +17,7 @@ export function renderHead({ root }) {
   return [
     `<link rel="stylesheet" href="${s}tokens.css">`,
     `<link rel="stylesheet" href="${s}site.css">`,
-    `<script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>`,
-    `<script src="${s}site.js" defer></script>`,
+    `<script src="${s}live.js" defer></script>`,
   ].join('\n');
 }
 
@@ -33,9 +30,8 @@ export function renderHeader({ root, current = '' }) {
     <a class="brand" href="${root || './'}"${cur('home')}><span class="dia" aria-hidden="true"></span>pixi-effects</a>
     <nav aria-label="Site">
       ${links}
-      <a class="only-wide" href="${REPO}">GitHub</a>
+      <a class="gh" href="${REPO}">GitHub</a>
     </nav>
-    <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
   </div>
 </header>`;
 }
@@ -46,13 +42,12 @@ export function renderFooter({ root }) {
   <div class="wrap">
     <p class="links">
       <a href="${REPO}">GitHub</a>
-      <a href="${NPM}">npm: pixi-effects</a>
+      <a href="${NPM}">npm</a>
+      <a href="${REPO}/blob/main/CHANGELOG.md">CHANGELOG</a>
       ${entrances}
-      <a href="${REPO}/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
-      <a href="${root}llms.txt">llms.txt</a>
       <a href="${AUTHOR_X}" rel="me noopener">Author on X</a>
     </p>
-    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny · ease names after GSAP, with thanks</span></p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · made with PixiJS</span></p>
   </div>
 </footer>`;
 }

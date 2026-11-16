@@ -1,35 +1,25 @@
-/* pixi-effects site tokens. One definition for every page; the landing page's palette is the reference. */
+/* pixi-effects site tokens (the 1.0 look, "PixiJS sibling": light lavender, PixiJS's pink / violet / sky / orange as accents). The only place to change a colour. */
 :root{
-  --bg:#0b0d12; --bg-2:#11141b; --bg-3:#171b24;
-  --line:rgba(255,255,255,.11); --line-2:rgba(255,255,255,.2);
-  --ink:#eceef2; --ink-2:#a3a9b5; --ink-3:#7f8694;
-  --accent:#ff5a3c; --on-accent:#0b0d12; --amber:#f2c14e;
-  --model-fable:#e7c07a; --model-opus:#b9a8f3; --model-sonnet:#86cdb9; --model-haiku:#f2a1b6;
-  --code-bg:#0e1118; --code-ink:#d7dbe3; --code-key:#7fb4ff; --code-str:#f2c14e; --code-num:#ff7a62; --code-com:#7f8694;
-  --shadow:0 30px 80px -30px rgba(0,0,0,.8);
-  --sans:"Helvetica Neue",Helvetica,"Inter","Segoe UI",Roboto,system-ui,-apple-system,sans-serif;
+  /* the page */
+  --bg-top:#fcfbfd; --bg-bottom:#efecf8;
+  --ink:#1d1630; --ink-2:#5b5272; --ink-3:#6e6588;
+  --line:rgba(29,22,48,.10); --line-2:rgba(29,22,48,.22);
+  --card:#ffffff;
+  /* PixiJS's palette: --pink is for shapes and large type; white text sits on --pink-deep; small pink text is --pink-text */
+  --pink:#e91e63; --pink-deep:#d81b60; --pink-text:#c2185b;
+  --violet:#8b5cf6; --violet-text:#6d3fd8;
+  --sky:#38bdf8; --orange:#f2a65a;
+  --code-bg:#1d1630; --code-ink:#f3f0ff; --code-key:#9cd8ff; --code-str:#ffc98a; --code-num:#ff8ab0; --code-com:#a59cc2;
+  --shadow:0 12px 32px -14px rgba(80,50,140,.28);
+  --shadow-lg:0 28px 70px -24px rgba(80,50,140,.38);
+  --radius:20px; --radius-sm:12px;
+  --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
-  --gutter:16px; --max:1240px;
-  color-scheme:dark;
-}
-@media (prefers-color-scheme:light){
-  :root:not([data-theme="dark"]){
-    --bg:#f4f1ea; --bg-2:#fbfaf6; --bg-3:#ebe7dd;
-    --line:rgba(20,18,14,.13); --line-2:rgba(20,18,14,.26);
-    --ink:#16150f; --ink-2:#5c5a52; --ink-3:#706d64;
-    --accent:#c43316; --on-accent:#ffffff; --amber:#e0a526;
-    --model-fable:#8a5f0a; --model-opus:#5b46c4; --model-sonnet:#1f7a62; --model-haiku:#b02a55;
-    --shadow:0 30px 80px -30px rgba(40,30,10,.35);
-    color-scheme:light;
-  }
-}
-:root[data-theme="light"]{
-  --bg:#f4f1ea; --bg-2:#fbfaf6; --bg-3:#ebe7dd;
-  --line:rgba(20,18,14,.13); --line-2:rgba(20,18,14,.26);
-  --ink:#16150f; --ink-2:#5c5a52; --ink-3:#706d64;
-  --accent:#c43316; --on-accent:#ffffff; --amber:#e0a526;
+  --gutter:16px; --max:1180px;
+  /* the names the pages before 1.0 used, until they are removed (plan Task 10) */
+  --bg:var(--bg-bottom); --bg-2:var(--card); --bg-3:#e7e3f3;
+  --accent:var(--pink-deep); --on-accent:#ffffff; --amber:var(--orange);
   --model-fable:#8a5f0a; --model-opus:#5b46c4; --model-sonnet:#1f7a62; --model-haiku:#b02a55;
-  --shadow:0 30px 80px -30px rgba(40,30,10,.35);
   color-scheme:light;
 }
 @media (min-width:600px){ :root{--gutter:28px} }
