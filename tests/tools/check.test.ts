@@ -12,7 +12,8 @@ const tool: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/t
 
 // the first-video page (tests/films) pins pixi-effects@<this version> on the CDN; just before a release it is not published yet.
 // `check` needs a library with `movie.review()` (0.18+): a page pinned to an older release cannot be checked by this tool.
-const libraryHasReview = Number(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version.split('.')[1]) >= 18;
+const [major, minor] = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version.split('.').map(Number);
+const libraryHasReview = major > 0 || minor >= 18;                    // 0.18 and later (1.0's minor is 0: comparing the minor alone skipped this from 1.0.0 on)
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 const onCdn = await fetch(`https://cdn.jsdelivr.net/npm/pixi-effects@${version}/dist/index.js`, { method: 'HEAD' })
   .then((r) => r.ok, () => false);
