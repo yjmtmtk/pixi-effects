@@ -90,7 +90,7 @@ export class CanvasSequence extends Sequence {
     this.h = Math.max(1, Math.round(this.layerH * this.res));
     this.fps = this.root.frameRate ?? 30;
     this.seed = typeof spec.seed === 'number' && Number.isFinite(spec.seed) ? Math.floor(spec.seed) : 0;
-    this.smoothing = spec.smoothing !== false;
+    this.smoothing = (spec as { scaleMode?: unknown }).scaleMode !== 'nearest';
 
     const params = spec.params;
     if (params !== undefined) {

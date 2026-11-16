@@ -449,7 +449,7 @@
           { name: 'bgm', src: '../_assets/bgm.mp3' },
         ],
         composition: { sequences, transitions: [
-          { kind: 'wipe', from: 'stinger', to: 'program', at: T.wipe, duration: T.wipeD, direction: 'right', ease: INOUT, smoothing: 0.01 },
+          { kind: 'wipe', from: 'stinger', to: 'program', at: T.wipe, duration: T.wipeD, direction: 'right', ease: INOUT, softness: 0.01 },
         ] },
       });
       window.__ready = true;

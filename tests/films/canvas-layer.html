@@ -57,10 +57,10 @@
         filters: [{ type: 'blur', strength: 1 }],
         mask: { type: 'shape', shape: 'circle', radius: 50, initial: { x: 120, y: 260, fillColor: '#ffffff' } },       // (a mask is placed in the composition's coordinates)
         draw: (ctx) => { ctx.fillStyle = '#ffcc00'; ctx.fillRect(0, 0, 200, 120); } },
-      // 4: text on a canvas with resolution 2 (sharp when scaled up) and pixel art with smoothing off
+      // 4: text on a canvas with resolution 2 (sharp when scaled up) and pixel art with scaleMode 'nearest'
       { type: 'canvas', name: 'text', width: 200, height: 60, resolution: 2, initial: { x: 240, y: 200, scale: 1 },
         draw: (ctx, t, info) => { ctx.fillStyle = '#ffffff'; ctx.font = 'bold 28px sans-serif'; ctx.fillText('canvas ' + info.frame, 8, 40); } },
-      { type: 'canvas', name: 'pixels', width: 8, height: 8, smoothing: false, initial: { x: 520, y: 220, scale: 8 },
+      { type: 'canvas', name: 'pixels', width: 8, height: 8, scaleMode: 'nearest', initial: { x: 520, y: 220, scale: 8 },
         draw: (ctx) => { for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { ctx.fillStyle = (x + y) % 2 ? '#ffffff' : '#000000'; ctx.fillRect(x, y, 1, 1); } } },
       // 5: a draw that opens a save() and never closes it, and sets a colour: the next frame must still start from the defaults
       { type: 'canvas', name: 'unbalanced', width: 10, height: 10, initial: { x: 600, y: 330 },

@@ -26,4 +26,9 @@ describe('lintTransitions', () => {
     expect(lintTransitions(movie({ kind: 'wipe', direction: 'left', ease: 'power2.inOut' }))).toEqual([]);
     expect(lintTransitions({ sequences: [] })).toEqual([]);
   });
+  it('the old names say the new ones: smoothing → softness, a luma flip → invert', () => {
+    expect(lintTransitions(movie({ kind: 'wipe', direction: 'left', smoothing: 0.1 }))[0]).toMatch(/transition "a" → "b": "smoothing" is now "softness" \(0\.\.1, the softness of the edge\)/);
+    expect(lintTransitions(movie({ kind: 'luma', flip: true }))[0]).toMatch(/"flip" is now "invert"/);
+  });
 });
+

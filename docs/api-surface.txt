@@ -116,9 +116,9 @@ interface CanvasSequenceSpec extends SequenceCommon
   height?: string | number
   params?: Record<string, number>
   resolution?: number
+  scaleMode?: "linear" | "nearest"
   seed?: number
   setup?: ((info: CanvasInfo) => unknown)
-  smoothing?: boolean
   type: "canvas"
   width?: string | number
 interface ChromaKeyFilterSpec
@@ -186,7 +186,7 @@ interface DissolveTransition extends TransitionCommon
   kind: "dissolve"
   scale?: number
   seed?: number
-  smoothing?: number
+  softness?: number
 function ease(name: string): (p: number) => number
 interface EllipseShapeSpec extends ShapeBase, Trimmable
   anchorX?: PropValue
@@ -250,7 +250,7 @@ function inspectSound(pcm: PcmLike, opts?: { window?: number | undefined; }): So
 interface IrisTransition extends TransitionCommon
   kind: "iris"
   mode?: "in" | "out"
-  smoothing?: number
+  softness?: number
 interface IssueGroup
   count: number
   firstFrame: number
@@ -299,7 +299,7 @@ type LoadStage = 'assets' | 'build' | 'sound' | 'frames'
 interface LoopEvent
   loop: boolean
 interface LumaTransition extends TransitionCommon
-  flip?: boolean
+  invert?: boolean
   kind: "luma"
   map?: string
   softness?: number
@@ -862,7 +862,7 @@ interface WiggleProp
 interface WipeTransition extends TransitionCommon
   direction: "left" | "right" | "up" | "down"
   kind: "wipe"
-  smoothing?: number
+  softness?: number
 function withFade<T extends SequenceCommon>(spec: T, opts: WithFadeOptions): T
 interface WithFadeOptions
   in?: number

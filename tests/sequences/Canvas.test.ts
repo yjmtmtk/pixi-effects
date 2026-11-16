@@ -230,8 +230,8 @@ describe('the canvas layer: size', () => {
     expect(warn.mock.calls.some(c => /resolution/.test(String(c[0])))).toBe(true);
   });
 
-  it('smoothing: false turns image smoothing off for the draw AND draws the picture with hard pixels when it is scaled up (pixel art); the default stays smooth', async () => {
-    const { comp } = await build([cv({ name: 'hard', smoothing: false }), cv({ name: 'soft' })]);
+  it('scaleMode: nearest turns image smoothing off for the draw AND draws the picture with hard pixels when it is scaled up (pixel art); the default stays smooth', async () => {
+    const { comp } = await build([cv({ name: 'hard', scaleMode: 'nearest' }), cv({ name: 'soft' })]);
     expect(rec.calls.some(c => c[0] === 'set imageSmoothingEnabled' && c[1] === false)).toBe(true);
     const mode = (name: string) => ((layer(comp, name).target as unknown as { texture: { source: { scaleMode?: string } } }).texture.source.scaleMode);
     expect(mode('hard')).toBe('nearest');

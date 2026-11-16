@@ -10,7 +10,7 @@
       'A'   a green 320 x 60 bar centred on (160, 90), mask: 'blk', 0..2 s;
       'B'   a blue 320 x 180 rect, 0.5..2 s;
       one transition A → B at 0.5 s for 1 s, ease 'none'.
-    ?kind=crossfade (default) | wipe (direction 'left', smoothing 0.004) | dissolve (seed 0); ?dur=<seconds> the transition's length (default 1).
+    ?kind=crossfade (default) | wipe (direction 'left', softness 0.004) | dissolve (seed 0); ?dur=<seconds> the transition's length (default 1).
     ?scene=comp: 'bg', 'blk' and the bar go inside a 320 x 180 composition named 'A' (the matte lives inside the scene instead of beside the layer).
     The page gives the test rowsAt(frames, y): for each frame, the RGB of every pixel of row y (r, g, b, r, g, b, …) from movie.snapshot().
   -->
@@ -46,7 +46,7 @@
     const sequences = SCENE === 'comp'
       ? [{ type: 'composition', name: 'A', at: 0, duration: 2, width: 320, height: 180, sequences: [bg, blk, { ...bar, name: 'bar' }] }, B]
       : [bg, blk, { ...bar, name: 'A', at: 0, duration: 2 }, B];
-    const extra = KIND === 'wipe' ? { direction: 'left', smoothing: 0.004 } : KIND === 'dissolve' ? { seed: 0 } : {};
+    const extra = KIND === 'wipe' ? { direction: 'left', softness: 0.004 } : KIND === 'dissolve' ? { seed: 0 } : {};
     const transitions = [{ kind: KIND, from: 'A', to: 'B', at: 0.5, duration: DUR, ease: 'none', ...extra }];
 
     const movie = new Movie();

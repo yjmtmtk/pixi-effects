@@ -336,14 +336,14 @@ return [
 ];
 ```
 
-A **pixel sprite**: drawn small with `smoothing: false`, shown big (the layer is scaled up and the pixels stay hard):
+A **pixel sprite**: drawn small with `scaleMode: 'nearest'`, shown big (the layer is scaled up and the pixels stay hard):
 
 ```js
 // @recipe canvas-pixel-sprite
 const ROWS = ['..1111..', '.111111.', '11.11.11', '11111111', '.1.11.1.', '..1111..', '.1....1.', '1......1'];
 return [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b1330' } },
-  { type: 'canvas', name: 'sprite', width: 8, height: 8, smoothing: false, duration: 8,
+  { type: 'canvas', name: 'sprite', width: 8, height: 8, scaleMode: 'nearest', duration: 8,
     initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5, scale: 30 },
     keyframes: [{ at: 0, from: { y: 300 }, to: { y: 420 }, duration: 8, ease: 'steps(16)' }],             // moves in whole steps
     draw: (ctx, t) => {
@@ -1179,7 +1179,7 @@ return { duration: 5, sequences: [
 
 ## A luma wipe (a transition that follows a brightness map)
 
-`{ kind: 'luma', map: 'radial' }` opens the next scene from the middle; `'linear'` sweeps left to right, `'diagonal'` corner to corner, or give the name of a grayscale image asset (dark parts change first). `softness` is the width of the soft edge and `flip` reverses the direction.
+`{ kind: 'luma', map: 'radial' }` opens the next scene from the middle; `'linear'` sweeps left to right, `'diagonal'` corner to corner, or give the name of a grayscale image asset (dark parts change first). `softness` is the width of the soft edge and `invert: true` reverses the direction (the light parts first).
 
 ```js
 // @recipe luma-wipe

@@ -156,7 +156,7 @@ describe('the tables cover the type (compile time) and what they list is sane', 
 
 describe('lintKeys: a canvas layer', () => {
   it('knows the keys of the canvas layer (no warning for the documented ones)', () => {
-    expect(warns({ type: 'canvas', name: 'c', width: 800, height: 450, resolution: 2, smoothing: false, seed: 3, params: { a: 1 }, setup: () => 1, draw: () => {}, initial: { x: 5 } })).toEqual([]);
+    expect(warns({ type: 'canvas', name: 'c', width: 800, height: 450, resolution: 2, scaleMode: 'nearest', seed: 3, params: { a: 1 }, setup: () => 1, draw: () => {}, initial: { x: 5 } })).toEqual([]);
   });
 
   it('a typo in a canvas key names the closest key, and says what the layer has', () => {
@@ -229,3 +229,10 @@ describe('lintKeys: the guesses are the right ones', () => {
     expect(warns({ type: 'audio', asset: 'a', attenuation: 1 })[0]).not.toMatch(/did you mean "at"/);
   });
 });
+
+describe('lintKeys: a canvas takes scaleMode, as an image does', () => {
+  it('smoothing: false says scaleMode: \'nearest\'', () => {
+    expect(warns({ type: 'canvas', width: 8, height: 8, draw: () => {}, smoothing: false })[0]).toMatch(/"smoothing" is not a canvas layer key: hard pixels are scaleMode: 'nearest' \(as on an image\)/);
+  });
+});
+

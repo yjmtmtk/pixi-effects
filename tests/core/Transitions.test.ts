@@ -294,9 +294,9 @@ describe('expandTransitions — wipe', () => {
     }
   });
 
-  it('honors smoothing override', () => {
+  it('honors a softness override', () => {
     const out = expandTransitions(spec({
-      transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left', smoothing: 0.1 }],
+      transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left', softness: 0.1 }],
     }));
     const inst = findCustomFilter(out, 'B', '_pe-transition-0')!.filter as { uSmoothing: number };
     expect(inst.uSmoothing).toBeCloseTo(0.1, 5);
@@ -546,8 +546,8 @@ describe('expandTransitions — luma wipe', () => {
     expect(kf('A', '_pe-transition-0-out.uProgress')).toMatchObject({ to: { 'filters._pe-transition-0-out.uProgress': 1 }, duration: 1 });
   });
 
-  it('without a map it is linear; flip is passed on', () => {
-    const f = findCustomFilter(luma({ flip: true }), 'B', '_pe-transition-0')!.filter as unknown as { resources: { lumaUniforms: { uniforms: Record<string, number> } } };
+  it('without a map it is linear; invert is passed on (the light parts first)', () => {
+    const f = findCustomFilter(luma({ invert: true }), 'B', '_pe-transition-0')!.filter as unknown as { resources: { lumaUniforms: { uniforms: Record<string, number> } } };
     expect(f.resources.lumaUniforms.uniforms).toMatchObject({ uMode: 1, uFlip: 1, uSoftness: 0.1 });
   });
 });

@@ -16,16 +16,16 @@
     { "id": "11-source",          "duration": 8, "model": "fable",  "title": "SOURCE",           "idea": "This video's own data scrolling, the measured size, the install line, experimental / MIT" }
   ],
   "transitions": {
-    "01-type":             { "kind": "wipe", "direction": "left", "smoothing": 0.1 },
+    "01-type":             { "kind": "wipe", "direction": "left", "softness": 0.1 },
     "02-shapes":           { "kind": "luma", "map": "radial", "softness": 0.15 },
-    "03-space":            { "kind": "iris", "mode": "in", "smoothing": 0.08 },
+    "03-space":            { "kind": "iris", "mode": "in", "softness": 0.08 },
     "04-light":            { "kind": "dip" },
     "05-blend-matte":      { "kind": "luma", "map": "diagonal", "softness": 0.2 },
-    "06-shader-warp":      { "kind": "dissolve", "scale": 90, "smoothing": 0.5 },
-    "07-filters-particles":{ "kind": "wipe", "direction": "up", "smoothing": 0.1 },
+    "06-shader-warp":      { "kind": "dissolve", "scale": 90, "softness": 0.5 },
+    "07-filters-particles":{ "kind": "wipe", "direction": "up", "softness": 0.1 },
     "08-motion":           { "kind": "luma", "map": "radial", "softness": 0.12 },
     "09-sound":            { "kind": "slide", "direction": "left" },
-    "10-data-talks":       { "kind": "iris", "mode": "in", "smoothing": 0.08 },
+    "10-data-talks":       { "kind": "iris", "mode": "in", "softness": 0.08 },
     "11-source":           { "kind": "dip" }
   }
 }

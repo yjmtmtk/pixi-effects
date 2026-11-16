@@ -50,7 +50,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the canvas
       expect(inside[0]! > 150 && inside[1]! > 120).toBe(true);
       expect(outside[0]! < 60).toBe(true);
 
-      // pixel art: the 8x8 checkerboard scaled 8x has only black and white pixels, none grey (smoothing: false)
+      // pixel art: the 8x8 checkerboard scaled 8x has only black and white pixels, none grey (scaleMode: 'nearest')
       const grey = await cdp.eval(`(async () => { const img = new Image(); img.src = await movie.snapshot(30, { as: 'dataURL' }); await img.decode();
         const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const g = c.getContext('2d'); g.drawImage(img, 0, 0);
         const d = g.getImageData(522, 222, 60, 60).data; let n = 0; for (let i = 0; i < d.length; i += 4) { const v = d[i]; if (v > 40 && v < 215) n++; } return n; })()`);

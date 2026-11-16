@@ -139,6 +139,7 @@ function lintRemap(spec: SequenceSpec, warn: Warn): void {
 /** Keys the library used to have: the sentence says what to write now. */
 const REMOVED_KEYS: Record<string, string> = {
   maskInverted: 'a hole instead of a crop is `mask: { layer: <the mask layer>, invert: true }`',
+  smoothing: "hard pixels are scaleMode: 'nearest' (as on an image)",
 };
 
 /** Words other tools use to draw a group as one picture: a composition always is one, so they need nothing (said as such, not as a typo). */

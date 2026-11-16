@@ -23,7 +23,7 @@ const COMPOSITION = [...COMMON, 'width', 'height', 'sequences', 'transitions', '
 const CAMERA = [...COMMON] as const satisfies readonly KeysOfUnion<CameraSequenceSpec>[];
 const LIGHT = [...COMMON, 'kind', 'falloff'] as const satisfies readonly KeysOfUnion<LightSequenceSpec>[];
 const SHADER = [...COMMON, 'fragment', 'uniforms', 'width', 'height', 'resolution', 'transparent'] as const satisfies readonly KeysOfUnion<ShaderSequenceSpec>[];
-const CANVAS = [...COMMON, 'draw', 'setup', 'width', 'height', 'resolution', 'params', 'seed', 'smoothing'] as const satisfies readonly KeysOfUnion<CanvasSequenceSpec>[];
+const CANVAS = [...COMMON, 'draw', 'setup', 'width', 'height', 'resolution', 'params', 'seed', 'scaleMode'] as const satisfies readonly KeysOfUnion<CanvasSequenceSpec>[];
 const SCENE2D = [...COMMON, 'setup', 'update', 'dispose', 'width', 'height', 'reuse'] as const satisfies readonly KeysOfUnion<Scene2DSequenceSpec>[];
 const NULL = [...COMMON] as const satisfies readonly KeysOfUnion<NullSequenceSpec>[];
 

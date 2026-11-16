@@ -209,7 +209,7 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 
 **composition** — `width height duration sequences transitions`, **`loop`** (true: repeat what happens inside; 2: repeat its first 2 s), **`frameRate`** (8: the content steps on 8 pictures a second, stop-motion feel), **`clip`** (true: cut to `width × height`, CSS `overflow: hidden`; default false). It is **one picture**: its `alpha`, `blendMode`, `filters`, `mask` act on what its layers drew together (CSS element / AE precomp), nothing to switch on. **`speed`** (the composition's own time: its content plays backward, in slow motion, … — `time` keyframes give a freeze, a rewind, a ramp; a composition's sound and sfx follow; its own x / alpha keyframes stay in the outer time; **children are placed in the composition's local seconds**; the content is as long as the larger of `duration` and the farthest `time` it reaches (`speed: 2` → twice `duration`; `time` keyframes → their largest number), and children default to that length. A child whose life ends exactly where a held `time` stands is hidden during the hold (a life is [at, at + duration)): give it a `duration` that reaches past. `time` keyframes and ordinary ones (`x`, `alpha`, a `wiggle`) may share one `keyframes` list. A sound inside goes silent while the clock stands still). With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition clips only with `clip: true`) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
-**canvas** — `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … }, setup?, params?, seed?, resolution?, smoothing? }`: a picture drawn by YOUR function of the time into the layer's own cleared canvas (`t` = the layer's seconds; `info` = `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random, start, time, canvas }`: `time` is the MOVIE's seconds (`start + t`; share it between layers instead of adding `at` by hand), `canvas(w, h)` an offscreen canvas for sprites and masks made in `setup`). It is a normal layer (initial, keyframes, mask, filters, blendMode …); `params` are numbers keyframes animate as `'params.x'`; no `Math.random` / `Date.now` (`info.random()` is seeded); a simulation is computed in `setup` and read by `info.frame`; it cannot see what is below it. Data several canvas layers share lives in module scope; `import { ease, noise, noise2, random, rand, samplePath } from 'pixi-effects'` for easing by keyframe name, seeded noise and a path walked by length (`samplePath(d).at(u)` / `.trim(a, b)`). `check` draws it twice per moment (one draw thrown away first) and reports a picture that differs, with how much; it prints a `canvas` line when all pass and does NOT see text drawn in a canvas.
+**canvas** — `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … }, setup?, params?, seed?, resolution?, scaleMode? }`: a picture drawn by YOUR function of the time into the layer's own cleared canvas (`t` = the layer's seconds; `info` = `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random, start, time, canvas }`: `time` is the MOVIE's seconds (`start + t`; share it between layers instead of adding `at` by hand), `canvas(w, h)` an offscreen canvas for sprites and masks made in `setup`). It is a normal layer (initial, keyframes, mask, filters, blendMode …); `params` are numbers keyframes animate as `'params.x'`; no `Math.random` / `Date.now` (`info.random()` is seeded); a simulation is computed in `setup` and read by `info.frame`; it cannot see what is below it. Data several canvas layers share lives in module scope; `import { ease, noise, noise2, random, rand, samplePath } from 'pixi-effects'` for easing by keyframe name, seeded noise and a path walked by length (`samplePath(d).at(u)` / `.trim(a, b)`). `check` draws it twice per moment (one draw thrown away first) and reports a picture that differs, with how much; it prints a `canvas` line when all pass and does NOT see text drawn in a canvas.
 
 **scene2d** (PixiJS 2D built by code, core: nothing to import) — `{ type: 'scene2d', name, width?, height?, setup({ root, width, height, texture }) { const g = new Graphics({ label: 'dot' }).circle(0, 0, 30).fill('#f40'); root.addChild(g); return { objects: { dot: g } } }, update?(t, { objects }) { objects.dot.x = 100 + 200 * t }, dispose?, reuse? }`: your PixiJS objects as one layer; `update` SETS everything from `t`; keyframes `'scene2d.dot.alpha'` (raw PixiJS values: `rotation` radians); an `AnimatedSprite` left playing is posed from the time; `texture('photo')` = a movie asset; `movie.pick` → `kind: 'scene2d'`, `hit.scene2d.object` (the label), `hit.scene2d.grab().move(x, y)`. Recipe `scene2d-basics`.
 
@@ -250,8 +250,8 @@ Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (
 transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' | 'dissolve' | 'luma',
                 from: 'nameA', to: 'nameB', at: 3, duration: 1, ease: 'none',
                 direction: 'left|right|up|down' /* wipe, slide */, mode: 'in|out' /* iris, zoom */,
-                smoothing, fromScale /* zoom */, scale, seed /* dissolve */,
-                map: 'linear' | 'diagonal' | 'radial' | '<grayscale image asset>', softness, flip /* luma */ }]
+                softness, fromScale /* zoom */, scale, seed /* dissolve */,
+                map: 'linear' | 'diagonal' | 'radial' | '<grayscale image asset>', softness, invert /* luma */ }]
 ```
 `from`/`to` are sibling layer `name`s, `to` declared after `from`, and both layers must be alive for the whole window (overlap them by `duration`). Only those two layers are affected; every other layer stays put. Wipe/iris/dissolve/zoom wrap the layers for you.
 
@@ -398,7 +398,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 39. **`fillGradient` stops span the whole unmasked shape**, not the visible part: under a mask, place the stops for the visible fraction (e.g. 0.64→1). A translucent shape over near-black reads as grey: put the alpha in the gradient stops. *(docs)*
 40. **Rotate a polygon / path / line about a chosen point with `pivotX` / `pivotY`** (in the shape's own canvas coordinates; put the same point in `x, y`): `{ points, initial: { pivotX: 600, pivotY: 300, x: 600, y: 300, rotation: 180 } }` turns about the vertex (600, 300) — measured. Without a pivot the shape turns about the centre of its bounds. `anchorX` / `anchorY` do nothing on these shapes (they are for rect / circle / ellipse). *(docs; the gallery wrapped every polygon in a composition unnecessarily)*
 41. **Glow a whole set of layers** by putting them in one `composition` with a blur filter and `filterArea` (only a composition carries a filter for its children): wide enough for the blur, and the set is built once, so the extra copy is just a second group. *(docs)*
-42. **Transition looks:** the default `dissolve` reads as a hard black-and-white camouflage and `scale: 220` as static; `scale: 90, smoothing: 0.5` is a soft film dissolve. The default edge softness of `iris` (0.02) and `wipe` blurs flat graphics at 720p: `smoothing: 0.004`–`0.01` gives a clean edge. *(docs)*
+42. **Transition looks:** the default `dissolve` reads as a hard black-and-white camouflage and `scale: 220` as static; `scale: 90, softness: 0.5` is a soft film dissolve. The default edge softness of `iris` (0.02) and `wipe` blurs flat graphics at 720p: `smoothing: 0.004`–`0.01` gives a clean edge. *(docs)*
 43. **Layers built in a loop need their z-order planned**: anything pushed to the array after the loop is drawn over what the loop made (rings crossed over a header). Keyframes on different properties of one layer may overlap in time. Keep a subject in the upper ~60 % of a source image if a caption will sit under it (`inspect` does not look at picture content). *(docs)*
 44. **Zero-pad a counter with `format: { pad: 2 }`** (`18:42:{value}` shows `18:42:05`). A `{value}` placeholder that nothing sets or animates prints 0 and now warns: `{value}` is reserved, there is no way to print it literally. *(fixed)*
 45. **The same mistake in a loop warns once**: the warning "keyframe starts after the layer ends" is summarised after three layers. The usual cause is an off-by-one (`f <= frames` instead of `f < frames`) that puts the last sample exactly at the layer's end. *(fixed)*
@@ -844,14 +844,14 @@ return [
 ];
 ```
 
-A **pixel sprite**: drawn small with `smoothing: false`, shown big (the layer is scaled up and the pixels stay hard):
+A **pixel sprite**: drawn small with `scaleMode: 'nearest'`, shown big (the layer is scaled up and the pixels stay hard):
 
 ```js
 // @recipe canvas-pixel-sprite
 const ROWS = ['..1111..', '.111111.', '11.11.11', '11111111', '.1.11.1.', '..1111..', '.1....1.', '1......1'];
 return [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b1330' } },
-  { type: 'canvas', name: 'sprite', width: 8, height: 8, smoothing: false, duration: 8,
+  { type: 'canvas', name: 'sprite', width: 8, height: 8, scaleMode: 'nearest', duration: 8,
     initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5, scale: 30 },
     keyframes: [{ at: 0, from: { y: 300 }, to: { y: 420 }, duration: 8, ease: 'steps(16)' }],             // moves in whole steps
     draw: (ctx, t) => {
@@ -1687,7 +1687,7 @@ return { duration: 5, sequences: [
 
 ## A luma wipe (a transition that follows a brightness map)
 
-`{ kind: 'luma', map: 'radial' }` opens the next scene from the middle; `'linear'` sweeps left to right, `'diagonal'` corner to corner, or give the name of a grayscale image asset (dark parts change first). `softness` is the width of the soft edge and `flip` reverses the direction.
+`{ kind: 'luma', map: 'radial' }` opens the next scene from the middle; `'linear'` sweeps left to right, `'diagonal'` corner to corner, or give the name of a grayscale image asset (dark parts change first). `softness` is the width of the soft edge and `invert: true` reverses the direction (the light parts first).
 
 ```js
 // @recipe luma-wipe
@@ -3275,7 +3275,7 @@ It is a layer like any other: `name`, `at`, `duration`, `initial`, `keyframes`, 
 | `resolution` | 0.25 to 4 (default 1): canvas pixels per layer pixel. Text and fine lines under a zoom (a parent scaled up) need 2 or more. |
 | `params` | Numbers that **keyframes can animate**: `keyframes: [{ at: 0, to: { 'params.size': 80 }, duration: 2 }]`; `draw` reads them as `info.params`. |
 | `seed` | Integer (default 0) that seeds `info.random()`. |
-| `smoothing` | `false`: no smoothing when drawing images into it AND hard pixels when the layer is scaled up (pixel art). Default `true`. |
+| `scaleMode` | `'nearest'`: no smoothing when drawing images into it AND hard pixels when the layer is scaled up (pixel art), as an image's `scaleMode`. Default `'linear'`. |
 
 `info` is `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random, start, time, canvas }`: `frame` is the layer's own frame number, `progress` is `t / duration`, `params` holds the values at this time, `state` is what `setup` returned, `random()` is a **seeded** generator whose sequence starts again at every call (the same frame always draws the same numbers; for a value that must differ from frame to frame, derive it from `t`), **`start`** is where the layer starts on the movie's clock (its `at` plus the starts of the compositions around it; in `setup` just its `at`; inside a composition with a time remap, `speed` or `time`, the clock of that composition) and **`time`** is the movie's time now (`start + t`): read it for anything several layers or the sound share, instead of adding the `at` by hand (which breaks quietly when someone moves the layer). **`info.canvas(width, height)`** returns an offscreen canvas for a sprite, a mask or a scratch picture.
 
@@ -4035,7 +4035,7 @@ A directional reveal. `to` is masked by a soft edge that travels across the scre
 {
   kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1,
   direction: 'left' | 'right' | 'up' | 'down',
-  smoothing: 0.04,    // 0..1 edge softness (default 0.02)
+  softness: 0.04,     // 0..1 edge softness (default 0.02)
 }
 ```
 
@@ -4049,7 +4049,7 @@ A circular reveal centered on the canvas.
 {
   kind: 'iris', from: 'A', to: 'B', at: 4, duration: 1,
   mode: 'in',         // default — B opens up from a point. 'out' = A closes down to a point.
-  smoothing: 0.03,    // 0..1 edge softness (default 0.02)
+  softness: 0.03,     // 0..1 edge softness (default 0.02)
 }
 ```
 
@@ -4105,7 +4105,7 @@ A noise reveal driven by deterministic 2D Perlin noise (`from` loses exactly the
   kind: 'dissolve', from: 'A', to: 'B', at: 4, duration: 1,
   scale: 30,         // pattern frequency (higher = finer grain). Default 30.
   seed: 0,           // pattern offset. Different seeds → different reveal patterns.
-  smoothing: 0.05,   // edge softness within each chunk. Default 0.05.
+  softness: 0.05,    // edge softness within each chunk. Default 0.05.
 }
 ```
 
@@ -4119,7 +4119,7 @@ A wipe that follows a **brightness map** (After Effects' Gradient Wipe): the dar
   map: 'radial',     // 'linear' (left to right, default), 'diagonal', 'radial' (from the middle, a circle on screen),
                      // or the name of a grayscale image asset (dark parts change first)
   softness: 0.1,     // width of the soft band, in brightness units (0..1). Default 0.1.
-  flip: false,       // true = reverse the map (light parts first)
+  invert: false,     // true = reverse the map (light parts first)
 }
 ```
 

@@ -139,14 +139,14 @@ export interface WipeTransition extends TransitionCommon {
   kind: 'wipe';
   direction: 'left' | 'right' | 'up' | 'down';
   /** 0..1 edge softness. Default 0.02. */
-  smoothing?: number;
+  softness?: number;
 }
 
 export interface IrisTransition extends TransitionCommon {
   kind: 'iris';
   /** `'in'` (default) = B opens up from a point. `'out'` = A closes down to a point. */
   mode?: 'in' | 'out';
-  smoothing?: number;
+  softness?: number;
 }
 
 export interface SlideTransition extends TransitionCommon {
@@ -182,7 +182,7 @@ export interface DissolveTransition extends TransitionCommon {
   /** Pattern offset for reproducibly varying the dissolve shape. Default 0. */
   seed?: number;
   /** 0..1 edge softness within each chunk. Default 0.05. */
-  smoothing?: number;
+  softness?: number;
 }
 
 export interface LumaTransition extends TransitionCommon {
@@ -192,7 +192,7 @@ export interface LumaTransition extends TransitionCommon {
   /** Width of the soft band between the scenes, in brightness units (0..1). Default 0.1. */
   softness?: number;
   /** Reverse the map (light parts change first). */
-  flip?: boolean;
+  invert?: boolean;
 }
 
 export type TransitionSpec =
@@ -677,8 +677,8 @@ export interface CanvasSequenceSpec extends SequenceCommon {
   params?: Record<string, number>;
   /** Seeds `info.random()` (an integer, default 0). */
   seed?: number;
-  /** `false`: hard pixels when the picture is scaled (pixel art). Default `true`. */
-  smoothing?: boolean;
+  /** `'nearest'`: hard pixels when the layer is scaled up, and no smoothing when images are drawn into it (pixel art), as an image's `scaleMode`. Default `'linear'`. */
+  scaleMode?: 'linear' | 'nearest';
 }
 
 /** Handed to a scene2d layer's setup / update / dispose. One per layer. */

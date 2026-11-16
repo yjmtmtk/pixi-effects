@@ -149,7 +149,7 @@
 
     // every art layer is the same: 320x180, hard pixels, shown at 4x over the whole frame
     const art = (name, draw, extra = {}) => ({
-      type: 'canvas', name, width: LW, height: LH, smoothing: false, duration: DURATION,
+      type: 'canvas', name, width: LW, height: LH, scaleMode: 'nearest', duration: DURATION,
       initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5, scale: S }, draw, ...extra,
     });
     const image = (ctx) => { const img = ctx.createImageData(LW, LH); return { img, buf: new Uint32Array(img.data.buffer) }; };

@@ -622,7 +622,7 @@ It is a layer like any other: `name`, `at`, `duration`, `initial`, `keyframes`, 
 | `resolution` | 0.25 to 4 (default 1): canvas pixels per layer pixel. Text and fine lines under a zoom (a parent scaled up) need 2 or more. |
 | `params` | Numbers that **keyframes can animate**: `keyframes: [{ at: 0, to: { 'params.size': 80 }, duration: 2 }]`; `draw` reads them as `info.params`. |
 | `seed` | Integer (default 0) that seeds `info.random()`. |
-| `smoothing` | `false`: no smoothing when drawing images into it AND hard pixels when the layer is scaled up (pixel art). Default `true`. |
+| `scaleMode` | `'nearest'`: no smoothing when drawing images into it AND hard pixels when the layer is scaled up (pixel art), as an image's `scaleMode`. Default `'linear'`. |
 
 `info` is `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random, start, time, canvas }`: `frame` is the layer's own frame number, `progress` is `t / duration`, `params` holds the values at this time, `state` is what `setup` returned, `random()` is a **seeded** generator whose sequence starts again at every call (the same frame always draws the same numbers; for a value that must differ from frame to frame, derive it from `t`), **`start`** is where the layer starts on the movie's clock (its `at` plus the starts of the compositions around it; in `setup` just its `at`; inside a composition with a time remap, `speed` or `time`, the clock of that composition) and **`time`** is the movie's time now (`start + t`): read it for anything several layers or the sound share, instead of adding the `at` by hand (which breaks quietly when someone moves the layer). **`info.canvas(width, height)`** returns an offscreen canvas for a sprite, a mask or a scratch picture.
 
@@ -1382,7 +1382,7 @@ A directional reveal. `to` is masked by a soft edge that travels across the scre
 {
   kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1,
   direction: 'left' | 'right' | 'up' | 'down',
-  smoothing: 0.04,    // 0..1 edge softness (default 0.02)
+  softness: 0.04,     // 0..1 edge softness (default 0.02)
 }
 ```
 
@@ -1396,7 +1396,7 @@ A circular reveal centered on the canvas.
 {
   kind: 'iris', from: 'A', to: 'B', at: 4, duration: 1,
   mode: 'in',         // default — B opens up from a point. 'out' = A closes down to a point.
-  smoothing: 0.03,    // 0..1 edge softness (default 0.02)
+  softness: 0.03,     // 0..1 edge softness (default 0.02)
 }
 ```
 
@@ -1452,7 +1452,7 @@ A noise reveal driven by deterministic 2D Perlin noise (`from` loses exactly the
   kind: 'dissolve', from: 'A', to: 'B', at: 4, duration: 1,
   scale: 30,         // pattern frequency (higher = finer grain). Default 30.
   seed: 0,           // pattern offset. Different seeds → different reveal patterns.
-  smoothing: 0.05,   // edge softness within each chunk. Default 0.05.
+  softness: 0.05,    // edge softness within each chunk. Default 0.05.
 }
 ```
 
@@ -1466,7 +1466,7 @@ A wipe that follows a **brightness map** (After Effects' Gradient Wipe): the dar
   map: 'radial',     // 'linear' (left to right, default), 'diagonal', 'radial' (from the middle, a circle on screen),
                      // or the name of a grayscale image asset (dark parts change first)
   softness: 0.1,     // width of the soft band, in brightness units (0..1). Default 0.1.
-  flip: false,       // true = reverse the map (light parts first)
+  invert: false,     // true = reverse the map (light parts first)
 }
 ```
 

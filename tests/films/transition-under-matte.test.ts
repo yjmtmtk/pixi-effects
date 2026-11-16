@@ -7,7 +7,7 @@ import { runFilms, withFilm, type Film } from './support/withFilm';
 //   'blk' a white 40 x 180 rect, the matte: x 80 → 240 over 0..2 s, ease 'none' (its centre bx(t) = 80 + 80 t);
 //   'A'   a green 320 x 60 bar (y 60..120) with `mask: 'blk'`, 0..2 s;
 //   'B'   a blue 320 x 180 rect, 0.5..2 s;
-//   one transition A → B at 0.5 for DUR = 1 s (?dur= changes it), ease 'none': ?kind=crossfade (default) | wipe (direction 'left', smoothing 0.004) | dissolve.
+//   one transition A → B at 0.5 for DUR = 1 s (?dur= changes it), ease 'none': ?kind=crossfade (default) | wipe (direction 'left', softness 0.004) | dissolve.
 //   ?scene=comp puts 'bg', 'blk' and the bar inside a 320 x 180 composition 'A' (the matte is then inside the scene, not carried by the transition).
 //
 // Where the answers come from (written before the film was run):

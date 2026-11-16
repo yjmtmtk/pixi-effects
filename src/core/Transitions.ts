@@ -215,10 +215,10 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
         expandCrossfade(out, abs, fromEntry.seq, toEntry.seq);
         break;
       case 'wipe':
-        expandMask(out, abs, fromEntry.seq, toEntry.seq, i, wipeMode(abs.direction), abs.smoothing);
+        expandMask(out, abs, fromEntry.seq, toEntry.seq, i, wipeMode(abs.direction), abs.softness);
         break;
       case 'iris':
-        expandMask(out, abs, fromEntry.seq, toEntry.seq, i, abs.mode === 'out' ? 'iris-out' : 'iris-in', abs.smoothing);
+        expandMask(out, abs, fromEntry.seq, toEntry.seq, i, abs.mode === 'out' ? 'iris-out' : 'iris-in', abs.softness);
         break;
       case 'slide':
         expandSlide(out, abs, fromEntry.seq, toEntry.seq);
@@ -556,7 +556,7 @@ function expandDissolve(
   const ease = t.ease ?? 'none';
   const inName  = transitionFilterName(transitionIndex);
   const outName = `${transitionFilterName(transitionIndex)}-out`;
-  const sm = t.smoothing ?? 0.05;
+  const sm = t.softness ?? 0.05;
   const scale = t.scale ?? 30;
   const seed  = t.seed ?? 0;
   const compW = comp.width ?? 0;
@@ -599,7 +599,7 @@ function expandDissolve(
 }
 
 /**
- * `{ kind: 'luma', map: 'linear' | 'diagonal' | 'radial' | <grayscale image asset>, softness?: 0.1, flip?: false }`: B appears through a
+ * `{ kind: 'luma', map: 'linear' | 'diagonal' | 'radial' | <grayscale image asset>, softness?: 0.1, invert?: false }`: B appears through a
  * soft edge where the map is dark first; A holds until B has covered it (a hard cutoff, as wipe / iris / dissolve do).
  */
 function expandLuma(
@@ -611,7 +611,7 @@ function expandLuma(
   const inName = transitionFilterName(transitionIndex);
   const outName = `${transitionFilterName(transitionIndex)}-out`;
   const fullArea = { x: 0, y: 0, width: comp.width ?? 0, height: comp.height ?? 0 };
-  const opts = { map: t.map ?? 'linear', softness: t.softness ?? 0.1, flip: t.flip ?? false };
+  const opts = { map: t.map ?? 'linear', softness: t.softness ?? 0.1, flip: t.invert ?? false };
   for (const [seq, name, invert] of [[toSeq, inName, false], [fromSeq, outName, true]] as const) {
     const filters = ensureFilters(seq);
     rejectReservedNameCollision(filters, seq.name);

@@ -249,9 +249,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
-  it('a luma wipe with flip: the light side changes first', async () => {
+  it('a luma wipe with invert: the light side changes first', async () => {
     await withPage(async (cdp) => {
-      const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'linear', softness: 0.1, flip: true }] };
+      const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'linear', softness: 0.1, invert: true }] };
       await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp })})`);
       const mid: string = await cdp.eval('snap(30)');
       near(await at(cdp, mid, 10, 45), rgb(A), 'flipped, midway: the left has not changed');
