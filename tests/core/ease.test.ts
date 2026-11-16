@@ -20,7 +20,7 @@ describe('checkEase', () => {
     const msg = String(w.mock.calls[0]![0]);
     expect(msg).toMatch(/unknown ease "power3\.outt"/);
     expect(msg).toMatch(/did you mean "power3\.out"/);
-    expect(msg).toMatch(/default ease|power1\.out/);
+    expect(msg).toMatch(/it runs as 'none': a straight line, as with no ease/);
   });
   it('warns once per name, not once per keyframe', () => {
     const w = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -67,3 +67,29 @@ describe('a malformed cubic-bezier runs as a straight line, as the warning says'
     for (const bad of ['cubic-bezier(1.4,0,.2,1)', 'cubic-bezier(.4,0,.2)']) for (const p of [0, 0.25, 0.5, 0.9, 1]) expect(pureEase(bad)(p)).toBe(p);
   });
 });
+
+describe('eases an AI already knows from CSS and from Penner', () => {
+  it('the CSS keywords ease, ease-in, ease-out, ease-in-out are their cubic-bezier curves', async () => {
+    const { pureEase } = await import('../../src/core/pure/ease');
+    const w = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (const e of ['ease', 'ease-in', 'ease-out', 'ease-in-out']) checkEase(e, 'css');
+    expect(w).not.toHaveBeenCalled();
+    expect(pureEase('ease-in-out')(0.5)).toBeCloseTo(pureEase('cubic-bezier(0.42, 0, 0.58, 1)')(0.5), 9);
+    expect(pureEase('ease')(0.25)).toBeCloseTo(pureEase('cubic-bezier(0.25, 0.1, 0.25, 1)')(0.25), 9);
+    expect(pureEase('ease-in')(0.3)).toBeCloseTo(pureEase('cubic-bezier(0.42, 0, 1, 1)')(0.3), 9);
+    expect(pureEase('ease-out')(0.3)).toBeCloseTo(pureEase('cubic-bezier(0, 0, 0.58, 1)')(0.3), 9);
+  });
+  it('a Penner name (easeOutCubic, easeInOutQuad, inOutSine) says the name it is here', () => {
+    const w = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    checkEase('easeOutCubic', 'k'); checkEase('easeInOutQuad', 'k'); checkEase('inOutSine', 'k');
+    const said = w.mock.calls.map(c => String(c[0]));
+    expect(said[0]).toMatch(/unknown ease "easeOutCubic" — did you mean "cubic\.out"\?/);
+    expect(said[1]).toMatch(/did you mean "quad\.inOut"\?/);
+    expect(said[2]).toMatch(/did you mean "sine\.inOut"\?/);
+  });
+  it('an ease nobody knows runs as \'none\', as an omitted one does (not as power1.out)', async () => {
+    const { pureEase } = await import('../../src/core/pure/ease');
+    expect(pureEase('bogus')(0.3)).toBeCloseTo(0.3, 9);
+  });
+});
+

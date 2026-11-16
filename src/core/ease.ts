@@ -20,7 +20,7 @@ export function checkEase(ease: string, where: string): void {
     const problem = springProblem(ease);
     if (!problem || warned.has(ease)) return;
     warned.add(ease);
-    console.warn(`pixi-effects: ${where}: unknown ease "${ease}" — ${problem}. It runs as its default ease, power1.out.`);
+    console.warn(`pixi-effects: ${where}: unknown ease "${ease}" — ${problem}. It runs as 'none' (a straight line, as with no ease).`);
     return;
   }
   if (/^\s*cubic-bezier/i.test(ease)) {                            // a malformed one is said once, with what it runs as
@@ -34,13 +34,15 @@ export function checkEase(ease: string, where: string): void {
   if (warned.has(ease)) return;
   warned.add(ease);
   if (ease === '') {
-    console.warn(`pixi-effects: ${where}: an empty ease (it would run as power1.out): write 'none' for no easing, or a name such as 'power2.out'`);
+    console.warn(`pixi-effects: ${where}: an empty ease (it runs as 'none'): write 'none' for no easing, or a name such as 'power2.out'`);
     return;
   }
   if (/^(power[1-4]|quad|cubic|quart|quint|strong|back|elastic|bounce|circ|expo|sine)$/i.test(ease)) {
     console.warn(`pixi-effects: ${where}: "${ease}" is a family, not an ease — write ${ease.toLowerCase()}.out, ${ease.toLowerCase()}.in or ${ease.toLowerCase()}.inOut`);
     return;
   }
-  const guess = suggestName(ease, EASE_NAMES);
-  console.warn(`pixi-effects: ${where}: unknown ease "${ease}"${guess ? ` — did you mean "${guess}"?` : ''} (it runs as its default ease, power1.out). Examples: ${EASE_NAMES.slice(0, 7).join(', ')}, back.out(1.7), elastic.out(1, 0.3), steps(8)`);
+  // Penner's names (easeOutCubic, easeInOutQuad, inOutSine) as ours: family.direction
+  const penner = /^(?:ease)?(in|out|inout)(quad|cubic|quart|quint|sine|expo|circ|back|elastic|bounce)$/i.exec(ease.replace(/[-_ .]/g, ''));
+  const guess = penner ? `${penner[2]!.toLowerCase()}.${({ in: 'in', out: 'out', inout: 'inOut' } as Record<string, string>)[penner[1]!.toLowerCase()]}` : suggestName(ease, EASE_NAMES);
+  console.warn(`pixi-effects: ${where}: unknown ease "${ease}"${guess ? ` — did you mean "${guess}"?` : ''} (it runs as 'none': a straight line, as with no ease). Examples: ${EASE_NAMES.slice(0, 7).join(', ')}, back.out(1.7), elastic.out(1, 0.3), steps(8)`);
 }

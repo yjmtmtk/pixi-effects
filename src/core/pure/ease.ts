@@ -79,7 +79,11 @@ const FAMILY: Record<string, (args: number[]) => Trio> = {
 };
 
 const LINEAR: EaseFn = (p) => p;
-const DEFAULT: EaseFn = power(2).out;                            // power1.out: what a name nobody knows runs as
+/** CSS's ease keywords (CSS Easing Functions Level 1). */
+const CSS_EASES: Record<string, [number, number, number, number]> = {
+  ease: [0.25, 0.1, 0.25, 1], 'ease-in': [0.42, 0, 1, 1], 'ease-out': [0, 0, 0.58, 1], 'ease-in-out': [0.42, 0, 0.58, 1],
+};
+const DEFAULT: EaseFn = (p) => p;                                // 'none': a name nobody knows runs as an omitted ease does (checkEase says so)
 
 const cache = new Map<string, EaseFn | null>();
 
@@ -89,7 +93,7 @@ function lookup(name: string): EaseFn | null {
   return hit;
 }
 
-/** The ease function for an ease name; a name it does not know runs as `power1.out` (`checkEase` has said so). */
+/** The ease function for an ease name; a name it does not know runs as `'none'`, as an omitted one (`checkEase` has said so). */
 export function pureEase(name: unknown): EaseFn {
   return (typeof name === 'string' ? lookup(name) : null) ?? DEFAULT;
 }
@@ -102,6 +106,8 @@ export function isEaseName(name: unknown): boolean {
 function parse(raw: string): EaseFn | null {
   const s = raw.toLowerCase();
   if (s === 'none' || s === 'linear' || s === 'linear.easenone') return LINEAR;
+  const css = CSS_EASES[s];                                      // CSS's keywords are their cubic-bezier curves
+  if (css) return cubicBezierEase(...css);
   if (/^spring/.test(s)) { const sp = parseSpring(raw); return sp ? springEase(sp) : null; }
   if (/^cubic-bezier/.test(s)) { const c = parseCubicBezier(raw); return c ? cubicBezierEase(...c) : LINEAR; }   // a malformed one is a straight line (checkEase says so)
   const st = /^steps\(\s*([^)]*)\)$/.exec(s);

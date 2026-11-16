@@ -30,10 +30,9 @@ describe('pure eases are GSAP\'s eases: every name, 2001 points, the same number
     });
   }
 
-  it('an unknown name runs as power1.out, which is what GSAP does (checkEase says so once)', () => {
-    const g = gsap.parseEase('power1.out') as (p: number) => number;      // parseEase('wobble.out') is undefined; a tween with it runs as power1.out
+  it('an unknown name runs as \'none\', as an omitted ease does (GSAP would run power1.out; here the default is none, so a typo looks like no ease, and checkEase says so once)', () => {
     const mine = pureEase('wobble.out');
-    for (let i = 0; i <= 20; i++) expect(mine(i / 20)).toBeCloseTo(g(i / 20), 12);
+    for (let i = 0; i <= 20; i++) expect(mine(i / 20)).toBeCloseTo(i / 20, 12);
   });
 });
 
