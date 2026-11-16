@@ -104,10 +104,12 @@ export interface RenderOptions {
   };
   audio?: { codec?: string; bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' | number | string };
   /**
-   * Only part of the movie: `[from, to]` in seconds, or the name of a top-level layer (its start to its end). The file starts at 0
-   * and its sound is cut the same way (with a 10 ms fade on a cut edge). Past the end, backwards or an unknown name is an error.
+   * Only part of the movie: `[from, to]` in seconds. The file starts at 0 and its sound is cut the same way (with a 10 ms fade on a cut
+   * edge). Past the end or backwards is an error.
    */
-  range?: [number, number] | string;
+  range?: [number, number];
+  /** Only one top-level layer (a scene), from its start to its end, by its name: as `range`. An unknown name is an error. */
+  scene?: string;
   /** Output size relative to the canvas, above 0 and at most 1. Each frame is drawn at full size and copied smaller before it is encoded: the file and the encoding get smaller, the drawing is not faster. */
   scale?: number;
   /** For looking, not for delivering: `scale: 0.5`, `video.bitrate: 'low'` and no motion blur. Anything you set yourself wins. */
@@ -1417,7 +1419,7 @@ export class Movie {
   get loop(): boolean { return this._loop; }
 
   async render(options?: RenderOptions): Promise<Blob> {
-    warnUnknownOptions('movie.render()', options, ['format', 'video', 'audio', 'motionBlur', 'range', 'scale', 'draft']);
+    warnUnknownOptions('movie.render()', options, ['format', 'video', 'audio', 'motionBlur', 'range', 'scene', 'scale', 'draft']);
     try {
       return await this._exclusive(() => this._quietly(() => exportFrames(this, options)));
     } catch (err) {

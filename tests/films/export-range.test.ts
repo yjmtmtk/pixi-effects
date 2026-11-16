@@ -30,7 +30,7 @@ runFilms('Export: a range, a scale and a draft, and a file exactly as long as it
       const part = await pictureFrames(await film.render({ range: [1, 2.5] }));
       expect(part.frames, `the range: ${part.seconds} s`).toBe(1.5 * fps);
       expect(part.seconds).toBeCloseTo(1.5, 3);
-      const layer = await pictureFrames(await film.render({ range: 'title' }));
+      const layer = await pictureFrames(await film.render({ scene: 'title' }));
       expect(layer.frames, 'a named layer (at 1, 2 s long)').toBe(2 * fps);
     });
   }, 180000);
@@ -48,7 +48,7 @@ runFilms('Export: a range, a scale and a draft, and a file exactly as long as it
       expect(part.audio.second).toBeGreaterThan(0.01);                                    // ... and the sound is there right after it
       expect(part.audio.tail).toBeLessThan(part.audio.before);                            // the end fades out
 
-      const title = await cdp.eval(RENDER({ range: 'title' }));
+      const title = await cdp.eval(RENDER({ scene: 'title' }));
       expect(Math.abs(title.video.duration - 2)).toBeLessThan(0.2);
       expect(Math.abs(title.audio.duration - 2)).toBeLessThan(0.2);
     });
@@ -82,7 +82,7 @@ runFilms('Export: a range, a scale and a draft, and a file exactly as long as it
     await withMovie(async (cdp) => {
       const rows = await cdp.eval('movie.timelineData().rows.map(r => ({ name: r.name, partNames: r.partNames || null }))');
       expect(rows.some((r: any) => r.partNames)).toBe(false);                      // this page has no folded family: the lookup is covered by the unit tests; here only that a plain name still works
-      const title = await cdp.eval(RENDER({ range: 'title' }));
+      const title = await cdp.eval(RENDER({ scene: 'title' }));
       expect(Math.abs(title.video.duration - 2)).toBeLessThan(0.2);
     });
   }, 120000);
@@ -91,7 +91,7 @@ runFilms('Export: a range, a scale and a draft, and a file exactly as long as it
     await withMovie(async (cdp) => {
       const err = (opts: object) => cdp.eval(`movie.render(${JSON.stringify(opts)}).then(() => 'rendered', e => e.message)`);
       expect(await err({ range: [0, 9] })).toMatch(/goes past the end.*4 s long/);
-      expect(await err({ range: 'nope' })).toMatch(/no layer named "nope".*title/);
+      expect(await err({ scene: 'nope' })).toMatch(/no layer named "nope".*title/);
       expect(await err({ range: [2, 1] })).toMatch(/must start before it ends/);
       expect(await err({ scale: 2 })).toMatch(/scale must be above 0 and at most 1/);
     });

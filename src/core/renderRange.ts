@@ -9,21 +9,23 @@ export interface RangeContext {
 /** `[fromFrame, toFrame)`: `toFrame` is the first frame NOT written (the end moment belongs to the next frame), so `toFrame - fromFrame` is the number of frames in the file. */
 export interface ResolvedRange { fromFrame: number; toFrame: number; fromSec: number; toSec: number; partial: boolean }
 
-export function resolveRange(range: [number, number] | string | undefined, ctx: RangeContext): ResolvedRange {
+export function resolveRange(range: [number, number] | undefined, ctx: RangeContext, scene?: string): ResolvedRange {
   const { frameRate: fps, totalFrames, duration } = ctx;
-  if (range === undefined) return { fromFrame: 0, toFrame: totalFrames, fromSec: 0, toSec: duration, partial: false };
+  if (typeof range === 'string') throw new Error(`pixi-effects: render({ range }) is seconds [from, to]; a layer by its name is render({ scene: '${range}' })`);
+  if (range !== undefined && scene !== undefined) throw new Error('pixi-effects: render(): give range or scene, not both');
+  if (range === undefined && scene === undefined) return { fromFrame: 0, toFrame: totalFrames, fromSec: 0, toSec: duration, partial: false };
   let from: number, to: number;
-  if (typeof range === 'string') {
+  if (scene !== undefined) {
     // top-level layers by their own names (a family the timeline folds into one row, `pop-# ×4`, gives its members back)
     const rows = (ctx.rows ?? []).filter((r) => r.depth === 0 && !r.local).flatMap((r) => (r.parts && r.partNames ? r.partNames.map((name, i) => ({ name, start: r.parts![i]!.start, end: r.parts![i]!.end })) : [r]));
-    const row = rows.find((r) => r.name === range);
-    if (!row) throw new Error(`pixi-effects: render({ range: "${range}" }): no layer named "${range}" at the top level (names: ${rows.slice(0, 40).map((r) => r.name).join(', ') || 'none'}${rows.length > 40 ? ', …' : ''})`);
+    const row = rows.find((r) => r.name === scene);
+    if (!row) throw new Error(`pixi-effects: render({ scene: "${scene}" }): no layer named "${scene}" at the top level (names: ${rows.slice(0, 40).map((r) => r.name).join(', ') || 'none'}${rows.length > 40 ? ', …' : ''})`);
     from = row.start; to = row.end;
   } else {
     if (!Array.isArray(range) || range.length !== 2 || !range.every((n) => typeof n === 'number' && Number.isFinite(n))) {
-      throw new Error('pixi-effects: render({ range }) must be [from, to] in seconds (numbers) or the name of a top-level layer');
+      throw new Error('pixi-effects: render({ range }) must be [from, to] in seconds (numbers); a top-level layer by its name is render({ scene })');
     }
-    [from, to] = range;
+    [from, to] = range!;
   }
   if (from < 0 || to <= from) throw new Error(`pixi-effects: render({ range: [${from}, ${to}] }): a range must start before it ends (from >= 0, from < to)`);
   if (to > duration + 0.5 / fps) throw new Error(`pixi-effects: render({ range: [${from}, ${to}] }) goes past the end: the movie is ${duration} s long`);

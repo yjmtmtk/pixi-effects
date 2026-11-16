@@ -610,8 +610,9 @@ interface RenderOptions
   draft?: boolean
   format?: "mp4" | "mov" | "webm" | "mkv" | "wav" | "ogg"
   motionBlur?: MotionBlurSpec
-  range?: string | [number, number]
+  range?: [number, number]
   scale?: number
+  scene?: string
   video?: { codec?: string | undefined; bitrate?: string | number | undefined; hardware?: "no-preference" | "prefer-har…
 interface RenderProgressEvent
   frame: number

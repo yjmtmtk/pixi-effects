@@ -17,11 +17,13 @@ describe('resolveRange', () => {
     expect(resolveRange([0, 10], ctx).partial).toBe(false);
   });
   it('a name is that layer\'s span (top-level layers; the first match)', () => {
-    expect(resolveRange('title', ctx)).toMatchObject({ fromFrame: 30, toFrame: 120, partial: true });
+    expect(resolveRange(undefined, ctx, 'title')).toMatchObject({ fromFrame: 30, toFrame: 120, partial: true });
   });
   it('says what was wrong: unknown name (listing the names), backwards, past the end, shorter than a frame, not numbers', () => {
-    expect(() => resolveRange('nope', ctx)).toThrow(/no layer named "nope".*title/s);
-    expect(() => resolveRange('inner', ctx)).toThrow(/no layer named "inner"/);          // only top-level layers
+    expect(() => resolveRange(undefined, ctx, 'nope')).toThrow(/render\(\{ scene: "nope" \}\): no layer named "nope".*title/s);
+    expect(() => resolveRange('title' as never, ctx)).toThrow(/render\(\{ range \}\) is seconds \[from, to\]; a layer by its name is render\(\{ scene: 'title' \}\)/);
+    expect(() => resolveRange([1, 2], ctx, 'title')).toThrow(/give range or scene, not both/);
+    expect(() => resolveRange(undefined, ctx, 'inner')).toThrow(/no layer named "inner"/);          // only top-level layers
     expect(() => resolveRange([5, 2], ctx)).toThrow(/must start before it ends/);
     expect(() => resolveRange([2, 12], ctx)).toThrow(/10 s long|past the end/);
     expect(() => resolveRange([2, 2.01], ctx)).toThrow(/shorter than one frame/);
@@ -35,11 +37,11 @@ describe('resolveRange: a layer the timeline folds into a family row is still ad
     { name: 'pop-# ×4', start: 1, end: 6, depth: 0, parts: [{ start: 1, end: 2 }, { start: 2, end: 3 }, { start: 3, end: 4 }, { start: 5, end: 6 }], partNames: ['pop-1', 'pop-2', 'pop-3', 'pop-4'] },
   ] };
   it('pop-3 is its own span, not the whole family', () => {
-    expect(resolveRange('pop-3', folded)).toMatchObject({ fromFrame: 90, toFrame: 120 });
-    expect(resolveRange('pop-4', folded)).toMatchObject({ fromFrame: 150, toFrame: 180 });
+    expect(resolveRange(undefined, folded, 'pop-3')).toMatchObject({ fromFrame: 90, toFrame: 120 });
+    expect(resolveRange(undefined, folded, 'pop-4')).toMatchObject({ fromFrame: 150, toFrame: 180 });
   });
   it('the error lists the real names, not the folded row', () => {
-    expect(() => resolveRange('pop-9', folded)).toThrow(/names: title, pop-1, pop-2, pop-3, pop-4/);
+    expect(() => resolveRange(undefined, folded, 'pop-9')).toThrow(/names: title, pop-1, pop-2, pop-3, pop-4/);
   });
 });
 

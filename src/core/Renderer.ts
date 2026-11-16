@@ -111,7 +111,7 @@ async function exportAudioOnly(movie: Movie, options: RenderOptions, fmt: AudioF
 export async function exportFrames(movie: Movie, options: RenderOptions = {}): Promise<Blob> {
   const fmt = options.format ?? 'mp4';
   const eff = resolveRenderOptions(options);                         // `draft` expanded, `scale` checked
-  const range = resolveRange(options.range, { frameRate: movie.frameRate, totalFrames: movie.totalFrames, duration: movie.duration, rows: typeof options.range === 'string' ? movie.timelineData().rows : undefined });
+  const range = resolveRange(options.range, { frameRate: movie.frameRate, totalFrames: movie.totalFrames, duration: movie.duration, rows: options.scene !== undefined ? movie.timelineData().rows : undefined }, options.scene);
   if (isAudioFormat(fmt)) return exportAudioOnly(movie, options, fmt, range);
   if (!['mp4', 'mov', 'webm', 'mkv'].includes(fmt)) throw new Error(`pixi-effects: render({ format: "${String(fmt)}" }): use mp4, mov, webm, mkv (a picture) or wav, ogg (only the sound)`);
   warnUnknownOptions('movie.render({ video })', options.video, ['codec', 'bitrate', 'hardware', 'keyFrameInterval']);
