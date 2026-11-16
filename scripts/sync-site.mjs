@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { renderFooter, renderHead, renderHeader, rootPrefix } from './site-parts.mjs';
+import { renderHero, renderOne, renderPromo, renderRefined } from './samples.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -19,6 +20,11 @@ REGIONS['recipe-list'] = ({ root_dir }) => {
   const ids = [...md.matchAll(/\/\/ @recipe ([^\n]+)/g)].map((m) => esc(m[1].trim()));
   return `<ul class="recipe-ids">\n${ids.map((id) => `<li><code>${id}</code></li>`).join('\n')}\n</ul>`;
 };
+/** The samples (site/samples/samples.json), as static HTML: the hero's tabs and player, the promo, the one-sentence cards, the refined cards. */
+REGIONS['samples-hero'] = renderHero;
+REGIONS['samples-promo'] = renderPromo;
+REGIONS['samples-one'] = renderOne;
+REGIONS['samples-refined'] = renderRefined;
 export function syncSite({ root = ROOT, check = false } = {}) {
   const { pages } = JSON.parse(readFileSync(join(root, 'site/pages.json'), 'utf8'));
   const stale = [], written = [];

@@ -1,0 +1,125 @@
+{
+  "samples": [
+    {
+      "id": "placeholder-en",
+      "kind": "one",
+      "lang": "en",
+      "title": "Bakery title",
+      "messages": [
+        "Use https://github.com/yjmtmtk/pixi-effects to make a video: a 10-second title for a bakery, warm cream colours, a soft chime at the end."
+      ],
+      "page": "index.html",
+      "poster": "poster.jpg",
+      "alt": "Placeholder for the Bakery title sample",
+      "minutes": 3,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0",
+      "placeholder": true
+    },
+    {
+      "id": "placeholder-ja",
+      "kind": "one",
+      "lang": "ja",
+      "title": "Neon OPEN",
+      "messages": [
+        "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型 15 秒、夜の街のネオンで「OPEN」が点く、短いジングル付き。"
+      ],
+      "page": "index.html",
+      "poster": "poster.jpg",
+      "alt": "Placeholder for the Neon OPEN sample",
+      "minutes": 3,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0",
+      "placeholder": true
+    },
+    {
+      "id": "placeholder-zh",
+      "kind": "one",
+      "lang": "zh",
+      "title": "3D product",
+      "messages": [
+        "用 https://github.com/yjmtmtk/pixi-effects 做一个视频：一个在 3D 空间里慢慢旋转的产品盒子，柔和的灯光，最后出现品牌名。"
+      ],
+      "page": "index.html",
+      "poster": "poster.jpg",
+      "alt": "Placeholder for the 3D product sample",
+      "minutes": 3,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0",
+      "placeholder": true
+    },
+    {
+      "id": "placeholder-es",
+      "kind": "one",
+      "lang": "es",
+      "title": "Rain chart",
+      "messages": [
+        "Usa https://github.com/yjmtmtk/pixi-effects para hacer un vídeo: un gráfico de barras de las lluvias de cinco ciudades que crece y se ordena."
+      ],
+      "page": "index.html",
+      "poster": "poster.jpg",
+      "alt": "Placeholder for the Rain chart sample",
+      "minutes": 3,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0",
+      "placeholder": true
+    },
+    {
+      "id": "placeholder-ko",
+      "kind": "one",
+      "lang": "ko",
+      "title": "Beat words",
+      "messages": [
+        "https://github.com/yjmtmtk/pixi-effects 를 사용해서 영상을 만들어 줘: 음악 비트에 맞춰 네 단어가 튀어나오는 12초짜리 클립."
+      ],
+      "page": "index.html",
+      "poster": "poster.jpg",
+      "alt": "Placeholder for the Beat words sample",
+      "minutes": 3,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0",
+      "placeholder": true
+    },
+    {
+      "id": "placeholder-refined",
+      "kind": "refined",
+      "lang": "en",
+      "title": "Refined",
+      "messages": [
+        "Use https://github.com/yjmtmtk/pixi-effects to make a video: a launch teaser for a coffee app.",
+        "Warmer colours, please.",
+        "Slow the ending down and add the logo."
+      ],
+      "page": "index.html",
+      "poster": "poster.jpg",
+      "alt": "Placeholder for a refined sample",
+      "minutes": 9,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0",
+      "placeholder": true
+    },
+    {
+      "id": "placeholder-promo",
+      "kind": "promo",
+      "lang": "en",
+      "title": "pixi-effects",
+      "messages": [
+        "Make a promo video for this project."
+      ],
+      "page": "index.html",
+      "poster": "poster.jpg",
+      "alt": "Placeholder for the promo of this project",
+      "minutes": 6,
+      "runs": 1,
+      "model": "Claude Opus",
+      "version": "1.0.0",
+      "placeholder": true
+    }
+  ]
+}
