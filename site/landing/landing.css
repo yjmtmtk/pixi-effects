@@ -73,7 +73,7 @@
 .chat{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .chat .msg{justify-self:start;max-width:46ch;background:#f3f0fb;border-radius:18px 18px 18px 6px;padding:10px 14px;font-size:15.5px;line-height:1.45;overflow-wrap:anywhere}
 .chat .who{display:block;font-size:12px;font-weight:800;color:var(--pink-text);margin-bottom:2px}
-@media (min-width:900px){ .refined{grid-template-columns:minmax(0,7fr) minmax(0,5fr)} .refined .live{height:100%} .refined .live img{height:100%;object-fit:cover} }
+@media (min-width:900px){ .refined{grid-template-columns:minmax(0,7fr) minmax(0,5fr)} .refined .live{align-self:center;margin:10px;border-radius:calc(var(--radius) - 8px);box-shadow:none} }
 
 /* ---------- start ---------- */
 .ways{display:grid;gap:22px}

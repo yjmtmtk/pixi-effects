@@ -91,6 +91,17 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
     });
   }, 30000);
 
+  it('every player has the shape of its own video (a frame stretched by its row shows bars around the piece)', async () => {
+    for (const width of [1280, 390]) {
+      await withLanding(width, async (cdp) => {
+        const figs: any[] = await cdp.eval(`[...document.querySelectorAll('figure.live')].map(f => { const i = f.querySelector('img');   // the poster's width and height are the video's
+          return { page: f.dataset.page, frame: f.clientWidth / f.clientHeight, video: +i.getAttribute('width') / +i.getAttribute('height') }; })`);
+        expect(figs.length).toBeGreaterThan(3);
+        for (const f of figs) expect(Math.abs(f.frame - f.video) / f.video, `${width}px ${f.page}`).toBeLessThan(0.01);
+      });
+    }
+  }, 60000);
+
   it('the hero keeps a shape that fits the screen whatever the piece (a vertical one does not stretch the page)', async () => {
     await withLanding(1440, async (cdp) => {
       const tabs: string[] = await cdp.eval(`[...document.querySelectorAll('[role="tab"]')].map(t => t.id)`);
