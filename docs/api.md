@@ -661,10 +661,6 @@ Active when `keyboard: true` and the key target is not `<input>`/`<textarea>`/`<
 | `F`         | toggle fullscreen                                   |
 | `Esc`       | close the export popover or exit fullscreen (browser) |
 
-### Theming
-
-The bar uses fixed colors (`#007AFF` for the active track / fill / confirm button, white for icons, `rgba(0,0,0,0.75)` gradient background). Override by adding stricter CSS rules under `.movie-controller`. A theming API (CSS custom properties) is on the roadmap.
-
 ## `pixi-effects/3d`
 
 ```ts
