@@ -83,10 +83,7 @@ runFilms('Time: two keyframes on one property that overlap (the second starts wh
         const got = await read(film);
         expectCentres(got, overlapping, `overlap, order=${order}, before B`, FRAMES.filter((f) => f < 30));
         expectCentres(got, overlapping, `overlap, order=${order}, after B`, FRAMES.filter((f) => f >= 60));
-        // the overlap is said, once (since 0.55.x): both spans, the property, the rule
-        const logs = await film.eval<string[]>('window.__logs');
-        expect(logs).toHaveLength(1);
-        expect(logs[0]).toMatch(/both animate x at the same time: from 1 s keyframes\[\d\] alone writes x, starting from where keyframes\[\d\] ends \(160\)/);
+        expect(await film.eval<string[]>('window.__logs')).toEqual([]);
       }, { query: `overlap=1&order=${order}` });
     }, 120_000);
 

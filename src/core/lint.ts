@@ -4,7 +4,7 @@ import { aliasOf, suggestName } from './options';
 import { layerKeys, kindName, kindsWithKey, pictureKeysIgnored, PROP_KEYS, STYLE_KEYS } from './layerKeys';
 import { layerAt } from './layerAt';
 
-type Warn = (message: string, kind?: 'late-keyframe' | 'overlap') => void;
+type Warn = (message: string, kind?: 'late-keyframe') => void;
 const defaultWarn: Warn = m => console.warn(m);
 
 /** "layer "name"" or "unnamed text layer" — how warnings refer to a sequence. */
@@ -60,49 +60,6 @@ export function lintTiming(spec: LayerSpec, parentDuration: number, warn: Warn =
       }
     }
   });
-  lintOverlaps(spec, who, lives, ms, warn);
-}
-
-/**
- * Two keyframes that tween the same property at the same time. The timeline keeps one writer per property: from the moment the later one starts it alone
- * writes the value, and it starts from where the earlier one ENDS (core/pure/PureTimeline.ts), so the picture jumps there (a 0.55 trial: a label told to dim
- * while it was still fading back in came out bright). A `set` is a moment, not a span; a spring settling (its tail is at rest) and an overlap under 0.1 s are left alone.
- */
-function lintOverlaps(spec: LayerSpec, who: string, lives: number, ms: (x: number) => number, warn: Warn): void {
-  interface Span { i: number; start: number; end: number; keys: string[]; to?: Record<string, unknown>; spring: boolean }
-  const spans: Span[] = [];
-  (spec.keyframes ?? []).forEach((kf, i) => {
-    if (!kf || typeof kf !== 'object' || kf.set) return;
-    const to = kf.to as Record<string, unknown> | undefined, from = kf.from as Record<string, unknown> | undefined;
-    const keys = [...new Set([...Object.keys(to ?? {}), ...Object.keys(from ?? {})])];
-    if (keys.length === 0) return;
-    const kat = layerAt(kf);
-    const start = kat < 0 ? lives + kat : kat;
-    const spring = /^\s*spring/.test(String(kf.ease ?? ''));
-    const d = kf.duration === 'auto' ? NaN : Number(kf.duration ?? 0);
-    const repeat = Number.isFinite(kf.repeat) && (kf.repeat as number) > 0 ? Math.floor(kf.repeat as number) : 0;
-    const length = d * (repeat + 1) + (Number(kf.repeatDelay) || 0) * repeat;
-    spans.push({ i, start, end: start + length, keys, ...(to ? { to } : {}), spring: spring || kf.duration === 'auto' });
-  });
-  spans.sort((a, b) => a.start - b.start || a.i - b.i);
-  for (let x = 0; x < spans.length; x++) {
-    const a = spans[x]!;
-    if (a.spring || !(a.end > a.start)) continue;
-    for (let y = x + 1; y < spans.length; y++) {
-      const b = spans[y]!;
-      if (b.start >= a.end - 0.1) break;                                      // sorted by start: none after this one starts early enough
-      const shared = a.keys.filter(k => b.keys.includes(k));
-      if (shared.length === 0) continue;
-      const props = shared.length === 1 ? shared[0]! : `${shared.slice(0, -1).join(', ')} and ${shared[shared.length - 1]}`;
-      const endValue = shared.length === 1 && a.to && a.to[shared[0]!] !== undefined ? ` (${JSON.stringify(a.to[shared[0]!])})` : '';
-      const span = (s: Span) => `keyframes[${s.i}] (${ms(s.start)}–${ms(s.end)} s)`;
-      warn(
-        `pixi-effects: ${who}: ${span(a)} and ${span(b)} both animate ${props} at the same time: from ${ms(b.start)} s keyframes[${b.i}] alone writes ${props}, ` +
-        `starting from where keyframes[${a.i}] ends${endValue}, so the picture jumps there. Start keyframes[${b.i}] when keyframes[${a.i}] ends (at: ${ms(a.end)}), or make keyframes[${a.i}] shorter.`,
-        'overlap',
-      );
-    }
-  }
 }
 
 /**
