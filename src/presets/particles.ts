@@ -1,3 +1,4 @@
+import { secondsAt } from './_at';
 import type { SequenceSpec, Keyframe } from '../types';
 import { warnUnknownOptions, suggestName } from '../core/options';
 import { random, noise } from '../expr/random';
@@ -69,7 +70,8 @@ export interface ParticlesOptions {
  */
 export function particles(opts: ParticlesOptions): SequenceSpec[] {
   warnUnknownOptions('particles()', opts, KEYS);
-  const { count, at = 0, emit = 0, gravity = 0, wind = 0, drag = 0, sway, fade, colors = ['#ffffff'], shape = 'circle', seed = 0, name = 'particle', template, sampleRate = 20 } = opts;
+  const { count, at: atRaw, emit = 0, gravity = 0, wind = 0, drag = 0, sway, fade, colors = ['#ffffff'], shape = 'circle', seed = 0, name = 'particle', template, sampleRate = 20 } = opts;
+  const at = secondsAt('particles', atRaw, 'layers');
   if (!(Number.isInteger(count) && count > 0)) throw new Error(`particles(): count must be a whole number of particles (at least 1), got ${count}`);
   const life = range('life', opts.life, 1e-6);
   if (!opts.area || !Number.isFinite(opts.area.x) || !Number.isFinite(opts.area.y)) throw new Error('particles(): area is required: { x, y } (the centre) and optionally width / height to spread over');

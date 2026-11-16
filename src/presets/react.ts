@@ -1,3 +1,4 @@
+import { secondsAt } from './_at';
 import type { Keyframe } from '../types';
 import type { AudioEnvelope } from '../audio/envelope';
 import { warnUnknownOptions } from '../core/options';
@@ -53,7 +54,8 @@ export interface ReactOptions {
  */
 export function react(env: AudioEnvelope, options: ReactOptions): Keyframe[] {
   warnUnknownOptions('react()', options, KEYS);
-  const { at = 0, duration, props, audioOffset = 0, loop = false } = options;
+  const { at: atRaw, duration, props, audioOffset = 0, loop = false } = options;
+  const at = secondsAt('react', atRaw, 'keyframes');
   const frameRate = options.frameRate ?? env.frameRate;
   if (!(Number.isFinite(duration) && duration > 0)) throw new Error(`react(): duration must be a positive number of seconds, got ${duration}`);
   if (!(Number.isFinite(frameRate) && frameRate > 0)) throw new Error(`react(): frameRate must be a positive number, got ${frameRate}`);

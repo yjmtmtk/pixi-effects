@@ -1,3 +1,4 @@
+import { secondsAt } from './_at';
 import type { Keyframe } from '../types';
 import { warnUnknownOptions } from '../core/options';
 import { rand } from '../expr/random';
@@ -38,7 +39,8 @@ export interface WiggleOptions {
  */
 export function wiggle(opts: WiggleOptions): Keyframe[] {
   warnUnknownOptions('wiggle()', opts, WIGGLE_KEYS);
-  const { at = 0, duration, freq = 3, seed = 0, ease = 'sine.inOut', props } = opts;
+  const { at: atRaw, duration, freq = 3, seed = 0, ease = 'sine.inOut', props } = opts;
+  const at = secondsAt('wiggle', atRaw, 'keyframes');
   if (!(Number.isFinite(duration) && duration > 0)) throw new Error(`wiggle(): duration must be a positive number of seconds, got ${duration}`);
   if (!(Number.isFinite(freq) && freq > 0)) throw new Error(`wiggle(): freq must be a positive number (steps per second), got ${freq}`);
   const names = Object.keys(props ?? {});

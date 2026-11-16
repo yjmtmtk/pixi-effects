@@ -1,3 +1,4 @@
+import { secondsAt } from './_at';
 import type { Keyframe } from '../types';
 import { warnUnknownOptions } from '../core/options';
 import { flattenSvgPath } from '../sequences/trimPath';
@@ -43,7 +44,8 @@ interface Segment { x0: number; y0: number; x1: number; y1: number; start: numbe
  */
 export function followPath(opts: FollowPathOptions): Keyframe[] {
   warnUnknownOptions('followPath()', opts, KEYS);
-  const { d, at = 0, duration, ease = 'none', from = 0, to = 1, orient = false, rotate = 0, frameRate = 30 } = opts;
+  const { d, at: atRaw, duration, ease = 'none', from = 0, to = 1, orient = false, rotate = 0, frameRate = 30 } = opts;
+  const at = secondsAt('followPath', atRaw, 'keyframes');
   if (typeof d !== 'string' || d.trim() === '') throw new Error('followPath(): d must be SVG path data, e.g. "M 100 600 C 300 100 900 100 1180 600"');
   if (!(Number.isFinite(duration) && duration > 0)) throw new Error(`followPath(): duration must be a positive number of seconds, got ${duration}`);
   if (!(Number.isFinite(frameRate) && frameRate > 0)) throw new Error(`followPath(): frameRate must be a positive number (samples per second), got ${frameRate}`);

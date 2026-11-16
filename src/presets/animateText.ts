@@ -1,3 +1,4 @@
+import { secondsAt } from './_at';
 import type { Keyframe, TextSequenceSpec } from '../types';
 import { warnUnknownOptions, suggestName } from '../core/options';
 import { measureText, splitText, type MeasureStyle, type TextPiece } from '../text/measure';
@@ -82,7 +83,8 @@ interface Resolved { from: Record<string, number>; to: Record<string, number>; d
  */
 export function animateText(text: string, style: MeasureStyle, options: AnimateTextOptions): TextSequenceSpec[] {
   warnUnknownOptions('animateText()', options, KEYS);
-  const { by = 'chars', x = 0, y = 0, align = 'left', vertical = false, name = 'text', at = 0, duration, idle, styleFor } = options;
+  const { by = 'chars', x = 0, y = 0, align = 'left', vertical = false, name = 'text', at: atRaw, duration, idle, styleFor } = options;
+  const at = secondsAt('animateText', atRaw, 'layers');
   for (const [n, v] of [['x', x], ['y', y]] as const) {
     if (typeof v !== 'number' || !Number.isFinite(v)) {
       throw new Error(`animateText(): ${n} must be a number of pixels (e.g. ${n}: 640), got ${JSON.stringify(v)}. The letters are measured once, when the layers are made, so an expression such as 'GW/2' cannot be used here: compute the number (W / 2) yourself. \`y\` is the TOP of the line.`);

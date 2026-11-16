@@ -1,3 +1,4 @@
+import { secondsAt } from './_at';
 import type { Keyframe } from '../types';
 import { warnUnknownOptions } from '../core/options';
 import { parseEase } from './_ease';
@@ -41,7 +42,8 @@ export interface CameraPathOptions {
  */
 export function cameraPath(opts: CameraPathOptions): Keyframe[] {
   warnUnknownOptions('cameraPath()', opts, KEYS);
-  const { points, at = 0, duration, ease = 'none', look = 'ahead', lookAhead = 0.08, smooth = true, from = 0, to = 1, frameRate = 30 } = opts;
+  const { points, at: atRaw, duration, ease = 'none', look = 'ahead', lookAhead = 0.08, smooth = true, from = 0, to = 1, frameRate = 30 } = opts;
+  const at = secondsAt('cameraPath', atRaw, 'keyframes');
   if (!Array.isArray(points) || points.length < 2) throw new Error('cameraPath(): points needs at least two points: [[x, y, z], [x, y, z], …]');
   points.forEach((p, i) => {
     if (!Array.isArray(p) || p.length !== 3 || !p.every(Number.isFinite)) throw new Error(`cameraPath(): points[${i}] must be [x, y, z] numbers, got ${JSON.stringify(p)}`);
