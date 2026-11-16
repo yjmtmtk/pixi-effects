@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>fixture · the live player</title>
+  <!-- tests/site/livePlayer.test.ts: three players. 'hero' starts by itself when seen (data-autoplay); 'two' is a second working piece; 'broken' never starts. -->
+  <link rel="stylesheet" href="../../../site/shared/tokens.css">
+  <link rel="stylesheet" href="../../../site/shared/site.css">
+  <script src="../../../site/shared/live.js" defer></script>
+</head>
+<body>
+  <main id="main" style="max-width:640px;margin:0 auto;display:grid;gap:24px;padding:24px">
+    <figure class="live" id="hero" data-page="../../films/blend-modes.html" data-autoplay>
+      <img src="poster.jpg" alt="a pink poster" width="320" height="180">
+      <button class="live-play" type="button" aria-label="Play the hero">▶</button>
+    </figure>
+    <figure class="live" id="two" data-page="../../films/animate-text.html">
+      <img src="poster.jpg" alt="a pink poster" width="320" height="180">
+      <button class="live-play" type="button" aria-label="Play the second">▶</button>
+    </figure>
+    <figure class="live" id="broken" data-page="broken.html">
+      <img src="poster.jpg" alt="a pink poster" width="320" height="180">
+      <button class="live-play" type="button" aria-label="Play the broken one">▶</button>
+    </figure>
+  </main>
+</body>
+</html>
