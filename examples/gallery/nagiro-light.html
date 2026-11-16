@@ -244,7 +244,7 @@
         style: { fontFamily: SANS, fontSize: 64, fontWeight: '300', fill: C.paper, letterSpacing: 22 },
         initial: { x: TX, y: 258 }, keyframes: rise(1.2) },
       { type: 'shape', name: 'rule', shape: 'rect', width: 56, height: 1, at: T0 + 0.5, duration: DURATION - T0 - 0.5,
-        initial: { x: TX + 28, y: 362, fillColor: C.ash, scaleX: 0 },
+        initial: { x: TX + 28, y: 362, fill: C.ash, scaleX: 0 },
         keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.9, ease: 'power2.inOut' }] },
       { type: 'text', name: 'tagline', text: '光を、置く。', at: T0 + 0.8, duration: DURATION - T0 - 0.8,
         style: { fontFamily: MINCHO, fontSize: 30, fill: C.paper, letterSpacing: 6 },
@@ -271,7 +271,7 @@
     ];
 
     const sequences = [
-      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: C.ground } },
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: C.ground } },
       ...SHOTS.map(shotLayer),
       ...caption(1, '削り出しのアルミニウム', 'TURNED FROM SOLID ALUMINIUM', 0.9, BAR - 0.05),
       ...caption(2, '手吹きの乳白ガラス', 'HAND-BLOWN OPAL GLASS', BAR + 0.5, 2 * BAR - 0.05),

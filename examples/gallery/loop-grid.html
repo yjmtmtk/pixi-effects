@@ -124,7 +124,7 @@
 
     // ── layers ───────────────────────────────────────────────────────────
     const seq = [];
-    seq.push({ type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } });
+    seq.push({ type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: INK } });
 
     // header: title, score line, bar.beat counter
     seq.push({ type: 'text', name: 'title', text: 'LOOP Nº1', at: 0.2,
@@ -185,13 +185,13 @@
     for (let c = 0; c < N; c++) {
       const ts = tickAt.get(c) || [];
       seq.push({ type: 'shape', shape: 'rect', name: 'tick-' + c, width: 20, height: 3, at: ts[0],      // a 'from' shows from the layer's start: the layer starts at its first hit
-        initial: { x: GX + c * P + P / 2, y: GY - 18, fillColor: BONE, alpha: 0 },
+        initial: { x: GX + c * P + P / 2, y: GY - 18, fill: BONE, alpha: 0 },
         keyframes: ts.map(t => ({ at: t - ts[0], from: { alpha: 1 }, to: { alpha: 0.18 }, duration: 0.22, ease: 'power2.out' })) });
     }
 
     // the rig: everything on the grid hangs from it, so the kick can pump the whole score
     // the grid's rectangle (+16 px for the pump and a struck edge cell): ripples never cross into the header or the floor line
-    seq.push({ type: 'shape', shape: 'rect', name: 'grid-clip', width: N * P + 32, height: N * P + 32, initial: { x: RIG_X, y: RIG_Y, fillColor: '#ffffff' } });
+    seq.push({ type: 'shape', shape: 'rect', name: 'grid-clip', width: N * P + 32, height: N * P + 32, initial: { x: RIG_X, y: RIG_Y, fill: '#ffffff' } });
     seq.push({ type: 'null', name: 'rig', mask: 'grid-clip', initial: { x: RIG_X, y: RIG_Y },
       keyframes: KICKS.map(t => ({ at: t, from: { scale: 1.025 }, to: { scale: 1 }, duration: 0.28, ease: 'power2.out' })) });
 
@@ -201,7 +201,7 @@
     for (let c = 0; c < N; c++) for (let r = 0; r < N; r++) {
       const t = COUNT_HATS[Math.floor(c / 2)] ?? 0;
       seq.push({ type: 'shape', shape: 'rect', parent: 'rig', at: t, width: CELL, height: CELL, cornerRadius: 3,
-        initial: { x: cx(c), y: cy(r), fillColor: GRAPHITE, alpha: 0 },
+        initial: { x: cx(c), y: cy(r), fill: GRAPHITE, alpha: 0 },
         keyframes: [{ at: 0, from: { alpha: 1, scale: 0.6 }, to: { alpha: 0.55, scale: 1 }, duration: 0.25, ease: 'power3.out' }] });
     }
 
@@ -211,7 +211,7 @@
       const color = kind === 'bass' ? SIGNAL : BONE;
       const ARMED = 12;
       return { type: 'shape', shape: 'rect', name: `prog-${kind}-${s}`, parent: 'rig', at, width: outline ? CELL - 2 : ARMED, height: outline ? CELL - 2 : ARMED, cornerRadius: outline ? 3 : 1,
-        initial: outline ? { x: cx(s), y: cy(r), strokeColor: BONE, strokeWidth: 2, alpha: 0 } : { x: cx(s), y: cy(r), fillColor: color, alpha: 0 },
+        initial: outline ? { x: cx(s), y: cy(r), stroke: BONE, strokeWidth: 2, alpha: 0 } : { x: cx(s), y: cy(r), fill: color, alpha: 0 },
         keyframes: [
           { at: 0, from: { scale: 0.2 }, to: { alpha: outline ? 0.5 : 1, scale: 1 }, duration: 0.3, ease: 'back.out(2)' },
           // the fingerprint: every note of the loop lit at once, a wave from left to right
@@ -233,20 +233,20 @@
     }
     headKeys.push({ at: T_END - 0.85, to: { alpha: 0 }, duration: 0.4, ease: 'power2.out' });
     seq.push({ type: 'shape', shape: 'rect', name: 'playhead', parent: 'rig', at: 0.85, width: P, height: N * P,
-      initial: { x: cx(0), y: 0, fillColor: BONE, alpha: 0, fillAlpha: 0.07 }, keyframes: headKeys });
+      initial: { x: cx(0), y: 0, fill: BONE, alpha: 0, fillAlpha: 0.07 }, keyframes: headKeys });
 
     // a hit: the cell flares and settles over the note's length; bass and bell send a square ripple
     const hitLayers = (kind, s, r, len, t) => {
       const color = kind === 'bass' ? SIGNAL : BONE;
       const hold = len * STEP;
-      const fill = kind === 'pluck' ? { fillColor: BONE, fillAlpha: 0.28, strokeColor: BONE, strokeWidth: 3 } : { fillColor: color };
+      const fill = kind === 'pluck' ? { fill: BONE, fillAlpha: 0.28, stroke: BONE, strokeWidth: 3 } : { fill: color };
       const out = [{ type: 'shape', shape: 'rect', name: `hit-${kind}-${t.toFixed(2)}`, parent: 'rig', at: t, duration: hold + 0.45, width: CELL, height: CELL, cornerRadius: 3,
         initial: { x: cx(s), y: cy(r), ...fill },
         keyframes: [{ at: 0, from: { scale: 1.4 }, to: { scale: 1 }, duration: 0.35, ease: 'expo.out' },
                     ...(kind === 'pluck' ? [{ at: 0.1, to: { fillAlpha: 0, strokeWidth: 2 }, duration: Math.min(0.6, hold), ease: 'power2.out' }] : []),
                     { at: hold, to: { alpha: 0 }, duration: 0.4, ease: 'power2.out' }] }];
       if (kind !== 'pluck') out.push({ type: 'shape', shape: 'rect', name: `ripple-${kind}-${t.toFixed(2)}`, parent: 'rig', at: t, duration: 0.75, width: CELL, height: CELL, cornerRadius: 4,
-        initial: { x: cx(s), y: cy(r), strokeColor: color, strokeWidth: 3, alpha: 1 },
+        initial: { x: cx(s), y: cy(r), stroke: color, strokeWidth: 3, alpha: 1 },
         keyframes: [{ at: 0, to: { width: CELL + 2 * P, height: CELL + 2 * P, strokeWidth: 1 }, duration: 0.6, ease: 'expo.out' },
                     { at: 0, to: { alpha: 0 }, duration: 0.42, ease: 'power1.out' }] });
       return out;
@@ -261,10 +261,10 @@
 
     // snare: a breath of light over the whole grid
     for (const t of SNARES) seq.push({ type: 'shape', shape: 'rect', name: 'snare-' + t, parent: 'rig', at: t, duration: 0.3, width: N * P, height: N * P,
-      initial: { x: 0, y: 0, fillColor: BONE, alpha: 0.07 }, keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.3, ease: 'power2.out' }] });
+      initial: { x: 0, y: 0, fill: BONE, alpha: 0.07 }, keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.3, ease: 'power2.out' }] });
     // kick: the floor line under the grid
     seq.push({ type: 'shape', shape: 'rect', name: 'floor', width: N * P - 8, height: 6, at: 0.9,
-      initial: { x: RIG_X, y: GY + N * P + 22, fillColor: SIGNAL, alpha: 0 },
+      initial: { x: RIG_X, y: GY + N * P + 22, fill: SIGNAL, alpha: 0 },
       keyframes: [{ at: 0, to: { alpha: 0.15 }, duration: 0.3 }, ...KICKS.map(t => ({ at: t - 0.9, from: { alpha: 1 }, to: { alpha: 0.15 }, duration: 0.3, ease: 'power2.out' }))] });
 
     seq.push({ type: 'audio', name: 'loop', at: 0, volume: 1.5, music });

@@ -231,7 +231,7 @@
       return kf;
     }
     const leg = (name, hx, phase, color) => ({ type: 'shape', shape: 'rect', name, width: 8, height: 38, cornerRadius: 3, anchorX: 0.5, anchorY: 0,
-      initial: { x: hx, y: 98, fillColor: color }, keyframes: legSwing(phase) });
+      initial: { x: hx, y: 98, fill: color }, keyframes: legSwing(phase) });
     const sub = (name, px, py, sequences, keyframes = []) => ({ type: 'composition', name, width: FOX.w, height: FOX.h, initial: { x: px, y: py, pivotX: px, pivotY: py }, sequences, keyframes });
     const fox = {
       type: 'composition', name: 'fox', threeD: true, at: FOX.at, duration: FOX.dur, width: FOX.w, height: FOX.h,
@@ -242,17 +242,17 @@
         leg('leg-back-near', 78, -1, P.fox), leg('leg-front-near', 156, 1, P.fox),
         sub('torso', 0, 0, [
           sub('tail', 56, 94, [
-            { type: 'shape', shape: 'path', name: 'tail-fur', d: 'M 56 86 C 34 80 14 84 6 66 C 0 52 12 42 24 48 C 36 56 40 76 58 100 Z', initial: { fillColor: P.fox } },
-            { type: 'shape', shape: 'circle', name: 'tail-tip', radius: 5.5, initial: { x: 14, y: 52, fillColor: P.cream } },
+            { type: 'shape', shape: 'path', name: 'tail-fur', d: 'M 56 86 C 34 80 14 84 6 66 C 0 52 12 42 24 48 C 36 56 40 76 58 100 Z', initial: { fill: P.fox } },
+            { type: 'shape', shape: 'circle', name: 'tail-tip', radius: 5.5, initial: { x: 14, y: 52, fill: P.cream } },
           ], [{ at: 0, to: { rotation: 9 }, duration: 0.45, ease: 'sine.inOut', repeat: 14, yoyo: true }]),
-          { type: 'shape', shape: 'path', name: 'body', initial: { fillColor: P.fox },
+          { type: 'shape', shape: 'path', name: 'body', initial: { fill: P.fox },
             d: 'M 50 100 C 46 84 58 70 86 68 C 114 66 140 70 154 78 C 164 84 168 94 164 104 C 156 112 110 114 76 112 C 60 110 52 106 50 100 Z' },
           sub('head', 154, 80, [
-            { type: 'shape', shape: 'polygon', name: 'ear-far', points: [[154, 64], [156, 38], [168, 62]], initial: { fillColor: P.foxFar } },
-            { type: 'shape', shape: 'polygon', name: 'ear-near', points: [[168, 60], [176, 36], [184, 66]], initial: { fillColor: P.fox } },
-            { type: 'shape', shape: 'circle', name: 'skull', radius: 14, initial: { x: 166, y: 72, fillColor: P.fox } },
-            { type: 'shape', shape: 'polygon', name: 'snout', points: [[174, 62], [204, 80], [176, 86]], initial: { fillColor: P.fox } },
-            { type: 'shape', shape: 'circle', name: 'eye', radius: 2.2, initial: { x: 171, y: 70, fillColor: P.cream } },
+            { type: 'shape', shape: 'polygon', name: 'ear-far', points: [[154, 64], [156, 38], [168, 62]], initial: { fill: P.foxFar } },
+            { type: 'shape', shape: 'polygon', name: 'ear-near', points: [[168, 60], [176, 36], [184, 66]], initial: { fill: P.fox } },
+            { type: 'shape', shape: 'circle', name: 'skull', radius: 14, initial: { x: 166, y: 72, fill: P.fox } },
+            { type: 'shape', shape: 'polygon', name: 'snout', points: [[174, 62], [204, 80], [176, 86]], initial: { fill: P.fox } },
+            { type: 'shape', shape: 'circle', name: 'eye', radius: 2.2, initial: { x: 171, y: 70, fill: P.cream } },
           ], [{ at: 3.2, to: { rotation: -16 }, duration: 0.45, ease: 'power2.inOut' }, { at: 3.95, to: { rotation: 0 }, duration: 0.3, ease: 'power2.inOut' }]),
         ], bob(0)),
       ],
@@ -337,7 +337,7 @@
         labelImg,
         ...letters,
         { type: 'shape', shape: 'rect', name: 'title-dash', width: 220, height: 5, cornerRadius: 2.5, anchorX: 0, at: CARD.dashAt,
-          initial: { x: CARD.w / 2 - 110, y: CARD.label.y + 128, fillColor: P.accent, scaleX: 0 },
+          initial: { x: CARD.w / 2 - 110, y: CARD.label.y + 128, fill: P.accent, scaleX: 0 },
           keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.45, ease: 'power3.out' }] },
         { type: 'text', text: 'A  PAPER-CUT  DIORAMA', name: 'subtitle', at: CARD.subAt,
           style: { fontSize: 17, fontWeight: '600', fontFamily: 'system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif', fill: P.muted, letterSpacing: 4 },

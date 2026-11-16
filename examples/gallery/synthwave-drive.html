@@ -140,7 +140,7 @@
       return {
         type: 'shape', shape: 'polygon', name, threeD: true,
         points: pts.map(([x, y]) => [(x - cx) * k, (y - cy) * k]),
-        initial: { ...far(cx, cy, z), fillColor: fill, strokeColor: stroke, strokeWidth: 2 * k, strokeAlpha },
+        initial: { ...far(cx, cy, z), fill: fill, stroke: stroke, strokeWidth: 2 * k, strokeAlpha },
       };
     }
 
@@ -162,7 +162,7 @@
       }
       return {
         type: 'shape', shape: 'rect', name: 'grid-row-' + k, threeD: true, width: 1400, height: 1,
-        initial: { x: 'GW/2', y: HORIZON + F / k, z: 0, fillColor: C.pink },
+        initial: { x: 'GW/2', y: HORIZON + F / k, z: 0, fill: C.pink },
         keyframes,
       };
     }
@@ -173,7 +173,7 @@
       return {
         type: 'shape', shape: 'line', name: 'grid-col-' + X, threeD: true,
         from: [W / 2, HORIZON], to: [W / 2 + X * F / uEnd, HORIZON + F / uEnd],
-        initial: { strokeColor: C.magenta, strokeWidth: 2, strokeAlpha: 0.5 },
+        initial: { stroke: C.magenta, strokeWidth: 2, strokeAlpha: 0.5 },
       };
     }
 
@@ -184,7 +184,7 @@
       const k = K(Z_STARS);
       return {
         type: 'shape', shape: 'circle', name: 'star-' + i, threeD: true, radius: (1.6 + rnd() * 1.2) * k,
-        initial: { ...far(sx, sy, Z_STARS), fillColor: rnd() < 0.5 ? '#ffffff' : C.cyanSoft, alpha: 0.35 },
+        initial: { ...far(sx, sy, Z_STARS), fill: rnd() < 0.5 ? '#ffffff' : C.cyanSoft, alpha: 0.35 },
         keyframes: [{ at: rnd() * 0.5, to: { alpha: 1 }, duration: dur, ease: 'sine.inOut', repeat: plays - 2, yoyo: true }],
       };
     }
@@ -255,7 +255,7 @@
     const RULE_GAP = (SUB.length - 1) / 2 * SUB_ADV + 60, RULE_W = 130;
     const rule = (side) => ({
       type: 'shape', shape: 'rect', name: 'rule-' + (side < 0 ? 'l' : 'r'), width: 0, height: 2, at: SUB_AT + 0.25, duration: DURATION - SUB_AT - 0.25,
-      initial: { x: W / 2 + side * (RULE_GAP + RULE_W / 2), y: SUB_Y, fillColor: C.cyan, fillAlpha: 0.75 },
+      initial: { x: W / 2 + side * (RULE_GAP + RULE_W / 2), y: SUB_Y, fill: C.cyan, fillAlpha: 0.75 },
       keyframes: [{ at: 0, to: { width: RULE_W }, duration: 0.9, ease: 'expo.out' }],
     });
     const caption = (name, text, x, anchorX) => ({
@@ -353,7 +353,7 @@
         fillGradient: { angle: 180, stops: [[0, 'rgba(255,45,149,0.6)'], [0.35, 'rgba(120,20,110,0.35)'], [1, 'rgba(58,13,108,0)']] },
         initial: { x: 'GW/2', y: HORIZON, z: 0 } },
       { type: 'shape', shape: 'rect', name: 'horizon-line', threeD: true, width: 1400, height: 2,
-        initial: { x: 'GW/2', y: HORIZON, z: 0, fillColor: C.pink } },
+        initial: { x: 'GW/2', y: HORIZON, z: 0, fill: C.pink } },
 
       // ── 2D overlays: on the glass, so they ignore the camera drift ──
       // (music retrofit: meteor-1 6.1 → 6.0 s = beat 15, meteor-2 8.7 → 8.8 s = beat 22: 3 frames each, onto the beat grid)
@@ -369,7 +369,7 @@
       caption('cap-right', 'SIDE A  ·  1984', W - 72, 1),
       { type: 'image', asset: 'scanlines', name: 'scanlines', initial: { x: 0, y: 0, alpha: 0.3 } },
       fullRect({ name: 'vignette', fillGradient: { type: 'radial', radius: 0.72, stops: [[0.45, 'rgba(0,0,0,0)'], [1, 'rgba(4,1,14,0.8)']] } }),
-      fullRect({ name: 'fade-in', duration: 0.9, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#000000', alpha: 1 },
+      fullRect({ name: 'fade-in', duration: 0.9, initial: { x: 'GW/2', y: 'GH/2', fill: '#000000', alpha: 1 },
                  keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.85, ease: 'sine.out' }] }),
       ...sound,
     ];

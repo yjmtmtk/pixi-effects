@@ -36,7 +36,7 @@
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30,
         composition: { sequences: [
-          { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101820' } },
+          { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101820' } },
           { type: 'text', name: 'title', text: 'ピカッと洗浄キャンペーン開催中！今だけ特別価格', style: { fontSize: 160, fill: '#ffffff' },
             initial: { x: 200, y: 100 }, keyframes: [{ at: 0, to: { alpha: 0.95 }, duration: 0.5 }] },
           { type: 'null', name: 'rig', initial: { x: 100, y: 300 }, keyframes: [{ at: 0, to: { alpha: 0.95 }, duration: 0.5 }] },

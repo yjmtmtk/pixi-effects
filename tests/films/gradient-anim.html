@@ -65,7 +65,7 @@
         keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fillGradient: { angle: (i * 7 + 360) + 90, stops: [[0, `hsl(${(hue + 180) % 360},90%,55%)`], [1, `hsl(${(hue + 300) % 360},90%,55%)`]] } } }] });
     }
 
-    const solid = many.map(l => { const { fillGradient, ...rest } = l; return { ...rest, initial: { ...l.initial, fillColor: '#ff0000' }, keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fillColor: '#0000ff' } }] }; });   // the baseline: animated flat colours
+    const solid = many.map(l => { const { fillGradient, ...rest } = l; return { ...rest, initial: { ...l.initial, fill: '#ff0000' }, keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fill: '#0000ff' } }] }; });   // the baseline: animated flat colours
     const manyStatic = many.map(l => ({ ...l, keyframes: [{ at: 0, duration: 2, ease: 'none', to: { rotation: 0.001 } }] }));   // static gradient (the shipped path), a trivial tween
     // the same green -> magenta fade through two colour spaces: grey in the middle in rgb, vivid in oklch
     const fade = (name, x, space) => ({ type: 'shape', shape: 'rect', name, width: 560, height: 420, colorSpace: space, initial: { x, y: 540 },
@@ -80,7 +80,7 @@
       { type: 'shape', shape: 'rect', name: 'typoKey', width: 300, height: 300, initial: { x: 900, y: 300 },
         fillGradient: { angle: 90, stops: [[0, '#f00'], [1, '#00f']] },
         keyframes: [{ at: 0, duration: 1, to: { fillGradient: { angel: 90 } } }] },
-      { type: 'shape', shape: 'rect', name: 'noStart', width: 300, height: 300, initial: { x: 1500, y: 300, fillColor: '#888' },
+      { type: 'shape', shape: 'rect', name: 'noStart', width: 300, height: 300, initial: { x: 1500, y: 300, fill: '#888' },
         keyframes: [{ at: 0, duration: 1, to: { fillGradient: { angle: 180 } } }] },
       { type: 'shape', shape: 'rect', name: 'dotted', width: 300, height: 300, initial: { x: 300, y: 800 },
         fillGradient: { angle: 90, stops: [[0, '#f00'], [1, '#00f']] },

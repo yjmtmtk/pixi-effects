@@ -29,12 +29,12 @@ import type {
 // Style is uniform across shape kinds; geometry is shape-kind-specific.
 // `LIVE_KEYS` is the union — any key in this set is stripped from the
 // standard transform/keyframe pipeline and routed through `_state` instead.
-type StyleKey = 'fillColor' | 'fillAlpha' | 'strokeColor' | 'strokeAlpha' | 'strokeWidth';
+type StyleKey = 'fill' | 'fillAlpha' | 'stroke' | 'strokeAlpha' | 'strokeWidth';
 type GeometryKey = 'width' | 'height' | 'cornerRadius' | 'radius' | 'radiusX' | 'radiusY' | 'anchorX' | 'anchorY' | 'innerRadius' | 'startAngle' | 'endAngle' | 'trimStart' | 'trimEnd' | 'morph';
 type LiveKey = StyleKey | GeometryKey | 'fillGradient';
 
-const STYLE_KEYS = ['fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth'] as const;
-const COLOR_KEYS = new Set<LiveKey>(['fillColor', 'strokeColor']);
+const STYLE_KEYS = ['fill', 'fillAlpha', 'stroke', 'strokeAlpha', 'strokeWidth'] as const;
+const COLOR_KEYS = new Set<LiveKey>(['fill', 'stroke']);
 
 // Per-shape-kind set of geometry keys that are animatable. Array geometry
 // (polygon points, line endpoints, path `d`) isn't animated in v1 — those
@@ -58,10 +58,10 @@ const ANCHORED_SHAPES = new Set<ShapeSequenceSpec['shape']>(['rect', 'circle', '
 
 interface ShapeState {
   // style
-  fillStyle?: unknown;   // gradient fill argument for Graphics.fill, built once at build; wins over fillColor
-  fillColor: string | number | undefined;
+  fillStyle?: unknown;   // gradient fill argument for Graphics.fill, built once at build; wins over fill
+  fill: string | number | undefined;
   fillAlpha: number;
-  strokeColor: string | number | undefined;
+  stroke: string | number | undefined;
   strokeAlpha: number;
   strokeWidth: number;
   // geometry (only the relevant subset for the shape kind is non-undefined)
@@ -91,9 +91,9 @@ interface ShapeState {
 export class ShapeSequence extends Sequence {
   declare spec: ShapeSequenceSpec;
   private _state: ShapeState = {
-    fillColor: undefined,
+    fill: undefined,
     fillAlpha: 1,
-    strokeColor: undefined,
+    stroke: undefined,
     strokeAlpha: 1,
     strokeWidth: 0,
   };
@@ -245,7 +245,7 @@ export class ShapeSequence extends Sequence {
     const s = this._state, { main, holes } = this._evenOdd!;
     applyFill(g, s);
     for (const hole of holes) { g.beginPath(); g.path(new GraphicsPath(hole)); g.cut(); }
-    if (s.strokeColor !== undefined && s.strokeWidth > 0) {
+    if (s.stroke !== undefined && s.strokeWidth > 0) {
       g.beginPath();
       g.path(new GraphicsPath(main));
       for (const hole of holes) g.path(new GraphicsPath(hole));
@@ -259,7 +259,7 @@ export class ShapeSequence extends Sequence {
     if (this._grad && this._gradDirty) { s.fillStyle = this._painter!.paint(this._grad.grad); this._gradDirty = false; }
     graphics.clear();
     const trimmed = (s.trimStart ?? 0) > 0 || (s.trimEnd ?? 1) < 1;
-    if (!trimmed || !this._outline || !(s.strokeColor !== undefined && s.strokeWidth > 0)) {
+    if (!trimmed || !this._outline || !(s.stroke !== undefined && s.strokeWidth > 0)) {
       this._drawGeometry(graphics);
       if (this._evenOdd) { this._fillWithHoles(graphics); return; }
       applyState(graphics, s);
@@ -267,7 +267,7 @@ export class ShapeSequence extends Sequence {
     }
     // A trim is for the stroke (like After Effects): the fill, if any, is the whole shape; then only the part of
     // the outline between trimStart and trimEnd is stroked.
-    if (s.fillStyle || s.fillColor !== undefined) {
+    if (s.fillStyle || s.fill !== undefined) {
       this._drawGeometry(graphics);
       applyFill(graphics, s);
       graphics.beginPath();
@@ -308,7 +308,7 @@ export class ShapeSequence extends Sequence {
     applyKeyframes(timeline, this.target, keyframes, this.duration!, scope as unknown as Record<string, number>, [], startTime);
 
     // Live props (style + scalar geometry) get a parallel set of tweens
-    // targeting `_state`. Colour keys (fillColor / strokeColor) interpolate
+    // targeting `_state`. Colour keys (fill / stroke) interpolate
     // through a straight rgb lerp (or OKLab / OKLCH if `colorSpace` is
     // set on the spec); geometry / alpha / width tween linearly through
     // the timeline's ordinary numeric interpolation.
@@ -423,14 +423,14 @@ function applyState(g: Graphics, s: ShapeState): void {
 function applyFill(g: Graphics, s: ShapeState): void {
   if (s.fillStyle) {
     g.fill(s.fillStyle as never);
-  } else if (s.fillColor !== undefined) {
-    g.fill({ color: s.fillColor, alpha: s.fillAlpha });
+  } else if (s.fill !== undefined) {
+    g.fill({ color: s.fill, alpha: s.fillAlpha });
   }
 }
 function applyStroke(g: Graphics, s: ShapeState): void {
-  if (s.strokeColor !== undefined && s.strokeWidth > 0) {
+  if (s.stroke !== undefined && s.strokeWidth > 0) {
     g.stroke({
-      color: s.strokeColor, alpha: s.strokeAlpha, width: s.strokeWidth,
+      color: s.stroke, alpha: s.strokeAlpha, width: s.strokeWidth,
       ...(s.strokeCap ? { cap: s.strokeCap as 'butt' | 'round' | 'square' } : {}),
       ...(s.strokeJoin ? { join: s.strokeJoin as 'miter' | 'round' | 'bevel' } : {}),
     });
@@ -483,7 +483,7 @@ function drawArcFromState(g: Graphics, s: ShapeState): void {
   const startDeg = s.startAngle ?? 0;
   let endDeg = s.endAngle ?? 360;
   if (!(r > 0) || endDeg === startDeg) return;                           // nothing to draw
-  const filled = !!s.fillStyle || s.fillColor !== undefined;
+  const filled = !!s.fillStyle || s.fill !== undefined;
   if (Math.abs(endDeg - startDeg) >= 360) {
     if (!filled) { g.circle(0, 0, r); return; }                          // a full stroke ring
     endDeg = startDeg + Math.sign(endDeg - startDeg) * 359.999;          // a filled full ring: a sliver short of closing (no hole trick needed)

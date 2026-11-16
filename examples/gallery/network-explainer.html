@@ -121,7 +121,7 @@
       const w = Math.round(text.length * fs * 0.62 + 26);
       return [
         { type: 'shape', shape: 'rect', name: name + '-pill', at, duration: lifeLeft(at), width: w, height: fs + 16, cornerRadius: (fs + 16) / 2,
-          initial: { x, y, fillColor: color, alpha: 0, scale: 0.6 },
+          initial: { x, y, fill: color, alpha: 0, scale: 0.6 },
           keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.35, ease: 'back.out(2)' }, ...extra] },
         { type: 'text', name: name + '-text', text, at, duration: lifeLeft(at),
           style: { fontFamily: MONO, fontSize: fs, fontWeight: '700', fill: '#ffffff', letterSpacing: 0.5 },
@@ -134,31 +134,31 @@
     const C = 80;
     const icon = {
       browser: () => [
-        { type: 'shape', shape: 'rect', width: 64, height: 48, cornerRadius: 7, initial: { x: C, y: C, fillColor: INK } },
-        { type: 'shape', shape: 'rect', width: 56, height: 31, cornerRadius: 3, initial: { x: C, y: C + 5.5, fillColor: '#ffffff' } },
-        ...[0, 1, 2].map(i => ({ type: 'shape', shape: 'circle', radius: 2.4, initial: { x: C - 24 + i * 7, y: C - 16.5, fillColor: '#ffffff' } })),
-        { type: 'shape', shape: 'rect', width: 30, height: 4, cornerRadius: 2, initial: { x: C - 5, y: C - 1, fillColor: CORAL } },
-        { type: 'shape', shape: 'rect', width: 40, height: 3, cornerRadius: 1.5, initial: { x: C, y: C + 8, fillColor: INK, alpha: 0.35 } },
-        { type: 'shape', shape: 'rect', width: 40, height: 3, cornerRadius: 1.5, initial: { x: C, y: C + 15, fillColor: INK, alpha: 0.35 } },
+        { type: 'shape', shape: 'rect', width: 64, height: 48, cornerRadius: 7, initial: { x: C, y: C, fill: INK } },
+        { type: 'shape', shape: 'rect', width: 56, height: 31, cornerRadius: 3, initial: { x: C, y: C + 5.5, fill: '#ffffff' } },
+        ...[0, 1, 2].map(i => ({ type: 'shape', shape: 'circle', radius: 2.4, initial: { x: C - 24 + i * 7, y: C - 16.5, fill: '#ffffff' } })),
+        { type: 'shape', shape: 'rect', width: 30, height: 4, cornerRadius: 2, initial: { x: C - 5, y: C - 1, fill: CORAL } },
+        { type: 'shape', shape: 'rect', width: 40, height: 3, cornerRadius: 1.5, initial: { x: C, y: C + 8, fill: INK, alpha: 0.35 } },
+        { type: 'shape', shape: 'rect', width: 40, height: 3, cornerRadius: 1.5, initial: { x: C, y: C + 15, fill: INK, alpha: 0.35 } },
       ],
       globe: () => [
-        { type: 'shape', shape: 'circle', radius: 27, initial: { x: C, y: C, strokeColor: INK, strokeWidth: 4.5 } },
-        { type: 'shape', shape: 'ellipse', radiusX: 11, radiusY: 27, initial: { x: C, y: C, strokeColor: INK, strokeWidth: 3.5 } },
-        { type: 'shape', shape: 'line', from: [C - 27, C], to: [C + 27, C], initial: { strokeColor: INK, strokeWidth: 3.5 } },
-        { type: 'shape', shape: 'line', from: [C - 22, C - 13], to: [C + 22, C - 13], initial: { strokeColor: INK, strokeWidth: 3 } },
-        { type: 'shape', shape: 'line', from: [C - 22, C + 13], to: [C + 22, C + 13], initial: { strokeColor: INK, strokeWidth: 3 } },
+        { type: 'shape', shape: 'circle', radius: 27, initial: { x: C, y: C, stroke: INK, strokeWidth: 4.5 } },
+        { type: 'shape', shape: 'ellipse', radiusX: 11, radiusY: 27, initial: { x: C, y: C, stroke: INK, strokeWidth: 3.5 } },
+        { type: 'shape', shape: 'line', from: [C - 27, C], to: [C + 27, C], initial: { stroke: INK, strokeWidth: 3.5 } },
+        { type: 'shape', shape: 'line', from: [C - 22, C - 13], to: [C + 22, C - 13], initial: { stroke: INK, strokeWidth: 3 } },
+        { type: 'shape', shape: 'line', from: [C - 22, C + 13], to: [C + 22, C + 13], initial: { stroke: INK, strokeWidth: 3 } },
       ],
       server: () => [-18, 0, 18].flatMap(dy => [
-        { type: 'shape', shape: 'rect', width: 60, height: 15, cornerRadius: 4, initial: { x: C, y: C + dy, fillColor: INK } },
-        { type: 'shape', shape: 'circle', radius: 2.6, initial: { x: C - 21, y: C + dy, fillColor: TEAL } },
-        { type: 'shape', shape: 'rect', width: 20, height: 3, cornerRadius: 1.5, initial: { x: C + 14, y: C + dy, fillColor: '#ffffff', alpha: 0.8 } },
+        { type: 'shape', shape: 'rect', width: 60, height: 15, cornerRadius: 4, initial: { x: C, y: C + dy, fill: INK } },
+        { type: 'shape', shape: 'circle', radius: 2.6, initial: { x: C - 21, y: C + dy, fill: TEAL } },
+        { type: 'shape', shape: 'rect', width: 20, height: 3, cornerRadius: 1.5, initial: { x: C + 14, y: C + dy, fill: '#ffffff', alpha: 0.8 } },
       ]),
       db: () => [
-        { type: 'shape', shape: 'ellipse', radiusX: 26, radiusY: 9, initial: { x: C, y: C + 19, fillColor: INK } },
-        { type: 'shape', shape: 'rect', width: 52, height: 38, initial: { x: C, y: C, fillColor: INK } },
-        { type: 'shape', shape: 'path', d: `M ${C - 26} ${C - 4} Q ${C} ${C + 14} ${C + 26} ${C - 4}`, initial: { strokeColor: '#ffffff', strokeWidth: 2.5 } },
-        { type: 'shape', shape: 'path', d: `M ${C - 26} ${C + 8} Q ${C} ${C + 26} ${C + 26} ${C + 8}`, initial: { strokeColor: '#ffffff', strokeWidth: 2.5 } },
-        { type: 'shape', shape: 'ellipse', radiusX: 26, radiusY: 9, initial: { x: C, y: C - 19, fillColor: '#ffffff', strokeColor: INK, strokeWidth: 3.5 } },
+        { type: 'shape', shape: 'ellipse', radiusX: 26, radiusY: 9, initial: { x: C, y: C + 19, fill: INK } },
+        { type: 'shape', shape: 'rect', width: 52, height: 38, initial: { x: C, y: C, fill: INK } },
+        { type: 'shape', shape: 'path', d: `M ${C - 26} ${C - 4} Q ${C} ${C + 14} ${C + 26} ${C - 4}`, initial: { stroke: '#ffffff', strokeWidth: 2.5 } },
+        { type: 'shape', shape: 'path', d: `M ${C - 26} ${C + 8} Q ${C} ${C + 26} ${C + 26} ${C + 8}`, initial: { stroke: '#ffffff', strokeWidth: 2.5 } },
+        { type: 'shape', shape: 'ellipse', radiusX: 26, radiusY: 9, initial: { x: C, y: C - 19, fill: '#ffffff', stroke: INK, strokeWidth: 3.5 } },
       ],
     };
 
@@ -168,7 +168,7 @@
     const hopDim = e => e.kind === 'hop' && (dimmed.has(e.a) || dimmed.has(e.b));
 
     // background + procedural dot grid
-    S.push({ type: 'shape', shape: 'rect', name: 'paper', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: PAPER } });
+    S.push({ type: 'shape', shape: 'rect', name: 'paper', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: PAPER } });
     S.push({ type: 'image', name: 'dot-grid', asset: 'grid', initial: { x: 0, y: 0, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] });
 
     // title block
@@ -179,7 +179,7 @@
       style: { fontFamily: SANS, fontSize: 40, fontWeight: '800', fill: INK },
       initial: { x: 80, y: 80, alpha: 0 }, keyframes: [{ at: 0, from: { x: 56 }, to: { x: 80, alpha: 1 }, duration: 0.7, ease: EASE_IN }] });
     S.push({ type: 'shape', shape: 'rect', name: 'title-rule', at: 0.5, width: 0, height: 4, anchorX: 0,
-      initial: { x: 80, y: 142, fillColor: INK },
+      initial: { x: 80, y: 142, fill: INK },
       keyframes: [{ at: 0, to: { width: 56 }, duration: 0.5, ease: EASE_IN }] });
 
     // latency counter (top right)
@@ -207,10 +207,10 @@
       S.push({
         type: 'shape', shape: 'path', name: `arc-${i}`, at: e.at, duration: life,
         d: `M ${A.p0[0]} ${A.p0[1]} Q ${A.c[0]} ${A.c[1]} ${A.p2[0]} ${A.p2[1]}`,
-        initial: { strokeColor: A.color, strokeWidth: 3.5 }, keyframes: dim,
+        initial: { stroke: A.color, strokeWidth: 3.5 }, keyframes: dim,
         mask: {
           type: 'shape', shape: 'rect', width: 0, height: 160, anchorX: A.up ? 0 : 1,
-          initial: { x: maskX, y: CY, fillColor: '#ffffff' },
+          initial: { x: maskX, y: CY, fill: '#ffffff' },
           keyframes: sampled(e.dur, u => ({ width: Math.abs(A.at(u)[0] - maskX) })),
         },
       });
@@ -219,7 +219,7 @@
       const tip = [A.p2[0] + ux * 2, A.p2[1] + uy * 2], L = 13, Wd = 7.5;
       const pts = [tip, [tip[0] - ux * L - uy * Wd, tip[1] - uy * L + ux * Wd], [tip[0] - ux * L + uy * Wd, tip[1] - uy * L - ux * Wd]];
       S.push({ type: 'shape', shape: 'polygon', name: `arrow-${i}`, at: snap(e.at + e.dur - 0.05), duration: lifeLeft(snap(e.at + e.dur - 0.05)),
-        points: pts.map(p => p.map(v => Math.round(v * 10) / 10)), initial: { fillColor: A.color, alpha: 0 },
+        points: pts.map(p => p.map(v => Math.round(v * 10) / 10)), initial: { fill: A.color, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.15 }, ...(hopDim(e) ? [dimKf(snap(e.at + e.dur - 0.05))] : [])] });
       // label above / below the arc
       const ly = A.up ? A.peakY - 24 : A.peakY + 24, lx = (A.p0[0] + A.p2[0]) / 2;
@@ -238,7 +238,7 @@
         initial: { x: NX[i], y: CY, pivotX: C, pivotY: C, alpha: 0, scale: 0.6 },
         keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.55, ease: 'back.out(1.7)' }, ...dim],
         sequences: [
-          { type: 'shape', shape: 'circle', radius: R, initial: { x: C, y: C, fillColor: '#ffffff', strokeColor: INK, strokeWidth: 3.5 } },
+          { type: 'shape', shape: 'circle', radius: R, initial: { x: C, y: C, fill: '#ffffff', stroke: INK, strokeWidth: 3.5 } },
           ...icon[n.icon](),
         ],
       });
@@ -259,12 +259,12 @@
       const out = [];
       TAIL.slice().reverse().forEach(([lag, r, a], k) => {
         out.push({ type: 'shape', shape: 'circle', name: `${prefix}-dot${k}`, radius: r, at, duration: snap(dur + 0.2),
-          initial: { x: A.p0[0], y: A.p0[1], fillColor: A.color, alpha: a },
+          initial: { x: A.p0[0], y: A.p0[1], fill: A.color, alpha: a },
           keyframes: [...sampled(dur, u => { const [x, y] = A.at(u); return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 }; }, lag),
                       { at: snap(dur + lag), to: { alpha: 0 }, duration: 0.06 }] });
       });
       out.push({ type: 'shape', shape: 'circle', name: `${prefix}-ring`, radius: R, at: snap(at + dur), duration: 0.7,
-        initial: { x: NX[A.b], y: CY, strokeColor: A.color, strokeWidth: 4 },
+        initial: { x: NX[A.b], y: CY, stroke: A.color, strokeWidth: 4 },
         keyframes: [{ at: 0, to: { radius: R + 30, strokeAlpha: 0, strokeWidth: 1 }, duration: 0.65, ease: 'power2.out' }] });
       return out;
     }
@@ -274,7 +274,7 @@
     for (const [i, e] of EVENTS.filter(e => e.kind === 'proc').entries()) {
       const bx = NX[e.node], by = CY + R + 100, dim = dimmed.has(e.node) ? [dimKf(e.at)] : [];
       if (e.ms) S.push({ type: 'shape', shape: 'circle', name: `work-${i}`, radius: R + 9, at: e.at, duration: e.dur + 0.2,
-        initial: { x: bx, y: CY, strokeColor: INK, strokeWidth: 3, strokeAlpha: 0 },
+        initial: { x: bx, y: CY, stroke: INK, strokeWidth: 3, strokeAlpha: 0 },
         keyframes: [{ at: 0, to: { strokeAlpha: 0.5 }, duration: 0.15 },
                     { at: 0.15, to: { scale: 1.06 }, duration: e.dur / 4, ease: 'sine.inOut', repeat: 3, yoyo: true },
                     { at: -0.2, to: { strokeAlpha: 0 }, duration: 0.2 }] });
@@ -294,7 +294,7 @@
         keyframes: [{ at: 0, from: { y: CAP_Y - 30 + 16 }, to: { y: CAP_Y - 30, alpha: 1 }, duration: 0.45, ease: EASE_IN },
                     { at: -0.25, to: { y: CAP_Y - 30 - 10, alpha: 0 }, duration: 0.25, ease: EASE_OUT }],
         sequences: [
-          { type: 'shape', shape: 'circle', radius: 19, initial: { x: 19, y: 30, fillColor: i === CAPTIONS.length - 1 ? TEAL : CORAL } },
+          { type: 'shape', shape: 'circle', radius: 19, initial: { x: 19, y: 30, fill: i === CAPTIONS.length - 1 ? TEAL : CORAL } },
           { type: 'text', text: String(i + 1), style: { fontFamily: SANS, fontSize: 20, fontWeight: '800', fill: '#ffffff' }, initial: { x: 19, y: 30, anchorX: 0.5, anchorY: 0.5 } },
           { type: 'text', text, style: { fontFamily: SANS, fontSize: 29, fontWeight: '600', fill: INK }, initial: { x: 56, y: 30, anchorY: 0.5 } },
         ],
@@ -302,7 +302,7 @@
     });
     // caption track rule
     S.push({ type: 'shape', shape: 'rect', name: 'caption-rule', at: 1.2, width: 0, height: 2, anchorX: 0,
-      initial: { x: 80, y: 540, fillColor: INK, alpha: 0.15 }, keyframes: [{ at: 0, to: { width: 1120 }, duration: 0.8, ease: EASE_IN }] });
+      initial: { x: 80, y: 540, fill: INK, alpha: 0.15 }, keyframes: [{ at: 0, to: { width: 1120 }, duration: 0.8, ease: EASE_IN }] });
 
     // ---------- recap: where the time went + the next visit ----------
     const BX = 80, BW = 1120, BH = 34, B1Y = 592, B2Y = 640;
@@ -314,7 +314,7 @@
     for (const [label, ms, color, d] of SEGS) {
       const w = Math.round(BW * ms / TOTAL_MS) - 3;
       S.push({ type: 'shape', shape: 'rect', name: `seg-${label}`, at: snap(st), width: 0, height: BH, cornerRadius: 5, anchorX: 0,
-        initial: { x: sx, y: B1Y, fillColor: color }, keyframes: [{ at: 0, to: { width: w }, duration: d, ease: label === 'Network' ? 'power2.inOut' : EASE_IN }] });
+        initial: { x: sx, y: B1Y, fill: color }, keyframes: [{ at: 0, to: { width: w }, duration: d, ease: label === 'Network' ? 'power2.inOut' : EASE_IN }] });
       S.push({ type: 'text', name: `seg-label-${label}`, text: label === 'Network' ? `${label} · ${ms} ms` : `${label} ${ms}`, at: snap(st + d * 0.7),
         style: { fontFamily: MONO, fontSize: 16, fontWeight: '700', fill: '#ffffff' },
         initial: { x: sx + 12, y: B1Y, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.25 }] });
@@ -323,7 +323,7 @@
     // the next visit: a cache hit, client <-> CDN only; the bar grows while the packet makes the round trip
     const hitW = Math.round(BW * HIT_MS / TOTAL_MS);
     S.push({ type: 'shape', shape: 'rect', name: 'seg-next', at: HIT_AT, width: 0, height: BH, cornerRadius: 5, anchorX: 0,
-      initial: { x: BX, y: B2Y, fillColor: TEAL },
+      initial: { x: BX, y: B2Y, fill: TEAL },
       keyframes: sampled(2 * HIT_HOP + 0.05, u => ({ width: Math.round(hitW * u) })) });
     S.push({ type: 'text', name: 'seg-next-ms', text: `${HIT_MS} ms`, at: snap(HIT_AT + 0.75),
       style: { fontFamily: MONO, fontSize: 16, fontWeight: '700', fill: '#ffffff' },

@@ -23,7 +23,7 @@ Timeline: started 13:49; brief written +8 min; first page that rendered +10 min 
 ## Docs I read, and which answered my question
 - AGENTS.md (WebFetch: the summariser refused to return the text verbatim, but the local copy is identical), quickstart.md, SKILL.md: enough for the whole workflow.
 - `recipe draw-on-and-type` (trimEnd draw-on), `recipe follow-path` + `help morph` (morphTo, morphPoints, sub-paths), `recipe shared-matte` + `help mask` (a named luma matte for the light reveal), `recipe spot-room` / `depth-cards` (read, then decided against threeD lights for a line drawing).
-- cheatsheet grep: fillColor tween, fillGradient on shapes (angle, alpha stops), skewX / skewY exist and are degrees, `random(seed)`, `{value}` + `format.pad` for the clock. All answered.
+- cheatsheet grep: fill tween, fillGradient on shapes (angle, alpha stops), skewX / skewY exist and are degrees, `random(seed)`, `{value}` + `format.pad` for the clock. All answered.
 - Not answered: corner behaviour of morph (stumble 1).
 
 ## Wished the library had

@@ -24,7 +24,7 @@ export default function shared(lib, facts) {
     ].filter(Boolean);
   }
   // A full-frame opaque background. EVERY chapter starts with one: the transitions blend two whole chapters.
-  const bg = (color = C.ink, name = 'bg') => ({ type: 'shape', shape: 'rect', name, width: 1920, height: 1080, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: color } });
+  const bg = (color = C.ink, name = 'bg') => ({ type: 'shape', shape: 'rect', name, width: 1920, height: 1080, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: color } });
   // When each chapter starts: a chapter starts `overlap` seconds before the one before it ends (the transition between them runs in that overlap).
   function planOf(table) {
     let at = 0;

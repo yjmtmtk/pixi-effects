@@ -99,13 +99,13 @@
     const fadeOut = (at, d = 0.3) => ({ at, to: { alpha: 0 }, duration: d, ease: 'power2.in' });
 
     const S = [];
-    S.push({ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } });
+    S.push({ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: INK } });
 
     // mm gridlines (calendar view only), labels at the right end where the bars stay low
     for (const mm of [50, 100]) {
       const y = BASE - mmH(mm);
       S.push({ type: 'shape', shape: 'line', name: `grid${mm}`, from: [L, y], to: [R, y], at: 0.3, duration: T.reveal + 0.4 - 0.3,
-        initial: { strokeColor: SLATE, strokeWidth: 1, alpha: 0 },
+        initial: { stroke: SLATE, strokeWidth: 1, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 0.35 }, duration: 0.8 }, fadeOut(-0.4)] });
       S.push({ type: 'text', name: `grid${mm}-label`, text: `${mm} mm`, at: 0.5, duration: T.reveal + 0.4 - 0.5,
         style: { fontFamily: MONO, fontSize: 14, fill: SLATE },
@@ -115,7 +115,7 @@
 
     // baseline
     S.push({ type: 'shape', shape: 'line', name: 'baseline', from: [L, BASE + 0.5], to: [R, BASE + 0.5], trimEnd: 0,
-      initial: { strokeColor: SLATE, strokeWidth: 1 },
+      initial: { stroke: SLATE, strokeWidth: 1 },
       keyframes: [{ at: T.kicker, to: { trimEnd: 1 }, duration: 0.9, ease: 'power2.inOut' }] });
 
     // 365 bars: calendar order → wettest first → the first N light up
@@ -128,10 +128,10 @@
         { at: growAt, to: { height: h }, duration: 0.5, ease: 'expo.out' },
         { at: sortAt, to: { x: xOf(i) }, duration: T.sortDur, ease: 'power3.inOut' },
       ];
-      if (i < N) kf.push({ at: T.reveal + (i / N) * 0.6, to: { fillColor: RAIN, alpha: 1 }, duration: 0.5, ease: 'power2.out' });
+      if (i < N) kf.push({ at: T.reveal + (i / N) * 0.6, to: { fill: RAIN, alpha: 1 }, duration: 0.5, ease: 'power2.out' });
       else kf.push({ at: T.reveal + 0.2, to: { alpha: v > 0 ? 0.45 : 0.3 }, duration: 0.6, ease: 'power2.out' });
       S.push({ type: 'shape', shape: 'rect', name: `day${d}`, width: BAR_W, height: 0, anchorY: 1, colorSpace: 'oklab',
-        initial: { x: xOf(d), y: BASE, fillColor: v > 0 ? PAPER : SLATE, alpha: v > 0 ? 0.82 : 0.6 }, keyframes: kf });
+        initial: { x: xOf(d), y: BASE, fill: v > 0 ? PAPER : SLATE, alpha: v > 0 ? 0.82 : 0.6 }, keyframes: kf });
     }
 
     // month labels (calendar view)
@@ -157,10 +157,10 @@
     order.forEach((day, i) => { cum += rain[day]; pts.push([L + (i + 1) * PITCH, shareY(cum / TOTAL)]); });
     const pathOf = list => list.map(([x, y], k) => `${k ? 'L' : 'M'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
     S.push({ type: 'shape', shape: 'path', name: 'curve-tail', d: pathOf(pts.slice(N)), trimEnd: 0, strokeCap: 'round', strokeJoin: 'round', at: T.reveal,
-      initial: { strokeColor: SLATE, strokeWidth: 1.5, fillAlpha: 0 },
+      initial: { stroke: SLATE, strokeWidth: 1.5, fillAlpha: 0 },
       keyframes: [{ at: 0.55, to: { trimEnd: 1 }, duration: 1.8, ease: 'power2.inOut' }] });
     S.push({ type: 'shape', shape: 'path', name: 'curve-head', d: pathOf(pts.slice(0, N + 1)), trimEnd: 0, strokeCap: 'round', strokeJoin: 'round', at: T.reveal,
-      initial: { strokeColor: RAIN, strokeWidth: 2.5, fillAlpha: 0 },
+      initial: { stroke: RAIN, strokeWidth: 2.5, fillAlpha: 0 },
       keyframes: [{ at: 0.05, to: { trimEnd: 1 }, duration: 0.55, ease: 'power1.in' }] });
 
     // 50 % rule (dashes as sub-paths) and the point where the curve crosses it
@@ -168,7 +168,7 @@
     let dash = '';
     for (let x = L; x < R - 4; x += 10) dash += `M ${x} ${y50} L ${Math.min(x + 5, R)} ${y50} `;
     S.push({ type: 'shape', shape: 'path', name: 'half-rule', d: dash, trimEnd: 0, at: T.reveal,
-      initial: { strokeColor: PAPER, strokeWidth: 1, strokeAlpha: 0.5 },
+      initial: { stroke: PAPER, strokeWidth: 1, strokeAlpha: 0.5 },
       keyframes: [{ at: 0.5, to: { trimEnd: 1 }, duration: 1.1, ease: 'power2.inOut' }] });
     S.push({ type: 'text', name: 'half-label', text: '年間雨量の50%', at: T.reveal + 1.2, duration: DURATION - T.reveal - 1.2,
       style: { fontFamily: SANS, fontSize: 16, fill: PAPER }, initial: { x: R, y: y50 - 8, anchorX: 1, anchorY: 1, alpha: 0.7 },
@@ -178,10 +178,10 @@
       keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.4 }] });
     // a bracket under the lit days: "these ones"
     S.push({ type: 'shape', shape: 'line', name: 'bracket', from: [L, BASE + 6], to: [xN, BASE + 6], trimEnd: 0, at: T.reveal,
-      initial: { strokeColor: RAIN, strokeWidth: 3 },
+      initial: { stroke: RAIN, strokeWidth: 3 },
       keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.6, ease: 'power2.out' }] });
     S.push({ type: 'shape', shape: 'circle', name: 'cross-dot', radius: 4.5, at: T.label,
-      initial: { x: xN, y: y50, fillColor: RAIN },
+      initial: { x: xN, y: y50, fill: RAIN },
       keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.35, ease: 'power3.out' }] });
 
     // the annotation: "14日" right of the steep curve; the long tail gets its own quiet line

@@ -64,10 +64,10 @@
       const at = (i - 1) * BAR, x = 190 + (i - 1) * 300;
       return [
         // the bar that is playing: its colour washes the picture, its card lights up
-        { type: 'shape', shape: 'rect', name: `wash${i}`, at, duration: BAR, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: `{k${i}}`, alpha: 0.22 },
+        { type: 'shape', shape: 'rect', name: `wash${i}`, at, duration: BAR, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: `{k${i}}`, alpha: 0.22 },
           keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.22 }, duration: 0.25 }] },
-        { type: 'shape', shape: 'rect', name: `card${i}`, at: 0, width: 260, height: 300, cornerRadius: 28, initial: { x, y: 330, fillColor: '#171b2c', strokeColor: '#2c3350', strokeWidth: 3 } },
-        { type: 'shape', shape: 'rect', name: `lit${i}`, at, duration: BAR, width: 260, height: 300, cornerRadius: 28, initial: { x, y: 330, fillColor: `{k${i}}`, alpha: 0.95 },
+        { type: 'shape', shape: 'rect', name: `card${i}`, at: 0, width: 260, height: 300, cornerRadius: 28, initial: { x, y: 330, fill: '#171b2c', stroke: '#2c3350', strokeWidth: 3 } },
+        { type: 'shape', shape: 'rect', name: `lit${i}`, at, duration: BAR, width: 260, height: 300, cornerRadius: 28, initial: { x, y: 330, fill: `{k${i}}`, alpha: 0.95 },
           keyframes: [{ at: 0, from: { scale: 0.94 }, to: { scale: 1 }, duration: 0.25, ease: 'back.out(2)' }] },
         { type: 'text', name: `chord${i}`, text: `{c${i}}`, style: { fontFamily: FONT, fontSize: 84, fontWeight: '800', fill: '#ffffff' }, initial: { x, y: 330, anchorX: 0.5, anchorY: 0.5 } },
         { type: 'text', name: `num${i}`, text: String(i), style: { fontFamily: FONT, fontSize: 28, fontWeight: '700', fill: '#8e97bb' }, initial: { x, y: 205, anchorX: 0.5, anchorY: 0.5 } },
@@ -77,14 +77,14 @@
     const dots = Array.from({ length: 16 }, (_, b) => {
       const x = 190 + (b % 4) * 75 + Math.floor(b / 4) * 300 - 112;
       return [
-        { type: 'shape', shape: 'circle', radius: 9, initial: { x, y: 540, fillColor: '#2c3350' } },
-        { type: 'shape', shape: 'circle', name: `beat${b}`, radius: 12, at: b * BEAT, duration: BEAT, initial: { x, y: 540, fillColor: '#ffffff' },
+        { type: 'shape', shape: 'circle', radius: 9, initial: { x, y: 540, fill: '#2c3350' } },
+        { type: 'shape', shape: 'circle', name: `beat${b}`, radius: 12, at: b * BEAT, duration: BEAT, initial: { x, y: 540, fill: '#ffffff' },
           keyframes: [{ at: 0, from: { scale: 1.8 }, to: { scale: 1 }, duration: 0.18, ease: 'power2.out' }] },
       ];
     }).flat();
 
     const composition = { sequences: [
-      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d1020' } },
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0d1020' } },
       ...bars, ...dots,
       { type: 'text', name: 'title', text: 'four chords', style: { fontFamily: FONT, fontSize: 40, fontWeight: '800', fill: '#c8d0ee', letterSpacing: 8 }, initial: { x: W / 2, y: 80, anchorX: 0.5, anchorY: 0.5 } },
       { type: 'text', name: 'sub', text: '{c1} · {c2} · {c3} · {c4}', style: { fontFamily: FONT, fontSize: 30, fill: '#8e97bb' }, initial: { x: W / 2, y: 625, anchorX: 0.5, anchorY: 0.5 } },

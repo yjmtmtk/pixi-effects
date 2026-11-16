@@ -31,8 +31,8 @@ Concept: one ink dot that keeps becoming the next small UI thing - typing dots, 
 - would have prevented it: update pitfall 18 to mention `set: { text }` and `visibleChars`.
 
 ### 4. RGB colour tweens pass through muddy tints   [MY-MISTAKE / wish]
-- tried: accent bar → grey toggle track, `fillColor` tween over 0.4 s.
-- happened: a salmon-pink frame in the middle (4.20 s tile). Shortened the tween to 0.3 s; acceptable, but an `oklch` colour-space option for shape colour tweens would avoid it (text/image have `colorSpace`, I did not find it for shape `fillColor` keyframes).
+- tried: accent bar → grey toggle track, `fill` tween over 0.4 s.
+- happened: a salmon-pink frame in the middle (4.20 s tile). Shortened the tween to 0.3 s; acceptable, but an `oklch` colour-space option for shape colour tweens would avoid it (text/image have `colorSpace`, I did not find it for shape `fill` keyframes).
 
 ### 5. `--onion` and `--at` share the frames folder; the at.png from a previous run stays   [TOOLING, tiny]
 - after a run with only `--onion`, `check-out/at.png` and `frames/` were the previous run's. Not wrong, but I nearly looked at a stale picture. A line "at.png: from this run / kept from an earlier run" or clearing it would help.

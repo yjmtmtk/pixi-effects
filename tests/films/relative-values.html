@@ -21,11 +21,11 @@
   <script type="module">
     import { Movie } from '../../dist/index.js';
     const sequences = [
-      { type: 'shape', shape: 'rect', name: 'slide', width: 100, height: 100, initial: { x: 500, y: 100, anchorX: 0, anchorY: 0, fillColor: '#ff5a36' },
+      { type: 'shape', shape: 'rect', name: 'slide', width: 100, height: 100, initial: { x: 500, y: 100, anchorX: 0, anchorY: 0, fill: '#ff5a36' },
         keyframes: [{ at: 0, duration: 1, from: { x: '-=200' } }] },
-      { type: 'shape', shape: 'rect', name: 'fade', width: 100, height: 100, initial: { x: 100, y: 300, anchorX: 0, anchorY: 0, alpha: 1, fillColor: '#38c8ff' },
+      { type: 'shape', shape: 'rect', name: 'fade', width: 100, height: 100, initial: { x: 100, y: 300, anchorX: 0, anchorY: 0, alpha: 1, fill: '#38c8ff' },
         keyframes: [{ at: 0, duration: 1, to: { alpha: '-=0.5' } }] },
-      { type: 'shape', shape: 'rect', name: 'stack', width: 100, height: 100, initial: { x: 100, y: 450, anchorX: 0, anchorY: 0, fillColor: '#ffd166' },
+      { type: 'shape', shape: 'rect', name: 'stack', width: 100, height: 100, initial: { x: 100, y: 450, anchorX: 0, anchorY: 0, fill: '#ffd166' },
         keyframes: [{ at: 0, duration: 1, to: { x: '+=100' } }, { at: 1, duration: 1, to: { x: '+=100' } }] },
       { type: 'text', text: 'grow', name: 'grow', style: { fontSize: 40, fill: '#fff' }, initial: { x: 800, y: 100, anchorX: 0, anchorY: 0, scale: 1 },
         keyframes: [{ at: 0, duration: 1, to: { scale: '+=1', y: '+=100' } }] },

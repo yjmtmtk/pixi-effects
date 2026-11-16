@@ -182,14 +182,14 @@
     // graticule: the sheet exists before the land does
     [330, 730, 1130].forEach((x, i) => {
       map.push({ type: 'shape', shape: 'line', name: `meridian-${i}`, from: [x, 0], to: [x, H], trimEnd: 0,
-        initial: { strokeColor: INK, strokeWidth: 0.7, strokeAlpha: 0.1 },
+        initial: { stroke: INK, strokeWidth: 0.7, strokeAlpha: 0.1 },
         keyframes: [{ at: 0.05 * i, to: { trimEnd: 1 }, duration: 1.1, ease: 'power2.inOut' }] });
       map.push({ type: 'text', name: `meridian-t-${i}`, text: `132°${20 + i * 10}′E`, at: 0.4 + i * 0.08, duration: DURATION,
         style: { fontFamily: MONO, fontSize: 9.5, fill: INK, letterSpacing: 1 },
         initial: { x: x - 6, y: 652, anchorX: 1, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.45 }, duration: 0.8 }] });
     });
     [250, 560].forEach((y, i) => map.push({ type: 'shape', shape: 'line', name: `parallel-${i}`, from: [0, y], to: [W, y], trimEnd: 0,
-      initial: { strokeColor: INK, strokeWidth: 0.7, strokeAlpha: 0.1 },
+      initial: { stroke: INK, strokeWidth: 0.7, strokeAlpha: 0.1 },
       keyframes: [{ at: 0.1 + 0.05 * i, to: { trimEnd: 1 }, duration: 1.2, ease: 'power2.inOut' }] }));
 
     // depth lines at sea (drawn first: under the land)
@@ -197,7 +197,7 @@
       const big = i < 3;
       (big ? [1.13, 1.30] : [1.45]).forEach((s, j) => map.push({
         type: 'shape', shape: 'path', name: `depth-${i}-${j}`, d: outline(isl, s, 0.02, 100 + i * 7 + j),
-        initial: { strokeColor: INK, strokeWidth: 0.8, strokeAlpha: big ? (j ? 0.12 : 0.2) : 0.14, alpha: 0 },
+        initial: { stroke: INK, strokeWidth: 0.8, strokeAlpha: big ? (j ? 0.12 : 0.2) : 0.14, alpha: 0 },
         keyframes: [{ at: 0.5 + i * 0.06 + j * 0.15, to: { alpha: 1 }, duration: 1.2, ease: 'power1.inOut' }],
       }));
     });
@@ -206,12 +206,12 @@
       const t0 = 0.15 + i * 0.07;
       map.push({
         type: 'shape', shape: 'path', name: `land-${i}`, d: outline(isl, 1, 0, 0),
-        initial: { fillColor: PAPER, fillAlpha: 0 },
+        initial: { fill: PAPER, fillAlpha: 0 },
         keyframes: [{ at: t0 + 1.05, to: { fillAlpha: 1 }, duration: 0.7, ease: 'power1.inOut' }],
       });
       map.push({
         type: 'shape', shape: 'path', name: `coast-${i}`, d: outline(isl, 1, 0, 0), trimEnd: 0,
-        initial: { strokeColor: INK, strokeWidth: i < 3 ? 1.6 : 1.2, strokeJoin: 'round' },
+        initial: { stroke: INK, strokeWidth: i < 3 ? 1.6 : 1.2, strokeJoin: 'round' },
         keyframes: [{ at: t0, to: { trimEnd: 1 }, duration: 1.4, ease: 'power2.inOut' }],
       });
     });
@@ -220,7 +220,7 @@
       const levels = [0.8, 0.62, 0.45, 0.29, 0.15];
       levels.forEach((s, j) => map.push({
         type: 'shape', shape: 'path', name: `contour-${i}-${j}`, d: outline(isl, s, 0.035, 200 + i * 10 + j), trimEnd: 0,
-        initial: { strokeColor: INK, strokeWidth: j === 2 ? 0.9 : 0.6, strokeAlpha: j === 2 ? 0.42 : 0.26 },
+        initial: { stroke: INK, strokeWidth: j === 2 ? 0.9 : 0.6, strokeAlpha: j === 2 ? 0.42 : 0.26 },
         keyframes: [{ at: 0.7 + i * 0.12 + j * 0.06, to: { trimEnd: 1 }, duration: 1.3, ease: 'power1.inOut' }],
       }));
     });
@@ -239,7 +239,7 @@
     LEGS.forEach((L, i) => map.push({
       type: 'shape', shape: 'path', name: `leg-${i + 1}`, d: L.dDraw, trimEnd: 0,
       at: L.start, duration: DURATION - L.start, strokeCap: L.kind === 'road' ? 'round' : 'butt',
-      initial: { strokeColor: RED, strokeWidth: L.kind === 'road' ? 3 : 2.4 },
+      initial: { stroke: RED, strokeWidth: L.kind === 'road' ? 3 : 2.4 },
       keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: L.end - L.start, ease: 'power2.inOut' }],
     }));
 
@@ -248,13 +248,13 @@
     STOPS.forEach((S, i) => {
       map.push({
         type: 'shape', shape: 'circle', name: `stop-${i + 1}`, radius: 6.5, at: 1.15 + i * 0.09, duration: DURATION,
-        initial: { x: S.p[0], y: S.p[1], fillColor: PAPER, strokeColor: INK, strokeWidth: 1.6, scale: 0 },
+        initial: { x: S.p[0], y: S.p[1], fill: PAPER, stroke: INK, strokeWidth: 1.6, scale: 0 },
         keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.5, ease: 'power3.out' },
-                    { at: arrive(i) - (1.15 + i * 0.09), to: { strokeColor: RED }, duration: 0.3, ease: 'power2.out' }],
+                    { at: arrive(i) - (1.15 + i * 0.09), to: { stroke: RED }, duration: 0.3, ease: 'power2.out' }],
       });
       map.push({
         type: 'shape', shape: 'circle', name: `stop-fill-${i + 1}`, radius: 3.6, at: arrive(i), duration: DURATION,
-        initial: { x: S.p[0], y: S.p[1], fillColor: RED, scale: 0 },
+        initial: { x: S.p[0], y: S.p[1], fill: RED, scale: 0 },
         keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'power3.out' }],
       });
       // label: index, kanji, romanisation beside the dot
@@ -276,14 +276,14 @@
     // the traveller: a dot riding the head of each leg
     map.push({
       type: 'shape', shape: 'circle', name: 'traveller', radius: 5.5, at: LEGS[0].start, duration: LEGS[3].end - LEGS[0].start + 0.2,
-      initial: { x: STOPS[0].p[0], y: STOPS[0].p[1], fillColor: RED, strokeColor: PAPER, strokeWidth: 2 },
+      initial: { x: STOPS[0].p[0], y: STOPS[0].p[1], fill: RED, stroke: PAPER, strokeWidth: 2 },
       keyframes: LEGS.flatMap(L => followPath({ d: L.d, duration: L.end - L.start, at: L.start - LEGS[0].start, ease: 'power2.inOut', samplesPerSecond: FPS })),
     });
     // arrival ring at the destination: "you are here", once
     const END = LEGS[3].end;
     map.push({
       type: 'shape', shape: 'circle', name: 'arrival-ring', radius: 8, at: END, duration: 1.6,
-      initial: { x: STOPS[4].p[0], y: STOPS[4].p[1], strokeColor: RED, strokeWidth: 1.4, fillAlpha: 0, alpha: 1 },
+      initial: { x: STOPS[4].p[0], y: STOPS[4].p[1], stroke: RED, strokeWidth: 1.4, fillAlpha: 0, alpha: 1 },
       keyframes: [{ at: 0, to: { scale: 3.6, alpha: 0 }, duration: 1.5, ease: 'power2.out' }],
     });
 
@@ -302,7 +302,7 @@
         style: { fontFamily: MONO, fontSize: 11, fill: INK, letterSpacing: 2 },
         initial: { x: MX, y: MY + 116, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.6 }, duration: 0.8 }] },
       { type: 'shape', shape: 'line', name: 'title-rule', from: [MX, MY + 108], to: [MX + 300, MY + 108], trimEnd: 0, at: 0.7, duration: DURATION,
-        initial: { strokeColor: INK, strokeWidth: 1, strokeAlpha: 0.5 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.9, ease: 'power2.inOut' }] },
+        initial: { stroke: INK, strokeWidth: 1, strokeAlpha: 0.5 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.9, ease: 'power2.inOut' }] },
     );
     // summary after arrival
     const SUM_T = END + 0.45;
@@ -316,14 +316,14 @@
     const nx = RX - 10, ny = MY + 6;
     furniture.push(
       { type: 'shape', shape: 'polygon', name: 'north', points: [[nx, ny], [nx + 7, ny + 26], [nx, ny + 20], [nx - 7, ny + 26]], at: 1.0, duration: DURATION,
-        initial: { fillColor: INK, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
+        initial: { fill: INK, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
       { type: 'text', name: 'north-n', text: 'N', at: 1.0, duration: DURATION, style: { fontFamily: MONO, fontSize: 11, fill: INK },
         initial: { x: nx, y: ny + 32, anchorX: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
     );
     const sbY = MY + 62, sbX = RX - 206;
     for (let k = 0; k < 4; k++) furniture.push({
       type: 'shape', shape: 'rect', name: `scale-${k}`, width: 40, height: 4, at: 1.1 + k * 0.05, duration: DURATION,
-      initial: { x: sbX + 20 + k * 40, y: sbY, fillColor: k % 2 ? PAPER : INK, strokeColor: INK, strokeWidth: 1, alpha: 0 },
+      initial: { x: sbX + 20 + k * 40, y: sbY, fill: k % 2 ? PAPER : INK, stroke: INK, strokeWidth: 1, alpha: 0 },
       keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }],
     });
     ['0', '10', '20 KM'].forEach((s, k) => furniture.push({
@@ -334,11 +334,11 @@
     const lgY = sbY + 40;
     furniture.push(
       { type: 'shape', shape: 'line', name: 'lg-road', from: [sbX, lgY], to: [sbX + 26, lgY], strokeCap: 'round', at: 1.3, duration: DURATION,
-        initial: { strokeColor: RED, strokeWidth: 3, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }] },
+        initial: { stroke: RED, strokeWidth: 3, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }] },
       { type: 'text', name: 'lg-road-t', text: 'ROAD', at: 1.3, duration: DURATION, style: { fontFamily: MONO, fontSize: 10, fill: INK, letterSpacing: 2 },
         initial: { x: sbX + 36, y: lgY, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.7 }, duration: 0.6 }] },
       { type: 'shape', shape: 'path', name: 'lg-ferry', d: `M ${sbX + 86} ${lgY} L ${sbX + 95} ${lgY} M ${sbX + 101} ${lgY} L ${sbX + 112} ${lgY}`, at: 1.4, duration: DURATION,
-        initial: { strokeColor: RED, strokeWidth: 2.4, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }] },
+        initial: { stroke: RED, strokeWidth: 2.4, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }] },
       { type: 'text', name: 'lg-ferry-t', text: 'FERRY', at: 1.4, duration: DURATION, style: { fontFamily: MONO, fontSize: 10, fill: INK, letterSpacing: 2 },
         initial: { x: sbX + 122, y: lgY, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.7 }, duration: 0.6 }] },
     );
@@ -364,7 +364,7 @@
       sfx: { preset: 'swoosh', brightness: -0.8, pitch: -9, seed: 3 + i } }));
 
     const sequences = [
-      { type: 'shape', shape: 'rect', name: 'water', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: WATER } },
+      { type: 'shape', shape: 'rect', name: 'water', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: WATER } },
       { type: 'composition', name: 'map', width: W, height: H, duration: DURATION,
         // a slow settle from the west (where the trip begins) to the whole sheet, landing as the summary appears
         initial: { pivotX: 640, pivotY: 420, x: 690, y: 430, scale: 1.1 },

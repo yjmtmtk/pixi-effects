@@ -28,7 +28,7 @@
     const KNOWN = ['amount', 'size', 'seed', 'fps', 'color'];
     const grain = Q.has('grain') ? { type: 'grain', name: 'g', ...Object.fromEntries(KNOWN.filter(k => Q.has(k)).map(k => [k, Number(Q.get(k))])) } : null;
     const noise = Q.has('noise') ? { type: 'noise', noise: Number(Q.get('noise')), seed: 1 } : null;       // the existing filter, for the cost comparison
-    const inner = [{ type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: colour } }];
+    const inner = [{ type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: colour } }];
     const keyframes = Q.has('amountTo') ? [{ at: 0, duration: 4, to: { 'filters.g.amount': Number(Q.get('amountTo')) } }] : [];
     const composition = Q.get('mode') === 'card'
       // a grain layer inside a threeD card: the card is drawn to a texture before the stage is drawn

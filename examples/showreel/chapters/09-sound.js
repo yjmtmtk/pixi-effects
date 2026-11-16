@@ -55,14 +55,14 @@ export default function chapter(P) {
   // bar lines (every 4 beats) and lane hairlines
   for (let k = Math.ceil(LOOK[0] / 4); k * 4 < LOOK[1]; k++) {
     roll.push({ type: 'shape', shape: 'rect', name: `barline-${k}`, width: 2, height: 600, anchorX: 0.5, anchorY: 0,
-      initial: { x: X(4 * k), y: 296, fillColor: C.bone, alpha: 0.12 } });
+      initial: { x: X(4 * k), y: 296, fill: C.bone, alpha: 0.12 } });
   }
 
   // a note: a bar as long as the note, its token written on it, lit while it sounds
   const note = (e, i, lane, { y, h, color, onAlpha, offAlpha, label }) => {
     const t0 = tOf(e.beat), t1 = tOf(e.beat + e.len), w = e.len * PXB - 8;
     roll.push({ type: 'shape', shape: 'rect', name: `${lane}-bar-${i}`, width: w, height: h, cornerRadius: 8, anchorX: 0, anchorY: 0.5,
-      initial: { x: X(e.beat) + 4, y, fillColor: color, strokeColor: color, strokeWidth: 2,
+      initial: { x: X(e.beat) + 4, y, fill: color, stroke: color, strokeWidth: 2,
         ...(t1 <= 0 ? { fillAlpha: offAlpha * 0.6, strokeAlpha: 0.3 } : t0 <= 0 ? { fillAlpha: onAlpha, strokeAlpha: 1 } : { fillAlpha: offAlpha, strokeAlpha: 0.55 }) },
       keyframes: [
         { at: t0, set: { fillAlpha: onAlpha, strokeAlpha: 1 } },
@@ -100,7 +100,7 @@ export default function chapter(P) {
         if (c === '.') return;
         const b = 4 * k + s / 4, t = tOf(b);
         roll.push({ type: 'shape', shape: 'rect', name: `${name}-cell-${k}-${s}`, width: STEP - 6, height: 52, cornerRadius: 6,
-          initial: { x: X(b) + adv / 2, y: LANE[name], fillColor: C.gold, alpha: 0.16 },
+          initial: { x: X(b) + adv / 2, y: LANE[name], fill: C.gold, alpha: 0.16 },
           keyframes: t < 0 || t >= D - 0.05 ? [] : [{ at: t, set: { alpha: 0.95 } }, { at: t + 0.02, to: { alpha: 0.22 }, duration: 0.4, ease: 'power2.out' }] });
       });
       roll.push({ type: 'text', name: `${name}-steps-${k}`, text: pattern, style: DRUM,
@@ -121,16 +121,16 @@ export default function chapter(P) {
     { type: 'shape', shape: 'rect', name: 'ph-glow', width: 90, height: 620, anchorX: 0.5, anchorY: 0,
       initial: { x: PH, y: 292, fillGradient: { angle: 90, stops: [[0, 'rgba(255,90,54,0)'], [0.5, 'rgba(255,90,54,0.55)'], [1, 'rgba(255,90,54,0)']] } },
       keyframes: P.react(env, { duration: D, audioOffset: phase, props: { alpha: { base: 0.15, amount: 0.85, band: 'bass', beats: true, decay: 0.22 } } }) },
-    { type: 'shape', shape: 'rect', name: 'ph-line', width: 4, height: 620, anchorX: 0.5, anchorY: 0, initial: { x: PH, y: 292, fillColor: C.red },
+    { type: 'shape', shape: 'rect', name: 'ph-line', width: 4, height: 620, anchorX: 0.5, anchorY: 0, initial: { x: PH, y: 292, fill: C.red },
       keyframes: changes.flatMap(e => [                        // a flash on every bar line where the chord changes (the sfx hit lands here)
-        { at: tOf(e.beat), set: { width: 14, fillColor: C.bone } },
-        { at: tOf(e.beat) + 0.03, to: { width: 4, fillColor: C.red }, duration: 0.4, ease: 'power2.out' },
+        { at: tOf(e.beat), set: { width: 14, fill: C.bone } },
+        { at: tOf(e.beat) + 0.03, to: { width: 4, fill: C.red }, duration: 0.4, ease: 'power2.out' },
       ]) },
   ];
   // a ring where each melody note starts, on the playhead
   const rings = lead.filter(e => calm(tOf(e.beat))).map((e, i) => ({
     type: 'shape', shape: 'circle', name: `ring-${i}`, at: tOf(e.beat), duration: 0.5,
-    initial: { x: PH, y: leadY(e), radius: 12, fillAlpha: 0, strokeColor: C.red, strokeWidth: 4, alpha: 1 },
+    initial: { x: PH, y: leadY(e), radius: 12, fillAlpha: 0, stroke: C.red, strokeWidth: 4, alpha: 1 },
     keyframes: [{ at: 0, to: { radius: 54, alpha: 0, strokeWidth: 1 }, duration: 0.5, ease: 'power2.out' }],
   }));
 
@@ -142,7 +142,7 @@ export default function chapter(P) {
     in: { preset: 'rise', duration: 0.6, ease: 'power3.out' }, stagger: { each: 0.09 },
     styleFor: p => (p.text === 'TEXT' ? { fill: C.red } : {}) });
   const cursor = { type: 'shape', shape: 'rect', name: 'cursor', at: 1.0, width: 16, height: 88, anchorX: 0, anchorY: 0.5,
-    initial: { x: 96 + headW.width + 22, y: HEAD_Y + headW.height / 2, fillColor: C.red },
+    initial: { x: 96 + headW.width + 22, y: HEAD_Y + headW.height / 2, fill: C.red },
     keyframes: P.react(env, { duration: D - 1.0, audioOffset: phase + 1.0, props: { alpha: { base: 0.2, amount: 0.8, beats: true, decay: 0.3 } } }) };
   const first = pad.filter(e => tOf(e.beat) <= 0.6).pop() ?? pad[0];
   const chord = { type: 'text', name: 'chord', text: first ? first.name : '', style: mono(96, C.bone, { fontWeight: 'bold' }), at: 0.9,
@@ -172,7 +172,7 @@ export default function chapter(P) {
       P.bg(C.ink),
       ...P.tag('09', 'SOUND', 'the music under this reel is text, drawn as it plays'),
       ...Object.entries(LANE).filter(([n]) => n !== 'lead').map(([n, y]) => ({ type: 'shape', shape: 'rect', name: `hair-${n}`, width: X1 - X0, height: 2,
-        anchorX: 0, anchorY: 0.5, initial: { x: X0, y: y + 40, fillColor: C.bone, alpha: 0.06 } })),
+        anchorX: 0, anchorY: 0.5, initial: { x: X0, y: y + 40, fill: C.bone, alpha: 0.06 } })),
       { type: 'shape', shape: 'rect', name: 'roll-window', width: X1 - X0, height: 640, anchorX: 0, anchorY: 0,
         initial: { x: X0, y: 284, fillGradient: { angle: 90, stops: [[0, 'rgba(255,255,255,0)'], [0.06, 'rgba(255,255,255,1)'], [0.94, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']] } } },
       { type: 'composition', name: 'roll', width: 6000, height: 1080, mask: { layer: 'roll-window', channel: 'alpha' },

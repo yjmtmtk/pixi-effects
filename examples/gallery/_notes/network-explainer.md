@@ -57,10 +57,10 @@ function sampled(dur, fn, lag = 0, FPS = 30) {                                  
 const p0 = [250, 311], c = [490, 241], p2 = [730, 311];                          // quadratic arc, left -> right
 const at = u => [(1-u)**2*p0[0] + 2*(1-u)*u*c[0] + u*u*p2[0], (1-u)**2*p0[1] + 2*(1-u)*u*c[1] + u*u*p2[1]];
 return [
-  { type: 'shape', shape: 'path', d: `M ${p0} Q ${c} ${p2}`.replaceAll(',', ' '), initial: { strokeColor: '#f0533f', strokeWidth: 3.5 },
-    mask: { type: 'shape', shape: 'rect', width: 0, height: 160, anchorX: 0, initial: { x: p0[0] - 8, y: 300, fillColor: '#fff' },
+  { type: 'shape', shape: 'path', d: `M ${p0} Q ${c} ${p2}`.replaceAll(',', ' '), initial: { stroke: '#f0533f', strokeWidth: 3.5 },
+    mask: { type: 'shape', shape: 'rect', width: 0, height: 160, anchorX: 0, initial: { x: p0[0] - 8, y: 300, fill: '#fff' },
             keyframes: sampled(0.8, u => ({ width: at(u)[0] - p0[0] + 8 })) } },
-  { type: 'shape', shape: 'circle', radius: 9, duration: 0.85, initial: { x: p0[0], y: p0[1], fillColor: '#f0533f' },
+  { type: 'shape', shape: 'circle', radius: 9, duration: 0.85, initial: { x: p0[0], y: p0[1], fill: '#f0533f' },
     keyframes: sampled(0.8, u => ({ x: at(u)[0], y: at(u)[1] })) },
 ];
 ```

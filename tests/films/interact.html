@@ -21,10 +21,10 @@
     window.fire = (type, x, y) => { const r = canvas.getBoundingClientRect(); canvas.dispatchEvent(new PointerEvent(type, { clientX: r.left + x * r.width / 480, clientY: r.top + y * r.height / 270, bubbles: type !== 'pointerleave', pointerId: 1 })); };
     await movie.init({ canvas, width: 480, height: 270, duration: 4, frameRate: 30, loop: true, background: '#102040', vars: { cx: 100, cy: 100 },
       composition: { sequences: [
-        { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1c2b4d' } },
-        { type: 'shape', shape: 'rect', name: 'zone', width: 140, height: 140, initial: { x: 380, y: 200, anchorX: 0.5, anchorY: 0.5, fillColor: '#2a3a66' } },
-        { type: 'shape', shape: 'rect', name: 'runner', width: 60, height: 30, initial: { x: 60, y: 40, anchorX: 0.5, anchorY: 0.5, fillColor: '#d96a3a' }, keyframes: [{ at: 0, to: { x: 420 }, duration: 3, ease: 'none' }] },
-        { type: 'shape', shape: 'rect', name: 'card', width: 100, height: 60, initial: { x: 'cx', y: 'cy', anchorX: 0.5, anchorY: 0.5, fillColor: '#f2c14e' } },
+        { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1c2b4d' } },
+        { type: 'shape', shape: 'rect', name: 'zone', width: 140, height: 140, initial: { x: 380, y: 200, anchorX: 0.5, anchorY: 0.5, fill: '#2a3a66' } },
+        { type: 'shape', shape: 'rect', name: 'runner', width: 60, height: 30, initial: { x: 60, y: 40, anchorX: 0.5, anchorY: 0.5, fill: '#d96a3a' }, keyframes: [{ at: 0, to: { x: 420 }, duration: 3, ease: 'none' }] },
+        { type: 'shape', shape: 'rect', name: 'card', width: 100, height: 60, initial: { x: 'cx', y: 'cy', anchorX: 0.5, anchorY: 0.5, fill: '#f2c14e' } },
       ] } });
     movie.pause();
 

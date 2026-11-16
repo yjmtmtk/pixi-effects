@@ -34,7 +34,7 @@
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 4, frameRate: 30,
         composition: { sequences: [
-          { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#102040' } },
+          { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#102040' } },
           { type: 'text', text: 'hello', name: 'title', at: 1, duration: 2, style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
             keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.3 }] },
           { type: 'audio', name: 'pad', volume: 0.8, music: { bpm: 120, tracks: [{ inst: 'pad', notes: 'c3:8', attack: 0.01 }] } },

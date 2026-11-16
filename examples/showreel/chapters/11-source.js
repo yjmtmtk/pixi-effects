@@ -15,7 +15,7 @@ export default function chapter(P) {
     '    { "at": 0.6, "from": { "y": 600 }, "to": { "y": 540, "alpha": 1 }, "duration": 0.8, "ease": "power3.out" }', '  ],', '  "threeD": true', '},',
     '{', '  "type": "light",', '  "kind": "spot",', '  "castsShadows": true,', '  "initial": { "x": 400, "y": 200, "z": 600, "intensity": 1.2, "coneAngle": 40 }', '},',
     '{', '  "type": "audio",', '  "sfx": "swoosh",', '  "at": 2.4,', '  "volume": 0.4', '},', '{', '  "type": "shape",', '  "shape": "arc",', '  "radius": 200,',
-    '  "startAngle": -90,', '  "endAngle": -90,', '  "strokeCap": "round",', '  "initial": { "x": 960, "y": 540, "strokeColor": "#ff5a36", "strokeWidth": 24 },',
+    '  "startAngle": -90,', '  "endAngle": -90,', '  "strokeCap": "round",', '  "initial": { "x": 960, "y": 540, "stroke": "#ff5a36", "strokeWidth": 24 },',
     '  "keyframes": [{ "at": 1, "to": { "endAngle": 270 }, "duration": 2, "ease": "power2.inOut" }]', '},',
     '{', '  "type": "shader",', '  "name": "field",', '  "fragment": "void mainImage(out vec4 fragColor, in vec2 fragCoord) { vec2 uv = fragCoord / iResolution.xy; …",',
     '  "uniforms": { "speed": 1, "tint": "#38c8ff" }', '},',
@@ -46,7 +46,7 @@ export default function chapter(P) {
   const wall = {
     type: 'composition', name: 'wall', width: 1920, height: TOP + contentH + 200, at: 0, duration: 5.6, sequences: wallLayers,
     initial: { x: 0, y: 0 },
-    mask: { type: 'shape', shape: 'rect', width: 1728, height: VIEW, anchorX: 0, anchorY: 0, initial: { x: X0, y: TOP, fillColor: '#ffffff' } },
+    mask: { type: 'shape', shape: 'rect', width: 1728, height: VIEW, anchorX: 0, anchorY: 0, initial: { x: X0, y: TOP, fill: '#ffffff' } },
     keyframes: [
       { at: 0.6, to: { y: -SCROLL }, duration: 2.7, ease: 'power2.in' },
       { at: 3.3, to: { y: -SCROLL - 600 }, duration: 2.3, ease: 'none' },
@@ -57,13 +57,13 @@ export default function chapter(P) {
   const fade = (name, y, stops) => ({ type: 'shape', shape: 'rect', name, width: 1728, height: 150, anchorX: 0, anchorY: 0, at: 0, duration: 5.6,
     fillGradient: { type: 'linear', angle: 180, stops }, initial: { x: X0, y } });
   const readHead = { type: 'shape', shape: 'rect', name: 'read-head', width: 1728, height: LH + 8, anchorX: 0, anchorY: 0.5, at: 0, duration: 3.5,
-    initial: { x: X0, y: 540, fillColor: C.ink2, alpha: 0 }, keyframes: [{ at: 0.6, to: { alpha: 1 }, duration: 0.4 }, { at: 3.25, to: { alpha: 0 }, duration: 0.2 }] };
+    initial: { x: X0, y: 540, fill: C.ink2, alpha: 0 }, keyframes: [{ at: 0.6, to: { alpha: 1 }, duration: 0.4 }, { at: 3.25, to: { alpha: 0 }, duration: 0.2 }] };
   const linesLabel = { type: 'text', name: 'lines-label', text: `${num(lineCount)} lines`, style: { fontSize: 34, fill: C.dim, fontFamily: F.mono, letterSpacing: 2 },
     at: 0, duration: 3.5, initial: { x: 1824, y: 84, anchorX: 1, anchorY: 0.5, alpha: 0 },
     keyframes: [{ at: 0.7, to: { alpha: 1 }, duration: 0.5 }, { at: 3.25, to: { alpha: 0 }, duration: 0.2 }] };
   // a veil over the wall under the numbers (one layer, so the wall dims as one picture)
   const veil = { type: 'shape', shape: 'rect', name: 'veil', width: 1920, height: 1080, anchorX: 0, anchorY: 0, at: 3.3, duration: D - 3.3,
-    initial: { x: 0, y: 0, fillColor: C.ink, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.85 }, duration: 0.25 }, { at: 2, to: { alpha: 1 }, duration: 0.3 }] };
+    initial: { x: 0, y: 0, fill: C.ink, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.85 }, duration: 0.25 }, { at: 2, to: { alpha: 1 }, duration: 0.3 }] };
 
   // ---- beat 2: three numbers --------------------------------------------------------------------------------------------------------
   const numStyle = { fontSize: 170, fill: C.bone, fontFamily: F.display };
@@ -95,7 +95,7 @@ export default function chapter(P) {
     { type: 'text', name: 'cmd', text: 'npm i pixi-effects', style: cmdStyle, at: LOCK_AT, duration: D - LOCK_AT,
       initial: { x: 960, y: 450, anchorX: 0.5, anchorY: 0.5 }, keyframes: rise(450, 60, 0) },
     { type: 'shape', shape: 'rect', name: 'cursor', width: Math.round(charW * 92 / FS * 0.9), height: 96, anchorX: 0, anchorY: 0.5, at: LOCK_AT, duration: D - LOCK_AT,
-      initial: { x: 960 + cmdW / 2 + 22, y: 450, fillColor: C.red, alpha: 0 }, keyframes: [{ at: 0.5, to: { alpha: 1 }, duration: 0.2 }] },
+      initial: { x: 960 + cmdW / 2 + 22, y: 450, fill: C.red, alpha: 0 }, keyframes: [{ at: 0.5, to: { alpha: 1 }, duration: 0.2 }] },
     { type: 'text', name: 'url', text: 'github.com/yjmtmtk/pixi-effects', style: { fontSize: 48, fill: C.dim, fontFamily: F.mono, letterSpacing: 1 }, at: LOCK_AT + 0.15, duration: D - LOCK_AT - 0.15,
       initial: { x: 960, y: 590, anchorX: 0.5, anchorY: 0.5 }, keyframes: rise(590, 40, 0) },
     { type: 'text', name: 'status', text: 'experimental · pre-1.0 · MIT', style: { fontSize: 44, fill: C.bone, fontFamily: F.mono, letterSpacing: 4 }, at: LOCK_AT + 0.3, duration: D - LOCK_AT - 0.3,

@@ -14,12 +14,12 @@
     import { Movie } from '../../dist/index.js';
     const movie = new Movie();
     window.movie = movie;
-    const stripes = Array.from({ length: 60 }, (_, i) => ({ type: 'shape', shape: 'rect', width: 4, height: 270, initial: { x: i * 8 + 2, y: 135, fillColor: '#ffffff' } }));
+    const stripes = Array.from({ length: 60 }, (_, i) => ({ type: 'shape', shape: 'rect', width: 4, height: 270, initial: { x: i * 8 + 2, y: 135, fill: '#ffffff' } }));
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 1, frameRate: 30, background: '#000000',
         composition: { sequences: [
           ...stripes,
-          { type: 'shape', shape: 'rect', name: 'panel', width: 240, height: 150, initial: { x: 240, y: 135, fillColor: '#ffffff', fillAlpha: 0.05 }, filters: [{ type: 'backdropBlur', strength: 8 }] },
+          { type: 'shape', shape: 'rect', name: 'panel', width: 240, height: 150, initial: { x: 240, y: 135, fill: '#ffffff', fillAlpha: 0.05 }, filters: [{ type: 'backdropBlur', strength: 8 }] },
         ] } });
       window.backend = () => movie.app.renderer.name;
       window.contrast = async (x0, x1, y) => { const img = await movie.snapshot(0, { as: 'imageData' }); let lo = 255, hi = 0; for (let x = x0; x < x1; x++) { const v = img.data[(y * img.width + x) * 4]; lo = Math.min(lo, v); hi = Math.max(hi, v); } return hi - lo; };

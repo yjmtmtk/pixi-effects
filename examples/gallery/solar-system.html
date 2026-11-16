@@ -218,11 +218,11 @@
         const stop = STOPS.find(s => s.id === p.id);
         ringSeqs.push({
           type: 'shape', shape: 'circle', name: 'ring-' + p.id, radius: p.orbit * PN,
-          initial: { x: PC, y: PC, fillAlpha: 0, strokeColor: C.ring, strokeWidth: 1.4 * PN, strokeAlpha: 0.26, alpha: 0 },
+          initial: { x: PC, y: PC, fillAlpha: 0, stroke: C.ring, strokeWidth: 1.4 * PN, strokeAlpha: 0.26, alpha: 0 },
           keyframes: [
             { at: 0.25 + i * 0.12, to: { alpha: 1 }, duration: 0.9, ease: 'power3.out' },
-            ...(stop ? [{ at: stop.arrive - 0.6, to: { strokeAlpha: 0.5, strokeColor: '#c7d6f2' }, duration: 0.6, ease: 'power2.inOut' },
-                        { at: stop.depart, to: { strokeAlpha: 0.26, strokeColor: C.ring }, duration: 0.6, ease: 'power2.inOut' }] : []),
+            ...(stop ? [{ at: stop.arrive - 0.6, to: { strokeAlpha: 0.5, stroke: '#c7d6f2' }, duration: 0.6, ease: 'power2.inOut' },
+                        { at: stop.depart, to: { strokeAlpha: 0.26, stroke: C.ring }, duration: 0.6, ease: 'power2.inOut' }] : []),
           ],
         });
       });
@@ -231,7 +231,7 @@
       for (let i = 0; i < 420; i++) {
         const a = rnd() * Math.PI * 2, r = (272 + (rnd() + rnd() + rnd()) / 3 * 60) * PN;
         dots.push({ type: 'shape', shape: 'circle', radius: (0.7 + Math.pow(rnd(), 2) * 1.9) * PN,
-          initial: { x: PC + r * Math.cos(a), y: PC + r * Math.sin(a), fillColor: rnd() < 0.5 ? '#b8ad9c' : '#8e97ab', fillAlpha: 0.35 + rnd() * 0.5 } });
+          initial: { x: PC + r * Math.cos(a), y: PC + r * Math.sin(a), fill: rnd() < 0.5 ? '#b8ad9c' : '#8e97ab', fillAlpha: 0.35 + rnd() * 0.5 } });
       }
       ringSeqs.push({ type: 'composition', name: 'belt', width: P, height: P,
         initial: { x: PC, y: PC, pivotX: PC, pivotY: PC, rotation: 0, alpha: 0 },
@@ -262,11 +262,11 @@
       const shade = sampled(t => { let r = shadeRot(t); if (prev !== null) r += 360 * Math.round((prev - r) / 360); prev = r; return { rotation: r }; }, 0, DURATION, 0.1);
       const kids = [];
       const ringBand = (half) => [[2.25, 0.5, 0.2, 0.55, '#d9c9a0'], [1.72, 0.38, 0.32, 0.75, '#efe1bd']].map(([a, b, sw, al, col]) => half
-        ? { type: 'shape', shape: 'path', d: `M ${cx - a * NR} ${cy} A ${a * NR} ${b * NR} 0 0 0 ${cx + a * NR} ${cy}`, initial: { fillAlpha: 0, strokeColor: col, strokeWidth: sw * NR, strokeAlpha: al } }
-        : { type: 'shape', shape: 'ellipse', radiusX: a * NR, radiusY: b * NR, initial: { x: cx, y: cy, fillAlpha: 0, strokeColor: col, strokeWidth: sw * NR, strokeAlpha: al * 0.8 } });
+        ? { type: 'shape', shape: 'path', d: `M ${cx - a * NR} ${cy} A ${a * NR} ${b * NR} 0 0 0 ${cx + a * NR} ${cy}`, initial: { fillAlpha: 0, stroke: col, strokeWidth: sw * NR, strokeAlpha: al } }
+        : { type: 'shape', shape: 'ellipse', radiusX: a * NR, radiusY: b * NR, initial: { x: cx, y: cy, fillAlpha: 0, stroke: col, strokeWidth: sw * NR, strokeAlpha: al * 0.8 } });
       if (ringed) kids.push(...ringBand(false));
       kids.push({ type: 'shape', shape: 'circle', radius: NR, initial: { x: cx, y: cy }, fillGradient: fill });
-      if (p.bands) kids.push({ type: 'shape', shape: 'ellipse', radiusX: NR * 0.2, radiusY: NR * 0.11, initial: { x: cx + NR * 0.28, y: cy + NR * 0.3, fillColor: '#c46a46', fillAlpha: 0.85 } });
+      if (p.bands) kids.push({ type: 'shape', shape: 'ellipse', radiusX: NR * 0.2, radiusY: NR * 0.11, initial: { x: cx + NR * 0.28, y: cy + NR * 0.3, fill: '#c46a46', fillAlpha: 0.85 } });
       kids.push({ type: 'shape', shape: 'circle', radius: NR + 1, name: p.id + '-shade',
         initial: { x: cx, y: cy, ...shade.initial }, keyframes: shade.keyframes,
         fillGradient: { angle: 90, stops: [[0, 'rgba(3,5,12,0)'], [0.42, 'rgba(3,5,12,0.05)'], [0.7, 'rgba(3,5,12,0.75)'], [1, 'rgba(3,5,12,0.92)']] } });
@@ -307,7 +307,7 @@
       seqs.push(text(s.id + '-name', p.name, LX - 4, 270, { fontSize: 74, fontWeight: '200', letterSpacing: 1 },
         { at, duration: dur, initial: { anchorY: 0.5, alpha: 0 }, keyframes: kf(0.06, 284, 270) }));
       seqs.push({ type: 'shape', shape: 'rect', name: s.id + '-rule', width: 300, height: 1, anchorX: 0, at, duration: dur,
-        initial: { x: LX, y: 326, fillColor: C.ring, fillAlpha: 0.7, scaleX: 0 },
+        initial: { x: LX, y: 326, fill: C.ring, fillAlpha: 0.7, scaleX: 0 },
         keyframes: [{ at: 0.15, to: { scaleX: 1 }, duration: 0.7, ease: 'power3.inOut' }, { at: -0.35, to: { alpha: 0 }, duration: 0.3, ease: 'power2.in' }] });
       s.facts.forEach(([label, fmt, value, decimals], k) => {
         const y = 356 + k * 64, d = 0.25 + k * 0.1;
@@ -323,7 +323,7 @@
     {
       const at = STOPS[0].depart + 0.35, dur = STOPS[1].arrive - 0.45 - at;
       seqs.push({ type: 'shape', shape: 'rect', name: 'belt-tick', width: 28, height: 1, anchorX: 0, at, duration: dur,
-        initial: { x: 72, y: 612, fillColor: C.amber, scaleX: 0 },
+        initial: { x: 72, y: 612, fill: C.amber, scaleX: 0 },
         keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.4, ease: 'power3.out' }, { at: -0.3, to: { alpha: 0 }, duration: 0.3, ease: 'power2.in' }] });
       seqs.push(text('belt-caption', 'CROSSING THE ASTEROID BELT  ·  2.2 – 3.2 AU', 112, 612, { fontFamily: MONO, fontSize: 12, letterSpacing: 3, fill: C.muted },
         { at, duration: dur, initial: { anchorY: 0.5, alpha: 0 },

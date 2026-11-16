@@ -185,9 +185,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
   it('particles, grain on a child, a camera with a threeD card stay frame-exact in a reversed and a doubled composition, in every seek order', async () => {
     await withPage(async (cdp) => {
       const content = `[
-        { type: 'shape', shape: 'rect', name: 'film', width: 320, height: 180, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#303040' }, filters: [{ type: 'grain', amount: 0.3, fps: 30, seed: 5 }] },
+        { type: 'shape', shape: 'rect', name: 'film', width: 320, height: 180, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#303040' }, filters: [{ type: 'grain', amount: 0.3, fps: 30, seed: 5 }] },
         ...particles({ count: 40, at: 0.2, life: [1, 1.6], area: { x: 160, y: 90 }, angle: [0, 360], speed: [40, 120], seed: 3, size: [3, 5], colors: ['#ff7a00', '#ffd23f'] }),
-        { type: 'shape', shape: 'rect', name: 'card', threeD: true, width: 80, height: 50, initial: { x: 160, y: 90, z: 0, fillColor: '#2f6bff' }, keyframes: [{ at: 0, to: { rotationY: 60 }, duration: 3 }] },
+        { type: 'shape', shape: 'rect', name: 'card', threeD: true, width: 80, height: 50, initial: { x: 160, y: 90, z: 0, fill: '#2f6bff' }, keyframes: [{ at: 0, to: { rotationY: 60 }, duration: 3 }] },
         { type: 'camera', name: 'cam', keyframes: [{ at: 0, to: { z: 400 }, duration: 3 }] },
       ]`;
       for (const c of [{ speed: -1, map: '(t => 4 - t)', len: 4 }, { speed: 2, map: '(t => 2 * t)', len: 8 }]) {
@@ -207,7 +207,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
   it('motion blur of a reversed composition equals the blur of the plain one at the mapped time (up to the order the samples are summed)', async () => {
     await withPage(async (cdp) => {
       const mb = '{ samples: 8, shutter: 0.5 }';
-      const move = `[{ type: 'shape', shape: 'rect', width: 40, height: 40, initial: { x: 40, y: 90, fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { x: 280 }, duration: 4, ease: 'none' }] }]`;
+      const move = `[{ type: 'shape', shape: 'rect', width: 40, height: 40, initial: { x: 40, y: 90, fill: '#ffffff' }, keyframes: [{ at: 0, to: { x: 280 }, duration: 4, ease: 'none' }] }]`;
       await cdp.eval(`mk({ duration: 4, motionBlur: ${mb}, composition: { sequences: [{ type: 'composition', duration: 4, sequences: ${move} }] } })`);
       const plain: Record<number, string> = {};
       for (const f of [30, 60, 90]) plain[f] = await cdp.eval(`snap(${f})`);

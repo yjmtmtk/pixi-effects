@@ -88,7 +88,7 @@
 
     const rect = (name, o) => ({
       type: 'shape', shape: 'rect', name, width: o.w, height: o.h, anchorX: o.ax ?? 0.5, anchorY: o.ay ?? 0.5, ...life(o),
-      initial: { x: o.x, y: o.y, fillColor: o.fill, ...(o.initial || {}) },
+      initial: { x: o.x, y: o.y, fill: o.fill, ...(o.initial || {}) },
       keyframes: o.keyframes || [],
     });
 
@@ -124,9 +124,9 @@
       const R = 820, ease = 'power2.in';
       return [
         { type: 'shape', shape: 'circle', name, radius: 0, at, duration: DURATION - at,
-          initial: { x: W / 2, y: H / 2, fillColor: color }, keyframes: [{ at: 0, to: { radius: R }, duration: WIPE, ease }] },
+          initial: { x: W / 2, y: H / 2, fill: color }, keyframes: [{ at: 0, to: { radius: R }, duration: WIPE, ease }] },
         { type: 'shape', shape: 'circle', name: name + '-ring', radius: 0, at, duration: WIPE + F,
-          initial: { x: W / 2, y: H / 2, fillColor: color, fillAlpha: 0, strokeColor: ACCENT, strokeWidth: 26 },
+          initial: { x: W / 2, y: H / 2, fill: color, fillAlpha: 0, stroke: ACCENT, strokeWidth: 26 },
           keyframes: [{ at: 0, to: { radius: R }, duration: WIPE, ease }] },
       ];
     }

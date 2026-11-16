@@ -140,27 +140,27 @@ describe('ShapeSequence — geometry routing', () => {
 });
 
 describe('ShapeSequence — initial style', () => {
-  it('fillColor only: emits .fill() with that colour, no .stroke()', async () => {
+  it('fill only: emits .fill() with that colour, no .stroke()', async () => {
     await build({
       type: 'shape', shape: 'circle', radius: 20, duration: 1,
-      initial: { fillColor: '#ff3344' },
+      initial: { fill: '#ff3344' },
     });
     expect(calls.find(c => c.method === 'fill')?.args[0]).toEqual({ color: '#ff3344', alpha: 1 });
     expect(calls.some(c => c.method === 'stroke')).toBe(false);
   });
 
-  it('strokeColor with strokeWidth: emits .stroke() with full opts', async () => {
+  it('stroke with strokeWidth: emits .stroke() with full opts', async () => {
     await build({
       type: 'shape', shape: 'rect', width: 50, height: 50, duration: 1,
-      initial: { strokeColor: '#fff', strokeWidth: 4, strokeAlpha: 0.5 },
+      initial: { stroke: '#fff', strokeWidth: 4, strokeAlpha: 0.5 },
     });
     expect(calls.find(c => c.method === 'stroke')?.args[0]).toEqual({ color: '#fff', alpha: 0.5, width: 4 });
   });
 
-  it('strokeColor without width: skips .stroke() (a 0-width stroke is invisible)', async () => {
+  it('stroke without width: skips .stroke() (a 0-width stroke is invisible)', async () => {
     await build({
       type: 'shape', shape: 'rect', width: 50, height: 50, duration: 1,
-      initial: { strokeColor: '#fff' },
+      initial: { stroke: '#fff' },
     });
     expect(calls.some(c => c.method === 'stroke')).toBe(false);
   });
@@ -168,10 +168,20 @@ describe('ShapeSequence — initial style', () => {
   it('fill + stroke together: emits both', async () => {
     await build({
       type: 'shape', shape: 'rect', width: 50, height: 50, duration: 1,
-      initial: { fillColor: 0x3399ff, fillAlpha: 0.8, strokeColor: 0xffffff, strokeWidth: 2 },
+      initial: { fill: 0x3399ff, fillAlpha: 0.8, stroke: 0xffffff, strokeWidth: 2 },
     });
     expect(calls.find(c => c.method === 'fill')?.args[0]).toEqual({ color: 0x3399ff, alpha: 0.8 });
     expect(calls.find(c => c.method === 'stroke')?.args[0]).toEqual({ color: 0xffffff, alpha: 1, width: 2 });
+  });
+
+  it('the forms PixiJS and SVG write: stroke: { color, width, alpha }, fill: { color, alpha }, and \'none\'', async () => {
+    await build({ type: 'shape', shape: 'rect', width: 50, height: 50, duration: 1, initial: { fill: { color: '#ff0000', alpha: 0.5 }, stroke: { color: '#ffffff', width: 3 } } });
+    expect(calls.find(c => c.method === 'fill')?.args[0]).toEqual({ color: '#ff0000', alpha: 0.5 });
+    expect(calls.find(c => c.method === 'stroke')?.args[0]).toEqual({ color: '#ffffff', alpha: 1, width: 3 });
+    calls.length = 0;
+    await build({ type: 'shape', shape: 'rect', width: 50, height: 50, duration: 1, initial: { fill: 'none', stroke: '#fff', strokeWidth: 2 } });
+    expect(calls.some(c => c.method === 'fill')).toBe(false);
+    expect(calls.some(c => c.method === 'stroke')).toBe(true);
   });
 
   it('no style: draws geometry but never fills or strokes', async () => {
@@ -184,21 +194,21 @@ describe('ShapeSequence — initial style', () => {
 
 describe('ShapeSequence — anchor', () => {
   it('rect default anchor (0.5, 0.5) draws the rect centred on the local origin', async () => {
-    await build({ type: 'shape', shape: 'rect', width: 100, height: 50, duration: 1, initial: { fillColor: '#fff' } });
+    await build({ type: 'shape', shape: 'rect', width: 100, height: 50, duration: 1, initial: { fill: '#fff' } });
     // No anchor specified → x = -0.5 * 100 = -50, y = -0.5 * 50 = -25.
     const rect = calls.find(c => c.method === 'rect');
     expect(rect?.args).toEqual([-50, -25, 100, 50]);
   });
 
   it('rect anchorX:0 draws from the local origin rightward (x=0)', async () => {
-    await build({ type: 'shape', shape: 'rect', width: 100, height: 50, anchorX: 0, duration: 1, initial: { fillColor: '#fff' } });
+    await build({ type: 'shape', shape: 'rect', width: 100, height: 50, anchorX: 0, duration: 1, initial: { fill: '#fff' } });
     const rect = calls.find(c => c.method === 'rect');
     // anchorX:0 → x = -0 * 100 = 0; anchorY default 0.5 → y = -25.
     expect(rect?.args).toEqual([0, -25, 100, 50]);
   });
 
   it('rect anchorX:1 draws to the LEFT of the origin (x = -width)', async () => {
-    await build({ type: 'shape', shape: 'rect', width: 100, height: 50, anchorX: 1, duration: 1, initial: { fillColor: '#fff' } });
+    await build({ type: 'shape', shape: 'rect', width: 100, height: 50, anchorX: 1, duration: 1, initial: { fill: '#fff' } });
     const rect = calls.find(c => c.method === 'rect');
     expect(rect?.args).toEqual([-100, -25, 100, 50]);
   });
@@ -206,7 +216,7 @@ describe('ShapeSequence — anchor', () => {
   it('progress-bar pattern: width animates 0 → W with anchorX:0; live state reflects the live width', async () => {
     const seq = await build({
       type: 'shape', shape: 'rect', width: 0, height: 18, anchorX: 0, duration: 4,
-      initial: { x: 0, y: 0, fillColor: '#5599ff' },
+      initial: { x: 0, y: 0, fill: '#5599ff' },
       keyframes: [{ at: 0, to: { width: 200 }, duration: 1, ease: 'none' }],
     });
     const tl = createTimeline({ paused: true });
@@ -228,7 +238,7 @@ describe('ShapeSequence — anchor', () => {
 
   it('anchored shapes (rect/circle/ellipse) skip the build-time auto-pivot', async () => {
     nextBounds = { x: 10, y: 20, width: 80, height: 60 };
-    await build({ type: 'shape', shape: 'rect', width: 80, height: 60, duration: 1, initial: { fillColor: '#fff' } });
+    await build({ type: 'shape', shape: 'rect', width: 80, height: 60, duration: 1, initial: { fill: '#fff' } });
     // Without anchor, default 0.5/0.5 still draws around origin → bounds
     // would be symmetric. But even if bounds aren't symmetric (mocked here),
     // we deliberately skip the auto-pivot for anchored shape kinds.
@@ -241,7 +251,7 @@ describe('ShapeSequence — geometry animation', () => {
   it('circle radius is keyframable; onRender re-issues the new radius', async () => {
     const seq = await build({
       type: 'shape', shape: 'circle', radius: 50, duration: 5,
-      initial: { fillColor: '#fff' },
+      initial: { fill: '#fff' },
       keyframes: [
         { at: 0, to: { radius: 100 }, duration: 1, ease: 'none' },
       ],
@@ -267,7 +277,7 @@ describe('ShapeSequence — geometry animation', () => {
       type: 'shape', shape: 'rect',
       width: 100, height: 50, cornerRadius: 0,
       duration: 5,
-      initial: { fillColor: '#fff' },
+      initial: { fill: '#fff' },
       keyframes: [
         { at: 0, to: { width: 200, height: 100, cornerRadius: 20 }, duration: 1, ease: 'none' },
       ],
@@ -284,7 +294,7 @@ describe('ShapeSequence — geometry animation', () => {
   it('ellipse radiusX / radiusY animate', async () => {
     const seq = await build({
       type: 'shape', shape: 'ellipse', radiusX: 80, radiusY: 30, duration: 5,
-      initial: { fillColor: '#fff' },
+      initial: { fill: '#fff' },
       keyframes: [
         { at: 0, to: { radiusX: 40, radiusY: 60 }, duration: 1, ease: 'none' },
       ],
@@ -305,7 +315,7 @@ describe('ShapeSequence — keyframe chaining', () => {
   it('a strokeWidth tween chained 4→8→4 stays continuous (no snap-back)', async () => {
     const seq = await build({
       type: 'shape', shape: 'circle', radius: 30, duration: 5,
-      initial: { strokeColor: '#fff', strokeWidth: 4 },
+      initial: { stroke: '#fff', strokeWidth: 4 },
       keyframes: [
         { at: 0, to: { strokeWidth: 8 }, duration: 1, ease: 'none' },
         { at: 1, to: { strokeWidth: 4 }, duration: 1, ease: 'none' },
@@ -325,21 +335,21 @@ describe('ShapeSequence — keyframe chaining', () => {
   it('a colour tween chained #cc66ff → #88ccff → #cc66ff sweeps both directions', async () => {
     const seq = await build({
       type: 'shape', shape: 'circle', radius: 30, duration: 5,
-      initial: { strokeColor: '#cc66ff', strokeWidth: 4 },
+      initial: { stroke: '#cc66ff', strokeWidth: 4 },
       keyframes: [
-        { at: 0, to: { strokeColor: '#88ccff' }, duration: 1, ease: 'none' },
-        { at: 1, to: { strokeColor: '#cc66ff' }, duration: 1, ease: 'none' },
+        { at: 0, to: { stroke: '#88ccff' }, duration: 1, ease: 'none' },
+        { at: 1, to: { stroke: '#cc66ff' }, duration: 1, ease: 'none' },
       ],
     });
 
     const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl);
-    const state = (seq as unknown as { _state: { strokeColor: string } })._state;
+    const state = (seq as unknown as { _state: { stroke: string } })._state;
 
     // Spot-check: the second tween's midpoint must NOT equal the start
     // colour — it should be midway back from #88ccff toward #cc66ff.
-    tl.time(1);   const peak = state.strokeColor;
-    tl.time(1.5); const back = state.strokeColor;
+    tl.time(1);   const peak = state.stroke;
+    tl.time(1.5); const back = state.stroke;
     expect(back).not.toBe(peak);
     expect(back).not.toBe('#cc66ff');
   });
@@ -353,14 +363,14 @@ describe('ShapeSequence — animated style', () => {
   it('onRender re-issues geometry + fill/stroke from the live _state', async () => {
     const seq = await build({
       type: 'shape', shape: 'circle', radius: 30, duration: 1,
-      initial: { fillColor: '#ff0000', strokeColor: '#ffffff', strokeWidth: 2 },
+      initial: { fill: '#ff0000', stroke: '#ffffff', strokeWidth: 2 },
     });
     const g = (seq as unknown as { target: { onRender: () => void } }).target;
-    const state = (seq as unknown as { _state: { fillColor: unknown; strokeWidth: number } })._state;
-    expect(state.fillColor).toBe('#ff0000');
+    const state = (seq as unknown as { _state: { fill: unknown; strokeWidth: number } })._state;
+    expect(state.fill).toBe('#ff0000');
 
     calls.length = 0;
-    state.fillColor = '#00ff00';
+    state.fill = '#00ff00';
     g.onRender();
 
     // Re-issued: clear → geometry → fill (with new colour) → stroke.
@@ -373,7 +383,7 @@ describe('ShapeSequence — animated style', () => {
   it('onRender skips stroke when strokeWidth is 0 (live)', async () => {
     const seq = await build({
       type: 'shape', shape: 'rect', width: 40, height: 40, duration: 1,
-      initial: { fillColor: '#444', strokeColor: '#fff', strokeWidth: 4 },
+      initial: { fill: '#444', stroke: '#fff', strokeWidth: 4 },
     });
     const g = (seq as unknown as { target: { onRender: () => void } }).target;
     const state = (seq as unknown as { _state: { strokeWidth: number } })._state;
@@ -414,7 +424,7 @@ describe('a path with fillRule "evenodd": the biggest sub-path is filled and the
   const D = 'M 0 0 L 100 0 L 100 100 L 0 100 Z M 25 25 L 75 25 L 75 75 L 25 75 Z';
   const run = async (extra: Record<string, unknown>) => {
     calls.length = 0;
-    const seq = new ShapeSequence({ type: 'shape', shape: 'path', d: D, initial: { fillColor: '#ffcc00' }, ...extra } as unknown as ShapeSequenceSpec, root, root);
+    const seq = new ShapeSequence({ type: 'shape', shape: 'path', d: D, initial: { fill: '#ffcc00' }, ...extra } as unknown as ShapeSequenceSpec, root, root);
     await seq.build();
     calls.length = 0;
     (seq as unknown as { _redraw(): void })._redraw();
@@ -427,7 +437,7 @@ describe('a path with fillRule "evenodd": the biggest sub-path is filled and the
   });
 
   it('with a stroke the cut comes between the fill and the stroke (PIXI\'s cut only reaches the last instruction), and the stroke goes round the shape and the hole', async () => {
-    const seen = await run({ fillRule: 'evenodd', initial: { fillColor: '#ffcc00', strokeColor: '#ffffff', strokeWidth: 4 } });
+    const seen = await run({ fillRule: 'evenodd', initial: { fill: '#ffcc00', stroke: '#ffffff', strokeWidth: 4 } });
     expect(seen).toEqual(['clear', 'GraphicsPath:M 0 0 L 100 0 L 100 100 L 0 100 Z', 'path', 'fill', 'beginPath', 'GraphicsPath:M 25 25 L 75 25 L 75 75 L 25 75 Z', 'path', 'cut',
       'beginPath', 'GraphicsPath:M 0 0 L 100 0 L 100 100 L 0 100 Z', 'path', 'GraphicsPath:M 25 25 L 75 25 L 75 75 L 25 75 Z', 'path', 'stroke']);
   });

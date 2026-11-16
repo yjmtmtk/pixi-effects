@@ -65,24 +65,24 @@
         const h = 620 + Math.floor(rnd() * 760), w = 380, x = W / 2 + side * (150 + w / 2 + (row % 3) * 10);
         const tone = 28 + Math.floor(rnd() * 26);
         buildings.push({ type: 'shape', shape: 'rect', name: `b${row}${side}`, width: w, height: h, threeD: true, hideBehindCamera: true,
-          initial: { x, y: BASE - h / 2, z, fillColor: `rgb(${tone}, ${tone + 6}, ${tone + 22})` } });
+          initial: { x, y: BASE - h / 2, z, fill: `rgb(${tone}, ${tone + 6}, ${tone + 22})` } });
         // 2 columns × 4 rows of windows on the street-facing part of the facade
         for (let c = 0; c < 2; c++) for (let r = 0; r < 4; r++) {
           if (rnd() < 0.3) continue;
           windows.push({ type: 'shape', shape: 'rect', width: 44, height: 62, threeD: true, hideBehindCamera: true,
-            initial: { x: x - side * (w / 2 - 70 - c * 90), y: BASE - 110 - r * 120, z: z + 1, fillColor: '#ffd98a', alpha: `${glow(rnd() * 3)} * ${(0.65 + rnd() * 0.35).toFixed(2)}` } });
+            initial: { x: x - side * (w / 2 - 70 - c * 90), y: BASE - 110 - r * 120, z: z + 1, fill: '#ffd98a', alpha: `${glow(rnd() * 3)} * ${(0.65 + rnd() * 0.35).toFixed(2)}` } });
         }
       }
       // a lamp on each side every second row
       if (row % 2 === 0) for (const side of [-1, 1]) {
         const x = W / 2 + side * 128;
-        lamps.push({ type: 'shape', shape: 'rect', width: 8, height: 190, threeD: true, hideBehindCamera: true, initial: { x, y: BASE - 95, z: z + 140, fillColor: '#2c3140' } });
-        lamps.push({ type: 'shape', shape: 'circle', radius: 30, threeD: true, hideBehindCamera: true, initial: { x, y: BASE - 200, z: z + 141, fillColor: '#ffe9a8', alpha: 'smoothstep(0.35, 0.6, scroll)' } });
+        lamps.push({ type: 'shape', shape: 'rect', width: 8, height: 190, threeD: true, hideBehindCamera: true, initial: { x, y: BASE - 95, z: z + 140, fill: '#2c3140' } });
+        lamps.push({ type: 'shape', shape: 'circle', radius: 30, threeD: true, hideBehindCamera: true, initial: { x, y: BASE - 200, z: z + 141, fill: '#ffe9a8', alpha: 'smoothstep(0.35, 0.6, scroll)' } });
       }
     }
     const stars = Array.from({ length: 46 }, () => ({ type: 'shape', shape: 'circle', radius: 1.4 + rnd() * 1.6,
-      initial: { x: rnd() * W, y: rnd() * HORIZON * 0.9, fillColor: '#ffffff', alpha: `smoothstep(0.5, 0.8, scroll) * ${(0.4 + rnd() * 0.6).toFixed(2)}` } }));
-    const cloud = (x, y, s, dur) => ({ type: 'shape', shape: 'ellipse', radiusX: 120 * s, radiusY: 34 * s, initial: { x, y, fillColor: '#ffffff', alpha: '0.85 - smoothstep(0.3, 0.7, scroll) * 0.6' },
+      initial: { x: rnd() * W, y: rnd() * HORIZON * 0.9, fill: '#ffffff', alpha: `smoothstep(0.5, 0.8, scroll) * ${(0.4 + rnd() * 0.6).toFixed(2)}` } }));
+    const cloud = (x, y, s, dur) => ({ type: 'shape', shape: 'ellipse', radiusX: 120 * s, radiusY: 34 * s, initial: { x, y, fill: '#ffffff', alpha: '0.85 - smoothstep(0.3, 0.7, scroll) * 0.6' },
       keyframes: [{ at: 0, to: { x: x + 260 }, duration: dur, ease: 'none', repeat: 0 }] });
     const caption = (text, a, b, c, d) => ({ type: 'text', text, style: { fontFamily: FONT, fontSize: 46, fontWeight: '800', fill: '#ffffff', stroke: { color: '#00000066', width: 6 } },
       initial: { x: W / 2, y: 120, anchorX: 0.5, anchorY: 0.5, alpha: `smoothstep(${a}, ${b}, scroll) * (1 - smoothstep(${c}, ${d}, scroll))` } });
@@ -92,8 +92,8 @@
       { type: 'shape', shape: 'rect', name: 'day', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, fillGradient: { stops: [[0, '#6ab7ff'], [0.5, '#ffd9a3']] } },
       { type: 'shape', shape: 'rect', name: 'night', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', alpha: 'smoothstep(0.3, 0.75, scroll)' }, fillGradient: { stops: [[0, '#070b24'], [0.55, '#43296b']] } },
       ...stars,
-      { type: 'shape', shape: 'circle', name: 'sun', radius: 70, initial: { x: 880, y: '190 + scroll * 240', fillColor: '#fff3c4', alpha: '1 - smoothstep(0.25, 0.55, scroll)' } },
-      { type: 'shape', shape: 'circle', name: 'moon', radius: 52, initial: { x: 420, y: '330 - smoothstep(0.5, 1, scroll) * 190', fillColor: '#f4f1e6', alpha: 'smoothstep(0.5, 0.8, scroll)' } },
+      { type: 'shape', shape: 'circle', name: 'sun', radius: 70, initial: { x: 880, y: '190 + scroll * 240', fill: '#fff3c4', alpha: '1 - smoothstep(0.25, 0.55, scroll)' } },
+      { type: 'shape', shape: 'circle', name: 'moon', radius: 52, initial: { x: 420, y: '330 - smoothstep(0.5, 1, scroll) * 190', fill: '#f4f1e6', alpha: 'smoothstep(0.5, 0.8, scroll)' } },
       cloud(160, 140, 1, 14), cloud(700, 90, 0.8, 18), cloud(1000, 200, 1.2, 16),
       { type: 'shape', shape: 'rect', name: 'floor', width: 'GW', height: 'GH - 360', initial: { x: 'GW/2', y: 360 + (H - 360) / 2 }, fillGradient: { stops: [[0, '#2a2e3d'], [1, '#12141c']] } },
 

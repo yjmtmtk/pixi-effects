@@ -103,7 +103,7 @@ A video is data: `sequences` (text, shape, image, video, audio, composition, cam
 ```js
 // @recipe quickstart
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#10162b' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#10162b' } },
   { type: 'text', text: 'Hello', at: 0.3, duration: 4, style: { fontSize: 140, fill: '#ffffff', fontWeight: '800' },
     initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
     keyframes: [{ at: 0, from: { y: 'GH/2 + 40', alpha: 0 }, to: { y: 'GH/2', alpha: 1 }, duration: 0.6, ease: 'power3.out' }] },
@@ -136,7 +136,7 @@ A video is **data**: a tree of plain objects. Everything below is a JS object yo
 | Angles | **degrees**: `rotation`, `skew*`, `rotationX`, `rotationY` |
 | Depth (`z`) | `+z` toward the viewer (bigger, nearer) |
 | Numbers | any number may be an **expression string**: `'GW/2 - w/2'`, `'min(W,H)*0.4'` (build-time only; no per-frame time variable). Functions: `min max abs floor ceil round sqrt pow sin cos tan lerp clamp smoothstep mod step`, `PI`, and **seeded** `rand(seed)` (0…1) / `noise(x, seed)` (−1…1): give each layer its own seed, never `Math.random()`. **Relative values** work in a keyframe's `to` / `from` / `set` (not in `initial`, a style, or the start of a `from`+`to`): `'+=36'` / `'-=36'` are measured from where the layer stands, and the right side is an expression (`'-=GW*0.1'`). A slide-in is `from: { x: '-=36' }`, a nudge `to: { y: '+=40' }`; keyframes one after another stack; with `repeat` the same move replays from the same start (it does not stack). Expressions work in layer `x y` and the other numeric props, **not** in `line.from / to`, `polygon.points` or `path.d`: compute those in JS (`const W = 1920`) |
-| Colours | `'#rrggbb'` strings or numbers; text colour is `style.fill` (or `initial: { fill }`; a `fill` keyframe animates it), shape colour is `fillColor`/`strokeColor`, image colour is `tint` |
+| Colours | `'#rrggbb'` strings or numbers; text colour is `style.fill` (or `initial: { fill }`; a `fill` keyframe animates it), shape colour is `fill` / `stroke` (as SVG and CSS; `stroke: { color, width }` and `'none'` work too), image colour is `tint` |
 | Z-order | **array order**, later = on top. A layer is hidden (not removed) outside `[at, at+duration)` and keeps its last values |
 | Time of a sequence's `at` | seconds from the start of its **parent composition** (default 0) |
 | `from` before its `at` | a keyframe's `from` holds **from the start of the layer**, not from its `at` (so a title waits invisible with `from: { alpha: 0 }`), and it replaces `initial`: `initial: { alpha: 0 }` with `{ at: 2, from: { alpha: 1 }, … }` shows the layer at alpha 1 from 0 s. To appear only at 2 s give the layer `at: 2`, or start from the same value in both |
@@ -156,7 +156,7 @@ Operators `+ - * /`, parentheses, unary `-`. Functions `min max abs floor ceil r
 | `w`, `h` | this layer's own size (image/video natural size, text size **after** its style is applied, shape bounds) |
 | `cover`, `contain` | scale that makes the layer cover / fit the parent (`scale: 'cover'`) |
 | `t`, `d`, `T` | layer start time, layer duration, parent duration |
-| your own names | `movie.init({ vars: { shift: 0, title: 'NORD' } })`: a number is a name in an expression (`'W/2 + shift'`), any value is `{title}` inside a string (`text: '{title}'`, `fillColor: '{accent}'`). Reserved: the names above, `value`, the functions, `PI`. `await movie.setVars({ shift: 40 })` builds again at the same frame; `await movie.resize(w, h)` makes `W` / `H` follow a window. `render --var title=SÜD --size 1080x1920`, `check --size 1920x1080,1080x1920` |
+| your own names | `movie.init({ vars: { shift: 0, title: 'NORD' } })`: a number is a name in an expression (`'W/2 + shift'`), any value is `{title}` inside a string (`text: '{title}'`, `fill: '{accent}'`). Reserved: the names above, `value`, the functions, `PI`. `await movie.setVars({ shift: 40 })` builds again at the same frame; `await movie.resize(w, h)` makes `W` / `H` follow a window. `render --var title=SÜD --size 1080x1920`, `check --size 1920x1080,1080x1920` |
 
 ## Common fields (every layer)
 
@@ -171,7 +171,7 @@ threeD: true                          // opt into 2.5D (see below)
 blendMode: 'normal' | 'add' | 'screen' | 'multiply' | 'overlay' | 'soft-light' | 'hard-light' | 'color-dodge' | 'color-burn' | 'darken' | 'lighten' | 'difference' | 'exclusion' | 'hue' | 'saturation' | 'color' | 'luminosity' | 'linear-burn'   // CSS names (hyphenated); blends with EVERYTHING BELOW the layer; add / screen brighten (glows), multiply darkens, soft-light / overlay for colour casts and contrast, color-dodge for light sources; on a composition the composition blends as one picture (its children are drawn normally inside it); the 14 new ones cost ~2 ms a layer on WebGL (10+ on screen warns)
 ```
 
-Animatable props (`initial` / keyframes): `x y alpha rotation scale scaleX scaleY pivotX pivotY anchorX anchorY skewX skewY tint width height visible autoAlpha` (and PixiJS's own shorthands `anchor pivot skew`; a place is always `x` / `y`), plus for shapes their style/geometry, for text `fill`, for audio `volume`, for 3D `z rotationX rotationY`, filter params as `'filters.<name>.<param>'`, objects of a scene as `'scene3d.<obj>.<path>'` / `'scene2d.<obj>.<path>'`. A mistyped property in `initial` or a keyframe says `layer "x": "alhpa" is not an animatable property — did you mean "alpha"? (in initial, set, to or from)` (once per layer however often it is written); a mistyped text style key says `layer "t": style.fontsize is not a text style key — did you mean "fontSize"? (it is ignored). Keys: …` and lists the valid keys (`style.colour` / `style.color` mean `fill`). **These go in `initial` / keyframes, never at the top level of a shape or text layer** (top-level `x`, `rotation`, `strokeColor`, `fillAlpha` each warn `layer "dot": "x" is a property, not a rect shape key, so it is ignored: write it in initial (initial: { x: 40 }) or in a keyframe`; every warning of this kind names the layer, or says "unnamed <type> layer"): the top level of a shape holds its geometry (`width height radius d startAngle endAngle cornerRadius anchorX anchorY`), `trimStart` / `trimEnd`, `strokeCap` / `strokeJoin`, `fillGradient`.
+Animatable props (`initial` / keyframes): `x y alpha rotation scale scaleX scaleY pivotX pivotY anchorX anchorY skewX skewY tint width height visible autoAlpha` (and PixiJS's own shorthands `anchor pivot skew`; a place is always `x` / `y`), plus for shapes their style/geometry, for text `fill`, for audio `volume`, for 3D `z rotationX rotationY`, filter params as `'filters.<name>.<param>'`, objects of a scene as `'scene3d.<obj>.<path>'` / `'scene2d.<obj>.<path>'`. A mistyped property in `initial` or a keyframe says `layer "x": "alhpa" is not an animatable property — did you mean "alpha"? (in initial, set, to or from)` (once per layer however often it is written); a mistyped text style key says `layer "t": style.fontsize is not a text style key — did you mean "fontSize"? (it is ignored). Keys: …` and lists the valid keys (`style.colour` / `style.color` mean `fill`). **These go in `initial` / keyframes, never at the top level of a shape or text layer** (top-level `x`, `rotation`, `stroke`, `fillAlpha` each warn `layer "dot": "x" is a property, not a rect shape key, so it is ignored: write it in initial (initial: { x: 40 }) or in a keyframe`; every warning of this kind names the layer, or says "unnamed <type> layer"): the top level of a shape holds its geometry (`width height radius d startAngle endAngle cornerRadius anchorX anchorY`), `trimStart` / `trimEnd`, `strokeCap` / `strokeJoin`, `fillGradient`.
 
 Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate to), `from` (animate from), `from`+`to`; a value may be relative to where the layer stands (`from: { x: '-=36' }` slides in from 36 px to the left of its place). `from` / `from+to` show their start value from the layer's start, so a delayed fade-in needs no `initial.alpha`. `repeat` (finite extra plays), `yoyo`, `repeatDelay` loop any of them (endless repeats are not allowed: `repeat: -1` (the GSAP habit) is refused with a warning, write a count that covers the layer, `repeat: 40`; a `from` keyframe with a later `at` puts its start value on the layer from frame 0, the layer does not wait for the `at`). `ease` = an ease name (`'none'`, `'power2.out'`, `'expo.out'`, `'back.out(1.7)'`, `'elastic.out(1,0.5)'`, `'sine.inOut'`, `'bounce.out'`, **`'cubic-bezier(.4, 0, .2, 1)'`** (CSS syntax, x1 and x2 in 0…1; `.4, 0, .2, 1` is a gentle in-out; `.2, .8, .2, 1` is FRONT-LOADED, not slow motion: half of the change in the first 13 % of the time, 90 % by 39 %, 99 % by 74 %, then a long settle, so what sits at the END of the content gets the glide; `.2, .8, .5, 1` has a shorter tail; CSS's keywords `'ease'`, `'ease-in'`, `'ease-out'`, `'ease-in-out'` work too). `power1…4` are the powers 2…5: `power2` is a cubic, `power2.in` has done only 12.5 % at half time (42 % at three quarters)… and springs: `'spring(mass, stiffness, damping)'` or `'spring.gentle' | 'snappy' | 'bouncy' | 'wobbly' | 'slow'`; **`duration: 'auto'` = the time the spring takes to settle** (presets, settle time / highest value reached as a multiple of the target: `snappy` 0.42 s / 1.01, `gentle` 0.72 s / 1.02, `bouncy` 1.08 s / 1.28, `slow` 1.29 s / 1.00, `wobbly` 1.61 s / 1.40: time the next beat from these) (real physics; with a number `duration` is the settle time and only the damping ratio shapes it; a damping ratio of 1 or more never overshoots, so `spring(1,170,26)` does not bounce: use damping below 20 at stiffness 170; `'auto'` works on keyframes only, not in `animateText` / `orbit` tweens; a `stagger` ease may be a spring, its delays are held inside the spread). Default ease is linear; a name it does not know warns and runs linear too.
 
@@ -195,13 +195,13 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 | circle | `radius anchorX anchorY` |
 | ellipse | `radiusX radiusY anchorX anchorY` |
 | arc | `radius innerRadius startAngle endAngle` — degrees, **0° = 3 o'clock, clockwise**; centred on `x, y`; stroke only = an open arc line (`strokeCap: 'round'`), with a fill = a sector, with `innerRadius` = a donut slice; a sweep ≥ 360° = a full circle. A progress ring: `startAngle: -90` and animate `endAngle` from −90 to 270 |
-| line | `from: [x,y]  to: [x,y]` — plain canvas coordinates (omit `x,y`; if you give them they place the line's midpoint). Stroke in `initial`: `strokeColor`, `strokeWidth` |
+| line | `from: [x,y]  to: [x,y]` — plain canvas coordinates (omit `x,y`; if you give them they place the line's midpoint). Stroke in `initial`: `stroke`, `strokeWidth` |
 | polygon | `points: [[x,y],…]  open` — canvas coordinates like `line` |
 | path | `d` (SVG path data) — canvas coordinates like `line`; leave `x` / `y` out and it sits where `d` says; give them (even `y: 0`) and they place its MIDDLE, not an offset (measured: `y: 0` put a square's centre on the top edge). **Holes:** several sub-paths are each filled alone (a donut written as two circles is a disc) unless `fillRule: 'evenodd'`: the biggest is the shape, the others are holes. **Morph:** `morphTo: 'M…Z'` + animate `morph` 0 → 1 (points half way between, closed outlines lined up so they do not twist; `morphPoints` 8–2048; two outlines with the same number of corners are paired corner to corner, so a quad stays a sharp quad) |
 
 **Draw-on:** every shape but `arc` has `trimStart` / `trimEnd` (0–1 of the outline, default 0 / 1, animatable): `trimEnd: 0` + keyframe `to: { trimEnd: 1 }` draws a line / border / path on; `trimStart` 0 → 1 after it wipes it off; both = a travelling dash. The fill is NOT trimmed. Rect outline starts top-left, circle / ellipse at 12 o'clock, both clockwise. A `path` with several sub-paths walks them in order as one length; `trimEach: true` trims each on its own (all draw on together). Use `strokeCap: 'round'`. **Dashes:** there is no dash option; write the outline as alternating sub-paths (`d: 'M 0 0 L 10 0 M 20 0 L 30 0 …'`, or sample the curve) and `trimEnd` 0 → 1 walks them in order, so the dashes draw on one after another (as in `route-atlas`).
 
-Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, CSS degrees: DEFAULT 180 = to the bottom, 90 = to the right, 0 = to the top: a wide gradient slid sideways as a matte needs angle: 0 */, center?, innerRadius?, radius? /* radial, 0–1 of the SHAPE's own bounds, not the canvas: a glow on a 1500 px circle is placed with fractions of that circle */ }` — stops may have alpha, so a radial transparent→dark is a vignette. **Animate it** with a partial gradient in a keyframe (`to: { fillGradient: { angle: 90, stops: [...] } }`: keys you leave out stay; the same number of stops; `type` cannot change; a start gradient is required; use `colorSpace: 'oklch'` for a vivid fade). A text layer takes `fillGradient` too (LINEAR only: angle and stops; type / center / radius are ignored with a warning; letters re-rasterised per change). `from` alone runs from that gradient to the layer's own. The names `'fillGradient.angle'` / `gradientAngle` are not properties: write `fillGradient: { angle }`. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
+Style (`initial` / keyframes): `fill fillAlpha stroke strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fill`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, CSS degrees: DEFAULT 180 = to the bottom, 90 = to the right, 0 = to the top: a wide gradient slid sideways as a matte needs angle: 0 */, center?, innerRadius?, radius? /* radial, 0–1 of the SHAPE's own bounds, not the canvas: a glow on a 1500 px circle is placed with fractions of that circle */ }` — stops may have alpha, so a radial transparent→dark is a vignette. **Animate it** with a partial gradient in a keyframe (`to: { fillGradient: { angle: 90, stops: [...] } }`: keys you leave out stay; the same number of stops; `type` cannot change; a start gradient is required; use `colorSpace: 'oklch'` for a vivid fade). A text layer takes `fillGradient` too (LINEAR only: angle and stops; type / center / radius are ignored with a warning; letters re-rasterised per change). `from` alone runs from that gradient to the layer's own. The names `'fillGradient.angle'` / `gradientAngle` are not properties: write `fillGradient: { angle }`. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
 
 **components** (root) + **`use`** + **`params`** — a composition written once (`components: { card: { params: { title: 'x' }, width, height, sequences } }`) and placed many times (`{ use: 'card', params: { title: 'A' }, at, initial }`); params read like variables: `{title}` in strings, a number param as a word in expressions.
 
@@ -408,7 +408,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 48. **A composition's `alpha` fades it as one picture** (since 0.53; before, it was applied to each child and an overlap showed through). The one exception: a composition whose layers blend with what is behind it (a `blendMode` or `backdropBlur` inside, none of its own) gives its alpha to each layer, so a glow keeps glowing (pitfall 79). Expressions have no way to read a sibling's size: measure text with `canvas.measureText` (the font string Pixi uses) and compute pill widths in JS. *(docs)*
 49. **sfx timing and level.** An sfx layer's `duration` is the sound's length (it stretches, it does not trim). Align the loud point: a `riser` peaks at its end, a `swoosh` 0.16 s in. Many sounds at the same instant add up: above 0.9 the mix is limited and a warning names the layers to turn down. Preset names, knobs and voice fields are closed lists — a guess (`whoosh`, `ding`, `impact`, `sawtooth`, `lp`, `decay`) warns with the right word. *(fixed: warns)*
 50. **An image (or video) works as a mask, inverted too** *(fixed)*: PIXI hides a sprite mask with `renderable = false` and the lifespan toggles used to switch it back on, so the mask picture was drawn over the layer (a white disc) and an inverted mask looked ignored. Use the picture's alpha (or red channel) as the shape: an opaque word or logo on a transparent canvas image is a text-shaped mask with real glyph edges. A `text` layer also works as a mask (cut to its glyphs; measured with a heavy sans `I`). *(docs / fixed)*
-51. **Arcs and rings are `shape: 'arc'`** (`radius`, `innerRadius`, `startAngle`, `endAngle`, degrees; 0° = 3 o'clock, clockwise). A progress ring is an arc with `startAngle: -90` and an animated `endAngle` (−90 → 270); `strokeCap: 'round'` rounds BOTH ends. Fill it for a pie slice, add `innerRadius` for a donut slice (a 120-polygon donut is no longer needed). Style (`strokeColor`, `strokeWidth`, `fillColor`) goes in `initial`; `strokeCap` / `strokeJoin` may be top level. *(fixed)*
+51. **Arcs and rings are `shape: 'arc'`** (`radius`, `innerRadius`, `startAngle`, `endAngle`, degrees; 0° = 3 o'clock, clockwise). A progress ring is an arc with `startAngle: -90` and an animated `endAngle` (−90 → 270); `strokeCap: 'round'` rounds BOTH ends. Fill it for a pie slice, add `innerRadius` for a donut slice (a 120-polygon donut is no longer needed). Style (`stroke`, `strokeWidth`, `fill`) goes in `initial`; `strokeCap` / `strokeJoin` may be top level. *(fixed)*
 52. **Measure and split text with `measureText` / `splitText`, not by hand.** `splitText(text, style, { by, x, y, align })` returns each piece's x / y / width in the renderer's own font metrics (kerning kept; verified: a whole line vs the same line in per-letter layers differs only by anti-aliasing). The pieces are for text layers with the default top-left anchor and the same `style`. Load a web font before measuring (`await document.fonts.load('24px "Name"')`) or the fallback font's widths are used. Size a pill from `measureText(...).width + padding` instead of `0.58 × fontSize × length`. *(fixed)*
 53. **Draw-on and typewriter need no masks or per-letter layers.** `trimStart` / `trimEnd` (0–1 of the outline, animatable, every shape but `arc`) draw a stroke on: `trimEnd: 0` plus a keyframe `to: { trimEnd: 1 }`. The fill is not trimmed, so fade `fillAlpha` in afterwards; use `strokeCap: 'round'`. Text changes over time with `set: { text }` (swap at a time) and `visibleChars` (typewriter; left-align it so it grows rightward). A `to: { text }` cannot tween a string and warns. *(fixed)*
 54. **A deck page lasts until its last stop plus the transition.** `deck()` lays pages out one after another in page-local time and a `transition` overlaps them: a page shorter than its last stop (or shorter than the transition) loses its final step or flashes. A step is a layer that starts at the previous stop (`at: <previous stop>`), so the thing that appears on a press is fully visible when the movie stops. The transition option is `kind`, not `type`. If the last stop is mid-exit on paper, flag the stop you want in the PDF: `{ at, pdf: true }` (in `deck()`: `stops: [1.2, { at: 3, pdf: true }]`), and `pdf: false` keeps one out.
@@ -455,7 +455,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 95. **A `color-dodge` leak over a dark picture is a muddy red disc.** Dodge divides each channel of near-black separately, red first. Cut the dodge to the bright subject with a matte (`mask: 'letters'`, a matte-only copy of the word) and put the warm haze in a separate `screen` radial.
 96. **A filter option that is a point (`rgbSplit.red`, `glitch` offsets) is tweened one leaf at a time** (`'filters.s.red.x'`; the whole point as a value switches, it does not tween), and a scalar too: `set: { 'filters.tear.seed': n }` steps `glitch.seed` (a `set` keyframe works on filter options; no warning, visible tearing). To switch between looks on one subject, put the subject in time-windowed `composition` copies, each carrying the filters of its look.
 97. **A deck inside your own composition loses its `transitions` and `stops`** unless you take them across: `const d = deck({ width: 1920, height: 1080, pages })`, then `{ type: 'composition', sequences: d.composition.sequences, transitions: d.composition.transitions }`. Pass `width` / `height` yourself for a page that is not the movie's own size.
-98. **A matte layer needs a fill.** A named matte (`mask: 'glass'`) that is a shape with no `fillColor` / `fillGradient` (or a text with no fill) cuts everything away and nothing warns: the layers it should show simply vanish. Give the matte a fill (white for `alpha`, a gradient for `luma`).
+98. **A matte layer needs a fill.** A named matte (`mask: 'glass'`) that is a shape with no `fill` / `fillGradient` (or a text with no fill) cuts everything away and nothing warns: the layers it should show simply vanish. Give the matte a fill (white for `alpha`, a gradient for `luma`).
 99. **In a `music` score a capital letter is a chord and a lowercase one a note.** `G7` is G dominant seventh, `C5` a power chord, `C6` a sixth chord; `g7`, `c5`, `c6` are notes (octave 7 is a very high note: it used to be what `G7` meant, silently). A bare note in capitals (`Bb2`) is refused with the lowercase spelling (`bb2`); inside brackets (`[C4 E4 G4]`) any case is a note. An unknown chord kind suggests the nearest (`Cmin7` → `Cm7`, `Csus` → `Csus4`, `CM7` → `Cmaj7`).
 100. **Read the score back before you trust it.** `check` prints a `music` block: every track's length in bars (a track that ends early or has a short bar is named), the names that start in each bar with their beat (`Am(2)` starts on beat 2; no mark = the downbeat; the first four names of a bar are shown, `musicEvents()` lists everything), and the drum span. Count bars by the read-back, not by hand: a bar of 3 beats in a score with no `meter` is shown as bars of 4, so set `meter: 3` for a waltz. Drums repeat by themselves and `from` / `to` are beats; `swing` only moves notes that start off the beat, so a comp on beats 2 and 4 stays straight.
 101. **A film built from one adjective looks like every other one.** Read `reference/direction.md` and write `brief.md` / `style-guide.md` / `shotlist.md` first: real assets with paths, the one sentence to remember, a row per beat with entry and exit state. If a real asset is missing, ask: a drawn fake (a logo, a dashboard, a figure) is the failure that matters. Judge the contact sheet cold: three defects, each with a timestamp, evidence and a local fix.
@@ -483,7 +483,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 120. **Import `pixi-effects/3d` before `movie.init` and call `register3D()`.** PixiJS loads the 3D drawing code while its renderer starts; a scene3d layer built on a renderer that started before `@pixi/3d` was imported stops the build with `PixiJS 3D was loaded after the renderer started`. The import map needs `pixi-effects/3d`, `@pixi/3d` and `@pixi/3d/extras`, and `pixi.js` 8.23.0 or later. *(warns)*
 121. **`update(t)` sets everything from `t`.** `angle += 0.02` per call, a velocity carried from the last call, `Math.random()` or a clock draw a different picture in playback, a seek and an export; `check` draws the layer in two orders and names it. A model's clip: `model.player.getState(name).gotoAndStop(t % clip.animation.duration)` (a clip left playing with `autoPlay` is played on the layer's time by the layer). *(check catches it)*
 122. **Particle systems (`ParticleSystem3D`) and a `MotionBlurEffect` are not a function of the time.** Particle births add up from frame to frame (a seek does not reproduce them) and motion blur reads the camera of the frame drawn before. Keep particles in 2D (`particles()`) or drive a `ParticleContainer3D` from `t`; leave motion blur out of a scene3d layer. *(check catches it)*
-123. **An inline shape mask needs a `fillColor`.** A circle or rect with no fill masks out everything: the layer disappears without a word. Give the mask shape `initial: { fillColor: '#fff' }`. (Any layer, not only scene3d.)
+123. **An inline shape mask needs a `fill`.** A circle or rect with no fill masks out everything: the layer disappears without a word. Give the mask shape `initial: { fill: '#fff' }`. (Any layer, not only scene3d.)
 124. **`tint` does nothing on a scene3d layer** (PixiJS 3D draws its materials' colours): colour the materials, or put a filter on the layer. `alpha` and `blendMode` do work (the layer applies them). *(warns)*
 125. **PixiJS 3D's units are not pixels (unless the layer has `followCamera`).** The scene has its own units (a glTF is in metres: a fox is about 1.3 units long) and its own camera (`fov` in degrees, default 60, the camera looks down its `-z`); `width` / `height` only size the layer's rectangle. Place the camera with `camera.position.set(…)` and `camera.lookAt({ x, y, z })`; read a model's size with `model.getLocalBounds()` before scaling it.
 126. **A light is aimed by its rotation, a plane lies in XY.** `DirectionalLight` / `SpotLight` look down their local `-z` (`sun.rotation.set(-0.9, 0.6, 0)`, or `lookAt`); `PlaneGeometry` faces `+z`, so a floor is `rotation: { x: -Math.PI / 2, y: 0, z: 0 }`. A view's `toneMapping` is `'none'` by default: strong lights clip, use `view: { toneMapping: 'aces' }`.
@@ -523,7 +523,7 @@ Slam = big scale + tiny rotation easing out fast, plus a white flash rect on the
 const WORDS = [['KAFFE', '#ffd166'], ['NORD', '#ef476f'], ['ROAST', '#06d6a0']];
 const BEAT = 0.5;                                    // seconds per beat
 const sequences = [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#111111' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#111111' } },
 ];
 WORDS.forEach(([word, color], i) => {
   const at = i * BEAT * 2;
@@ -535,7 +535,7 @@ WORDS.forEach(([word, color], i) => {
   });
   sequences.push({                                   // white flash on the beat
     type: 'shape', shape: 'rect', width: 'GW', height: 'GH', at, duration: 0.3,
-    initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffffff', alpha: 0.8 },
+    initial: { x: 'GW/2', y: 'GH/2', fill: '#ffffff', alpha: 0.8 },
     keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.28 }],
   });
 });
@@ -554,10 +554,10 @@ A `mask` is a layer in the **parent's** coordinate space and does **not** move w
 // @recipe lower-third
 const bar = (name, y, w, h, color, at) => ({
   type: 'shape', shape: 'rect', name, width: w, height: h, anchorX: 0, at, duration: 3.6,
-  initial: { x: 80, y, fillColor: color },
+  initial: { x: 80, y, fill: color },
   mask: {
     type: 'shape', shape: 'rect', width: 0, height: h, anchorX: 0,
-    initial: { x: 80, y, fillColor: '#ffffff' },
+    initial: { x: 80, y, fill: '#ffffff' },
     keyframes: [
       { at: 0, to: { width: w }, duration: 0.5, ease: 'power3.out' },                    // reveal
       { at: -0.5, to: { x: 80 + w, width: 0 }, duration: 0.5, ease: 'power3.in' },        // exit
@@ -586,7 +586,7 @@ const components = {
     params: { name: 'Name', role: 'Role', accent: '#e63946', indent: 0 },     // the defaults
     width: 640, height: 110, duration: 3.5,
     sequences: [
-      { type: 'shape', shape: 'rect', name: 'bar', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fillColor: '{accent}', scaleY: 0 },
+      { type: 'shape', shape: 'rect', name: 'bar', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fill: '{accent}', scaleY: 0 },
         keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 0.4, ease: 'power3.out' }] },
       { type: 'text', name: 'name', text: '{name}', style: { fontSize: 40, fontWeight: 'bold', fill: '#ffffff' },
         initial: { x: '28 + indent', y: 34, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0.2, to: { alpha: 1 }, duration: 0.3 }] },
@@ -620,7 +620,7 @@ const components = {
     width: 360, height: 360, duration: 3,
     markers: { land: 0.5, leave: 2.4 },                       // its own seconds: where it lands and where it starts to leave
     sequences: [
-      { type: 'shape', shape: 'circle', name: 'disc', radius: 150, initial: { x: 180, y: 180, fillColor: '#e63946', scale: 0 },
+      { type: 'shape', shape: 'circle', name: 'disc', radius: 150, initial: { x: 180, y: 180, fill: '#e63946', scale: 0 },
         keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.5, ease: 'back.out(2)' }, { at: 2.4, to: { scale: 0 }, duration: 0.4, ease: 'power2.in' }] },
       { type: 'text', name: 'label', text: 'NEW', style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
         initial: { x: 180, y: 180, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
@@ -633,7 +633,7 @@ return {
   duration: 6,
   markers: { drop: 4.5 },                                     // a moment of the whole movie
   sequences: [
-    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d3557' } },
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1d3557' } },
     { use: 'badge', name: 'badge', at: 1, initial: { x: 'GW/2 - 180', y: 'GH/2 - 220' } },
     { type: 'audio', sfx: 'hit', at: 'badge@land' },                       // 1.5 s, and still on the landing if the badge moves to at: 2
     { type: 'audio', sfx: 'swoosh', at: 'badge@leave - 0.16' },            // a swoosh is loudest 0.16 s in
@@ -653,19 +653,19 @@ A spring overshoots and settles: `duration: 'auto'` lets the physics set the len
 ```js
 // @recipe spring-pop
 const card = { type: 'shape', shape: 'rect', name: 'card', width: 520, height: 300, cornerRadius: 28, at: 0.3, duration: 3.7,
-  initial: { x: 640, y: 360, fillColor: '#f4f1ea', scale: 0.4, alpha: 0 },
+  initial: { x: 640, y: 360, fill: '#f4f1ea', scale: 0.4, alpha: 0 },
   keyframes: [
     { at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.snappy' },
     { at: 0, to: { alpha: 1 }, duration: 0.2 },
   ] };
 const badge = { type: 'shape', shape: 'circle', name: 'badge', radius: 46, at: 1.0, duration: 3,
-  initial: { x: 860, y: 230, fillColor: '#e63946', scale: 0 },
+  initial: { x: 860, y: 230, fill: '#e63946', scale: 0 },
   keyframes: [{ at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.bouncy' }] };
 const title = { type: 'text', text: 'Hello', name: 'title', at: 0.5, duration: 3.5, style: { fontSize: 88, fontWeight: 'bold', fill: '#1d3557' },
   initial: { x: 640, y: 380, anchorX: 0.5, anchorY: 0.5 },
   keyframes: [{ at: 0, from: { y: 440, alpha: 0 }, to: { y: 380, alpha: 1 }, duration: 'auto', ease: 'spring(1, 170, 12)' }] };
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d3557' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1d3557' } },
   card, badge, title,
 ];
 ```
@@ -691,7 +691,7 @@ const act = {
   sequences: [
     // everything in here is in the composition's own seconds: 0 … 4.5
     { type: 'shape', shape: 'rect', name: 'bar', width: 'GW', height: 16, anchorX: 0, anchorY: 0, at: 0, duration: 4.5,
-      initial: { x: 0, y: 330, fillColor: '#ff4d3d', scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.8, ease: 'expo.out' }] },
+      initial: { x: 0, y: 330, fill: '#ff4d3d', scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.8, ease: 'expo.out' }] },
     { type: 'text', text: 'AGAIN.', name: 'title', at: 0.4, duration: 4.1, style: { fontSize: 150, fontWeight: 'bold', fill: '#f2efe8' },
       initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
       keyframes: [{ at: 0, from: { y: 430, alpha: 0 }, to: { y: 360, alpha: 1 }, duration: 0.9, ease: 'expo.out' }] },
@@ -699,7 +699,7 @@ const act = {
   ],
 };
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0b10' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0b0b10' } },
   act,
   // an overlay in the OUTER time: it shows while the act rewinds (2.7 s … 4 s of the movie)
   { type: 'text', text: '◀◀ REW', name: 'rew', at: 2.7, duration: 1.3, style: { fontSize: 36, fontWeight: 'bold', fill: '#ff4d3d' }, initial: { x: 60, y: 50 } },
@@ -735,11 +735,11 @@ return {
   sequences: [
     { type: 'composition', name: 'spinner', width: 200, height: 200, loop: true, frameRate: 12, initial: { x: 340, y: 260 }, sequences: [
       { type: 'shape', shape: 'arc', radius: 60, startAngle: 0, endAngle: 270, strokeCap: 'round',
-        initial: { x: 100, y: 100, strokeColor: '#ffd166', strokeWidth: 14 },
+        initial: { x: 100, y: 100, stroke: '#ffd166', strokeWidth: 14 },
         keyframes: [{ at: 0, to: { rotation: 360 }, duration: 1 }] },
     ] },
     { type: 'composition', name: 'bounce', width: 200, height: 240, loop: { duration: 1 }, initial: { x: 740, y: 240 }, sequences: [
-      { type: 'shape', shape: 'circle', radius: 24, initial: { x: 100, y: 200, fillColor: '#ef476f' },
+      { type: 'shape', shape: 'circle', radius: 24, initial: { x: 100, y: 200, fill: '#ef476f' },
         keyframes: [{ at: 0, to: { y: 60 }, duration: 0.5, ease: 'power2.out' }, { at: 0.5, to: { y: 200 }, duration: 0.5, ease: 'power2.in' }] },
     ] },
   ],
@@ -757,11 +757,11 @@ There is no second camera for flat scenes: the camera of the 2.5D layers is for 
 const R = 2;                                                  // the group grows to 2x: its text is drawn at 2x pixels
 const inWorld = (spec) => ({ parent: 'world', ...spec });
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } },
   { type: 'null', name: 'world', initial: { x: 'GW/2', y: 'GH/2' },
     keyframes: [{ at: 0.5, from: { scale: 1 }, to: { scale: R }, duration: 3.5, ease: 'power2.inOut' }] },
-  inWorld({ type: 'shape', shape: 'circle', radius: 120, initial: { x: 0, y: 0, fillColor: '#3b5bdb' } }),
-  inWorld({ type: 'shape', shape: 'circle', radius: 40, initial: { x: 260, y: -120, fillColor: '#ffd166' } }),
+  inWorld({ type: 'shape', shape: 'circle', radius: 120, initial: { x: 0, y: 0, fill: '#3b5bdb' } }),
+  inWorld({ type: 'shape', shape: 'circle', radius: 40, initial: { x: 260, y: -120, fill: '#ffd166' } }),
   inWorld({ type: 'text', text: 'Zoom in', resolution: R, style: { fontSize: 48, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } }),
   inWorld({ type: 'text', text: 'sharp at 2x', resolution: R, style: { fontSize: 22, fill: '#c9d3f5' }, initial: { x: 0, y: 150, anchorX: 0.5, anchorY: 0.5 } }),
 ];
@@ -781,12 +781,12 @@ const strip = (name, speed, gap, y, size, color) => {
   const count = Math.ceil((speed * D + W) / gap) + 1;
   return Array.from({ length: count }, (_, i) => ({
     type: 'shape', shape: 'rect', name: `${name}-${i}`, width: size, height: size * 2,
-    initial: { x: i * gap, y, fillColor: color },
+    initial: { x: i * gap, y, fill: color },
     keyframes: [{ at: 0, to: { x: i * gap - speed * D }, duration: D, ease: 'none' }],
   }));
 };
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b2a4a' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1b2a4a' } },
   ...strip('far', 30, 240, 420, 60, '#26365c'),               // distant hills: 30 px/s
   ...strip('mid', 120, 200, 500, 40, '#314a7a'),              // 120 px/s
   ...strip('near', 480, 360, 600, 24, '#0b1220'),             // poles: 480 px/s
@@ -807,7 +807,7 @@ An **afterimage** is drawn from the positions of the past, not from the last pic
 // @recipe canvas-trail
 const at = (t) => ({ x: 640 + 420 * Math.sin(t * 1.7), y: 360 + 200 * Math.sin(t * 2.9) });      // where the dot is at time t
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101420' } },
   { type: 'canvas', name: 'trail', duration: 6, params: { tail: 0.5 },
     draw: (ctx, t, info) => {
       const N = 14;
@@ -826,7 +826,7 @@ return [
 ```js
 // @recipe canvas-rings
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#efe9dc' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#efe9dc' } },
   { type: 'canvas', name: 'rings', width: 720, height: 720, duration: 8, seed: 3, params: { years: 0 },
     initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
     keyframes: [{ at: 0, to: { 'params.years': 40 }, duration: 8, ease: 'power1.inOut' }],
@@ -850,7 +850,7 @@ A **pixel sprite**: drawn small with `scaleMode: 'nearest'`, shown big (the laye
 // @recipe canvas-pixel-sprite
 const ROWS = ['..1111..', '.111111.', '11.11.11', '11111111', '.1.11.1.', '..1111..', '.1....1.', '1......1'];
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b1330' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1b1330' } },
   { type: 'canvas', name: 'sprite', width: 8, height: 8, scaleMode: 'nearest', duration: 8,
     initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5, scale: 30 },
     keyframes: [{ at: 0, from: { y: 300 }, to: { y: 420 }, duration: 8, ease: 'steps(16)' }],             // moves in whole steps
@@ -871,7 +871,7 @@ const step = (g) => g.map((row, y) => row.map((v, x) => {
   return n === 3 || (v && n === 2) ? 1 : 0;
 }));
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0f14' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0b0f14' } },
   { type: 'canvas', name: 'life', width: 960, height: 540, duration: 6, seed: 11, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
     setup: (info) => {
       let g = Array.from({ length: H }, () => Array.from({ length: W }, () => (info.random() < 0.3 ? 1 : 0)));
@@ -897,7 +897,7 @@ The `canvas` layer (see the section above and `help canvas`) is also where text 
 ```js
 // @recipe canvas-text-mask
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d0a14' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0d0a14' } },
   { type: 'canvas', name: 'window', width: 1100, height: 320, duration: 6, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
     setup: (info) => {                                                // the words, drawn once into a canvas of their own
       const word = info.canvas(1100, 320), c = word.getContext('2d');
@@ -924,7 +924,7 @@ return [
 const route = samplePath('M 140 560 C 340 120 940 120 1140 560');
 const WORD = 'ALONG THE CURVE', EASE = ease('power2.out');
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101420' } },
   { type: 'canvas', name: 'along', duration: 6,
     draw: (ctx, t) => {
       const run = EASE(Math.min(1, t / 3));                           // 0 → 1: the line draws on, then the letters settle
@@ -953,7 +953,7 @@ const NAMES = ['Oslo', 'Lima', 'Kyiv', 'Pune', 'Graz'], FROM = [40, 55, 30, 20, 
 const BAR = 90, GAP = 28, EASE = ease('power2.inOut');
 const valuesAt = (time) => FROM.map((a, i) => a + (TO[i] - a) * EASE(Math.min(1, Math.max(0, time) / 5)));
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101420' } },
   { type: 'canvas', name: 'race', width: 1000, height: 600, duration: 6, initial: { x: 140, y: 60 },
     draw: (ctx, t) => {
       const now = valuesAt(t), before = Array.from({ length: 8 }, (_, k) => valuesAt(t - k * 0.04));   // the last third of a second
@@ -1022,7 +1022,7 @@ const X0 = (1280 - (data.length * BAR_W + (data.length - 1) * GAP)) / 2, X1 = X0
 const sequences = [];
 for (let v = 0; v <= NICE; v += step) {                       // grid lines + tick labels
   const y = BASE - CHART_H * v / NICE;
-  sequences.push({ type: 'shape', shape: 'line', from: [X0 - 20, y], to: [X1 + 20, y], initial: { strokeColor: '#33405c', strokeWidth: 1 } });
+  sequences.push({ type: 'shape', shape: 'line', from: [X0 - 20, y], to: [X1 + 20, y], initial: { stroke: '#33405c', strokeWidth: 1 } });
   sequences.push({ type: 'text', text: String(v), style: { fontSize: 20, fill: '#7f8bb0' }, initial: { x: X0 - 32, y, anchorX: 1, anchorY: 0.5 } });
 }
 const best = data.findIndex(d => d[1] === max);
@@ -1032,10 +1032,10 @@ data.forEach(([label, value], i) => {
   const h = CHART_H * value / NICE;
   sequences.push({
     type: 'shape', shape: 'rect', width: BAR_W, height: 0, cornerRadius: 8, anchorY: 1, at, colorSpace: 'oklab',
-    initial: { x, y: BASE, fillColor: '#4f6df5' },
+    initial: { x, y: BASE, fill: '#4f6df5' },
     keyframes: [
       { at: 0, to: { height: h }, duration: DUR, ease: EASE },
-      ...(i === best ? [{ at: PEAK_AT - at, to: { fillColor: '#ffd166' }, duration: 0.5 }] : [{ at: PEAK_AT - at, to: { alpha: 0.45 }, duration: 0.5 }]),   // highlight the maximum at t = 4 s
+      ...(i === best ? [{ at: PEAK_AT - at, to: { fill: '#ffd166' }, duration: 0.5 }] : [{ at: PEAK_AT - at, to: { alpha: 0.45 }, duration: 0.5 }]),   // highlight the maximum at t = 4 s
     ],
   });
   sequences.push({                                            // value label: counts up while riding the bar's top
@@ -1049,9 +1049,9 @@ data.forEach(([label, value], i) => {
 // callout: a pill sized from its text (~0.58 x fontSize per glyph + padding), a pointer triangle, clamped inside the plot
 const text = 'Peak: ' + data[best][0] + ' ' + max, FS = 26;
 const PW = text.length * FS * 0.58 + 44, cx = Math.min(Math.max(X0 + best * (BAR_W + GAP) + BAR_W / 2, X0 + PW / 2), X1 - PW / 2), cy = BASE - CHART_H - 70;
-sequences.push({ type: 'shape', shape: 'rect', width: PW, height: 52, cornerRadius: 26, at: PEAK_AT + 0.2, initial: { x: cx, y: cy, fillColor: '#ffd166', alpha: 0 },
+sequences.push({ type: 'shape', shape: 'rect', width: PW, height: 52, cornerRadius: 26, at: PEAK_AT + 0.2, initial: { x: cx, y: cy, fill: '#ffd166', alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
-sequences.push({ type: 'shape', shape: 'polygon', points: [[-10, 0], [10, 0], [0, 12]], at: PEAK_AT + 0.2, initial: { x: cx, y: cy + 32, fillColor: '#ffd166', alpha: 0 },
+sequences.push({ type: 'shape', shape: 'polygon', points: [[-10, 0], [10, 0], [0, 12]], at: PEAK_AT + 0.2, initial: { x: cx, y: cy + 32, fill: '#ffd166', alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
 sequences.push({ type: 'text', text, at: PEAK_AT + 0.2, style: { fontSize: FS, fontWeight: 'bold', fill: '#1b1b2f' }, initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
@@ -1097,7 +1097,7 @@ return [
 // @recipe camera-orbit
 const card = (x, z, color) => ({
   type: 'shape', shape: 'rect', width: 300, height: 200, cornerRadius: 20, threeD: true,
-  initial: { x, y: 360, z, fillColor: color },
+  initial: { x, y: 360, z, fill: color },
 });
 return [
   orbit({ duration: 6, degrees: 50, dollyZoom: { from: 38, to: 62 } }),    // options: radius (not with dollyZoom), center, start, fov, ease
@@ -1119,7 +1119,7 @@ const card = (title, color, x, y, z, at) => ({
   type: 'composition', name: title, at, width: 300, height: 190, threeD: true,
   initial: { x, y, z, pivotX: 150, pivotY: 95 },                       // pivot = the centre, so x,y is where the centre sits
   sequences: [
-    { type: 'shape', shape: 'rect', width: 300, height: 190, cornerRadius: 24, initial: { x: 150, y: 95, fillColor: color } },
+    { type: 'shape', shape: 'rect', width: 300, height: 190, cornerRadius: 24, initial: { x: 150, y: 95, fill: color } },
     { type: 'text', text: title, style: { fontSize: 34, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 150, y: 95, anchorX: 0.5, anchorY: 0.5 } },
   ],
   keyframes: [
@@ -1145,9 +1145,9 @@ The outgoing scene must stay alive until the covering shape has finished; the ne
 // @recipe scene-flood
 const FLOOD_AT = 3, FLOOD = 0.6, END = 6;
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', duration: FLOOD_AT + FLOOD, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d2b53' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', duration: FLOOD_AT + FLOOD, initial: { x: 'GW/2', y: 'GH/2', fill: '#1d2b53' } },
   { type: 'text', text: 'BEFORE', duration: FLOOD_AT + FLOOD, style: { fontSize: 160, fontWeight: '900', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
-  { type: 'shape', shape: 'circle', radius: 0, at: FLOOD_AT, duration: END - FLOOD_AT, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffd166' },
+  { type: 'shape', shape: 'circle', radius: 0, at: FLOOD_AT, duration: END - FLOOD_AT, initial: { x: 'GW/2', y: 'GH/2', fill: '#ffd166' },
     keyframes: [{ at: 0, to: { radius: 820 }, duration: FLOOD, ease: 'power2.in' }] },
   { type: 'text', text: 'AFTER', at: FLOOD_AT + FLOOD, duration: END - FLOOD_AT - FLOOD, style: { fontSize: 160, fontWeight: '900', fill: '#1d2b53' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
     keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.25 }] },
@@ -1210,7 +1210,7 @@ A tune written as text: tracks of notes and chords (`c4:2`, `Am7:4`, `_` rest), 
 ```js
 // @recipe music-lofi
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b1a2e' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1b1a2e' } },
   { type: 'text', text: 'evening', at: 0.5, style: { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#f3eee4' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
     keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.2 }] },
   { type: 'audio', at: 0, volume: 0.8, music: {
@@ -1235,7 +1235,7 @@ No `assets`, no files: a sound effect is one audio layer with `sfx`. It lasts as
 ```js
 // @recipe sfx-minimal
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } },
   { type: 'text', name: 'word', text: 'HELLO', at: 2, duration: 3,
     style: { fontSize: 120, fontWeight: '900', fill: '#ffffff' },
     initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
@@ -1264,7 +1264,7 @@ Line up the LOUD point, not the start: a `riser` is loudest at its end (`at = hi
 
 ```js
 // @recipe sfx-cues
-const BG = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } };
+const BG = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } };
 const HIT = 1.5, RISE = 1.2;                         // the title slams in at 1.5 s; the riser leads into it
 const sequences = [BG,
   { type: 'audio', name: 'riser', sfx: 'riser', at: HIT - RISE, duration: RISE, volume: 0.7 },   // a riser is loudest at its END
@@ -1305,11 +1305,11 @@ return sequences;
 const CX = 640, CY = 360, R = 120, TO = 0.82;            // 82 % filled
 const EASE = 'power3.out', AT = 0.3, DUR = 2;
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } },
   { type: 'shape', shape: 'arc', name: 'track', radius: R, startAngle: 0, endAngle: 360,
-    initial: { x: CX, y: CY, strokeColor: '#27304d', strokeWidth: 24 } },
+    initial: { x: CX, y: CY, stroke: '#27304d', strokeWidth: 24 } },
   { type: 'shape', shape: 'arc', name: 'progress', radius: R, startAngle: -90, endAngle: -90, strokeCap: 'round',
-    initial: { x: CX, y: CY, strokeColor: '#ffd166', strokeWidth: 24 },
+    initial: { x: CX, y: CY, stroke: '#ffd166', strokeWidth: 24 },
     keyframes: [{ at: AT, to: { endAngle: -90 + 360 * TO }, duration: DUR, ease: EASE }] },
   { type: 'text', name: 'percent', text: '{value}%', format: { decimals: 0 },
     style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
@@ -1329,17 +1329,17 @@ return [
 const ACCENT = '#ffd166', TEAL = '#4cc9f0', GREEN = '#7bd88f';
 const drawOn = (at, duration = 1.2) => ({ at, to: { trimEnd: 1 }, duration, ease: 'power2.inOut' });
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0a0e1a' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0a0e1a' } },
   // an underline that draws itself
   { type: 'shape', shape: 'line', from: [340, 120], to: [940, 120], trimEnd: 0, strokeCap: 'round',
-    initial: { strokeColor: ACCENT, strokeWidth: 6 }, keyframes: [drawOn(0.2, 1)] },
+    initial: { stroke: ACCENT, strokeWidth: 6 }, keyframes: [drawOn(0.2, 1)] },
   // a card border (clockwise from the top-left), then its fill fades in
   { type: 'shape', shape: 'rect', width: 360, height: 200, cornerRadius: 28, trimEnd: 0, strokeJoin: 'round',
-    initial: { x: 400, y: 360, strokeColor: TEAL, strokeWidth: 8, fillColor: TEAL, fillAlpha: 0 },
+    initial: { x: 400, y: 360, stroke: TEAL, strokeWidth: 8, fill: TEAL, fillAlpha: 0 },
     keyframes: [drawOn(0.6, 1.4), { at: 2, to: { fillAlpha: 0.2 }, duration: 0.6 }] },
   // an SVG check mark
   { type: 'shape', shape: 'path', d: 'M 0 50 L 45 95 L 130 0', trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
-    initial: { x: 880, y: 360, strokeColor: GREEN, strokeWidth: 16 }, keyframes: [drawOn(1.8, 0.9)] },
+    initial: { x: 880, y: 360, stroke: GREEN, strokeWidth: 16 }, keyframes: [drawOn(1.8, 0.9)] },
   // a typewriter: left-aligned so it grows rightward; 30 characters over 2.4 s
   { type: 'text', text: 'No mask, no per-letter layers.', at: 3, duration: 5,
     style: { fontSize: 40, fill: '#e8eefc', fontFamily: 'ui-monospace, Menlo, monospace' },
@@ -1363,7 +1363,7 @@ Text content cannot change, so a per-letter or per-word effect is one text layer
 // @recipe split-text
 const style = { fontFamily: 'Arial, sans-serif', fontSize: 110, fontWeight: 'bold', fill: '#ffffff' };
 const sub = { fontFamily: 'Arial, sans-serif', fontSize: 44, fill: '#ffd166' };
-const sequences = [{ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } }];
+const sequences = [{ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } }];
 splitText('MAKE THINGS', style, { x: 640, y: 200, align: 'center' }).forEach(p => sequences.push({
   type: 'text', name: 'letter-' + p.index, text: p.text, style, at: 0.3 + p.index * 0.06,
   initial: { x: p.x, y: p.y, alpha: 0 },                                   // x / y are the top-left of the letter: anchorX / anchorY stay 0
@@ -1398,7 +1398,7 @@ const letters = stagger(
 const COLS = 6, ROWS = 3, delays = stagger(COLS * ROWS, { each: 0.12, grid: [COLS, ROWS], from: 'center', ease: 'sine.out' });
 const tiles = delays.map((d, i) => ({
   type: 'shape', shape: 'rect', width: 120, height: 120, cornerRadius: 18, name: 'tile-' + i, at: 1 + d, duration: 3 - d,
-  initial: { x: 190 + (i % COLS) * 180, y: 330 + Math.floor(i / COLS) * 150, fillColor: '#4cc9f0', scale: 0 },
+  initial: { x: 190 + (i % COLS) * 180, y: 330 + Math.floor(i / COLS) * 150, fill: '#4cc9f0', scale: 0 },
   keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2)' }],
 }));
 return [...letters, ...tiles];
@@ -1428,7 +1428,7 @@ return [
 // @recipe vertical-text
 const style = { fontFamily: 'Hiragino Mincho ProN, Yu Mincho, serif', fontSize: 56, fill: '#1c1a17' };
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#efe9dc' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#efe9dc' } },
   ...animateText('雨のあと、\nコーヒーは「ゆっくり」', style, { x: 900, y: 70, vertical: true, at: 0.3, duration: 5, in: 'fade', stagger: { each: 0.04 } }),
 ];
 ```
@@ -1445,8 +1445,8 @@ Presets for `in` / `out`: `rise` (default) `drop` `fade` `pop` `zoom` `slide` `s
 // @recipe follow-path
 const ROUTE = 'M 120 560 C 360 120 920 120 1160 560';
 return [
-  { type: 'shape', shape: 'path', d: ROUTE, duration: 5, initial: { strokeColor: '#ffffff', strokeWidth: 3, strokeAlpha: 0.25 } },     // the route, faint
-  { type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4.5, initial: { fillColor: '#ffd166' },
+  { type: 'shape', shape: 'path', d: ROUTE, duration: 5, initial: { stroke: '#ffffff', strokeWidth: 3, strokeAlpha: 0.25 } },     // the route, faint
+  { type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4.5, initial: { fill: '#ffd166' },
     keyframes: followPath({ d: ROUTE, duration: 4, ease: 'power2.inOut', orient: true, samplesPerSecond: 30 }) },                               // a pointer that faces the way it goes
 ];
 ```
@@ -1457,7 +1457,7 @@ const BLOB = 'M 640 160 C 780 160 860 260 860 360 C 860 470 770 560 640 560 C 51
 const STAR = 'M 640 130 L 700 300 L 880 300 L 735 410 L 790 590 L 640 480 L 490 590 L 545 410 L 400 300 L 580 300 Z';
 return [{
   type: 'shape', shape: 'path', d: BLOB, morphTo: STAR, duration: 4,
-  initial: { fillColor: '#ffd166', strokeColor: '#ffffff', strokeWidth: 6, strokeJoin: 'round' },
+  initial: { fill: '#ffd166', stroke: '#ffffff', strokeWidth: 6, strokeJoin: 'round' },
   keyframes: [{ at: 0.5, to: { morph: 1 }, duration: 1.5, ease: 'power2.inOut', repeat: 1, yoyo: true }],                                // there and back
 }];
 ```
@@ -1476,12 +1476,12 @@ const env = bpmEnvelope(120, { duration: 8, frameRate: 30 });      // with a fil
 const bands = ['bass', 'bass', 'bass', 'mid', 'mid', 'mid', 'treble', 'treble'];
 const bars = bands.map((band, i) => ({
   type: 'shape', shape: 'rect', name: 'bar-' + i, width: 60, height: 10, cornerRadius: 6, anchorY: 1, duration: 8,
-  initial: { x: 330 + i * 86, y: 600, fillColor: ['#ff2d95', '#8a4dff', '#22e0ff'][['bass', 'mid', 'treble'].indexOf(band)] },
+  initial: { x: 330 + i * 86, y: 600, fill: ['#ff2d95', '#8a4dff', '#22e0ff'][['bass', 'mid', 'treble'].indexOf(band)] },
   keyframes: react(env, { duration: 8, props: { height: { base: 10, amount: 260, band, release: 0.12 } } }),       // an equaliser bar: up fast, down slowly
 }));
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#07060f' } },
-  { type: 'shape', shape: 'circle', name: 'orb', radius: 90, duration: 8, initial: { x: 640, y: 260, fillColor: '#ffffff' },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#07060f' } },
+  { type: 'shape', shape: 'circle', name: 'orb', radius: 90, duration: 8, initial: { x: 640, y: 260, fill: '#ffffff' },
     keyframes: react(env, { duration: 8, props: { scale: { base: 1, amount: 0.5, beats: true, decay: 0.16 }, alpha: { base: 0.55, amount: 0.45, band: 'bass', attack: 0.02, release: 0.15 } } }) },   // a flash on every kick
   ...bars,
 ];
@@ -1495,7 +1495,7 @@ return [
 
 ```js
 // @recipe deck
-const paper = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#f4efe6' } };
+const paper = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#f4efe6' } };
 const style = { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#1c1a17' };
 const line = (text, y, at, dur) => animateText(text, style, { by: 'words', x: 96, y, align: 'left', name: 'l' + y, at, duration: dur - at, in: { from: { y: 40, alpha: 0 }, duration: 0.8, ease: 'power3.out' }, stagger: { each: 0.1 } });
 const T = 0.6;
@@ -1532,10 +1532,10 @@ new Presenter(movie, { canvas });     // arrows / Space / Enter / click / swipe 
 const gate = (i, z) => ({
   type: 'composition', name: 'gate-' + i, threeD: true, hideBehindCamera: true, width: 360, height: 480,
   initial: { x: 640, y: 360, z, pivotX: 180, pivotY: 240 },
-  sequences: [{ type: 'shape', shape: 'rect', width: 330, height: 450, cornerRadius: 6, initial: { x: 180, y: 240, strokeColor: '#ffe9c4', strokeWidth: 6 } }],
+  sequences: [{ type: 'shape', shape: 'rect', width: 330, height: 450, cornerRadius: 6, initial: { x: 180, y: 240, stroke: '#ffe9c4', strokeWidth: 6 } }],
 });
 return { duration: 8, sequences: [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0a10' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0b0a10' } },
   ...Array.from({ length: 9 }, (_, i) => gate(i, -i * 380)),
   { type: 'camera', keyframes: [
     ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', samplesPerSecond: 30 }),
@@ -1557,7 +1557,7 @@ const word = (name, text, x, z, fill) => ({
   initial: { x, y: 360, z, anchorX: 0.5, anchorY: 0.5 },
 });
 return { duration: 5, sequences: [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101626' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101626' } },
   { type: 'camera', initial: { focus: 'near', aperture: 40 },
     keyframes: [
       { at: 1, to: { focus: 'far' }, duration: 1, ease: 'power2.inOut' },          // near -> far
@@ -1579,7 +1579,7 @@ return { duration: 5, sequences: [
 // @recipe pulse
 return [{
   type: 'shape', shape: 'circle', radius: 40, duration: 6,
-  initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff3b3b' },
+  initial: { x: 'GW/2', y: 'GH/2', fill: '#ff3b3b' },
   keyframes: [{ at: 0, to: { scale: 1.15 }, duration: 0.5, ease: 'sine.inOut', repeat: 11, yoyo: true }],   // 12 plays x 0.5 s = 6 s
 }];
 ```
@@ -1596,7 +1596,7 @@ const colors = ['#ffd166', '#ff6b9d', '#4cc9f0', '#ffffff'];
 const burst = (at, x, y, seed) => particles({ count: 240, at, life: [1.2, 2], area: { x, y }, speed: [40, 520], gravity: 220, drag: 1.1,
   size: [4, 8], scale: [1, 0.3], colors, fade: { out: 0.7 }, blendMode: 'add', seed, name: 'burst' + seed });   // bursts of sparks
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0a0f1f' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0a0f1f' } },
   ...burst(0.5, 400, 260, 1), ...burst(1.6, 880, 200, 2), ...burst(2.8, 640, 330, 3),
 ];
 ```
@@ -1604,7 +1604,7 @@ return [
 ```js
 // @recipe particles-snow
 return { duration: 10, sequences: [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#16203d' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#16203d' } },
   ...particles({ count: 120, emit: 4, life: [4, 6], area: { x: 640, y: -20, width: 1400 }, angle: 90, speed: [40, 90],
     size: [2, 5], sway: { amp: 30, freq: 0.6 }, fade: { in: 0.5, out: 0.5 }, name: 'snow', seed: 4 }),     // drifting down, swaying
 ] };
@@ -1619,13 +1619,13 @@ A `null` layer draws nothing and only moves; layers with `parent: 'name'` are dr
 ```js
 // @recipe null-orbit
 return [
-  { type: 'shape', shape: 'circle', radius: 50, duration: 8, initial: { x: 640, y: 360, fillColor: '#ffd166' } },            // the sun
+  { type: 'shape', shape: 'circle', radius: 50, duration: 8, initial: { x: 640, y: 360, fill: '#ffd166' } },            // the sun
   { type: 'null', name: 'earth-orbit', initial: { x: 640, y: 360 },                                                         // pivot at the sun
     keyframes: [{ at: 0, to: { rotation: 360 }, duration: 8, ease: 'none' }] },
-  { type: 'shape', shape: 'circle', radius: 20, parent: 'earth-orbit', initial: { x: 240, y: 0, fillColor: '#4cc9f0' } },     // 240 px from the sun
+  { type: 'shape', shape: 'circle', radius: 20, parent: 'earth-orbit', initial: { x: 240, y: 0, fill: '#4cc9f0' } },     // 240 px from the sun
   { type: 'null', name: 'moon-orbit', parent: 'earth-orbit', initial: { x: 240, y: 0 },                                      // pivot at the earth
     keyframes: [{ at: 0, to: { rotation: 1440 }, duration: 8, ease: 'none' }] },
-  { type: 'shape', shape: 'circle', radius: 7, parent: 'moon-orbit', initial: { x: 55, y: 0, fillColor: '#e8eefc' } },        // 55 px from the earth
+  { type: 'shape', shape: 'circle', radius: 7, parent: 'moon-orbit', initial: { x: 55, y: 0, fill: '#e8eefc' } },        // 55 px from the earth
 ];
 ```
 
@@ -1639,7 +1639,7 @@ return [
 // @recipe light-leak
 const skyline = Array.from({ length: 9 }, (_, i) => ({
   type: 'shape', shape: 'rect', name: 'block-' + i, width: 90 + (i % 3) * 30, height: 160 + ((i * 53) % 190), anchorX: 0, anchorY: 1,
-  initial: { x: 40 + i * 140, y: 650, fillColor: '#0d1220' },
+  initial: { x: 40 + i * 140, y: 650, fill: '#0d1220' },
 }));
 return { duration: 6, sequences: [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0 },
@@ -1672,14 +1672,14 @@ const line = (y, text, mask, extra = {}) => ({
   initial: { x: 640, y, anchorX: 0.5, anchorY: 0.5 }, ...extra,
 });
 return { duration: 5, sequences: [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#101626' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#101626' } },
   // the matte: a bright band that grows to the right; it lives as long as the layers it cuts
   { type: 'shape', shape: 'rect', name: 'band', anchorX: 0, anchorY: 0, width: 0, height: 720,
-    initial: { x: 140, y: 0, fillColor: '#ffffff' },
+    initial: { x: 140, y: 0, fill: '#ffffff' },
     keyframes: [{ at: 0.4, to: { width: 1000 }, duration: 2, ease: 'power2.inOut' }] },
   line(200, 'ONE MATTE', 'band'),
   line(360, 'SHARED BY', { layer: 'band', channel: 'luma' }),
-  line(520, 'THREE LAYERS', { layer: 'band', invert: true }, { initial: { x: 640, y: 520, anchorX: 0.5, anchorY: 0.5, fillColor: '#ffd166' } }),
+  line(520, 'THREE LAYERS', { layer: 'band', invert: true }, { initial: { x: 640, y: 520, anchorX: 0.5, anchorY: 0.5, fill: '#ffd166' } }),
 ] };
 ```
 
@@ -1694,7 +1694,7 @@ return { duration: 5, sequences: [
 const scene = (name, at, color, label) => ({
   type: 'composition', name, at, duration: 4, width: 1280, height: 720,
   sequences: [
-    { type: 'shape', shape: 'rect', width: 1280, height: 720, initial: { x: 640, y: 360, fillColor: color } },
+    { type: 'shape', shape: 'rect', width: 1280, height: 720, initial: { x: 640, y: 360, fill: color } },
     { type: 'text', text: label, style: { fontSize: 120, fill: '#ffffff', fontWeight: 'bold' }, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 } },
   ],
 });
@@ -1715,7 +1715,7 @@ An ambient light keeps the room from going black, a `spot` light sweeps across t
 // @recipe spot-room
 const card = (name, x, fill) => ({
   type: 'shape', shape: 'rect', name, width: 300, height: 200, anchorX: 0.5, anchorY: 0.5, threeD: true, castsShadows: true,
-  initial: { x, y: 300, z: 0, fillColor: fill },
+  initial: { x, y: 300, z: 0, fill: fill },
 });
 return { duration: 6, sequences: [
   { type: 'light', kind: 'ambient', initial: { intensity: 0.18 } },
@@ -1723,7 +1723,7 @@ return { duration: 6, sequences: [
     initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, lookAtZ: 0, coneAngle: 34, coneFeather: 0.7, intensity: 1.1, shadowDiffusion: 14 },
     keyframes: [{ at: 0.5, to: { x: 1100, lookAtX: 1020 }, duration: 4.5, ease: 'sine.inOut' }] },
   // the wall, big and behind the cards (a room is layers in distance order: no depth buffer)
-  { type: 'shape', shape: 'rect', name: 'wall', width: 1800, height: 900, anchorX: 0.5, anchorY: 0.5, threeD: true, initial: { x: 640, y: 300, z: -260, fillColor: '#6b7280' } },
+  { type: 'shape', shape: 'rect', name: 'wall', width: 1800, height: 900, anchorX: 0.5, anchorY: 0.5, threeD: true, initial: { x: 640, y: 300, z: -260, fill: '#6b7280' } },
   card('a', 300, '#e0a458'), card('b', 640, '#58a4e0'), card('c', 980, '#e05876'),
 ] };
 ```
@@ -1738,10 +1738,10 @@ Fog is the camera's (`fogNear`, `fogFar`, `fogColor`, `fogAmount`): `threeD` lay
 // @recipe fog-depth
 const posts = Array.from({ length: 10 }, (_, i) => ({
   type: 'shape', shape: 'rect', name: 'post-' + i, width: 80, height: 420, anchorX: 0.5, anchorY: 1, threeD: true,
-  initial: { x: 200 + (i % 2) * 880, y: 620, z: -i * 220, fillColor: '#1f2a44' },
+  initial: { x: 200 + (i % 2) * 880, y: 620, z: -i * 220, fill: '#1f2a44' },
 }));
 return { duration: 6, sequences: [
-  { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#9fb4d6' } },
+  { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#9fb4d6' } },
   { type: 'camera', initial: { fogNear: 900, fogFar: 2600, fogColor: '#9fb4d6', fogAmount: 0.95 },
     keyframes: [{ at: 0, to: { offsetZ: -700 }, duration: 6, ease: 'sine.inOut' }] },        // dolly in: the nearer posts come out of the mist
   ...posts,
@@ -1806,12 +1806,12 @@ return [
     keyframes: wiggle({ duration: 6, freq: 3, seed: 1, props: { x: { around: 'GW/2', amp: 8 }, y: { around: 'GH/2', amp: 6 }, rotation: { around: 0, amp: 1.2 } } }) },
   // a neon sign whose light stutters (fast, straight-line steps)
   { type: 'shape', shape: 'rect', width: 520, height: 8, duration: 6,
-    initial: { x: 'GW/2', y: 'GH/2 + 90', fillColor: '#ff4d6d' },
+    initial: { x: 'GW/2', y: 'GH/2 + 90', fill: '#ff4d6d' },
     keyframes: wiggle({ duration: 6, freq: 12, seed: 5, ease: 'none', props: { alpha: { around: 0.8, amp: 0.2 } } }) },
   // dust: every speck has its own seed, so its drift is its own and never changes between runs
   ...Array.from({ length: 24 }, (_, i) => ({
     type: 'shape', shape: 'circle', radius: 2 + rand(i) * 3, duration: 6,
-    initial: { x: 40 + rand(i + 100) * 1200, y: 40 + rand(i + 200) * 640, fillColor: '#ffffff', fillAlpha: 0.25 + rand(i + 300) * 0.4 },
+    initial: { x: 40 + rand(i + 100) * 1200, y: 40 + rand(i + 200) * 640, fill: '#ffffff', fillAlpha: 0.25 + rand(i + 300) * 0.4 },
     keyframes: [...wiggle({ duration: 6, freq: 0.6, seed: i, props: { y: { around: 40 + rand(i + 200) * 640, amp: 30 } } })],
   })),
 ];
@@ -1867,7 +1867,7 @@ return [
 // @recipe film-grain
 // the scene is wrapped in a composition layer that carries the filter (on a whole movie, put the same filter in `composition: { filters: [...] }`)
 const scene = [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#3a4a6b' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#3a4a6b' } },
   { type: 'text', text: 'FILM', name: 'title', at: 0.3, duration: 3.7, style: { fontSize: 200, fontWeight: '900', fill: '#f4f1ea' },
     initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
 ];
@@ -1907,7 +1907,7 @@ const rand = random(7);                                                         
 const COLORS = ['#ffd166', '#ef476f', '#06d6a0', '#118ab2'];
 const bits = Array.from({ length: 160 }, () => ({ angle: rand() * Math.PI * 2, speed: 260 + rand() * 520, spin: (rand() - 0.5) * 14, size: 10 + rand() * 16, color: COLORS[Math.floor(rand() * 4)] }));
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101425' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101425' } },
   { type: 'scene2d', name: 'burst',
     setup: ({ root, width, height }) => {
       const pieces = bits.map((b) => root.addChild(new Graphics().rect(-b.size / 2, -b.size / 4, b.size, b.size / 2).fill(b.color)));
@@ -1948,7 +1948,7 @@ A real 3D scene as one layer, drawn by PixiJS 3D inside PixiJS itself: a floor t
 // composition 1280 x 720, 5 s. 'model.glb' sits next to the page.
 let model;
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d1220' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0d1220' } },
   { type: 'scene3d', name: 'stage',
     view: { toneMapping: 'aces', shadowQuality: 'medium', environment: { skyColor: 0xbcd4f0, groundColor: 0x3a3226, intensity: 0.6 } },
     setup: async ({ root, camera }) => {
@@ -1971,7 +1971,7 @@ return [
       objects.cube.rotation.y = t * 1.5;
     },
     keyframes: [{ at: 1, to: { 'scene3d.cube.position.x': 2.2 }, duration: 2.5, ease: 'sine.inOut' }],
-    mask: { type: 'shape', shape: 'circle', radius: 1, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffffff' },    // a mask shape needs a fill
+    mask: { type: 'shape', shape: 'circle', radius: 1, initial: { x: 'GW/2', y: 'GH/2', fill: '#ffffff' },    // a mask shape needs a fill
       keyframes: [{ at: 0, to: { radius: 760 }, duration: 1.2, ease: 'power2.inOut' }] } },           // a circle wipe reveals the scene
   { type: 'text', text: 'PIXIJS 3D', style: { fontSize: 72, fontWeight: '900', fill: '#ffffff', letterSpacing: 8 },
     initial: { x: 'GW/2', y: 110, anchorX: 0.5, anchorY: 0.5 },
@@ -2039,7 +2039,7 @@ const face = (softbox) => {                                                     
 };
 const studio = CubeTexture.from({ faces: { right: face(true), left: face(true), top: face(true), bottom: face(false), front: face(true), back: face(false) } });
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0d12' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0b0d12' } },
   { type: 'text', text: 'CHROME', style: { fontSize: 96, fontWeight: '900', fill: '#e8ecf5', letterSpacing: 6 }, initial: { x: 90, y: 'GH/2', anchorX: 0, anchorY: 0.5 } },
   { type: 'scene3d', name: 'chrome', width: 'GW * 0.56', height: 'GH * 0.9', initial: { x: 'GW * 0.72', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
     view: { environment: studio, toneMapping: 'aces' },                                              // what the metal reflects (it draws nothing itself: the layer stays clear around the object)
@@ -2069,7 +2069,7 @@ A dark room: a wall that RECEIVES the shadow, a model that CASTS it, one spot li
 // composition 1280 x 720, 5 s. The model faces +z in the file: rotation.y = PI / 2 runs it toward +x.
 let fox;
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#030305' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#030305' } },
   { type: 'light', kind: 'ambient', initial: { intensity: 0.05 } },
   { type: 'light', kind: 'spot', castsShadows: true, initial: { x: -160, y: 430, z: 560, lookAtX: 260, lookAtY: 340, lookAtZ: -100, coneAngle: 40, coneFeather: 0.7, intensity: 1.6 },
     keyframes: [{ at: 0.3, to: { x: 600, lookAtX: 1020 }, duration: 4.4, ease: 'sine.inOut' }] },      // the beam sweeps across the wall
@@ -2102,14 +2102,14 @@ A 2D composition is the screen; a scene3d layer holds the object it is on. The c
 // import { Container3D, Mesh3D, CubeGeometry, PlaneGeometry, Material3D, DirectionalLight } from '@pixi/3d';
 // composition 1280 x 720, 8 s
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#e9e4dc' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#e9e4dc' } },
   { type: 'composition', name: 'screen', width: 390, height: 844, duration: 8, sequences: [                    // the app: any 2D layers; this is what the phone shows
-    { type: 'shape', shape: 'rect', width: 390, height: 844, initial: { x: 195, y: 422, fillColor: '#101a33' } },
+    { type: 'shape', shape: 'rect', width: 390, height: 844, initial: { x: 195, y: 422, fill: '#101a33' } },
     { type: 'text', text: 'Hello', style: { fontSize: 72, fill: '#ffffff', fontWeight: '800' }, initial: { x: 195, y: 160, anchorX: 0.5, anchorY: 0.5 },
       keyframes: [{ at: 0.4, from: { alpha: 0, y: 200 }, to: { alpha: 1, y: 160 }, duration: 0.8, ease: 'power3.out' }] },
     { type: 'text', text: '{value}%', style: { fontSize: 120, fill: '#ffd166', fontWeight: '900' }, initial: { x: 195, y: 420, anchorX: 0.5, anchorY: 0.5, value: 0 },
       keyframes: [{ at: 1, to: { value: 100 }, duration: 5, ease: 'power1.inOut' }] },                      // a counter: the mesh shows every frame of it
-    { type: 'shape', shape: 'rect', width: 300, height: 14, cornerRadius: 7, initial: { x: 45, y: 540, anchorX: 0, anchorY: 0.5, fillColor: '#ffd166', scaleX: 0 },
+    { type: 'shape', shape: 'rect', width: 300, height: 14, cornerRadius: 7, initial: { x: 45, y: 540, anchorX: 0, anchorY: 0.5, fill: '#ffd166', scaleX: 0 },
       keyframes: [{ at: 1, to: { scaleX: 1 }, duration: 5, ease: 'power1.inOut' }] },
   ] },
   { type: 'scene3d', name: 'phone',
@@ -2275,10 +2275,10 @@ A card with a label is two layers: name the card's group (a `composition` layer,
 // @docs-only drag-drop
 // the page: a canvas with  style="touch-action: none"  (a finger dragging must not scroll the page)
 //   await movie.init({ canvas, width: 960, height: 540, vars: { cx: 200, cy: 270, doneLit: 0 }, composition: { sequences: [
-//     { type: 'shape', shape: 'rect', name: 'done', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fillColor: '#182038' } },
-//     { type: 'shape', shape: 'rect', name: 'done-glow', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fillColor: '#3ddc97', alpha: 'doneLit' } },   // the light: a variable
+//     { type: 'shape', shape: 'rect', name: 'done', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fill: '#182038' } },
+//     { type: 'shape', shape: 'rect', name: 'done-glow', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fill: '#3ddc97', alpha: 'doneLit' } },   // the light: a variable
 //     { type: 'composition', name: 'card', width: 200, height: 120, duration: 1, initial: { x: 'cx', y: 'cy', pivotX: 100, pivotY: 60 }, sequences: [   // the card and its label: ONE target (the group's name); a composition turns and sits about its pivot
-//       { type: 'shape', shape: 'rect', name: 'face', width: 200, height: 120, cornerRadius: 14, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, fillColor: '#f2c14e' } },
+//       { type: 'shape', shape: 'rect', name: 'face', width: 200, height: 120, cornerRadius: 14, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, fill: '#f2c14e' } },
 //       { type: 'text', name: 'label', text: 'Task', style: { fontSize: 34, fill: '#1b1b1b' }, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5 } },
 //     ] },
 //   ] } });
@@ -2397,7 +2397,7 @@ function srt(text, { bottom = 90, size = 44, color = '#ffffff', width = 1000 } =
 }
 
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d2433' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1d2433' } },
   ...srt(SRT),
 ];
 ```
@@ -2414,7 +2414,7 @@ const IMG = { hero: [1920, 1280] };                                             
 const photo = (key, x, y, w, h, duration) => {
   const cover = Math.max(w / IMG[key][0], h / IMG[key][1]);
   return { type: 'image', asset: key, duration,
-    mask: { type: 'shape', shape: 'rect', width: w, height: h, initial: { x: x + w / 2, y: y + h / 2, fillColor: '#fff' } },     // the mask lives in the parent's coordinates
+    mask: { type: 'shape', shape: 'rect', width: w, height: h, initial: { x: x + w / 2, y: y + h / 2, fill: '#fff' } },     // the mask lives in the parent's coordinates
     initial: { x: x + w / 2, y: y + h / 2, anchorX: 0.5, anchorY: 0.5, scale: cover },                                             // image anchors go in `initial`
     keyframes: [{ at: 0, to: { scale: cover * 1.1 }, duration, ease: 'sine.inOut' }] };                                             // a slow push
 };
@@ -2439,7 +2439,7 @@ const NAME = q.get('name') ?? 'World';
 const SCORE = q.get('score') ?? '0';
 // ...then use NAME and SCORE in the text layers of your composition:
 const sequences = [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d2433' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1d2433' } },
   { type: 'text', text: `Well done, ${NAME}!`, at: 0.3, duration: 3.7, style: { fontSize: 96, fontWeight: 'bold', fill: '#ffffff' },
     initial: { x: 'GW/2', y: 300, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0, y: 340 }, to: { alpha: 1, y: 300 }, duration: 0.6 }] },
   { type: 'text', text: `${SCORE} points`, at: 0.9, duration: 3.1, style: { fontSize: 64, fill: '#ffd166' },
@@ -2469,7 +2469,7 @@ await movie.init({
   canvas, width: 1920, height: 1080, duration: 5,
   vars: { head: COPY[lang].head, sub: COPY[lang].sub, accent: '#e5399a', lift: 0 },        // numbers can be read in expressions, any value in {name}
   composition: { sequences: [
-    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#12151f' } },
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#12151f' } },
     { type: 'text', text: '{head}', at: 0.3, duration: 4.7, style: { fontSize: 120, fontWeight: 'bold', fill: '{accent}' },
       initial: { x: 'GW/2', y: 'GH/2 - 40 - lift', anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
     { type: 'text', text: '{sub}', at: 0.9, duration: 4.1, style: { fontSize: 56, fill: '#ffffff' },
@@ -2490,7 +2490,7 @@ await movie.init({
 const layout = (w, h) => {
   const tall = h > w;
   return { sequences: [
-    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#12151f' } },
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#12151f' } },
     { type: 'text', text: 'Headline', style: { fontSize: tall ? 'GW * 0.12' : 'GH * 0.14', fontWeight: 'bold', fill: '#ffffff' },
       initial: { x: tall ? 'GW * 0.08' : 'GW/2', y: tall ? 'GH * 0.7' : 'GH/2', anchorX: tall ? 0 : 0.5, anchorY: 0.5 } },
   ] };
@@ -2846,7 +2846,7 @@ A `null` layer draws nothing; it only moves. Any layer can name it as its `paren
 ```js
 { type: 'null', name: 'planet', initial: { x: 640, y: 360 },
   keyframes: [{ at: 0, to: { rotation: 360 }, duration: 8, ease: 'none' }] },
-{ type: 'shape', shape: 'circle', radius: 20, parent: 'planet', initial: { x: 200, y: 0, fillColor: '#ffffff' } },   // circles the point (640, 360)
+{ type: 'shape', shape: 'circle', radius: 20, parent: 'planet', initial: { x: 200, y: 0, fill: '#ffffff' } },   // circles the point (640, 360)
 ```
 
 - A child's `x` / `y` are measured **from the null's origin** (not from the composition's corner): with the null at (640, 360), a child at `x: 200` is drawn at 840. Rotation turns the child about the null's origin; give the null `pivotX` / `pivotY` to turn about another point.
@@ -2863,7 +2863,7 @@ A `null` layer draws nothing; it only moves. Any layer can name it as its `paren
 ```js
 { type: 'scene3d', name: 'planets', setup: …, update: … },                       // its setup returns { objects: { Mars: mars, … } }
 { type: 'text', text: 'Mars', follow: 'planets/Mars',
-  initial: { x: 18, y: -14, anchorX: 0, anchorY: 1, fontSize: 18, fillColor: '#ffffff' } },   // 18 px right of and 14 px above the planet's centre
+  initial: { x: 18, y: -14, anchorX: 0, anchorY: 1, fontSize: 18, fill: '#ffffff' } },   // 18 px right of and 14 px above the planet's centre
 ```
 
 - The target is `'<layer>/<object>'` or `'<layer>'`. `<layer>` is a name, or a path through nested compositions (`'system/planets/Mars'`); a name is also found anywhere in the movie when only one layer has it. A name nobody has is warned with the names there are (did you mean).
@@ -2999,7 +2999,7 @@ A composition's content can also **step** and **repeat**:
 
 ```js
 { type: 'composition', width: 200, height: 200, duration: 6, loop: true, frameRate: 12, sequences: [
-  { type: 'shape', shape: 'arc', radius: 60, startAngle: 0, endAngle: 270, initial: { x: 100, y: 100, strokeColor: '#ffffff', strokeWidth: 10 },
+  { type: 'shape', shape: 'arc', radius: 60, startAngle: 0, endAngle: 270, initial: { x: 100, y: 100, stroke: '#ffffff', strokeWidth: 10 },
     keyframes: [{ at: 0, to: { rotation: 360 }, duration: 1 }] },          // one turn, repeated for 6 s, on 12 pictures a second
 ] }
 ```
@@ -3017,7 +3017,7 @@ composition: {
       params: { name: 'Name', role: '', accent: '#e63946', indent: 0 },     // the names and their defaults: a number or a string
       width: 640, height: 110, duration: 3.5,                                // anything a composition layer has
       sequences: [
-        { type: 'shape', shape: 'rect', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fillColor: '{accent}' } },
+        { type: 'shape', shape: 'rect', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fill: '{accent}' } },
         { type: 'text', text: '{name}', initial: { x: '28 + indent', y: 34, anchorY: 0.5 } },
       ],
     },
@@ -3068,8 +3068,8 @@ Parametric primitive backed by PIXI v8 `Graphics`. Six kinds, discriminated by `
   width: 'W * 0.8', height: 'H * 0.6', cornerRadius: 24,
   initial: {
     x: 'W/2', y: 'H/2',
-    fillColor: '#1a2640', fillAlpha: 0.85,
-    strokeColor: '#3a5680', strokeWidth: 2,
+    fill: '#1a2640', fillAlpha: 0.85,
+    stroke: '#3a5680', strokeWidth: 2,
   },
 }
 ```
@@ -3086,13 +3086,13 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `polygon` | `points: [[x,y], …]`                     | `open` (default false), `trimStart`, `trimEnd` |
 | `path`    | `d` (SVG path data)                      | `fillRule`, `trimStart`, `trimEnd`, `morphTo`, `morph`, `morphPoints` |
 
-**Holes (`fillRule: 'evenodd'`) on a `path`.** Several sub-paths in one `d` are each filled on their own: a donut written as two circles is a solid disc. With `fillRule: 'evenodd'` the biggest sub-path is the shape and every other one is a hole cut out of it (the stroke goes round the shape and each hole): `{ shape: 'path', fillRule: 'evenodd', d: 'M 0 -100 A 100 100 0 1 1 0 100 A 100 100 0 1 1 0 -100 Z M 0 -50 A 50 50 0 1 0 0 50 A 50 50 0 1 0 0 -50 Z', initial: { x: 640, y: 360, fillColor: '#ffcc00' } }`. Write the sub-paths in absolute coordinates (each starts with `M`); a **stroke is centred on the outline** (half of `strokeWidth` each side), an island inside a hole is not drawn (nor stroked: it is as if it were not in `d`; real SVG `evenodd` would fill it), and a path that morphs (`morphTo`) has no holes.
+**Holes (`fillRule: 'evenodd'`) on a `path`.** Several sub-paths in one `d` are each filled on their own: a donut written as two circles is a solid disc. With `fillRule: 'evenodd'` the biggest sub-path is the shape and every other one is a hole cut out of it (the stroke goes round the shape and each hole): `{ shape: 'path', fillRule: 'evenodd', d: 'M 0 -100 A 100 100 0 1 1 0 100 A 100 100 0 1 1 0 -100 Z M 0 -50 A 50 50 0 1 0 0 50 A 50 50 0 1 0 0 -50 Z', initial: { x: 640, y: 360, fill: '#ffcc00' } }`. Write the sub-paths in absolute coordinates (each starts with `M`); a **stroke is centred on the outline** (half of `strokeWidth` each side), an island inside a hole is not drawn (nor stroked: it is as if it were not in `d`; real SVG `evenodd` would fill it), and a path that morphs (`morphTo`) has no holes.
 
 **`arc`** is an arc around its local origin (the centre). Angles are in **degrees: 0° is 3 o'clock and positive is clockwise**, so a progress ring starts at `startAngle: -90` (12 o'clock) and animates `endAngle` from `-90` to `270`. With a stroke and no fill it is an open arc line (`strokeCap: 'round'` for rounded ends); with a fill it is a sector (a pie slice), and with `innerRadius` a ring segment (a donut slice). A sweep of 360° or more is a full circle; `endAngle < startAngle` sweeps counter-clockwise. `radius`, `innerRadius`, `startAngle` and `endAngle` are all animatable.
 
 ```ts
 { type: 'shape', shape: 'arc', radius: 120, startAngle: -90, endAngle: -90, strokeCap: 'round',
-  initial: { x: 'GW/2', y: 'GH/2', strokeColor: '#ffd166', strokeWidth: 24 },
+  initial: { x: 'GW/2', y: 'GH/2', stroke: '#ffd166', strokeWidth: 24 },
   keyframes: [{ at: 0, to: { endAngle: 270 }, duration: 2, ease: 'power3.out' }] }   // a progress ring filling clockwise from the top
 ```
 
@@ -3100,7 +3100,7 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 
 ```ts
 { type: 'shape', shape: 'path', d: 'M 0 50 L 45 95 L 130 0', trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
-  initial: { x: 1040, y: 270, strokeColor: '#7bd88f', strokeWidth: 16 },
+  initial: { x: 1040, y: 270, stroke: '#7bd88f', strokeWidth: 16 },
   keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1, ease: 'power2.inOut' }] }   // a check mark drawing itself
 ```
 
@@ -3109,7 +3109,7 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 ```ts
 { type: 'shape', shape: 'path', d: 'M 640 160 C 780 160 860 260 860 360 C 860 470 770 560 640 560 C 510 560 420 470 420 360 C 420 250 500 160 640 160 Z',
   morphTo: 'M 640 130 L 700 300 L 880 300 L 735 410 L 790 590 L 640 480 L 490 590 L 545 410 L 400 300 L 580 300 Z',
-  initial: { fillColor: '#ffd166' }, keyframes: [{ at: 0.5, to: { morph: 1 }, duration: 1.5, ease: 'power2.inOut' }] }   // a blob turns into a star
+  initial: { fill: '#ffd166' }, keyframes: [{ at: 0.5, to: { morph: 1 }, duration: 1.5, ease: 'power2.inOut' }] }   // a blob turns into a star
 ```
 
 `strokeCap` (`'butt'`, `'round'`, `'square'`) and `strokeJoin` (`'miter'`, `'round'`, `'bevel'`) work on every shape, at the top level or in `initial`; they are not animated. Sharp corners (the apex of an M in outlined text, a thin polygon) poke out with the default `miter` join: use `'round'`.
@@ -3118,17 +3118,17 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 
 | Key           | Notes                                                        |
 |---------------|--------------------------------------------------------------|
-| `fillColor`   | Hex string (`'#3399ff'`) or number (`0x3399ff`). Omit = no fill. |
+| `fill`   | Hex string (`'#3399ff'`) or number (`0x3399ff`). Omit = no fill. |
 | `fillAlpha`   | 0..1, default 1                                              |
-| `strokeColor` | Hex string or number. Requires `strokeWidth > 0` to render.  |
+| `stroke` | Hex string or number. Requires `strokeWidth > 0` to render.  |
 | `strokeAlpha` | 0..1, default 1                                              |
 | `strokeWidth` | Pixels. Default 0 (no stroke).                               |
 
-Colour keys (`fillColor`, `strokeColor`) tween smoothly between hues — no snap at the end. Numeric keys (`fillAlpha` / `strokeAlpha` / `strokeWidth`) animate linearly.
+Colour keys (`fill`, `stroke`) tween smoothly between hues — no snap at the end. Numeric keys (`fillAlpha` / `strokeAlpha` / `strokeWidth`) animate linearly.
 
 #### `fillGradient`
 
-Fill a shape with a gradient instead of `fillColor` (top level or in `initial`). Positions are in 0–1 of the shape's own bounds, so the gradient follows the shape's size. Colours may carry alpha, so a radial gradient from transparent to dark is a vignette. Animatable (below), on shapes and on text.
+Fill a shape with a gradient instead of `fill` (top level or in `initial`). Positions are in 0–1 of the shape's own bounds, so the gradient follows the shape's size. Colours may carry alpha, so a radial gradient from transparent to dark is a vignette. Animatable (below), on shapes and on text.
 
 ```ts
 { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
@@ -3169,9 +3169,9 @@ Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (a st
 {
   type: 'shape', shape: 'circle', radius: 40,
   colorSpace: 'oklch',                       // ← red → green via vibrant orange
-  initial: { fillColor: '#ff0000' },
+  initial: { fill: '#ff0000' },
   keyframes: [
-    { at: 1, to: { fillColor: '#00ff00' }, duration: 2, ease: 'sine.inOut' },
+    { at: 1, to: { fill: '#00ff00' }, duration: 2, ease: 'sine.inOut' },
   ],
 }
 ```
@@ -3179,10 +3179,10 @@ Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (a st
 ```ts
 {
   type: 'shape', shape: 'circle', radius: 40,
-  initial: { x: 'W/2', y: 'H/2', fillColor: '#ff5577' },
+  initial: { x: 'W/2', y: 'H/2', fill: '#ff5577' },
   keyframes: [
-    { at: 1, to: { fillColor: '#55ddaa' }, duration: 1.0, ease: 'sine.inOut' },
-    { at: 2, to: { strokeColor: '#fff', strokeWidth: 6 }, duration: 0.5 },
+    { at: 1, to: { fill: '#55ddaa' }, duration: 1.0, ease: 'sine.inOut' },
+    { at: 2, to: { stroke: '#fff', strokeWidth: 6 }, duration: 0.5 },
   ],
 }
 ```
@@ -3194,7 +3194,7 @@ Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (a st
 {
   type: 'shape', shape: 'path',
   d: 'M 0 -20 C -30 -50 -70 -10 0 30 C 70 -10 30 -50 0 -20 Z',
-  initial: { x: 'W/2', y: 'H/2', fillColor: '#ff3366' },
+  initial: { x: 'W/2', y: 'H/2', fill: '#ff3366' },
   keyframes: [
     { at: 0,   from: { alpha: 0, scale: 0 },
                to:   { alpha: 1, scale: 1 },
@@ -3214,7 +3214,7 @@ For rect / circle / ellipse, `anchorX` / `anchorY` (default `0.5` each; not avai
 {
   type: 'shape', shape: 'rect', width: 0, height: 18, cornerRadius: 9,
   anchorX: 0,                                  // ← left edge at x
-  initial: { x: 0, y: 'H/2', fillColor: '#5599ff' },
+  initial: { x: 0, y: 'H/2', fill: '#5599ff' },
   keyframes: [
     { at: 0, to: { width: 'W' }, duration: 4, ease: 'sine.inOut' },
   ],
@@ -3379,9 +3379,9 @@ A flight through the scene is [`cameraPath()`](#camerapath) (a route as keyframe
           "duration": 4, "ease": "sine.inOut" }
       ] },
     { "type": "shape", "shape": "rect", "width": 300, "height": 200, "threeD": true,
-      "initial": { "x": "GW/2", "y": "GH/2", "z": -400, "fillColor": "#3a6ea5" } },
+      "initial": { "x": "GW/2", "y": "GH/2", "z": -400, "fill": "#3a6ea5" } },
     { "type": "shape", "shape": "rect", "width": 300, "height": 200, "threeD": true,
-      "initial": { "x": "GW/2", "y": "GH/2", "z": 250, "fillColor": "#d96a3a" } }
+      "initial": { "x": "GW/2", "y": "GH/2", "z": 250, "fill": "#d96a3a" } }
   ]
 }
 ```
@@ -3394,7 +3394,7 @@ Moving the camera sideways makes the near rectangle slide faster than the far on
     { "type": "camera",
       "keyframes": [{ "at": 0, "to": { "fov": 70 }, "duration": 3, "ease": "sine.inOut" }] },
     { "type": "shape", "shape": "circle", "radius": 120, "threeD": true,
-      "initial": { "x": "GW/2", "y": "GH/2", "z": 300, "fillColor": "#38a169" } }
+      "initial": { "x": "GW/2", "y": "GH/2", "z": 300, "fill": "#38a169" } }
   ]
 }
 ```
@@ -3412,7 +3412,7 @@ Write `focus` (and, if you want, `aperture`) on the camera and the `threeD` laye
   "sequences": [
     { "type": "camera", "initial": { "focus": "title" } },
     { "type": "text", "name": "title", "text": "Focus", "threeD": true, "style": { "fontSize": 96, "fill": "#ffffff" }, "initial": { "x": "GW/2", "y": "GH/2", "z": 0, "anchorX": 0.5, "anchorY": 0.5 } },
-    { "type": "shape", "shape": "circle", "radius": 140, "threeD": true, "initial": { "x": "GW/2 + 260", "y": "GH/2", "z": -500, "fillColor": "#3a6ea5" } }
+    { "type": "shape", "shape": "circle", "radius": 140, "threeD": true, "initial": { "x": "GW/2 + 260", "y": "GH/2", "z": -500, "fill": "#3a6ea5" } }
   ]
 }
 ```
@@ -3424,8 +3424,8 @@ A focus pull is a normal keyframe on `focus`; a layer name works there too:
   "sequences": [
     { "type": "camera", "initial": { "focus": "front", "aperture": 60 },
       "keyframes": [{ "at": 1, "to": { "focus": "back" }, "duration": 1, "ease": "power2.inOut" }] },
-    { "type": "shape", "shape": "rect", "name": "front", "width": 300, "height": 200, "threeD": true, "initial": { "x": "GW/2 - 200", "y": "GH/2", "z": 100, "fillColor": "#d96a3a" } },
-    { "type": "shape", "shape": "rect", "name": "back", "width": 300, "height": 200, "threeD": true, "initial": { "x": "GW/2 + 200", "y": "GH/2", "z": -400, "fillColor": "#3a6ea5" } }
+    { "type": "shape", "shape": "rect", "name": "front", "width": 300, "height": 200, "threeD": true, "initial": { "x": "GW/2 - 200", "y": "GH/2", "z": 100, "fill": "#d96a3a" } },
+    { "type": "shape", "shape": "rect", "name": "back", "width": 300, "height": 200, "threeD": true, "initial": { "x": "GW/2 + 200", "y": "GH/2", "z": -400, "fill": "#3a6ea5" } }
   ]
 }
 ```
@@ -3451,7 +3451,7 @@ A `light` layer lights the `threeD` layers of its composition: they get darker a
 { type: 'light', kind: 'spot', castsShadows: true,                                  // a spotlight that crosses the picture
   initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, lookAtZ: 0, coneAngle: 34, coneFeather: 0.7, intensity: 1.1 },
   keyframes: [{ at: 0.5, to: { x: 1100, lookAtX: 1020 }, duration: 4.5, ease: 'sine.inOut' }] },
-{ type: 'shape', shape: 'rect', name: 'card', width: 300, height: 200, threeD: true, castsShadows: true, initial: { x: 300, y: 300, z: 0, fillColor: '#e0a458' } },
+{ type: 'shape', shape: 'rect', name: 'card', width: 300, height: 200, threeD: true, castsShadows: true, initial: { x: 300, y: 300, z: 0, fill: '#e0a458' } },
 ```
 
 `kind` (a fixed setting on the layer): `'ambient'` (the same colour everywhere), `'point'` (from a position in every direction; the default), `'spot'` (a point light inside a cone around the direction to its look-at point), `'parallel'` (a direction only, from the position toward the look-at point: the sun). `falloff` (also fixed): `'none'` (default), `'smooth'` (full inside `radius`, fading to nothing over `falloffDistance` more), `'inverseSquare'` (full at `radius`, a quarter at twice that). Numbers you can animate:
@@ -3600,7 +3600,7 @@ Any sequence can carry an inline `mask` — itself a full sequence — that shap
   initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
   mask: {
     type: 'shape', shape: 'circle', radius: 130,
-    initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+    initial: { x: 'W/2', y: 'H/2', fill: '#ffffff' },
   },
 }
 ```
@@ -3614,7 +3614,7 @@ The mask is itself a sequence, so it can have `keyframes` of its own — useful 
   initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
   mask: {
     type: 'shape', shape: 'circle', radius: 200,
-    initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff', scale: 0 },
+    initial: { x: 'W/2', y: 'H/2', fill: '#ffffff', scale: 0 },
     keyframes: [
       { at: 0, to: { scale: 1 }, duration: 1.0, ease: 'power2.out' },
     ],
@@ -3623,7 +3623,7 @@ The mask is itself a sequence, so it can have `keyframes` of its own — useful 
 ```
 
 Notes:
-- The mask sequence is rendered as a mask, not as a normal child — its `fillColor` / `strokeColor` only matter for which pixels are kept, not for the visible colour.
+- The mask sequence is rendered as a mask, not as a normal child — its `fill` / `stroke` only matter for which pixels are kept, not for the visible colour.
 - Any sequence type works as a mask (shape / image / text / video / nested composition); shapes are the natural choice for geometric reveals.
 - A plain **shape** mask (not inverted) is a hard-edged stencil, the cheapest way. Every other mask (a text, image or video layer, an inverted or luma mask, a named matte, a list) is drawn into a texture once per frame and applied as a **matte filter**: its edges are soft and antialiased, it costs one offscreen pass, and `blendMode` works with it (see [Mattes](#named-mattes-and-luma)).
 - For a left-to-right wipe, give the mask `anchorX: 0` (rect/circle/ellipse) so `width: 0 → full` grows rightward from the left edge.
@@ -3641,7 +3641,7 @@ Write the mask layer inside `layer` and add `invert: true` to flip the mask sens
     invert: true,
     layer: {
       type: 'shape', shape: 'circle', radius: 80,
-      initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+      initial: { x: 'W/2', y: 'H/2', fill: '#ffffff' },
       keyframes: [
         { at: 0, to: { radius: 120 }, duration: 1.5, ease: 'sine.inOut' },
         { at: 1.5, to: { radius: 80 }, duration: 1.5, ease: 'sine.inOut' },
@@ -3849,7 +3849,7 @@ anchor, anchorX, anchorY
 pivot, pivotX, pivotY
 skew, skewX, skewY
 tint, autoAlpha
-fillColor, fillAlpha                 (a shape's own colour keys)
+fill, fillAlpha                 (a shape's own colour keys)
 ```
 
 (In addition to plain DisplayObject props like `x`, `y`, `rotation`, `alpha`, `width`, `height`, `visible`.) `blur`, `colorize` and the other colour-matrix shorthands of GSAP's PixiPlugin are gone: use a named filter and animate `filters.<name>.<prop>` (below). **Angles are in degrees**: `rotation`, `skew` / `skewX` / `skewY`, and `rotationX` / `rotationY` for 3D layers.
@@ -3959,7 +3959,7 @@ A **variable** is a name with a value you can change after the movie is built: t
 await movie.init({
   vars: { title: 'NORD', accent: '#e5399a', shift: 0 },           // a number or a string; no booleans (write 0 / 1)
   composition: { sequences: [
-    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '{accent}' } },
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '{accent}' } },
     { type: 'text', text: '{title}', initial: { x: 'W/2 + shift', y: 'H/2' } },
   ] },
 });
@@ -4432,7 +4432,7 @@ A layer travelling along an SVG path, as keyframes for `x` and `y` (and `rotatio
 import { followPath } from 'pixi-effects';
 
 { type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4,
-  initial: { fillColor: '#ffd166' },
+  initial: { fill: '#ffd166' },
   keyframes: followPath({ d: 'M 120 560 C 360 120 920 120 1160 560', duration: 4, ease: 'power2.inOut', orient: true, samplesPerSecond: 30 }) }
 ```
 

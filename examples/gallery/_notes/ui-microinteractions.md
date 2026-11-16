@@ -52,8 +52,8 @@ Model: opus   Cycles: 6   Result: works
 const CX = 640, CY = 360, T = 1;
 return [{
   type: 'shape', shape: 'polygon', open: true, points: [[CX - 13, CY + 1], [CX - 3, CY + 11], [CX + 15, CY - 10]],
-  initial: { strokeColor: '#ffffff', strokeWidth: 5 },
-  mask: { type: 'shape', shape: 'rect', width: 0, height: 44, anchorX: 0, initial: { x: CX - 17, y: CY, fillColor: '#ffffff' },
+  initial: { stroke: '#ffffff', strokeWidth: 5 },
+  mask: { type: 'shape', shape: 'rect', width: 0, height: 44, anchorX: 0, initial: { x: CX - 17, y: CY, fill: '#ffffff' },
           keyframes: [{ at: T, to: { width: 36 }, duration: 0.26, ease: 'power2.out' }] },
 }];
 ```

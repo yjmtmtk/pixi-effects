@@ -81,7 +81,7 @@
       const frame = {
         type: 'shape', shape: 'rect', name: p.id + '-frame', width: p.w + FR * 2, height: p.h + FR * 2,
         threeD: true, castsShadows: true,
-        initial: { ...art, z: ART_Z, fillColor: '#c8b48a' },
+        initial: { ...art, z: ART_Z, fill: '#c8b48a' },
       };
       const gradients = [
         { type: 'linear', angle: 180, stops: [[0, '#2a1a4a'], [0.5, '#d8456b'], [1, '#ffb454']] },
@@ -95,12 +95,12 @@
       };
       const extras = [
         // a low sun in the dusk picture
-        [{ type: 'shape', shape: 'circle', name: p.id + '-sun', radius: 46, threeD: true, initial: { x: p.x, y: p.y + 50, z: ART_Z + 8, fillColor: '#fff1d0' } }],
+        [{ type: 'shape', shape: 'circle', name: p.id + '-sun', radius: 46, threeD: true, initial: { x: p.x, y: p.y + 50, z: ART_Z + 8, fill: '#fff1d0' } }],
         // the line of the sea and its wake
-        [{ type: 'shape', shape: 'rect', name: p.id + '-horizon', width: p.w, height: 3, threeD: true, initial: { x: p.x, y: p.y + 6, z: ART_Z + 8, fillColor: '#d7f5ec' } },
-         { type: 'shape', shape: 'rect', name: p.id + '-wake', width: p.w * 0.42, height: 3, threeD: true, initial: { x: p.x, y: p.y + 40, z: ART_Z + 8, fillColor: '#d7f5ec', fillAlpha: 0.55 } }],
+        [{ type: 'shape', shape: 'rect', name: p.id + '-horizon', width: p.w, height: 3, threeD: true, initial: { x: p.x, y: p.y + 6, z: ART_Z + 8, fill: '#d7f5ec' } },
+         { type: 'shape', shape: 'rect', name: p.id + '-wake', width: p.w * 0.42, height: 3, threeD: true, initial: { x: p.x, y: p.y + 40, z: ART_Z + 8, fill: '#d7f5ec', fillAlpha: 0.55 } }],
         // a small hot core in the ember picture
-        [{ type: 'shape', shape: 'circle', name: p.id + '-core', radius: 14, threeD: true, initial: { x: p.x, y: p.y, z: ART_Z + 8, fillColor: '#fff6dc' } }],
+        [{ type: 'shape', shape: 'circle', name: p.id + '-core', radius: 14, threeD: true, initial: { x: p.x, y: p.y, z: ART_Z + 8, fill: '#fff6dc' } }],
       ][i];
       return [frame, canvas, ...extras];
     };
@@ -122,7 +122,7 @@
 
     const sequences = [
       // 2D ground in the fog colour: what is far dissolves into it
-      { type: 'shape', shape: 'rect', name: 'ground', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } },
+      { type: 'shape', shape: 'rect', name: 'ground', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: INK } },
 
       // --- lights ---
       { type: 'light', kind: 'ambient', initial: { intensity: 0.1, color: COOL },
@@ -154,7 +154,7 @@
         fillGradient: { type: 'linear', angle: 180, stops: [[0, '#4a4452'], [1, '#2a2630']] },
         initial: { x: 640, y: FLOOR_Y, z: WALL_Z, rotationX: 90 } },
       { type: 'shape', shape: 'rect', name: 'skirting', width: 2500, height: 26, anchorX: 0.5, anchorY: 1, threeD: true,
-        initial: { x: 640, y: FLOOR_Y, z: WALL_Z + 1, fillColor: '#6a6270' } },
+        initial: { x: 640, y: FLOOR_Y, z: WALL_Z + 1, fill: '#6a6270' } },
       ...PICS.flatMap(picture),
 
       // --- a vignette keeps the corners dark, then the type ---

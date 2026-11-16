@@ -15,7 +15,7 @@ Slam = big scale + tiny rotation easing out fast, plus a white flash rect on the
 const WORDS = [['KAFFE', '#ffd166'], ['NORD', '#ef476f'], ['ROAST', '#06d6a0']];
 const BEAT = 0.5;                                    // seconds per beat
 const sequences = [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#111111' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#111111' } },
 ];
 WORDS.forEach(([word, color], i) => {
   const at = i * BEAT * 2;
@@ -27,7 +27,7 @@ WORDS.forEach(([word, color], i) => {
   });
   sequences.push({                                   // white flash on the beat
     type: 'shape', shape: 'rect', width: 'GW', height: 'GH', at, duration: 0.3,
-    initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffffff', alpha: 0.8 },
+    initial: { x: 'GW/2', y: 'GH/2', fill: '#ffffff', alpha: 0.8 },
     keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.28 }],
   });
 });
@@ -46,10 +46,10 @@ A `mask` is a layer in the **parent's** coordinate space and does **not** move w
 // @recipe lower-third
 const bar = (name, y, w, h, color, at) => ({
   type: 'shape', shape: 'rect', name, width: w, height: h, anchorX: 0, at, duration: 3.6,
-  initial: { x: 80, y, fillColor: color },
+  initial: { x: 80, y, fill: color },
   mask: {
     type: 'shape', shape: 'rect', width: 0, height: h, anchorX: 0,
-    initial: { x: 80, y, fillColor: '#ffffff' },
+    initial: { x: 80, y, fill: '#ffffff' },
     keyframes: [
       { at: 0, to: { width: w }, duration: 0.5, ease: 'power3.out' },                    // reveal
       { at: -0.5, to: { x: 80 + w, width: 0 }, duration: 0.5, ease: 'power3.in' },        // exit
@@ -78,7 +78,7 @@ const components = {
     params: { name: 'Name', role: 'Role', accent: '#e63946', indent: 0 },     // the defaults
     width: 640, height: 110, duration: 3.5,
     sequences: [
-      { type: 'shape', shape: 'rect', name: 'bar', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fillColor: '{accent}', scaleY: 0 },
+      { type: 'shape', shape: 'rect', name: 'bar', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fill: '{accent}', scaleY: 0 },
         keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 0.4, ease: 'power3.out' }] },
       { type: 'text', name: 'name', text: '{name}', style: { fontSize: 40, fontWeight: 'bold', fill: '#ffffff' },
         initial: { x: '28 + indent', y: 34, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0.2, to: { alpha: 1 }, duration: 0.3 }] },
@@ -112,7 +112,7 @@ const components = {
     width: 360, height: 360, duration: 3,
     markers: { land: 0.5, leave: 2.4 },                       // its own seconds: where it lands and where it starts to leave
     sequences: [
-      { type: 'shape', shape: 'circle', name: 'disc', radius: 150, initial: { x: 180, y: 180, fillColor: '#e63946', scale: 0 },
+      { type: 'shape', shape: 'circle', name: 'disc', radius: 150, initial: { x: 180, y: 180, fill: '#e63946', scale: 0 },
         keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.5, ease: 'back.out(2)' }, { at: 2.4, to: { scale: 0 }, duration: 0.4, ease: 'power2.in' }] },
       { type: 'text', name: 'label', text: 'NEW', style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
         initial: { x: 180, y: 180, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
@@ -125,7 +125,7 @@ return {
   duration: 6,
   markers: { drop: 4.5 },                                     // a moment of the whole movie
   sequences: [
-    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d3557' } },
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1d3557' } },
     { use: 'badge', name: 'badge', at: 1, initial: { x: 'GW/2 - 180', y: 'GH/2 - 220' } },
     { type: 'audio', sfx: 'hit', at: 'badge@land' },                       // 1.5 s, and still on the landing if the badge moves to at: 2
     { type: 'audio', sfx: 'swoosh', at: 'badge@leave - 0.16' },            // a swoosh is loudest 0.16 s in
@@ -145,19 +145,19 @@ A spring overshoots and settles: `duration: 'auto'` lets the physics set the len
 ```js
 // @recipe spring-pop
 const card = { type: 'shape', shape: 'rect', name: 'card', width: 520, height: 300, cornerRadius: 28, at: 0.3, duration: 3.7,
-  initial: { x: 640, y: 360, fillColor: '#f4f1ea', scale: 0.4, alpha: 0 },
+  initial: { x: 640, y: 360, fill: '#f4f1ea', scale: 0.4, alpha: 0 },
   keyframes: [
     { at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.snappy' },
     { at: 0, to: { alpha: 1 }, duration: 0.2 },
   ] };
 const badge = { type: 'shape', shape: 'circle', name: 'badge', radius: 46, at: 1.0, duration: 3,
-  initial: { x: 860, y: 230, fillColor: '#e63946', scale: 0 },
+  initial: { x: 860, y: 230, fill: '#e63946', scale: 0 },
   keyframes: [{ at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.bouncy' }] };
 const title = { type: 'text', text: 'Hello', name: 'title', at: 0.5, duration: 3.5, style: { fontSize: 88, fontWeight: 'bold', fill: '#1d3557' },
   initial: { x: 640, y: 380, anchorX: 0.5, anchorY: 0.5 },
   keyframes: [{ at: 0, from: { y: 440, alpha: 0 }, to: { y: 380, alpha: 1 }, duration: 'auto', ease: 'spring(1, 170, 12)' }] };
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d3557' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1d3557' } },
   card, badge, title,
 ];
 ```
@@ -183,7 +183,7 @@ const act = {
   sequences: [
     // everything in here is in the composition's own seconds: 0 … 4.5
     { type: 'shape', shape: 'rect', name: 'bar', width: 'GW', height: 16, anchorX: 0, anchorY: 0, at: 0, duration: 4.5,
-      initial: { x: 0, y: 330, fillColor: '#ff4d3d', scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.8, ease: 'expo.out' }] },
+      initial: { x: 0, y: 330, fill: '#ff4d3d', scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.8, ease: 'expo.out' }] },
     { type: 'text', text: 'AGAIN.', name: 'title', at: 0.4, duration: 4.1, style: { fontSize: 150, fontWeight: 'bold', fill: '#f2efe8' },
       initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
       keyframes: [{ at: 0, from: { y: 430, alpha: 0 }, to: { y: 360, alpha: 1 }, duration: 0.9, ease: 'expo.out' }] },
@@ -191,7 +191,7 @@ const act = {
   ],
 };
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0b10' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0b0b10' } },
   act,
   // an overlay in the OUTER time: it shows while the act rewinds (2.7 s … 4 s of the movie)
   { type: 'text', text: '◀◀ REW', name: 'rew', at: 2.7, duration: 1.3, style: { fontSize: 36, fontWeight: 'bold', fill: '#ff4d3d' }, initial: { x: 60, y: 50 } },
@@ -227,11 +227,11 @@ return {
   sequences: [
     { type: 'composition', name: 'spinner', width: 200, height: 200, loop: true, frameRate: 12, initial: { x: 340, y: 260 }, sequences: [
       { type: 'shape', shape: 'arc', radius: 60, startAngle: 0, endAngle: 270, strokeCap: 'round',
-        initial: { x: 100, y: 100, strokeColor: '#ffd166', strokeWidth: 14 },
+        initial: { x: 100, y: 100, stroke: '#ffd166', strokeWidth: 14 },
         keyframes: [{ at: 0, to: { rotation: 360 }, duration: 1 }] },
     ] },
     { type: 'composition', name: 'bounce', width: 200, height: 240, loop: { duration: 1 }, initial: { x: 740, y: 240 }, sequences: [
-      { type: 'shape', shape: 'circle', radius: 24, initial: { x: 100, y: 200, fillColor: '#ef476f' },
+      { type: 'shape', shape: 'circle', radius: 24, initial: { x: 100, y: 200, fill: '#ef476f' },
         keyframes: [{ at: 0, to: { y: 60 }, duration: 0.5, ease: 'power2.out' }, { at: 0.5, to: { y: 200 }, duration: 0.5, ease: 'power2.in' }] },
     ] },
   ],
@@ -249,11 +249,11 @@ There is no second camera for flat scenes: the camera of the 2.5D layers is for 
 const R = 2;                                                  // the group grows to 2x: its text is drawn at 2x pixels
 const inWorld = (spec) => ({ parent: 'world', ...spec });
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } },
   { type: 'null', name: 'world', initial: { x: 'GW/2', y: 'GH/2' },
     keyframes: [{ at: 0.5, from: { scale: 1 }, to: { scale: R }, duration: 3.5, ease: 'power2.inOut' }] },
-  inWorld({ type: 'shape', shape: 'circle', radius: 120, initial: { x: 0, y: 0, fillColor: '#3b5bdb' } }),
-  inWorld({ type: 'shape', shape: 'circle', radius: 40, initial: { x: 260, y: -120, fillColor: '#ffd166' } }),
+  inWorld({ type: 'shape', shape: 'circle', radius: 120, initial: { x: 0, y: 0, fill: '#3b5bdb' } }),
+  inWorld({ type: 'shape', shape: 'circle', radius: 40, initial: { x: 260, y: -120, fill: '#ffd166' } }),
   inWorld({ type: 'text', text: 'Zoom in', resolution: R, style: { fontSize: 48, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } }),
   inWorld({ type: 'text', text: 'sharp at 2x', resolution: R, style: { fontSize: 22, fill: '#c9d3f5' }, initial: { x: 0, y: 150, anchorX: 0.5, anchorY: 0.5 } }),
 ];
@@ -273,12 +273,12 @@ const strip = (name, speed, gap, y, size, color) => {
   const count = Math.ceil((speed * D + W) / gap) + 1;
   return Array.from({ length: count }, (_, i) => ({
     type: 'shape', shape: 'rect', name: `${name}-${i}`, width: size, height: size * 2,
-    initial: { x: i * gap, y, fillColor: color },
+    initial: { x: i * gap, y, fill: color },
     keyframes: [{ at: 0, to: { x: i * gap - speed * D }, duration: D, ease: 'none' }],
   }));
 };
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b2a4a' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1b2a4a' } },
   ...strip('far', 30, 240, 420, 60, '#26365c'),               // distant hills: 30 px/s
   ...strip('mid', 120, 200, 500, 40, '#314a7a'),              // 120 px/s
   ...strip('near', 480, 360, 600, 24, '#0b1220'),             // poles: 480 px/s
@@ -299,7 +299,7 @@ An **afterimage** is drawn from the positions of the past, not from the last pic
 // @recipe canvas-trail
 const at = (t) => ({ x: 640 + 420 * Math.sin(t * 1.7), y: 360 + 200 * Math.sin(t * 2.9) });      // where the dot is at time t
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101420' } },
   { type: 'canvas', name: 'trail', duration: 6, params: { tail: 0.5 },
     draw: (ctx, t, info) => {
       const N = 14;
@@ -318,7 +318,7 @@ return [
 ```js
 // @recipe canvas-rings
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#efe9dc' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#efe9dc' } },
   { type: 'canvas', name: 'rings', width: 720, height: 720, duration: 8, seed: 3, params: { years: 0 },
     initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
     keyframes: [{ at: 0, to: { 'params.years': 40 }, duration: 8, ease: 'power1.inOut' }],
@@ -342,7 +342,7 @@ A **pixel sprite**: drawn small with `scaleMode: 'nearest'`, shown big (the laye
 // @recipe canvas-pixel-sprite
 const ROWS = ['..1111..', '.111111.', '11.11.11', '11111111', '.1.11.1.', '..1111..', '.1....1.', '1......1'];
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b1330' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1b1330' } },
   { type: 'canvas', name: 'sprite', width: 8, height: 8, scaleMode: 'nearest', duration: 8,
     initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5, scale: 30 },
     keyframes: [{ at: 0, from: { y: 300 }, to: { y: 420 }, duration: 8, ease: 'steps(16)' }],             // moves in whole steps
@@ -363,7 +363,7 @@ const step = (g) => g.map((row, y) => row.map((v, x) => {
   return n === 3 || (v && n === 2) ? 1 : 0;
 }));
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0f14' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0b0f14' } },
   { type: 'canvas', name: 'life', width: 960, height: 540, duration: 6, seed: 11, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
     setup: (info) => {
       let g = Array.from({ length: H }, () => Array.from({ length: W }, () => (info.random() < 0.3 ? 1 : 0)));
@@ -389,7 +389,7 @@ The `canvas` layer (see the section above and `help canvas`) is also where text 
 ```js
 // @recipe canvas-text-mask
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d0a14' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0d0a14' } },
   { type: 'canvas', name: 'window', width: 1100, height: 320, duration: 6, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
     setup: (info) => {                                                // the words, drawn once into a canvas of their own
       const word = info.canvas(1100, 320), c = word.getContext('2d');
@@ -416,7 +416,7 @@ return [
 const route = samplePath('M 140 560 C 340 120 940 120 1140 560');
 const WORD = 'ALONG THE CURVE', EASE = ease('power2.out');
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101420' } },
   { type: 'canvas', name: 'along', duration: 6,
     draw: (ctx, t) => {
       const run = EASE(Math.min(1, t / 3));                           // 0 → 1: the line draws on, then the letters settle
@@ -445,7 +445,7 @@ const NAMES = ['Oslo', 'Lima', 'Kyiv', 'Pune', 'Graz'], FROM = [40, 55, 30, 20, 
 const BAR = 90, GAP = 28, EASE = ease('power2.inOut');
 const valuesAt = (time) => FROM.map((a, i) => a + (TO[i] - a) * EASE(Math.min(1, Math.max(0, time) / 5)));
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101420' } },
   { type: 'canvas', name: 'race', width: 1000, height: 600, duration: 6, initial: { x: 140, y: 60 },
     draw: (ctx, t) => {
       const now = valuesAt(t), before = Array.from({ length: 8 }, (_, k) => valuesAt(t - k * 0.04));   // the last third of a second
@@ -514,7 +514,7 @@ const X0 = (1280 - (data.length * BAR_W + (data.length - 1) * GAP)) / 2, X1 = X0
 const sequences = [];
 for (let v = 0; v <= NICE; v += step) {                       // grid lines + tick labels
   const y = BASE - CHART_H * v / NICE;
-  sequences.push({ type: 'shape', shape: 'line', from: [X0 - 20, y], to: [X1 + 20, y], initial: { strokeColor: '#33405c', strokeWidth: 1 } });
+  sequences.push({ type: 'shape', shape: 'line', from: [X0 - 20, y], to: [X1 + 20, y], initial: { stroke: '#33405c', strokeWidth: 1 } });
   sequences.push({ type: 'text', text: String(v), style: { fontSize: 20, fill: '#7f8bb0' }, initial: { x: X0 - 32, y, anchorX: 1, anchorY: 0.5 } });
 }
 const best = data.findIndex(d => d[1] === max);
@@ -524,10 +524,10 @@ data.forEach(([label, value], i) => {
   const h = CHART_H * value / NICE;
   sequences.push({
     type: 'shape', shape: 'rect', width: BAR_W, height: 0, cornerRadius: 8, anchorY: 1, at, colorSpace: 'oklab',
-    initial: { x, y: BASE, fillColor: '#4f6df5' },
+    initial: { x, y: BASE, fill: '#4f6df5' },
     keyframes: [
       { at: 0, to: { height: h }, duration: DUR, ease: EASE },
-      ...(i === best ? [{ at: PEAK_AT - at, to: { fillColor: '#ffd166' }, duration: 0.5 }] : [{ at: PEAK_AT - at, to: { alpha: 0.45 }, duration: 0.5 }]),   // highlight the maximum at t = 4 s
+      ...(i === best ? [{ at: PEAK_AT - at, to: { fill: '#ffd166' }, duration: 0.5 }] : [{ at: PEAK_AT - at, to: { alpha: 0.45 }, duration: 0.5 }]),   // highlight the maximum at t = 4 s
     ],
   });
   sequences.push({                                            // value label: counts up while riding the bar's top
@@ -541,9 +541,9 @@ data.forEach(([label, value], i) => {
 // callout: a pill sized from its text (~0.58 x fontSize per glyph + padding), a pointer triangle, clamped inside the plot
 const text = 'Peak: ' + data[best][0] + ' ' + max, FS = 26;
 const PW = text.length * FS * 0.58 + 44, cx = Math.min(Math.max(X0 + best * (BAR_W + GAP) + BAR_W / 2, X0 + PW / 2), X1 - PW / 2), cy = BASE - CHART_H - 70;
-sequences.push({ type: 'shape', shape: 'rect', width: PW, height: 52, cornerRadius: 26, at: PEAK_AT + 0.2, initial: { x: cx, y: cy, fillColor: '#ffd166', alpha: 0 },
+sequences.push({ type: 'shape', shape: 'rect', width: PW, height: 52, cornerRadius: 26, at: PEAK_AT + 0.2, initial: { x: cx, y: cy, fill: '#ffd166', alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
-sequences.push({ type: 'shape', shape: 'polygon', points: [[-10, 0], [10, 0], [0, 12]], at: PEAK_AT + 0.2, initial: { x: cx, y: cy + 32, fillColor: '#ffd166', alpha: 0 },
+sequences.push({ type: 'shape', shape: 'polygon', points: [[-10, 0], [10, 0], [0, 12]], at: PEAK_AT + 0.2, initial: { x: cx, y: cy + 32, fill: '#ffd166', alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
 sequences.push({ type: 'text', text, at: PEAK_AT + 0.2, style: { fontSize: FS, fontWeight: 'bold', fill: '#1b1b2f' }, initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
@@ -589,7 +589,7 @@ return [
 // @recipe camera-orbit
 const card = (x, z, color) => ({
   type: 'shape', shape: 'rect', width: 300, height: 200, cornerRadius: 20, threeD: true,
-  initial: { x, y: 360, z, fillColor: color },
+  initial: { x, y: 360, z, fill: color },
 });
 return [
   orbit({ duration: 6, degrees: 50, dollyZoom: { from: 38, to: 62 } }),    // options: radius (not with dollyZoom), center, start, fov, ease
@@ -611,7 +611,7 @@ const card = (title, color, x, y, z, at) => ({
   type: 'composition', name: title, at, width: 300, height: 190, threeD: true,
   initial: { x, y, z, pivotX: 150, pivotY: 95 },                       // pivot = the centre, so x,y is where the centre sits
   sequences: [
-    { type: 'shape', shape: 'rect', width: 300, height: 190, cornerRadius: 24, initial: { x: 150, y: 95, fillColor: color } },
+    { type: 'shape', shape: 'rect', width: 300, height: 190, cornerRadius: 24, initial: { x: 150, y: 95, fill: color } },
     { type: 'text', text: title, style: { fontSize: 34, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 150, y: 95, anchorX: 0.5, anchorY: 0.5 } },
   ],
   keyframes: [
@@ -637,9 +637,9 @@ The outgoing scene must stay alive until the covering shape has finished; the ne
 // @recipe scene-flood
 const FLOOD_AT = 3, FLOOD = 0.6, END = 6;
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', duration: FLOOD_AT + FLOOD, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d2b53' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', duration: FLOOD_AT + FLOOD, initial: { x: 'GW/2', y: 'GH/2', fill: '#1d2b53' } },
   { type: 'text', text: 'BEFORE', duration: FLOOD_AT + FLOOD, style: { fontSize: 160, fontWeight: '900', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
-  { type: 'shape', shape: 'circle', radius: 0, at: FLOOD_AT, duration: END - FLOOD_AT, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffd166' },
+  { type: 'shape', shape: 'circle', radius: 0, at: FLOOD_AT, duration: END - FLOOD_AT, initial: { x: 'GW/2', y: 'GH/2', fill: '#ffd166' },
     keyframes: [{ at: 0, to: { radius: 820 }, duration: FLOOD, ease: 'power2.in' }] },
   { type: 'text', text: 'AFTER', at: FLOOD_AT + FLOOD, duration: END - FLOOD_AT - FLOOD, style: { fontSize: 160, fontWeight: '900', fill: '#1d2b53' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
     keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.25 }] },
@@ -702,7 +702,7 @@ A tune written as text: tracks of notes and chords (`c4:2`, `Am7:4`, `_` rest), 
 ```js
 // @recipe music-lofi
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b1a2e' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1b1a2e' } },
   { type: 'text', text: 'evening', at: 0.5, style: { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#f3eee4' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
     keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.2 }] },
   { type: 'audio', at: 0, volume: 0.8, music: {
@@ -727,7 +727,7 @@ No `assets`, no files: a sound effect is one audio layer with `sfx`. It lasts as
 ```js
 // @recipe sfx-minimal
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } },
   { type: 'text', name: 'word', text: 'HELLO', at: 2, duration: 3,
     style: { fontSize: 120, fontWeight: '900', fill: '#ffffff' },
     initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
@@ -756,7 +756,7 @@ Line up the LOUD point, not the start: a `riser` is loudest at its end (`at = hi
 
 ```js
 // @recipe sfx-cues
-const BG = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } };
+const BG = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } };
 const HIT = 1.5, RISE = 1.2;                         // the title slams in at 1.5 s; the riser leads into it
 const sequences = [BG,
   { type: 'audio', name: 'riser', sfx: 'riser', at: HIT - RISE, duration: RISE, volume: 0.7 },   // a riser is loudest at its END
@@ -797,11 +797,11 @@ return sequences;
 const CX = 640, CY = 360, R = 120, TO = 0.82;            // 82 % filled
 const EASE = 'power3.out', AT = 0.3, DUR = 2;
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } },
   { type: 'shape', shape: 'arc', name: 'track', radius: R, startAngle: 0, endAngle: 360,
-    initial: { x: CX, y: CY, strokeColor: '#27304d', strokeWidth: 24 } },
+    initial: { x: CX, y: CY, stroke: '#27304d', strokeWidth: 24 } },
   { type: 'shape', shape: 'arc', name: 'progress', radius: R, startAngle: -90, endAngle: -90, strokeCap: 'round',
-    initial: { x: CX, y: CY, strokeColor: '#ffd166', strokeWidth: 24 },
+    initial: { x: CX, y: CY, stroke: '#ffd166', strokeWidth: 24 },
     keyframes: [{ at: AT, to: { endAngle: -90 + 360 * TO }, duration: DUR, ease: EASE }] },
   { type: 'text', name: 'percent', text: '{value}%', format: { decimals: 0 },
     style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
@@ -821,17 +821,17 @@ return [
 const ACCENT = '#ffd166', TEAL = '#4cc9f0', GREEN = '#7bd88f';
 const drawOn = (at, duration = 1.2) => ({ at, to: { trimEnd: 1 }, duration, ease: 'power2.inOut' });
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0a0e1a' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0a0e1a' } },
   // an underline that draws itself
   { type: 'shape', shape: 'line', from: [340, 120], to: [940, 120], trimEnd: 0, strokeCap: 'round',
-    initial: { strokeColor: ACCENT, strokeWidth: 6 }, keyframes: [drawOn(0.2, 1)] },
+    initial: { stroke: ACCENT, strokeWidth: 6 }, keyframes: [drawOn(0.2, 1)] },
   // a card border (clockwise from the top-left), then its fill fades in
   { type: 'shape', shape: 'rect', width: 360, height: 200, cornerRadius: 28, trimEnd: 0, strokeJoin: 'round',
-    initial: { x: 400, y: 360, strokeColor: TEAL, strokeWidth: 8, fillColor: TEAL, fillAlpha: 0 },
+    initial: { x: 400, y: 360, stroke: TEAL, strokeWidth: 8, fill: TEAL, fillAlpha: 0 },
     keyframes: [drawOn(0.6, 1.4), { at: 2, to: { fillAlpha: 0.2 }, duration: 0.6 }] },
   // an SVG check mark
   { type: 'shape', shape: 'path', d: 'M 0 50 L 45 95 L 130 0', trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
-    initial: { x: 880, y: 360, strokeColor: GREEN, strokeWidth: 16 }, keyframes: [drawOn(1.8, 0.9)] },
+    initial: { x: 880, y: 360, stroke: GREEN, strokeWidth: 16 }, keyframes: [drawOn(1.8, 0.9)] },
   // a typewriter: left-aligned so it grows rightward; 30 characters over 2.4 s
   { type: 'text', text: 'No mask, no per-letter layers.', at: 3, duration: 5,
     style: { fontSize: 40, fill: '#e8eefc', fontFamily: 'ui-monospace, Menlo, monospace' },
@@ -855,7 +855,7 @@ Text content cannot change, so a per-letter or per-word effect is one text layer
 // @recipe split-text
 const style = { fontFamily: 'Arial, sans-serif', fontSize: 110, fontWeight: 'bold', fill: '#ffffff' };
 const sub = { fontFamily: 'Arial, sans-serif', fontSize: 44, fill: '#ffd166' };
-const sequences = [{ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } }];
+const sequences = [{ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } }];
 splitText('MAKE THINGS', style, { x: 640, y: 200, align: 'center' }).forEach(p => sequences.push({
   type: 'text', name: 'letter-' + p.index, text: p.text, style, at: 0.3 + p.index * 0.06,
   initial: { x: p.x, y: p.y, alpha: 0 },                                   // x / y are the top-left of the letter: anchorX / anchorY stay 0
@@ -890,7 +890,7 @@ const letters = stagger(
 const COLS = 6, ROWS = 3, delays = stagger(COLS * ROWS, { each: 0.12, grid: [COLS, ROWS], from: 'center', ease: 'sine.out' });
 const tiles = delays.map((d, i) => ({
   type: 'shape', shape: 'rect', width: 120, height: 120, cornerRadius: 18, name: 'tile-' + i, at: 1 + d, duration: 3 - d,
-  initial: { x: 190 + (i % COLS) * 180, y: 330 + Math.floor(i / COLS) * 150, fillColor: '#4cc9f0', scale: 0 },
+  initial: { x: 190 + (i % COLS) * 180, y: 330 + Math.floor(i / COLS) * 150, fill: '#4cc9f0', scale: 0 },
   keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2)' }],
 }));
 return [...letters, ...tiles];
@@ -920,7 +920,7 @@ return [
 // @recipe vertical-text
 const style = { fontFamily: 'Hiragino Mincho ProN, Yu Mincho, serif', fontSize: 56, fill: '#1c1a17' };
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#efe9dc' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#efe9dc' } },
   ...animateText('雨のあと、\nコーヒーは「ゆっくり」', style, { x: 900, y: 70, vertical: true, at: 0.3, duration: 5, in: 'fade', stagger: { each: 0.04 } }),
 ];
 ```
@@ -937,8 +937,8 @@ Presets for `in` / `out`: `rise` (default) `drop` `fade` `pop` `zoom` `slide` `s
 // @recipe follow-path
 const ROUTE = 'M 120 560 C 360 120 920 120 1160 560';
 return [
-  { type: 'shape', shape: 'path', d: ROUTE, duration: 5, initial: { strokeColor: '#ffffff', strokeWidth: 3, strokeAlpha: 0.25 } },     // the route, faint
-  { type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4.5, initial: { fillColor: '#ffd166' },
+  { type: 'shape', shape: 'path', d: ROUTE, duration: 5, initial: { stroke: '#ffffff', strokeWidth: 3, strokeAlpha: 0.25 } },     // the route, faint
+  { type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4.5, initial: { fill: '#ffd166' },
     keyframes: followPath({ d: ROUTE, duration: 4, ease: 'power2.inOut', orient: true, samplesPerSecond: 30 }) },                               // a pointer that faces the way it goes
 ];
 ```
@@ -949,7 +949,7 @@ const BLOB = 'M 640 160 C 780 160 860 260 860 360 C 860 470 770 560 640 560 C 51
 const STAR = 'M 640 130 L 700 300 L 880 300 L 735 410 L 790 590 L 640 480 L 490 590 L 545 410 L 400 300 L 580 300 Z';
 return [{
   type: 'shape', shape: 'path', d: BLOB, morphTo: STAR, duration: 4,
-  initial: { fillColor: '#ffd166', strokeColor: '#ffffff', strokeWidth: 6, strokeJoin: 'round' },
+  initial: { fill: '#ffd166', stroke: '#ffffff', strokeWidth: 6, strokeJoin: 'round' },
   keyframes: [{ at: 0.5, to: { morph: 1 }, duration: 1.5, ease: 'power2.inOut', repeat: 1, yoyo: true }],                                // there and back
 }];
 ```
@@ -968,12 +968,12 @@ const env = bpmEnvelope(120, { duration: 8, frameRate: 30 });      // with a fil
 const bands = ['bass', 'bass', 'bass', 'mid', 'mid', 'mid', 'treble', 'treble'];
 const bars = bands.map((band, i) => ({
   type: 'shape', shape: 'rect', name: 'bar-' + i, width: 60, height: 10, cornerRadius: 6, anchorY: 1, duration: 8,
-  initial: { x: 330 + i * 86, y: 600, fillColor: ['#ff2d95', '#8a4dff', '#22e0ff'][['bass', 'mid', 'treble'].indexOf(band)] },
+  initial: { x: 330 + i * 86, y: 600, fill: ['#ff2d95', '#8a4dff', '#22e0ff'][['bass', 'mid', 'treble'].indexOf(band)] },
   keyframes: react(env, { duration: 8, props: { height: { base: 10, amount: 260, band, release: 0.12 } } }),       // an equaliser bar: up fast, down slowly
 }));
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#07060f' } },
-  { type: 'shape', shape: 'circle', name: 'orb', radius: 90, duration: 8, initial: { x: 640, y: 260, fillColor: '#ffffff' },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#07060f' } },
+  { type: 'shape', shape: 'circle', name: 'orb', radius: 90, duration: 8, initial: { x: 640, y: 260, fill: '#ffffff' },
     keyframes: react(env, { duration: 8, props: { scale: { base: 1, amount: 0.5, beats: true, decay: 0.16 }, alpha: { base: 0.55, amount: 0.45, band: 'bass', attack: 0.02, release: 0.15 } } }) },   // a flash on every kick
   ...bars,
 ];
@@ -987,7 +987,7 @@ return [
 
 ```js
 // @recipe deck
-const paper = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#f4efe6' } };
+const paper = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#f4efe6' } };
 const style = { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#1c1a17' };
 const line = (text, y, at, dur) => animateText(text, style, { by: 'words', x: 96, y, align: 'left', name: 'l' + y, at, duration: dur - at, in: { from: { y: 40, alpha: 0 }, duration: 0.8, ease: 'power3.out' }, stagger: { each: 0.1 } });
 const T = 0.6;
@@ -1024,10 +1024,10 @@ new Presenter(movie, { canvas });     // arrows / Space / Enter / click / swipe 
 const gate = (i, z) => ({
   type: 'composition', name: 'gate-' + i, threeD: true, hideBehindCamera: true, width: 360, height: 480,
   initial: { x: 640, y: 360, z, pivotX: 180, pivotY: 240 },
-  sequences: [{ type: 'shape', shape: 'rect', width: 330, height: 450, cornerRadius: 6, initial: { x: 180, y: 240, strokeColor: '#ffe9c4', strokeWidth: 6 } }],
+  sequences: [{ type: 'shape', shape: 'rect', width: 330, height: 450, cornerRadius: 6, initial: { x: 180, y: 240, stroke: '#ffe9c4', strokeWidth: 6 } }],
 });
 return { duration: 8, sequences: [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0a10' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0b0a10' } },
   ...Array.from({ length: 9 }, (_, i) => gate(i, -i * 380)),
   { type: 'camera', keyframes: [
     ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', samplesPerSecond: 30 }),
@@ -1049,7 +1049,7 @@ const word = (name, text, x, z, fill) => ({
   initial: { x, y: 360, z, anchorX: 0.5, anchorY: 0.5 },
 });
 return { duration: 5, sequences: [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101626' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101626' } },
   { type: 'camera', initial: { focus: 'near', aperture: 40 },
     keyframes: [
       { at: 1, to: { focus: 'far' }, duration: 1, ease: 'power2.inOut' },          // near -> far
@@ -1071,7 +1071,7 @@ return { duration: 5, sequences: [
 // @recipe pulse
 return [{
   type: 'shape', shape: 'circle', radius: 40, duration: 6,
-  initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff3b3b' },
+  initial: { x: 'GW/2', y: 'GH/2', fill: '#ff3b3b' },
   keyframes: [{ at: 0, to: { scale: 1.15 }, duration: 0.5, ease: 'sine.inOut', repeat: 11, yoyo: true }],   // 12 plays x 0.5 s = 6 s
 }];
 ```
@@ -1088,7 +1088,7 @@ const colors = ['#ffd166', '#ff6b9d', '#4cc9f0', '#ffffff'];
 const burst = (at, x, y, seed) => particles({ count: 240, at, life: [1.2, 2], area: { x, y }, speed: [40, 520], gravity: 220, drag: 1.1,
   size: [4, 8], scale: [1, 0.3], colors, fade: { out: 0.7 }, blendMode: 'add', seed, name: 'burst' + seed });   // bursts of sparks
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0a0f1f' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0a0f1f' } },
   ...burst(0.5, 400, 260, 1), ...burst(1.6, 880, 200, 2), ...burst(2.8, 640, 330, 3),
 ];
 ```
@@ -1096,7 +1096,7 @@ return [
 ```js
 // @recipe particles-snow
 return { duration: 10, sequences: [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#16203d' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#16203d' } },
   ...particles({ count: 120, emit: 4, life: [4, 6], area: { x: 640, y: -20, width: 1400 }, angle: 90, speed: [40, 90],
     size: [2, 5], sway: { amp: 30, freq: 0.6 }, fade: { in: 0.5, out: 0.5 }, name: 'snow', seed: 4 }),     // drifting down, swaying
 ] };
@@ -1111,13 +1111,13 @@ A `null` layer draws nothing and only moves; layers with `parent: 'name'` are dr
 ```js
 // @recipe null-orbit
 return [
-  { type: 'shape', shape: 'circle', radius: 50, duration: 8, initial: { x: 640, y: 360, fillColor: '#ffd166' } },            // the sun
+  { type: 'shape', shape: 'circle', radius: 50, duration: 8, initial: { x: 640, y: 360, fill: '#ffd166' } },            // the sun
   { type: 'null', name: 'earth-orbit', initial: { x: 640, y: 360 },                                                         // pivot at the sun
     keyframes: [{ at: 0, to: { rotation: 360 }, duration: 8, ease: 'none' }] },
-  { type: 'shape', shape: 'circle', radius: 20, parent: 'earth-orbit', initial: { x: 240, y: 0, fillColor: '#4cc9f0' } },     // 240 px from the sun
+  { type: 'shape', shape: 'circle', radius: 20, parent: 'earth-orbit', initial: { x: 240, y: 0, fill: '#4cc9f0' } },     // 240 px from the sun
   { type: 'null', name: 'moon-orbit', parent: 'earth-orbit', initial: { x: 240, y: 0 },                                      // pivot at the earth
     keyframes: [{ at: 0, to: { rotation: 1440 }, duration: 8, ease: 'none' }] },
-  { type: 'shape', shape: 'circle', radius: 7, parent: 'moon-orbit', initial: { x: 55, y: 0, fillColor: '#e8eefc' } },        // 55 px from the earth
+  { type: 'shape', shape: 'circle', radius: 7, parent: 'moon-orbit', initial: { x: 55, y: 0, fill: '#e8eefc' } },        // 55 px from the earth
 ];
 ```
 
@@ -1131,7 +1131,7 @@ return [
 // @recipe light-leak
 const skyline = Array.from({ length: 9 }, (_, i) => ({
   type: 'shape', shape: 'rect', name: 'block-' + i, width: 90 + (i % 3) * 30, height: 160 + ((i * 53) % 190), anchorX: 0, anchorY: 1,
-  initial: { x: 40 + i * 140, y: 650, fillColor: '#0d1220' },
+  initial: { x: 40 + i * 140, y: 650, fill: '#0d1220' },
 }));
 return { duration: 6, sequences: [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0 },
@@ -1164,14 +1164,14 @@ const line = (y, text, mask, extra = {}) => ({
   initial: { x: 640, y, anchorX: 0.5, anchorY: 0.5 }, ...extra,
 });
 return { duration: 5, sequences: [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#101626' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#101626' } },
   // the matte: a bright band that grows to the right; it lives as long as the layers it cuts
   { type: 'shape', shape: 'rect', name: 'band', anchorX: 0, anchorY: 0, width: 0, height: 720,
-    initial: { x: 140, y: 0, fillColor: '#ffffff' },
+    initial: { x: 140, y: 0, fill: '#ffffff' },
     keyframes: [{ at: 0.4, to: { width: 1000 }, duration: 2, ease: 'power2.inOut' }] },
   line(200, 'ONE MATTE', 'band'),
   line(360, 'SHARED BY', { layer: 'band', channel: 'luma' }),
-  line(520, 'THREE LAYERS', { layer: 'band', invert: true }, { initial: { x: 640, y: 520, anchorX: 0.5, anchorY: 0.5, fillColor: '#ffd166' } }),
+  line(520, 'THREE LAYERS', { layer: 'band', invert: true }, { initial: { x: 640, y: 520, anchorX: 0.5, anchorY: 0.5, fill: '#ffd166' } }),
 ] };
 ```
 
@@ -1186,7 +1186,7 @@ return { duration: 5, sequences: [
 const scene = (name, at, color, label) => ({
   type: 'composition', name, at, duration: 4, width: 1280, height: 720,
   sequences: [
-    { type: 'shape', shape: 'rect', width: 1280, height: 720, initial: { x: 640, y: 360, fillColor: color } },
+    { type: 'shape', shape: 'rect', width: 1280, height: 720, initial: { x: 640, y: 360, fill: color } },
     { type: 'text', text: label, style: { fontSize: 120, fill: '#ffffff', fontWeight: 'bold' }, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 } },
   ],
 });
@@ -1207,7 +1207,7 @@ An ambient light keeps the room from going black, a `spot` light sweeps across t
 // @recipe spot-room
 const card = (name, x, fill) => ({
   type: 'shape', shape: 'rect', name, width: 300, height: 200, anchorX: 0.5, anchorY: 0.5, threeD: true, castsShadows: true,
-  initial: { x, y: 300, z: 0, fillColor: fill },
+  initial: { x, y: 300, z: 0, fill: fill },
 });
 return { duration: 6, sequences: [
   { type: 'light', kind: 'ambient', initial: { intensity: 0.18 } },
@@ -1215,7 +1215,7 @@ return { duration: 6, sequences: [
     initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, lookAtZ: 0, coneAngle: 34, coneFeather: 0.7, intensity: 1.1, shadowDiffusion: 14 },
     keyframes: [{ at: 0.5, to: { x: 1100, lookAtX: 1020 }, duration: 4.5, ease: 'sine.inOut' }] },
   // the wall, big and behind the cards (a room is layers in distance order: no depth buffer)
-  { type: 'shape', shape: 'rect', name: 'wall', width: 1800, height: 900, anchorX: 0.5, anchorY: 0.5, threeD: true, initial: { x: 640, y: 300, z: -260, fillColor: '#6b7280' } },
+  { type: 'shape', shape: 'rect', name: 'wall', width: 1800, height: 900, anchorX: 0.5, anchorY: 0.5, threeD: true, initial: { x: 640, y: 300, z: -260, fill: '#6b7280' } },
   card('a', 300, '#e0a458'), card('b', 640, '#58a4e0'), card('c', 980, '#e05876'),
 ] };
 ```
@@ -1230,10 +1230,10 @@ Fog is the camera's (`fogNear`, `fogFar`, `fogColor`, `fogAmount`): `threeD` lay
 // @recipe fog-depth
 const posts = Array.from({ length: 10 }, (_, i) => ({
   type: 'shape', shape: 'rect', name: 'post-' + i, width: 80, height: 420, anchorX: 0.5, anchorY: 1, threeD: true,
-  initial: { x: 200 + (i % 2) * 880, y: 620, z: -i * 220, fillColor: '#1f2a44' },
+  initial: { x: 200 + (i % 2) * 880, y: 620, z: -i * 220, fill: '#1f2a44' },
 }));
 return { duration: 6, sequences: [
-  { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#9fb4d6' } },
+  { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#9fb4d6' } },
   { type: 'camera', initial: { fogNear: 900, fogFar: 2600, fogColor: '#9fb4d6', fogAmount: 0.95 },
     keyframes: [{ at: 0, to: { offsetZ: -700 }, duration: 6, ease: 'sine.inOut' }] },        // dolly in: the nearer posts come out of the mist
   ...posts,
@@ -1298,12 +1298,12 @@ return [
     keyframes: wiggle({ duration: 6, freq: 3, seed: 1, props: { x: { around: 'GW/2', amp: 8 }, y: { around: 'GH/2', amp: 6 }, rotation: { around: 0, amp: 1.2 } } }) },
   // a neon sign whose light stutters (fast, straight-line steps)
   { type: 'shape', shape: 'rect', width: 520, height: 8, duration: 6,
-    initial: { x: 'GW/2', y: 'GH/2 + 90', fillColor: '#ff4d6d' },
+    initial: { x: 'GW/2', y: 'GH/2 + 90', fill: '#ff4d6d' },
     keyframes: wiggle({ duration: 6, freq: 12, seed: 5, ease: 'none', props: { alpha: { around: 0.8, amp: 0.2 } } }) },
   // dust: every speck has its own seed, so its drift is its own and never changes between runs
   ...Array.from({ length: 24 }, (_, i) => ({
     type: 'shape', shape: 'circle', radius: 2 + rand(i) * 3, duration: 6,
-    initial: { x: 40 + rand(i + 100) * 1200, y: 40 + rand(i + 200) * 640, fillColor: '#ffffff', fillAlpha: 0.25 + rand(i + 300) * 0.4 },
+    initial: { x: 40 + rand(i + 100) * 1200, y: 40 + rand(i + 200) * 640, fill: '#ffffff', fillAlpha: 0.25 + rand(i + 300) * 0.4 },
     keyframes: [...wiggle({ duration: 6, freq: 0.6, seed: i, props: { y: { around: 40 + rand(i + 200) * 640, amp: 30 } } })],
   })),
 ];
@@ -1359,7 +1359,7 @@ return [
 // @recipe film-grain
 // the scene is wrapped in a composition layer that carries the filter (on a whole movie, put the same filter in `composition: { filters: [...] }`)
 const scene = [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#3a4a6b' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#3a4a6b' } },
   { type: 'text', text: 'FILM', name: 'title', at: 0.3, duration: 3.7, style: { fontSize: 200, fontWeight: '900', fill: '#f4f1ea' },
     initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
 ];
@@ -1399,7 +1399,7 @@ const rand = random(7);                                                         
 const COLORS = ['#ffd166', '#ef476f', '#06d6a0', '#118ab2'];
 const bits = Array.from({ length: 160 }, () => ({ angle: rand() * Math.PI * 2, speed: 260 + rand() * 520, spin: (rand() - 0.5) * 14, size: 10 + rand() * 16, color: COLORS[Math.floor(rand() * 4)] }));
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101425' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101425' } },
   { type: 'scene2d', name: 'burst',
     setup: ({ root, width, height }) => {
       const pieces = bits.map((b) => root.addChild(new Graphics().rect(-b.size / 2, -b.size / 4, b.size, b.size / 2).fill(b.color)));
@@ -1440,7 +1440,7 @@ A real 3D scene as one layer, drawn by PixiJS 3D inside PixiJS itself: a floor t
 // composition 1280 x 720, 5 s. 'model.glb' sits next to the page.
 let model;
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d1220' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0d1220' } },
   { type: 'scene3d', name: 'stage',
     view: { toneMapping: 'aces', shadowQuality: 'medium', environment: { skyColor: 0xbcd4f0, groundColor: 0x3a3226, intensity: 0.6 } },
     setup: async ({ root, camera }) => {
@@ -1463,7 +1463,7 @@ return [
       objects.cube.rotation.y = t * 1.5;
     },
     keyframes: [{ at: 1, to: { 'scene3d.cube.position.x': 2.2 }, duration: 2.5, ease: 'sine.inOut' }],
-    mask: { type: 'shape', shape: 'circle', radius: 1, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffffff' },    // a mask shape needs a fill
+    mask: { type: 'shape', shape: 'circle', radius: 1, initial: { x: 'GW/2', y: 'GH/2', fill: '#ffffff' },    // a mask shape needs a fill
       keyframes: [{ at: 0, to: { radius: 760 }, duration: 1.2, ease: 'power2.inOut' }] } },           // a circle wipe reveals the scene
   { type: 'text', text: 'PIXIJS 3D', style: { fontSize: 72, fontWeight: '900', fill: '#ffffff', letterSpacing: 8 },
     initial: { x: 'GW/2', y: 110, anchorX: 0.5, anchorY: 0.5 },
@@ -1531,7 +1531,7 @@ const face = (softbox) => {                                                     
 };
 const studio = CubeTexture.from({ faces: { right: face(true), left: face(true), top: face(true), bottom: face(false), front: face(true), back: face(false) } });
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0d12' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0b0d12' } },
   { type: 'text', text: 'CHROME', style: { fontSize: 96, fontWeight: '900', fill: '#e8ecf5', letterSpacing: 6 }, initial: { x: 90, y: 'GH/2', anchorX: 0, anchorY: 0.5 } },
   { type: 'scene3d', name: 'chrome', width: 'GW * 0.56', height: 'GH * 0.9', initial: { x: 'GW * 0.72', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
     view: { environment: studio, toneMapping: 'aces' },                                              // what the metal reflects (it draws nothing itself: the layer stays clear around the object)
@@ -1561,7 +1561,7 @@ A dark room: a wall that RECEIVES the shadow, a model that CASTS it, one spot li
 // composition 1280 x 720, 5 s. The model faces +z in the file: rotation.y = PI / 2 runs it toward +x.
 let fox;
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#030305' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#030305' } },
   { type: 'light', kind: 'ambient', initial: { intensity: 0.05 } },
   { type: 'light', kind: 'spot', castsShadows: true, initial: { x: -160, y: 430, z: 560, lookAtX: 260, lookAtY: 340, lookAtZ: -100, coneAngle: 40, coneFeather: 0.7, intensity: 1.6 },
     keyframes: [{ at: 0.3, to: { x: 600, lookAtX: 1020 }, duration: 4.4, ease: 'sine.inOut' }] },      // the beam sweeps across the wall
@@ -1594,14 +1594,14 @@ A 2D composition is the screen; a scene3d layer holds the object it is on. The c
 // import { Container3D, Mesh3D, CubeGeometry, PlaneGeometry, Material3D, DirectionalLight } from '@pixi/3d';
 // composition 1280 x 720, 8 s
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#e9e4dc' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#e9e4dc' } },
   { type: 'composition', name: 'screen', width: 390, height: 844, duration: 8, sequences: [                    // the app: any 2D layers; this is what the phone shows
-    { type: 'shape', shape: 'rect', width: 390, height: 844, initial: { x: 195, y: 422, fillColor: '#101a33' } },
+    { type: 'shape', shape: 'rect', width: 390, height: 844, initial: { x: 195, y: 422, fill: '#101a33' } },
     { type: 'text', text: 'Hello', style: { fontSize: 72, fill: '#ffffff', fontWeight: '800' }, initial: { x: 195, y: 160, anchorX: 0.5, anchorY: 0.5 },
       keyframes: [{ at: 0.4, from: { alpha: 0, y: 200 }, to: { alpha: 1, y: 160 }, duration: 0.8, ease: 'power3.out' }] },
     { type: 'text', text: '{value}%', style: { fontSize: 120, fill: '#ffd166', fontWeight: '900' }, initial: { x: 195, y: 420, anchorX: 0.5, anchorY: 0.5, value: 0 },
       keyframes: [{ at: 1, to: { value: 100 }, duration: 5, ease: 'power1.inOut' }] },                      // a counter: the mesh shows every frame of it
-    { type: 'shape', shape: 'rect', width: 300, height: 14, cornerRadius: 7, initial: { x: 45, y: 540, anchorX: 0, anchorY: 0.5, fillColor: '#ffd166', scaleX: 0 },
+    { type: 'shape', shape: 'rect', width: 300, height: 14, cornerRadius: 7, initial: { x: 45, y: 540, anchorX: 0, anchorY: 0.5, fill: '#ffd166', scaleX: 0 },
       keyframes: [{ at: 1, to: { scaleX: 1 }, duration: 5, ease: 'power1.inOut' }] },
   ] },
   { type: 'scene3d', name: 'phone',
@@ -1767,10 +1767,10 @@ A card with a label is two layers: name the card's group (a `composition` layer,
 // @docs-only drag-drop
 // the page: a canvas with  style="touch-action: none"  (a finger dragging must not scroll the page)
 //   await movie.init({ canvas, width: 960, height: 540, vars: { cx: 200, cy: 270, doneLit: 0 }, composition: { sequences: [
-//     { type: 'shape', shape: 'rect', name: 'done', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fillColor: '#182038' } },
-//     { type: 'shape', shape: 'rect', name: 'done-glow', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fillColor: '#3ddc97', alpha: 'doneLit' } },   // the light: a variable
+//     { type: 'shape', shape: 'rect', name: 'done', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fill: '#182038' } },
+//     { type: 'shape', shape: 'rect', name: 'done-glow', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fill: '#3ddc97', alpha: 'doneLit' } },   // the light: a variable
 //     { type: 'composition', name: 'card', width: 200, height: 120, duration: 1, initial: { x: 'cx', y: 'cy', pivotX: 100, pivotY: 60 }, sequences: [   // the card and its label: ONE target (the group's name); a composition turns and sits about its pivot
-//       { type: 'shape', shape: 'rect', name: 'face', width: 200, height: 120, cornerRadius: 14, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, fillColor: '#f2c14e' } },
+//       { type: 'shape', shape: 'rect', name: 'face', width: 200, height: 120, cornerRadius: 14, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, fill: '#f2c14e' } },
 //       { type: 'text', name: 'label', text: 'Task', style: { fontSize: 34, fill: '#1b1b1b' }, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5 } },
 //     ] },
 //   ] } });
@@ -1889,7 +1889,7 @@ function srt(text, { bottom = 90, size = 44, color = '#ffffff', width = 1000 } =
 }
 
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d2433' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1d2433' } },
   ...srt(SRT),
 ];
 ```
@@ -1906,7 +1906,7 @@ const IMG = { hero: [1920, 1280] };                                             
 const photo = (key, x, y, w, h, duration) => {
   const cover = Math.max(w / IMG[key][0], h / IMG[key][1]);
   return { type: 'image', asset: key, duration,
-    mask: { type: 'shape', shape: 'rect', width: w, height: h, initial: { x: x + w / 2, y: y + h / 2, fillColor: '#fff' } },     // the mask lives in the parent's coordinates
+    mask: { type: 'shape', shape: 'rect', width: w, height: h, initial: { x: x + w / 2, y: y + h / 2, fill: '#fff' } },     // the mask lives in the parent's coordinates
     initial: { x: x + w / 2, y: y + h / 2, anchorX: 0.5, anchorY: 0.5, scale: cover },                                             // image anchors go in `initial`
     keyframes: [{ at: 0, to: { scale: cover * 1.1 }, duration, ease: 'sine.inOut' }] };                                             // a slow push
 };
@@ -1931,7 +1931,7 @@ const NAME = q.get('name') ?? 'World';
 const SCORE = q.get('score') ?? '0';
 // ...then use NAME and SCORE in the text layers of your composition:
 const sequences = [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d2433' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1d2433' } },
   { type: 'text', text: `Well done, ${NAME}!`, at: 0.3, duration: 3.7, style: { fontSize: 96, fontWeight: 'bold', fill: '#ffffff' },
     initial: { x: 'GW/2', y: 300, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0, y: 340 }, to: { alpha: 1, y: 300 }, duration: 0.6 }] },
   { type: 'text', text: `${SCORE} points`, at: 0.9, duration: 3.1, style: { fontSize: 64, fill: '#ffd166' },
@@ -1961,7 +1961,7 @@ await movie.init({
   canvas, width: 1920, height: 1080, duration: 5,
   vars: { head: COPY[lang].head, sub: COPY[lang].sub, accent: '#e5399a', lift: 0 },        // numbers can be read in expressions, any value in {name}
   composition: { sequences: [
-    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#12151f' } },
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#12151f' } },
     { type: 'text', text: '{head}', at: 0.3, duration: 4.7, style: { fontSize: 120, fontWeight: 'bold', fill: '{accent}' },
       initial: { x: 'GW/2', y: 'GH/2 - 40 - lift', anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
     { type: 'text', text: '{sub}', at: 0.9, duration: 4.1, style: { fontSize: 56, fill: '#ffffff' },
@@ -1982,7 +1982,7 @@ await movie.init({
 const layout = (w, h) => {
   const tall = h > w;
   return { sequences: [
-    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#12151f' } },
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#12151f' } },
     { type: 'text', text: 'Headline', style: { fontSize: tall ? 'GW * 0.12' : 'GH * 0.14', fontWeight: 'bold', fill: '#ffffff' },
       initial: { x: tall ? 'GW * 0.08' : 'GW/2', y: tall ? 'GH * 0.7' : 'GH/2', anchorX: tall ? 0 : 0.5, anchorY: 0.5 } },
   ] };

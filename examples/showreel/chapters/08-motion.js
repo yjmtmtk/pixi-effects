@@ -33,24 +33,24 @@ export default function chapter(P) {
   labels.push({ type: 'text', name: 'label-clock', text: 'clock', style: { fontSize: 38, fill: C.dim, fontFamily: F.mono },
     initial: { x: 96, y: laneY(0), anchorX: 0, anchorY: 0.5 } });
   tracks.push({ type: 'shape', shape: 'rect', name: 'track-clock', width: X1 - X0, height: 4, anchorX: 0, anchorY: 0.5,
-    initial: { x: X0, y: laneY(0), fillColor: C.dim, fillAlpha: 0.35 } });
+    initial: { x: X0, y: laneY(0), fill: C.dim, fillAlpha: 0.35 } });
   lanes.forEach((l, k) => {
     const y = laneY(k + 1);
     labels.push({ type: 'text', name: 'label-' + l.name, text: l.label, style: { fontSize: 38, fill: l.color === C.bone ? C.bone : l.color, fontFamily: F.mono },
       initial: { x: 96, y, anchorX: 0, anchorY: 0.5 } });
     tracks.push({ type: 'shape', shape: 'rect', name: 'track-' + l.name, width: X1 - X0, height: 4, anchorX: 0, anchorY: 0.5,
-      initial: { x: X0, y, fillColor: C.dim, fillAlpha: 0.35 } });
+      initial: { x: X0, y, fill: C.dim, fillAlpha: 0.35 } });
     // the part of the track already travelled: it grows with the same ease as the dot
     dots.push({ type: 'shape', shape: 'rect', name: 'trail-' + l.name, width: X1 - X0, height: 10, anchorX: 0, anchorY: 0.5,
-      initial: { x: X0, y, fillColor: l.color, fillAlpha: 0.55, scaleX: 0 },
+      initial: { x: X0, y, fill: l.color, fillAlpha: 0.55, scaleX: 0 },
       keyframes: [{ at: GO, to: { scaleX: 1 }, duration: l.dur, ease: l.ease }] });
     dots.push({ type: 'shape', shape: 'circle', name: 'dot-' + l.name, radius: 34,
-      initial: { x: X0, y, fillColor: l.color },
+      initial: { x: X0, y, fill: l.color },
       keyframes: [{ at: GO, to: { x: X1 }, duration: l.dur, ease: l.ease }] });
   });
 
   const line = (name, x) => ({ type: 'shape', shape: 'rect', name, width: 4, height: 800, anchorX: 0.5, anchorY: 0,
-    initial: { x, y: 150, fillColor: C.dim, fillAlpha: 0.3 } });
+    initial: { x, y: 150, fill: C.dim, fillAlpha: 0.3 } });
 
   // the race: its own clock is driven by `time` keyframes (the dots and trails inside are written in the race's own seconds)
   const race = {
@@ -72,7 +72,7 @@ export default function chapter(P) {
       race,
       // the playhead of the race's clock: the same keyframes, drawn as a tick on the top lane
       { type: 'shape', shape: 'rect', name: 'playhead', width: 8, height: 64, anchorX: 0.5, anchorY: 0.5, cornerRadius: 3,
-        initial: { x: X0, y: laneY(0), fillColor: C.bone },
+        initial: { x: X0, y: laneY(0), fill: C.bone },
         keyframes: clockKeys('x', (t) => X0 + (t / LEN) * (X1 - X0)) },
     ],
   };

@@ -48,10 +48,10 @@ const VEC: [string, string, number][] = [
 ];
 
 /**
- * `fillColor` and `fillAlpha` reach the timeline as shorthands too; a shape keeps its own colours (live state, redrawn), so a write on the
+ * `fillAlpha` reaches the timeline as a shorthand too; a shape keeps its own colours (live state, redrawn), so a write on the
  * Graphics object is not what is seen: the timeline leaves these alone.
  */
-export const PIXI_INERT = new Set(['fillColor', 'fillAlpha']);
+export const PIXI_INERT = new Set(['fillAlpha']);
 
 /** Accessors for a key under `pixi: { ... }`; `null` when the plugin has no such shorthand. */
 export function pixiAccessors(target: Target, key: string): Accessor[] | null {

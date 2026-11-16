@@ -284,7 +284,7 @@ export function inspectScene(
       const initial = (spec.initial ?? {}) as Record<string, unknown>;
       const hairline = (kind === 'line' || kind === 'rect') && Math.min(o.bounds.width, o.bounds.height) < 12 && Math.max(o.bounds.width, o.bounds.height) >= 40;
       const soft = (spec.blendMode !== undefined && spec.blendMode !== 'normal') || (Array.isArray(spec.filters) && spec.filters.length > 0);
-      const filled = kind === 'image' || kind === 'video' || initial.fillColor !== undefined || spec.fillGradient !== undefined || initial.fillGradient !== undefined;
+      const filled = kind === 'image' || kind === 'video' || initial.fill !== undefined || spec.fillGradient !== undefined || initial.fillGradient !== undefined;
       if (o.threeD || t.threeD) continue;                                // a threeD layer is sorted by depth: the tree does not say what is over what
       const over = drawnAfter(chains.get(o) ?? null, chains.get(t) ?? null) ?? layers.indexOf(o) > layers.indexOf(t);
       const opacity = chainAlpha.get(o) ?? o.alpha;

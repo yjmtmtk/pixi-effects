@@ -26,7 +26,7 @@
         canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000',
         composition: { sequences: [
           { type: 'shape', shape: 'rect', name: 'box', width: 160, height: 80, anchorX, anchorY,
-            initial: { x: 320, y: 180, skewX, skewY, fillColor: '#ffffff' } },
+            initial: { x: 320, y: 180, skewX, skewY, fill: '#ffffff' } },
         ] },
       });
       const img = await movie.snapshot(0, { as: 'imageData' });

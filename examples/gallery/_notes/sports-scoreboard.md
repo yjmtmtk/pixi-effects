@@ -73,7 +73,7 @@ const sweepKeys = (inDur, outAt, outDur, dx) => [
 // edge blades FIRST (below), the cover slab LAST (on top); +dx leads on the way in, -dx trails on the way out
 const sweep = (at, dur, outAt) => [[150, '#e5232f'], [-150, '#e5232f'], [75, '#1f6fe0'], [-75, '#1f6fe0'], [0, '#ffd21f']]
   .map(([dx, c]) => ({ type: 'shape', shape: 'polygon', points: slantPts(SW, 780, SS), at, duration: dur,
-                       initial: { x: OFF_L + dx, y: 360, fillColor: c }, keyframes: sweepKeys(0.3, outAt, 0.4, dx) }));
+                       initial: { x: OFF_L + dx, y: 360, fill: c }, keyframes: sweepKeys(0.3, outAt, 0.4, dx) }));
 // cut scenes while the slab covers: sweep(3.68, 0.75, 0.3) covers ≈ 3.9–4.05 → switch scenes at 4.0
 // A stinger revealed by the same moving slab: a full-frame composition with
 //   mask: { ...slab, at: STINGER_AT, duration: STINGER_DUR, keyframes: sweepKeys(...) }   // mask needs its own `at`!
@@ -81,9 +81,9 @@ const sweep = (at, dur, outAt) => [[150, '#e5232f'], [-150, '#e5232f'], [75, '#1
 // line that draws itself + a dot riding its head (linear, so mask and dot stay locked)
 const pts = data.map((v, i) => [X0 + i * STEP, BASE - v * AMP]), DRAW_AT = 1.3, DRAW = 2.0;
 const tAt = i => Math.round((DRAW_AT + DRAW * i / (pts.length - 1)) * 30) / 30;
-[{ type: 'shape', shape: 'polygon', open: true, points: pts, initial: { strokeColor: '#fff', strokeWidth: 3 },
-   mask: { type: 'shape', shape: 'rect', width: 0, height: 2 * AMP + 40, anchorX: 0, initial: { x: X0 - 6, y: BASE, fillColor: '#fff' },
+[{ type: 'shape', shape: 'polygon', open: true, points: pts, initial: { stroke: '#fff', strokeWidth: 3 },
+   mask: { type: 'shape', shape: 'rect', width: 0, height: 2 * AMP + 40, anchorX: 0, initial: { x: X0 - 6, y: BASE, fill: '#fff' },
            keyframes: [{ at: DRAW_AT, to: { width: X1 - X0 + 12 }, duration: DRAW, ease: 'none' }] } },
- { type: 'shape', shape: 'circle', radius: 7, at: DRAW_AT, initial: { x: pts[0][0], y: pts[0][1], fillColor: '#ffd21f' },
+ { type: 'shape', shape: 'circle', radius: 7, at: DRAW_AT, initial: { x: pts[0][0], y: pts[0][1], fill: '#ffd21f' },
    keyframes: pts.slice(1).map((p, k) => ({ at: tAt(k) - DRAW_AT, to: { x: p[0], y: p[1] }, duration: DRAW / (pts.length - 1), ease: 'none' })) }];
 ```

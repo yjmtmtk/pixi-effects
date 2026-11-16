@@ -40,7 +40,7 @@
     const movie = new Movie();
     window.movie = movie;
     const sequences = [
-      { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 40, initial: { x: 160, y: 90, fillColor: '#3a86ff' } },
+      { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 40, initial: { x: 160, y: 90, fill: '#3a86ff' } },
       { type: 'audio', name: 'bed', at: 0, duration: DURATION, volume: BED * VOL, sfx: { voices: [{ wave: 'sine', freq: 1000, envelope: 'hold' }] } },
     ];
     if (MIX === 'hit') sequences.push({ type: 'audio', name: 'hit', sfx: 'click', at: CLICK_AT, volume: 1.2 });

@@ -13,10 +13,10 @@
   <script type="module">
     import { Movie } from '../../dist/index.js';
     const which = new URLSearchParams(location.search).get('case') || 'lively';
-    const ball = (extra = {}) => ({ type: 'shape', shape: 'circle', name: 'ball', radius: 30, initial: { x: 60, y: 90, fillColor: '#f2c14e' }, ...extra });
+    const ball = (extra = {}) => ({ type: 'shape', shape: 'circle', name: 'ball', radius: 30, initial: { x: 60, y: 90, fill: '#f2c14e' }, ...extra });
     const cases = {
       lively: [ball({ duration: 10, keyframes: [{ at: 0, to: { x: 260 }, duration: 5, ease: 'sine.inOut' }, { at: 5, to: { x: 60 }, duration: 5, ease: 'sine.inOut' }] })],
-      still: [{ type: 'shape', shape: 'rect', name: 'card', width: 120, height: 70, initial: { x: 40, y: 90, fillColor: '#f2c14e' }, keyframes: [{ at: 0, to: { x: 160 }, duration: 2, ease: 'power2.out' }] }],
+      still: [{ type: 'shape', shape: 'rect', name: 'card', width: 120, height: 70, initial: { x: 40, y: 90, fill: '#f2c14e' }, keyframes: [{ at: 0, to: { x: 160 }, duration: 2, ease: 'power2.out' }] }],
       blankend: [ball({ duration: 8, keyframes: [{ at: 0, to: { x: 260 }, duration: 6, ease: 'sine.inOut' }, { at: 6, to: { alpha: 0 }, duration: 1.5 }] })],
       blankstart: [ball({ at: 2, duration: 8, keyframes: [{ at: 0, to: { x: 260 }, duration: 8, ease: 'none' }] })],
     };

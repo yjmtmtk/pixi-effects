@@ -100,13 +100,13 @@
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: FPS, background: '#101828',
         composition: { sequences: [
-          { type: 'shape', shape: 'rect', name: 'box', width: 30, height: 30, initial: { x: 30, y: 40, fillColor: '#ff3030' },
+          { type: 'shape', shape: 'rect', name: 'box', width: 30, height: 30, initial: { x: 30, y: 40, fill: '#ff3030' },
             keyframes: [{ at: 0, to: { x: 290 }, duration: 3, ease: 'none' }] },
           { type: 'text', name: 'count', text: '{value}', style: { fontSize: 28, fill: '#ffffff' }, initial: { x: 12, y: 110, value: 0 },
             keyframes: [{ at: 0, to: { value: 90 }, duration: 3, ease: 'none' }] },
-          { type: 'shape', shape: 'circle', name: 'dot', radius: 20, initial: { x: 250, y: 130, alpha: 0, fillColor: '#ffffff' },
+          { type: 'shape', shape: 'circle', name: 'dot', radius: 20, initial: { x: 250, y: 130, alpha: 0, fill: '#ffffff' },
             keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.5, ease: 'none' }, { at: 1.5, to: { alpha: 0.2 }, duration: 1.5, ease: 'none' }] },
-          { type: 'shape', shape: 'rect', name: 'shake', width: 16, height: 16, initial: { x: 160, y: 100, fillColor: '#ffd166' },
+          { type: 'shape', shape: 'rect', name: 'shake', width: 16, height: 16, initial: { x: 160, y: 100, fill: '#ffd166' },
             keyframes: wiggle({ duration: 3, freq: 4, seed: 4, props: { y: { around: 100, amp: 40 }, rotation: { around: 0, amp: 40 } } }) },
           { type: 'canvas', name: 'dots', width: 320, height: 40, seed: 9, initial: { x: 0, y: 140 },
             draw: UNSEEDED

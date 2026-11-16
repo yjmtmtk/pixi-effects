@@ -27,7 +27,7 @@
     window.__pos = pos;
     try {
       await movie.init({ canvas, width: 480, height: 270, duration: 3, frameRate: 30, background: '#102040', composition: { sequences: [
-        { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1c2b4d' } },
+        { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1c2b4d' } },
         FLOOR ? { type: 'camera', initial: { x: 240, y: 20, z: 450, lookAtX: 240, lookAtY: 170, lookAtZ: 0 } } : { type: 'camera' },       // y runs DOWN: a camera y smaller than the floor's is above it
         { type: 'scene3d', name: 'world', followCamera: true,
           setup: ({ root }) => {

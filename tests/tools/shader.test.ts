@@ -68,7 +68,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       const red = 'void mainImage(out vec4 c, in vec2 f) { c = vec4(1.0, 0.0, 0.0, 1.0); }';
       const blueHalf = 'void mainImage(out vec4 c, in vec2 f) { c = vec4(0.0, 0.0, 1.0, 0.5); }';
       await mk(cdp, [
-        { type: 'shape', shape: 'rect', width: 320, height: 180, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#00ff00' } },
+        { type: 'shape', shape: 'rect', width: 320, height: 180, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#00ff00' } },
         { type: 'shader', fragment: red, width: 100, height: 100, initial: { x: 10, y: 10 } },
         { type: 'shader', fragment: blueHalf, transparent: true, width: 120, height: 60, initial: { x: 150, y: 100 } },
       ]);
@@ -109,7 +109,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   // ── together with the rest (Task 3) ───────────────────────────────────────────────────────────────────────────────────────────────
   const solid = (r: number, g: number, b: number, extra: Record<string, unknown> = {}) => ({ type: 'shader', fragment: `void mainImage(out vec4 c, in vec2 f) { c = vec4(${r.toFixed(3)}, ${g.toFixed(3)}, ${b.toFixed(3)}, 1.0); }`, ...extra });
-  const backdrop = (color: string) => ({ type: 'shape', shape: 'rect', name: 'backdrop', width: 320, height: 180, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: color } });
+  const backdrop = (color: string) => ({ type: 'shape', shape: 'rect', name: 'backdrop', width: 320, height: 180, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: color } });
 
   it('uniforms move with keyframes: a number, a component of a vector, a component of a colour; every seek order agrees', async () => {
     await withPage(async (cdp) => {
@@ -149,12 +149,12 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a mask cuts it, a matte can be made of it (by its brightness), a filter and a blend mode work on it', async () => {
     await withPage(async (cdp) => {
-      await mk(cdp, [backdrop('#00ff00'), solid(1, 0, 0, { mask: { type: 'shape', shape: 'circle', radius: 40, initial: { x: 160, y: 90, fillColor: '#ffffff' } } })]);
+      await mk(cdp, [backdrop('#00ff00'), solid(1, 0, 0, { mask: { type: 'shape', shape: 'circle', radius: 40, initial: { x: 160, y: 90, fill: '#ffffff' } } })]);
       let u = await cdp.eval('snap(0)');
       near(await rgb(cdp, u, 160, 90), [255, 0, 0], 2, 'inside the mask'); near(await rgb(cdp, u, 10, 10), [0, 255, 0], 2, 'outside the mask');
       // a shader as the matte of an ordinary layer: brightness uv.x
       await mk(cdp, [backdrop('#00ff00'), { type: 'shader', name: 'm', fragment: 'void mainImage(out vec4 c, in vec2 f) { c = vec4(vec3(f.x / iResolution.x), 1.0); }' },
-        { type: 'shape', shape: 'rect', name: 'L', width: 320, height: 180, anchorX: 0, anchorY: 0, mask: { layer: 'm', channel: 'luma' }, initial: { x: 0, y: 0, fillColor: '#0000ff' } }]);
+        { type: 'shape', shape: 'rect', name: 'L', width: 320, height: 180, anchorX: 0, anchorY: 0, mask: { layer: 'm', channel: 'luma' }, initial: { x: 0, y: 0, fill: '#0000ff' } }]);
       u = await cdp.eval('snap(0)');
       near(await rgb(cdp, u, 160, 90), [0, 255 * (1 - 160.5 / 320), 255 * 160.5 / 320], 4, 'a luma matte from a shader');
       const negative = [-1, 0, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, -1, 0, 1, 0, 0, 0, 1, 0];
@@ -169,7 +169,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   it('a shader layer as an inline mask cuts the layer by its alpha and is not drawn on top of it', async () => {
     await withPage(async (cdp) => {
       const disc = 'void mainImage(out vec4 c, in vec2 f) { c = vec4(1.0, 1.0, 1.0, length(f - vec2(160.0, 90.0)) < 40.0 ? 1.0 : 0.0); }';
-      await mk(cdp, [backdrop('#00ff00'), { type: 'shape', shape: 'rect', name: 'L', width: 320, height: 180, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#ff0000' },
+      await mk(cdp, [backdrop('#00ff00'), { type: 'shape', shape: 'rect', name: 'L', width: 320, height: 180, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#ff0000' },
         mask: { type: 'shader', transparent: true, fragment: disc } }]);
       const u = await cdp.eval('snap(0)');
       near(await rgb(cdp, u, 160, 90), [255, 0, 0], 2, 'inside the shader mask: the layer');

@@ -216,16 +216,16 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     };
     const scale = [
       { type: 'shape', name: 'scale-line', shape: 'rect', width: TL.x1 - TL.x0, height: 1, at: 0.6, duration: DURATION - 0.6,
-        initial: { x: (TL.x0 + TL.x1) / 2, y: TL.y, fillColor: INK, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.32 }, duration: 1.4, ease: 'sine.out' }] },
+        initial: { x: (TL.x0 + TL.x1) / 2, y: TL.y, fill: INK, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.32 }, duration: 1.4, ease: 'sine.out' }] },
       ...Array.from({ length: 9 }, (_, i) => ({ type: 'shape', name: 'tick-' + i, shape: 'rect', width: 1, height: i % 2 ? 4 : 8, at: 0.6, duration: DURATION - 0.6,
-        initial: { x: hx(i * 3), y: TL.y - (i % 2 ? 2 : 4), fillColor: INK, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.45 }, duration: 1.4, ease: 'sine.out' }] })),
+        initial: { x: hx(i * 3), y: TL.y - (i % 2 ? 2 : 4), fill: INK, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.45 }, duration: 1.4, ease: 'sine.out' }] })),
       ...[0, 6, 12, 18, 24].map(h => ({ type: 'text', name: 'hour-' + h, text: String(h), at: 0.6, duration: DURATION - 0.6,
         style: { fontFamily: MONO, fontSize: 10, fill: INK, letterSpacing: 1 },
         initial: { x: hx(h), y: TL.y + 10, anchorX: 0.5, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.5 }, duration: 1.4, ease: 'sine.out' }] })),
       { type: 'shader', name: 'ribbon', fragment: RIBBON, transparent: true, width: TL.x1 - TL.x0, height: 4,
         initial: { x: TL.x0, y: TL.y - 2 }, uniforms: { hour: SCHED[0][1] }, keyframes: schedKeys('uniforms.hour', h => h) },
       { type: 'shape', name: 'marker', shape: 'circle', radius: 3.5,
-        initial: { x: hx(SCHED[0][1]), y: TL.y, fillColor: INK, alpha: 0 },
+        initial: { x: hx(SCHED[0][1]), y: TL.y, fill: INK, alpha: 0 },
         keyframes: [{ at: 0.6, to: { alpha: 1 }, duration: 1.0, ease: 'sine.out' }, ...schedKeys('x', hx)] },
       { type: 'text', name: 'clock', text: clock(SCHED[0][1]),
         style: { fontFamily: MONO, fontSize: 11, fill: INK, letterSpacing: 2 },
@@ -247,7 +247,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
         initial: { x: LX, y: 226, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.6 }, duration: 1.0, ease: 'sine.out' }] },
       // out of black
       { type: 'shape', name: 'black', shape: 'rect', width: 'GW', height: 'GH', duration: 1.6,
-        initial: { x: 'GW/2', y: 'GH/2', fillColor: '#000000' }, keyframes: [{ at: 0, to: { alpha: 0 }, duration: 1.6, ease: 'sine.inOut' }] },
+        initial: { x: 'GW/2', y: 'GH/2', fill: '#000000' }, keyframes: [{ at: 0, to: { alpha: 0 }, duration: 1.6, ease: 'sine.inOut' }] },
       // sound: a pad that changes colour with the light, a soft bass, bells for the first light, a music box for the stars
       { type: 'audio', name: 'score', at: 0, volume: 0.95, music: {
         bpm: 80, reverb: 0.45, seed: 7,

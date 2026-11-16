@@ -52,7 +52,7 @@
         initial: { x, y, anchorX: align === 'left' ? 0 : 0.5, anchorY: 0.5 },
         keyframes: [{ at: 0, from: { scale: 1.4, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.2, ease: 'power4.out' }, { at: -0.07, to: { alpha: 0 }, duration: 0.07 }] };
     };
-    const flash = (at) => ({ type: 'shape', shape: 'rect', at, duration: 0.2, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: '#ffffff', alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0.85 }, to: { alpha: 0 }, duration: 0.18, ease: 'power2.out' }] });
+    const flash = (at) => ({ type: 'shape', shape: 'rect', at, duration: 0.2, width: W, height: H, initial: { x: W / 2, y: H / 2, fill: '#ffffff', alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0.85 }, to: { alpha: 0 }, duration: 0.18, ease: 'power2.out' }] });
 
     /** An app window: the real screen clip, cropped to [cx, cy, cw, ch] (pixels of the clip), drawn at `scale` with its top-left at (left, top); it flies in. */
     const appWindow = ({ asset, at, dur, speed, crop: [cx, cy, cw, ch], scale, left, top, radius = 26, tilt = -3 }) => {
@@ -61,16 +61,16 @@
         initial: { x: mx, y: my, pivotX: mx, pivotY: my },
         keyframes: [{ at: 0, from: { scale: 1.2, rotation: tilt, alpha: 0 }, to: { scale: 1, rotation: 0, alpha: 1 }, duration: 0.42, ease: 'expo.out' }],
         sequences: [
-          { type: 'shape', shape: 'rect', width: w + 40, height: h + 40, cornerRadius: radius + 14, initial: { x: mx, y: my + 24, fillColor: '#000000', alpha: 0.5 }, filters: [{ type: 'blur', strength: 28 }] },
+          { type: 'shape', shape: 'rect', width: w + 40, height: h + 40, cornerRadius: radius + 14, initial: { x: mx, y: my + 24, fill: '#000000', alpha: 0.5 }, filters: [{ type: 'blur', strength: 28 }] },
           { type: 'video', asset, speed, audio: false, initial: { x: left - cx * scale, y: top - cy * scale, anchorX: 0, anchorY: 0, scale },
-            mask: { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: radius, initial: { x: mx, y: my, fillColor: '#ffffff' } } },
-          { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: radius, initial: { x: mx, y: my, fillAlpha: 0, strokeColor: '#ffffff', strokeWidth: 2, alpha: 0.22 } },
+            mask: { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: radius, initial: { x: mx, y: my, fill: '#ffffff' } } },
+          { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: radius, initial: { x: mx, y: my, fillAlpha: 0, stroke: '#ffffff', strokeWidth: 2, alpha: 0.22 } },
         ] };
     };
 
     const layers = [
-      { type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } },
-      { type: 'shape', shape: 'circle', name: 'glow', radius: 520, initial: { x: 1500, y: 300, fillColor: ACC, alpha: 0.16 }, filters: [{ type: 'blur', strength: 120 }],
+      { type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: BG } },
+      { type: 'shape', shape: 'circle', name: 'glow', radius: 520, initial: { x: 1500, y: 300, fill: ACC, alpha: 0.16 }, filters: [{ type: 'blur', strength: 120 }],
         keyframes: [{ at: 0, to: { x: 400, y: 800 }, duration: TOTAL, ease: 'sine.inOut' }] },
 
       // ── the hook ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -93,8 +93,8 @@
 
       // ── 2. the page's scroll: the city ───────────────────────────────────────────────────────────────────────────
       { type: 'video', asset: 'city', at: S.city, duration: 5.5, speed: 6 / 5.5, audio: false, initial: { x: -364 * 1.6134, y: -84 * 1.6134, anchorX: 0, anchorY: 0, scale: 1.6134 } },
-      { type: 'shape', shape: 'rect', at: S.city, duration: 5.5, width: 10, height: 880, cornerRadius: 5, initial: { x: 1858, y: 540, fillColor: '#ffffff', alpha: 0.2 } },
-      { type: 'shape', shape: 'rect', at: S.city + 0.7 / 1.09, duration: 4.6 / 1.09, width: 10, height: 120, cornerRadius: 5, initial: { x: 1858, y: 160, fillColor: ACC },
+      { type: 'shape', shape: 'rect', at: S.city, duration: 5.5, width: 10, height: 880, cornerRadius: 5, initial: { x: 1858, y: 540, fill: '#ffffff', alpha: 0.2 } },
+      { type: 'shape', shape: 'rect', at: S.city + 0.7 / 1.09, duration: 4.6 / 1.09, width: 10, height: 120, cornerRadius: 5, initial: { x: 1858, y: 160, fill: ACC },
         keyframes: [{ at: 0, to: { y: 920 }, duration: 4.6 / 1.09, ease: 'power2.inOut' }] },
       slam('SCROLL.', { at: S.city + 0.2, until: S.city + 2.5, x: W / 2, y: 900, size: 240, align: 'center' }),
       slam('THE CAMERA FLIES.', { at: S.city + 2.5, until: S.city + 5.5, x: W / 2, y: 900, size: 175, align: 'center' }),
@@ -110,7 +110,7 @@
       const k = 4 / 3, s = 1.05, left = 640, top = 150;
       const mx = left + ((jankenMeta.bar.left + (jankenMeta.ponFrame / jankenMeta.total) * jankenMeta.bar.width) * k - 364) * s;
       const my = top + (jankenMeta.bar.top * k - 84) * s;
-      layers.push({ type: 'shape', shape: 'rect', at: S.janken + 0.2, duration: 7.8, width: 4, height: 56, initial: { x: mx, y: my - 14, fillColor: ACC } },
+      layers.push({ type: 'shape', shape: 'rect', at: S.janken + 0.2, duration: 7.8, width: 4, height: 56, initial: { x: mx, y: my - 14, fill: ACC } },
         { type: 'text', text: 'SHOOT!', at: S.janken + 0.2, duration: 7.8, style: { fontFamily: FONT, fontSize: 30, fontWeight: '900', fill: ACC, stroke: { color: '#000000', width: 6 } }, initial: { x: mx, y: my - 58, anchorX: 0.5, anchorY: 0.5 } });
     }
     layers.push(
@@ -138,14 +138,14 @@
       slam('IS A\nVARIABLE.', { at: S.chords + 2.2, until: S.chords + 4, y: 300, size: 135 }),
 
       // ── 5a. three lines ──────────────────────────────────────────────────────────────────────────────────────────
-      { type: 'shape', shape: 'rect', at: S.how, duration: 6, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } },
+      { type: 'shape', shape: 'rect', at: S.how, duration: 6, width: W, height: H, initial: { x: W / 2, y: H / 2, fill: BG } },
       slam('THREE LINES.', { at: S.how + 0.2, until: S.how + 6, x: W / 2, y: 170, size: 170, align: 'center', stroke: false }),
       ...[["vars: { name: 'Aiko' }", 390, 0.5, 0.9, INK], ["text: 'Happy birthday, {name}!'", 540, 1.6, 1.2, INK], ["await movie.setVars({ name: 'Ben' })", 690, 3.0, 1.2, ACC], ['pixi-effects render card.html --var name=Ben', 850, 4.4, 1.3, '#9fe3b4']].map(([text, y, d, typing, fill]) => ({
         type: 'text', text, at: S.how + d, duration: 6 - d, style: { fontFamily: MONO, fontSize: text.length > 40 ? 56 : 84, fontWeight: '700', fill },
         initial: { x: 130, y, anchorX: 0, anchorY: 0.5, visibleChars: 0 }, keyframes: [{ at: 0, to: { visibleChars: text.length }, duration: typing, ease: 'none' }] })),
 
       // ── 5b. one film, six videos: the real renders ──────────────────────────────────────────────────────────────
-      { type: 'shape', shape: 'rect', at: S.batch, duration: 7, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } },
+      { type: 'shape', shape: 'rect', at: S.batch, duration: 7, width: W, height: H, initial: { x: W / 2, y: H / 2, fill: BG } },
       slam('ONE FILM. SIX VIDEOS.', { at: S.batch + 0.2, until: S.batch + 7, x: W / 2, y: 80, size: 100, align: 'center', stroke: false }),
       ...['aiko', 'ben', 'chloe', 'dev', 'emi', 'finn'].flatMap((id, i) => {
         const cx = 356 + (i % 3) * 604, cy = 365 + Math.floor(i / 3) * 400, sc = 0.44, w = 1280 * sc, h = 720 * sc, at = S.batch + 0.3 + i * 0.18;
@@ -153,7 +153,7 @@
           { type: 'composition', name: `tile-${id}`, at, duration: S.batch + 7 - at, width: W, height: H, initial: { x: cx, y: cy, pivotX: cx, pivotY: cy },
             keyframes: [{ at: 0, from: { scale: 0.3, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.35, ease: 'back.out(1.8)' }],
             sequences: [{ type: 'video', asset: `batch-${id}`, audio: false, initial: { x: cx - w / 2, y: cy - h / 2, anchorX: 0, anchorY: 0, scale: sc },
-              mask: { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: 16, initial: { x: cx, y: cy, fillColor: '#ffffff' } } }] },
+              mask: { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: 16, initial: { x: cx, y: cy, fill: '#ffffff' } } }] },
           { type: 'text', text: `${id}.mp4`, at: at + 0.2, duration: S.batch + 7 - at - 0.2, style: { fontFamily: MONO, fontSize: 36, fontWeight: '700', fill: MUTED }, initial: { x: cx, y: cy + h / 2 + 34, anchorX: 0.5, anchorY: 0.5 },
             keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.3 }] },
         ];
@@ -164,7 +164,7 @@
         type: 'image', asset: `poster-${id}`, at: S.still + i * 0.05, duration: 4 - i * 0.05,
         initial: { x: 360 + (i % 3) * 600, y: 230 + Math.floor(i / 3) * 310, anchorX: 0.5, anchorY: 0.5, scale: 1.45, alpha: 0.5 },
         keyframes: [{ at: 0, from: { scale: 0.2, alpha: 0 }, to: { scale: 1.45, alpha: 0.5 }, duration: 0.35, ease: 'back.out(1.6)' }] })),
-      { type: 'shape', shape: 'rect', at: S.still, duration: 4, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG, alpha: 0.55 } },
+      { type: 'shape', shape: 'rect', at: S.still, duration: 4, width: W, height: H, initial: { x: W / 2, y: H / 2, fill: BG, alpha: 0.55 } },
       slam('STILL A MOVIE.', { at: S.still + 0.2, until: S.still + 4, x: W / 2, y: 430, size: 200, align: 'center' }),
       ...[['film.html', 480, 0.0], ['name=Ben  →', 960, 0.5], ['ben.mp4', 1440, 1.0]].map(([text, x, d], i) => ({
         type: 'text', text, at: S.still + 1.4 + d, duration: 2.6 - d, style: { fontFamily: MONO, fontSize: i === 1 ? 54 : 70, fontWeight: '700', fill: i === 1 ? MUTED : (i === 2 ? ACC : INK), stroke: { color: '#000000', width: 10 } },
@@ -172,13 +172,13 @@
       { type: 'text', text: 'the same file, the values you choose', at: S.still + 2.2, duration: 1.8, style: { fontFamily: FONT, fontSize: 44, fontWeight: '700', fill: MUTED, stroke: { color: '#000', width: 8 } }, initial: { x: W / 2, y: 930, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.4 }] },
 
       // ── 6. you cannot touch this one ─────────────────────────────────────────────────────────────────────────────
-      { type: 'shape', shape: 'rect', at: S.touch, duration: 2, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } },
+      { type: 'shape', shape: 'rect', at: S.touch, duration: 2, width: W, height: H, initial: { x: W / 2, y: H / 2, fill: BG } },
       slam('YOU CAN’T TOUCH\nTHIS ONE.', { at: S.touch + 0.2, until: S.touch + 2, x: W / 2, y: 400, size: 190, align: 'center', stroke: false }),
       slam('THE NEXT ONE IS YOURS.', { at: S.touch + 1.0, until: S.touch + 2, x: W / 2, y: 730, size: 90, align: 'center', stroke: false, fill: ACC }),
 
       // ── the end card ─────────────────────────────────────────────────────────────────────────────────────────────
-      { type: 'shape', shape: 'rect', at: S.end, duration: TOTAL - S.end, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } },
-      { type: 'shape', shape: 'rect', at: S.end + 0.1, duration: TOTAL - S.end - 0.1, width: 64, height: 64, initial: { x: W / 2, y: 250, rotation: 45, fillColor: ACC },
+      { type: 'shape', shape: 'rect', at: S.end, duration: TOTAL - S.end, width: W, height: H, initial: { x: W / 2, y: H / 2, fill: BG } },
+      { type: 'shape', shape: 'rect', at: S.end + 0.1, duration: TOTAL - S.end - 0.1, width: 64, height: 64, initial: { x: W / 2, y: 250, rotation: 45, fill: ACC },
         keyframes: [{ at: 0, from: { scale: 0, rotation: -45 }, to: { scale: 1, rotation: 45 }, duration: 0.5, ease: 'back.out(2)' }] },
       slam('INTERACTIVE MOVIES', { at: S.end + 0.3, until: TOTAL, x: W / 2, y: 470, size: 165, align: 'center', stroke: false }),
       { type: 'text', text: 'a movie you can change while it plays', at: S.end + 1.0, duration: TOTAL - S.end - 1.0, style: { fontFamily: FONT, fontSize: 58, fontWeight: '600', fill: MUTED }, initial: { x: W / 2, y: 640, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0, y: '+=24' }, duration: 0.6, ease: 'expo.out' }] },
@@ -187,7 +187,7 @@
 
       // cuts and the movie's own play bar
       ...Object.values(S).slice(1).map(flash),
-      { type: 'shape', shape: 'rect', name: 'playhead', width: 0, height: 6, initial: { x: 0, y: 1077, anchorX: 0, fillColor: ACC }, keyframes: [{ at: 0, to: { width: W }, duration: TOTAL, ease: 'none' }] },
+      { type: 'shape', shape: 'rect', name: 'playhead', width: 0, height: 6, initial: { x: 0, y: 1077, anchorX: 0, fill: ACC }, keyframes: [{ at: 0, to: { width: W }, duration: TOTAL, ease: 'none' }] },
     );
 
     // ── sound ──────────────────────────────────────────────────────────────────────────────────────────────────────

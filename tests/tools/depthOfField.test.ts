@@ -57,7 +57,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('twenty or more blurred layers at once warn, say how many AND from how many it warns, and say it only once', async () => {
     await withPage(async (cdp) => {
-      const cards = Array.from({ length: 24 }, (_, i) => ({ type: 'shape', shape: 'rect', name: `c${i}`, width: 20, height: 20, threeD: true, initial: { x: 20 + (i % 8) * 36, y: 40 + Math.floor(i / 8) * 40, z: -150 - i * 5, fillColor: '#ffffff' } }));
+      const cards = Array.from({ length: 24 }, (_, i) => ({ type: 'shape', shape: 'rect', name: `c${i}`, width: 20, height: 20, threeD: true, initial: { x: 20 + (i % 8) * 36, y: 40 + Math.floor(i / 8) * 40, z: -150 - i * 5, fill: '#ffffff' } }));
       const composition = { sequences: [{ type: 'camera', name: 'cam', initial: { focus: 0, aperture: 40 } }, ...cards] };
       await cdp.eval(`mk(${JSON.stringify({ composition })})`);
       await cdp.eval('snap(0)'); await cdp.eval('snap(10)');
@@ -117,7 +117,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a layer the camera passes (hideBehindCamera) and an extreme aperture do not break the picture', async () => {
     await withPage(async (cdp) => {
-      const pass = { type: 'shape', shape: 'rect', name: 'pass', width: 40, height: 40, threeD: true, hideBehindCamera: true, initial: { x: 20, y: 20, z: 400, fillColor: '#ff0000' } };
+      const pass = { type: 'shape', shape: 'rect', name: 'pass', width: 40, height: 40, threeD: true, hideBehindCamera: true, initial: { x: 20, y: 20, z: 400, fill: '#ff0000' } };
       await cdp.eval(`mk(${JSON.stringify({ composition: await bars(cdp, { initial: { focus: 'front', aperture: 1000 } }, [pass]) })})`);
       const url = await cdp.eval('snap(0)');
       const row = await cdp.eval(`edge(${JSON.stringify(url)}, 90, 0, 320)`);
@@ -128,7 +128,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a blurred layer that runs off the right and bottom edges of the picture stays solid up to the edge (it does not fade toward transparent there)', async () => {
     await withPage(async (cdp) => {
-      const rect = (name: string, x: number, y: number, w: number, h: number, z: number) => ({ type: 'shape', shape: 'rect', name, width: w, height: h, threeD: true, initial: { x, y, z, fillColor: '#ffffff' } });
+      const rect = (name: string, x: number, y: number, w: number, h: number, z: number) => ({ type: 'shape', shape: 'rect', name, width: w, height: h, threeD: true, initial: { x, y, z, fill: '#ffffff' } });
       const comp = { sequences: [{ type: 'camera', initial: { focus: 'sharp', aperture: 40 } }, rect('sharp', 20, 20, 10, 10, 0), rect('wide', 300, 90, 200, 60, -100), rect('tall', 160, 300, 60, 400, -100)] };
       await cdp.eval(`mk(${JSON.stringify({ composition: comp })})`);
       const url = await cdp.eval('snap(0)');
@@ -162,6 +162,6 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
 /** `bars(camera, extra)` runs in the page; the test builds the same plain object in node to hand to `mk` as JSON. */
 async function bars(_cdp: any, camera: Record<string, unknown> | null, extra: unknown[] = []): Promise<unknown> {
-  const rect = (name: string, x: number, z: number) => ({ type: 'shape', shape: 'rect', name, width: 40, height: 80, threeD: true, initial: { x, y: 90, z, fillColor: '#ffffff' } });
+  const rect = (name: string, x: number, z: number) => ({ type: 'shape', shape: 'rect', name, width: 40, height: 80, threeD: true, initial: { x, y: 90, z, fill: '#ffffff' } });
   return { sequences: [...(camera ? [{ type: 'camera', ...camera }] : []), rect('near', 80, 60), rect('front', 160, 0), rect('back', 240, -100), ...extra] };
 }

@@ -120,13 +120,13 @@
     const fadeIn = (at, d = 0.4) => ({ at, from: { alpha: 0 }, to: { alpha: 1 }, duration: d, ease: 'power2.out' });
 
     const seq = [];
-    seq.push({ type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } });
+    seq.push({ type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: BG } });
 
     // ── track: 10 m grid, lane rules, start & finish ───────────────────
     for (let m = 0; m <= 100; m += 10) {
       const edge = m === 0 || m === 100;
       seq.push({ type: 'shape', shape: 'line', name: `grid${m}`, from: [X(m), LANE_TOP], to: [X(m), LANE_BOTTOM], trimEnd: 0,
-        initial: { strokeColor: edge ? INK : RULE, strokeWidth: 1, strokeAlpha: edge ? 0.55 : 1 },
+        initial: { stroke: edge ? INK : RULE, strokeWidth: 1, strokeAlpha: edge ? 0.55 : 1 },
         keyframes: [{ at: 0.15 + m * 0.004, to: { trimEnd: 1 }, duration: 0.7, ease: 'power3.out' }] });
       seq.push(txt(String(m), { fontFamily: MONO, fontSize: 11, fill: edge ? INK : MID, letterSpacing: 1 },
         { x: X(m), y: LANE_TOP - 18, anchorX: 0.5, anchorY: 0.5 },
@@ -136,14 +136,14 @@
       { name: 'distUnit', keyframes: [fadeIn(0.8)] }));
     for (let i = 0; i <= 8; i++) {
       seq.push({ type: 'shape', shape: 'line', name: `rule${i}`, from: [64, LANE_TOP + PITCH * i], to: [1216, LANE_TOP + PITCH * i], trimEnd: 0,
-        initial: { strokeColor: RULE, strokeWidth: 1 },
+        initial: { stroke: RULE, strokeWidth: 1 },
         keyframes: [{ at: 0.05 + i * 0.03, to: { trimEnd: 1 }, duration: 0.9, ease: 'power3.inOut' }] });
     }
 
     // ── speed graph frame ─────────────────────────────────────────
     for (const v of [8, 10, 12]) {
       seq.push({ type: 'shape', shape: 'line', name: `vgrid${v}`, from: [START_X, GY(v)], to: [FINISH_X, GY(v)], trimEnd: 0,
-        initial: { strokeColor: v === 8 ? DIM : RULE, strokeWidth: 1 },
+        initial: { stroke: v === 8 ? DIM : RULE, strokeWidth: 1 },
         keyframes: [{ at: 0.4 + (v - 8) * 0.03, to: { trimEnd: 1 }, duration: 0.8, ease: 'power3.out' }] });
       seq.push(txt(String(v), { fontFamily: MONO, fontSize: 11, fill: MID }, { x: START_X - 12, y: GY(v), anchorX: 1, anchorY: 0.5 },
         { name: `vlab${v}`, keyframes: [fadeIn(0.6 + (v - 8) * 0.03)] }));
@@ -167,16 +167,16 @@
         if (d < 0.4) continue;
         seq.push({ type: 'shape', shape: 'rect', parent: g, name: `${g}-tick${Math.round(t * 5)}`, at: +(GUN + t).toFixed(3),
           width: p.win ? 2 : 1.5, height: 12,
-          initial: { x: X(d), y, fillColor: col, alpha: p.win ? 0.9 : 0.5, scaleY: 1 },
+          initial: { x: X(d), y, fill: col, alpha: p.win ? 0.9 : 0.5, scaleY: 1 },
           keyframes: [{ at: 0, from: { scaleY: 1.9, alpha: 1 }, to: { scaleY: 1, alpha: p.win ? 0.9 : 0.5 }, duration: 0.5, ease: 'power3.out' }] });
       }
       // continuous trace
       seq.push({ type: 'shape', shape: 'rect', parent: g, name: `${g}-trace`, at: GUN, width: 0, height: p.win ? 2 : 1, anchorX: 0,
-        initial: { x: START_X, y, fillColor: col, alpha: p.win ? 0.9 : 0.35 },
+        initial: { x: START_X, y, fill: col, alpha: p.win ? 0.9 : 0.35 },
         keyframes: follow(p, 'width', (d) => d * PXM) });
       // head
       seq.push({ type: 'shape', shape: 'circle', parent: g, name: `${g}-head`, at: GUN - 0.75, radius: p.win ? 4.5 : 3.5,
-        initial: { x: START_X, y, fillColor: col },
+        initial: { x: START_X, y, fill: col },
         keyframes: [fadeIn(0, 0.3), ...follow(p, 'x', (d) => X(d)).map(k => ({ ...k, at: +(k.at + 0.75).toFixed(4) }))] });
 
       // speed over distance, revealed under the runner
@@ -184,9 +184,9 @@
       for (let t = p.r; t <= p.T + 1e-6; t += 0.05) pts.push(`${X(p.pos(t)).toFixed(1)} ${GY(Math.max(G_MIN - 1, p.vel(t))).toFixed(1)}`);
       pts.push(`${X(100).toFixed(1)} ${GY(p.vel(p.T)).toFixed(1)}`);
       seq.push({ type: 'shape', shape: 'path', parent: g, name: `${g}-speed`, at: GUN, d: 'M ' + pts.join(' L '),
-        initial: { strokeColor: col, strokeWidth: p.win ? 2 : p.rival ? 1.5 : 1, strokeAlpha: p.win ? 1 : p.rival ? 0.85 : 0.22 },
+        initial: { stroke: col, strokeWidth: p.win ? 2 : p.rival ? 1.5 : 1, strokeAlpha: p.win ? 1 : p.rival ? 0.85 : 0.22 },
         mask: { type: 'shape', shape: 'rect', width: 0, height: G_BASE - G_TOP, anchorX: 0,
-          initial: { x: START_X - 2, y: (G_BASE + G_TOP) / 2, fillColor: '#ffffff' },
+          initial: { x: START_X - 2, y: (G_BASE + G_TOP) / 2, fill: '#ffffff' },
           keyframes: follow(p, 'width', (d) => d * PXM + 2) } });
     }
 
@@ -196,9 +196,9 @@
       const dimLater = (at) => p.win ? [] : [{ at: SETTLE - at, to: { alpha: 0.5 }, duration: 0.8, ease: 'power2.inOut' }];
       const col = p.win ? ACC : INK, at = +(GUN + p.tmax).toFixed(3), px = X(p.dmax), py = GY(p.vmax), id = `peak${p.lane}`;
       seq.push({ type: 'shape', shape: 'line', name: `${id}Stem`, at, from: [px, py + 6], to: [px, py + 46], trimEnd: 0,
-        initial: { strokeColor: col, strokeWidth: 1, strokeAlpha: 0.8 }, keyframes: [{ at: 0.05, to: { trimEnd: 1 }, duration: 0.35, ease: 'power2.out' }, ...dimLater(at)] });
+        initial: { stroke: col, strokeWidth: 1, strokeAlpha: 0.8 }, keyframes: [{ at: 0.05, to: { trimEnd: 1 }, duration: 0.35, ease: 'power2.out' }, ...dimLater(at)] });
       seq.push({ type: 'shape', shape: 'circle', name: `${id}Dot`, at, radius: 3.5,
-        initial: { x: px, y: py, fillColor: BG, strokeColor: col, strokeWidth: 2 },
+        initial: { x: px, y: py, fill: BG, stroke: col, strokeWidth: 2 },
         keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.4, ease: 'back.out(3)' }, ...dimLater(at)] });
       seq.push(txt(`PEAK ${p.vmax.toFixed(2)}  L${p.lane}`, { fontFamily: MONO, fontSize: 11, fill: col, letterSpacing: 1 },
         { x: px + 7, y: py + 40, anchorY: 0.5 }, { name: `${id}Label`, at: +(at + 0.2).toFixed(3), keyframes: [fadeIn(0, 0.35), ...(p.win ? [] : [{ at: SETTLE - at - 0.2, to: { alpha: 0.5 }, duration: 0.8, ease: 'power2.inOut' }])] }));
@@ -239,7 +239,7 @@
 
     // finish flash for the winner
     seq.push({ type: 'shape', shape: 'line', name: 'finishFlash', at: GUN + WIN.T, from: [X(100), LANE_TOP], to: [X(100), LANE_BOTTOM],
-      initial: { strokeColor: ACC, strokeWidth: 2 },
+      initial: { stroke: ACC, strokeWidth: 2 },
       keyframes: [{ at: 0, from: { alpha: 1 }, to: { alpha: 0.6 }, duration: 1.2, ease: 'power2.out' }] });
 
     // ── header: event, status, winner ─────────────────────────────

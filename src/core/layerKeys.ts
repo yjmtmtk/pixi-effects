@@ -95,7 +95,7 @@ export const PROP_KEYS: ReadonlySet<string> = new Set([
   'scale', 'scaleX', 'scaleY', 'anchor', 'anchorX', 'anchorY', 'pivot', 'pivotX', 'pivotY', 'skew', 'skewX', 'skewY',
   'tint',
   // shapes
-  'fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth', 'cornerRadius', 'radius', 'radiusX', 'radiusY',
+  'fill', 'fillAlpha', 'stroke', 'strokeAlpha', 'strokeWidth', 'cornerRadius', 'radius', 'radiusX', 'radiusY',
   'innerRadius', 'startAngle', 'endAngle', 'trimStart', 'trimEnd', 'trimEach', 'morph', 'fillGradient', 'strokeCap', 'strokeJoin',
   // text, audio, video
   'fill', 'value', 'visibleChars', 'text', 'volume', 'time',

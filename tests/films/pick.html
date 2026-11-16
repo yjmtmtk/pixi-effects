@@ -30,15 +30,15 @@
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#102040', assets: [{ name: 'half', src: half.toDataURL('image/png') }], composition: { sequences: [
         { type: 'camera', name: 'cam', keyframes: [{ at: 0, to: { x: 400, lookAtX: 400 }, duration: 3, ease: 'none' }] },
-        { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1c2b4d' } },
-        { type: 'shape', shape: 'rect', name: 'button', width: 120, height: 20, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, rotation: 45, fillColor: '#f2c14e' } },
-        { type: 'shape', shape: 'circle', name: 'dot', radius: 30, initial: { x: 380, y: 60, anchorX: 0.5, anchorY: 0.5, fillColor: '#d96a3a' } },
+        { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1c2b4d' } },
+        { type: 'shape', shape: 'rect', name: 'button', width: 120, height: 20, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, rotation: 45, fill: '#f2c14e' } },
+        { type: 'shape', shape: 'circle', name: 'dot', radius: 30, initial: { x: 380, y: 60, anchorX: 0.5, anchorY: 0.5, fill: '#d96a3a' } },
         { type: 'text', name: 'title', text: 'PICK ME', style: { fontSize: 32, fill: '#ffffff', fontFamily: 'Arial' }, initial: { x: 240, y: 240, anchorX: 0.5, anchorY: 0.5 } },
-        { type: 'shape', shape: 'rect', name: 'card', width: 100, height: 60, threeD: true, initial: { x: 150, y: 150, z: 0, anchorX: 0.5, anchorY: 0.5, rotationY: 40, fillColor: '#3a6ea5' } },
+        { type: 'shape', shape: 'rect', name: 'card', width: 100, height: 60, threeD: true, initial: { x: 150, y: 150, z: 0, anchorX: 0.5, anchorY: 0.5, rotationY: 40, fill: '#3a6ea5' } },
         { type: 'image', name: 'half', asset: 'half', initial: { x: 10, y: 195 } },
         { type: 'canvas', name: 'ring', width: 80, height: 80, initial: { x: 400, y: 190 }, draw: (ctx) => { ctx.fillStyle = '#d96a3a'; ctx.beginPath(); ctx.arc(40, 40, 36, 0, Math.PI * 2); ctx.fill(); } },
-        { type: 'shape', shape: 'rect', name: 'avatar', width: 120, height: 80, initial: { x: 240, y: 135, anchorX: 0.5, anchorY: 0.5, fillColor: '#c04040' },
-          mask: { type: 'shape', shape: 'circle', radius: 30, initial: { x: 240, y: 135, fillColor: '#ffffff' } } },
+        { type: 'shape', shape: 'rect', name: 'avatar', width: 120, height: 80, initial: { x: 240, y: 135, anchorX: 0.5, anchorY: 0.5, fill: '#c04040' },
+          mask: { type: 'shape', shape: 'circle', radius: 30, initial: { x: 240, y: 135, fill: '#ffffff' } } },
         { type: 'scene3d', name: 'world', followCamera: true,
           setup: ({ root }) => { root.addChild(new P3D.Mesh3D({ label: 'cube', geometry: new P3D.CubeGeometry({ width: 60, height: 60, depth: 60 }), material: new P3D.FlatMaterial({ baseColor: 0x3aa56e }), position: { x: 330, y: -170, z: 0 } })); } },
       ] } });

@@ -7,8 +7,8 @@
 //    skewX skewY tint width height visible autoAlpha`, plus a shape's style, a text's `fill`; and "every warning of this kind names the layer, or says
 //    'unnamed <type> layer'", in the shape `layer "dot": "x" is …` (the layer, a colon, the key in double quotes).
 //    So: alhpa -> alpha, rotaton -> rotation, scal -> scale.
-//  - cheatsheet.md 78 / docs/dsl.md 383 "Style": a shape's style keys in initial / keyframes are `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`:
-//    so fillcolor -> fillColor.
+//  - cheatsheet.md 78 / docs/dsl.md 383 "Style": a shape's style keys in initial / keyframes are `fill fillAlpha stroke strokeAlpha strokeWidth`:
+//    so fillcolor -> fill.
 //  - a place is always x / y (position / positionX / positionY were removed before 1.0: they say "did you mean x"): okShape moves by x / y and is
 //    never named.
 //  - cheatsheet.md 13: "text colour is `style.fill`": so style.colour -> what is meant is fill.
@@ -34,7 +34,7 @@ const style = (layer: string, key: string, meant: string): Mistake =>
 
 const MISTAKES: Mistake[] = [
   prop('fader', 'alhpa', 'alpha'),                                   // a typo (cheatsheet 48), written three times: said once
-  prop('mover', 'fillcolor', 'fillColor'),                           // a shape's style key in the wrong case (cheatsheet 78), next to a correct x
+  prop('mover', 'fillcolor', 'fill'),                           // a shape's style key in the wrong case (cheatsheet 78), next to a correct x
   prop('spinner', 'rotaton', 'rotation'),                            // a typo, on a text layer, in a keyframe's `to`
   prop('unnamed', 'scal', 'scale', 'unnamed shape layer'),           // cheatsheet 48: an unnamed layer is "unnamed <type> layer"
   style('heading', 'fontsize', 'fontSize'),                          // cheatsheet 54

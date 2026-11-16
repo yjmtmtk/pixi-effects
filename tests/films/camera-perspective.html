@@ -25,7 +25,7 @@
     if (q.has('fov')) sequences.push({ type: 'camera', name: 'cam', initial: { fov } });
     sequences.push({ type: 'shape', shape: 'rect', name: 'card', width: 200, height: 100, threeD: true,
       ...(q.get('hideBehindCamera') === '1' ? { hideBehindCamera: true } : {}),
-      initial: { x: 320, y: 180, z, fillColor: '#ffffff' } });
+      initial: { x: 320, y: 180, z, fill: '#ffffff' } });
     const movie = new Movie();
     window.movie = movie;
     try {

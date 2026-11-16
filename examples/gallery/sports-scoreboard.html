@@ -65,13 +65,13 @@
     // ── Small spec helpers ─────────────────────────────────────────────────────
     const rect = (name, x, y, w, h, fill, extra = {}) => ({
       type: 'shape', shape: 'rect', name, width: w, height: h, ...extra,
-      initial: { x, y, fillColor: fill, ...(extra.initial || {}) },
+      initial: { x, y, fill: fill, ...(extra.initial || {}) },
     });
     // parallelogram centred on its own origin; slant = horizontal shift of the top edge vs the bottom edge
     const slantPts = (w, h, slant) => [[-w / 2 + slant / 2, -h / 2], [w / 2 + slant / 2, -h / 2], [w / 2 - slant / 2, h / 2], [-w / 2 - slant / 2, h / 2]];
     const slab = (name, x, y, w, h, slant, fill, extra = {}) => ({
       type: 'shape', shape: 'polygon', name, points: slantPts(w, h, slant), ...extra,
-      initial: { x, y, ...(fill ? { fillColor: fill } : {}), ...(extra.initial || {}) },
+      initial: { x, y, ...(fill ? { fill: fill } : {}), ...(extra.initial || {}) },
     });
     const text = (name, str, size, x, y, o = {}) => ({
       type: 'text', name, text: str, at: o.at, duration: o.duration, format: o.format,
@@ -88,23 +88,23 @@
     function crest(team, kind, o) {
       const motif = kind === 'wing'
         ? [ // a kestrel wing: chevron + three feathers
-            { type: 'shape', shape: 'polygon', name: 'chevron', points: [[56, 96], [120, 150], [184, 96], [184, 132], [120, 192], [56, 132]], initial: { fillColor: C.white } },
+            { type: 'shape', shape: 'polygon', name: 'chevron', points: [[56, 96], [120, 150], [184, 96], [184, 132], [120, 192], [56, 132]], initial: { fill: C.white } },
             ...[0, 1, 2].map(i => ({ type: 'shape', shape: 'polygon', name: 'feather' + i,
-              points: [[84 + i * 28, 64], [104 + i * 28, 64], [96 + i * 28, 102], [76 + i * 28, 102]], initial: { fillColor: C.gold } })),
+              points: [[84 + i * 28, 64], [104 + i * 28, 64], [96 + i * 28, 102], [76 + i * 28, 102]], initial: { fill: C.gold } })),
           ]
         : [ // rovers: a gold sash + a star
-            { type: 'shape', shape: 'polygon', name: 'sash', points: [[36, 150], [36, 112], [204, 52], [204, 90]], initial: { fillColor: C.gold } },
-            { type: 'shape', shape: 'polygon', name: 'star', points: starPts(120, 186, 30, 12), initial: { fillColor: C.white } },
+            { type: 'shape', shape: 'polygon', name: 'sash', points: [[36, 150], [36, 112], [204, 52], [204, 90]], initial: { fill: C.gold } },
+            { type: 'shape', shape: 'polygon', name: 'star', points: starPts(120, 186, 30, 12), initial: { fill: C.white } },
           ];
       return {
         type: 'composition', name: 'crest-' + team.code, width: 240, height: 280, at: o.at, duration: o.duration,
         initial: { x: o.x, y: o.y, pivotX: 120, pivotY: 141, scale: o.scale ?? 1, ...(o.initial || {}) },
         keyframes: o.keyframes || [],
         sequences: [
-          { type: 'shape', shape: 'path', name: 'shield', d: SHIELD, initial: { fillColor: C.white } },
+          { type: 'shape', shape: 'path', name: 'shield', d: SHIELD, initial: { fill: C.white } },
           { type: 'shape', shape: 'path', name: 'shield-in', d: SHIELD_IN, fillGradient: { stops: [[0, team.color], [1, team.deep]] } },
           ...motif,
-          { type: 'shape', shape: 'rect', name: 'band', width: 168, height: 10, anchorX: 0, initial: { x: 36, y: 44, fillColor: C.white, fillAlpha: 0.35 } },
+          { type: 'shape', shape: 'rect', name: 'band', width: 168, height: 10, anchorX: 0, initial: { x: 36, y: 44, fill: C.white, fillAlpha: 0.35 } },
         ],
       };
     }
@@ -183,14 +183,14 @@
 
       // clock chip on the seam, bottom
       seq.push(slab('clock-chip', 640, 600, 220, 50, 24, C.ink, { keyframes: ins(1.6, { scaleX: 0 }, 0.45) }));
-      seq.push({ type: 'shape', shape: 'circle', name: 'live-dot', radius: 7, initial: { x: 562, y: 600, fillColor: C.home },
+      seq.push({ type: 'shape', shape: 'circle', name: 'live-dot', radius: 7, initial: { x: 562, y: 600, fill: C.home },
         keyframes: [...ins(1.8, { alpha: 0 }, 0.2, 'none'), { at: intro ? 2.0 : 0, to: { alpha: 0.25 }, duration: 0.5, ease: 'sine.inOut', repeat: 3, yoyo: true }] });
       seq.push(text('clock', intro ? 'LIVE   87:42' : 'LIVE   88:16', 26, 650, 600, { ls: 2,
         keyframes: ins(1.8, { alpha: 0 }, 0.3, 'none') }));
 
       if (!intro) {   // goal flare behind the new score + scorer tag
         seq.splice(seq.findIndex(s => s.name === 'score-home'), 0,
-          { type: 'shape', shape: 'circle', name: 'score-flare', radius: 40, initial: { x: 495, y: 300, fillAlpha: 0, strokeColor: C.gold, strokeWidth: 8, alpha: 0 },
+          { type: 'shape', shape: 'circle', name: 'score-flare', radius: 40, initial: { x: 495, y: 300, fillAlpha: 0, stroke: C.gold, strokeWidth: 8, alpha: 0 },
             keyframes: [{ at: 0.45, set: { alpha: 1, radius: 60, strokeWidth: 16 } },
                         { at: 0.46, to: { alpha: 0, radius: 260, strokeWidth: 2 }, duration: 0.7, ease: 'power2.out' }] });
         seq.push(slab('scorer-chip', 380, 600, 250, 50, 24, C.gold, {
@@ -270,11 +270,11 @@
       const px = i => GX0 + i * STEP, py = i => BASE - MOM[i] * AMP;
       const tAt = i => SNAP(DRAW_AT + DRAW * i / (N - 1));
       seq.push(rect('mom-panel', (GX0 + GX1) / 2, BASE, GX1 - GX0 + 40, AMP * 2 + 60, '#0e1424', {
-        initial: { strokeColor: '#222b40', strokeWidth: 1 }, keyframes: [{ at: 0.55, from: { alpha: 0 }, duration: 0.4 }] }));
+        initial: { stroke: '#222b40', strokeWidth: 1 }, keyframes: [{ at: 0.55, from: { alpha: 0 }, duration: 0.4 }] }));
       seq.push({ type: 'shape', shape: 'line', name: 'mom-axis', from: [GX0 - 10, BASE], to: [GX1 + 10, BASE],
-        initial: { strokeColor: '#3a4560', strokeWidth: 2 }, keyframes: [{ at: 0.7, from: { alpha: 0 }, duration: 0.4 }] });
+        initial: { stroke: '#3a4560', strokeWidth: 2 }, keyframes: [{ at: 0.7, from: { alpha: 0 }, duration: 0.4 }] });
       seq.push({ type: 'shape', shape: 'line', name: 'mom-half', from: [px(22), BASE - AMP - 16], to: [px(22), BASE + AMP + 16],
-        initial: { strokeColor: '#2c3650', strokeWidth: 2 }, keyframes: [{ at: 0.8, from: { alpha: 0 }, duration: 0.4 }] });
+        initial: { stroke: '#2c3650', strokeWidth: 2 }, keyframes: [{ at: 0.8, from: { alpha: 0 }, duration: 0.4 }] });
       seq.push(text('mom-team-h', HOME.code, 22, GX0 + 4, BASE - AMP - 2, { ax: 0, fill: C.home, ls: 2, keyframes: [{ at: 0.9, from: { alpha: 0 }, duration: 0.3 }] }));
       seq.push(text('mom-team-a', AWAY.code, 22, GX0 + 4, BASE + AMP + 2, { ax: 0, fill: '#4f8ff0', ls: 2, keyframes: [{ at: 0.95, from: { alpha: 0 }, duration: 0.3 }] }));
       [["0'", 0], ["HT", 22], ["90'", N - 1]].forEach(([l, i], k) =>
@@ -288,16 +288,16 @@
       });
       // the line draws itself: a static open polygon revealed by a mask that grows from the left edge, in lock-step with a lead dot
       seq.push({ type: 'shape', shape: 'polygon', name: 'mom-line', open: true, points: MOM.map((_, i) => [px(i), py(i)]),
-        initial: { strokeColor: C.white, strokeWidth: 3 },
+        initial: { stroke: C.white, strokeWidth: 3 },
         mask: rect('mom-mask', GX0 - 6, BASE, 0, AMP * 2 + 40, C.white, { anchorX: 0,
           keyframes: [{ at: DRAW_AT, to: { width: GX1 - GX0 + 12 }, duration: DRAW, ease: 'none' }] }) });
       seq.push({ type: 'shape', shape: 'circle', name: 'mom-dot', radius: 7, at: DRAW_AT, duration: duration - DRAW_AT,
-        initial: { x: px(0), y: py(0), fillColor: C.gold, strokeColor: C.ink, strokeWidth: 3 },
+        initial: { x: px(0), y: py(0), fill: C.gold, stroke: C.ink, strokeWidth: 3 },
         keyframes: MOM.slice(1).map((_, k) => ({ at: tAt(k) - DRAW_AT, to: { x: px(k + 1), y: py(k + 1) }, duration: SNAP(DRAW / (N - 1)), ease: 'none' })) });
       // 88' goal marker
       const GI = N - 2, MARK = DRAW_AT + DRAW + 0.15;
       seq.push({ type: 'shape', shape: 'circle', name: 'goal-ring', radius: 10, at: MARK, duration: duration - MARK,
-        initial: { x: px(GI), y: py(GI), fillAlpha: 0, strokeColor: C.gold, strokeWidth: 3 },
+        initial: { x: px(GI), y: py(GI), fillAlpha: 0, stroke: C.gold, strokeWidth: 3 },
         keyframes: [{ at: 0, from: { radius: 10, alpha: 1 }, to: { radius: 34, alpha: 0 }, duration: 0.6, ease: 'power2.out', repeat: 2 }] });
       seq.push(slab('goal-tag', px(GI) - 78, py(GI) - 14, 112, 34, 14, C.gold, { at: MARK, duration: duration - MARK,
         keyframes: [{ at: 0, from: { scaleX: 0 }, duration: 0.35, ease: 'expo.out' }] }));
@@ -357,7 +357,7 @@
         keyframes: [{ at: 0.22, from: { scale: 2.8, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.24, ease: 'expo.out' }, ...shake,
                     { at: 0.6, to: { scale: 1.05 }, duration: OUT_AT - 0.6, ease: 'sine.out' }] }));
       // impact ring
-      seq.push({ type: 'shape', shape: 'circle', name: 'goal-ring', radius: 60, initial: { x: 640, y: 300, fillAlpha: 0, strokeColor: C.white, strokeWidth: 10, alpha: 0 },
+      seq.push({ type: 'shape', shape: 'circle', name: 'goal-ring', radius: 60, initial: { x: 640, y: 300, fillAlpha: 0, stroke: C.white, strokeWidth: 10, alpha: 0 },
         keyframes: [{ at: 0.46, set: { radius: 80, alpha: 0.8, strokeWidth: 14 } },     // `from` would show the ring before 0.46
                     { at: 0.47, to: { radius: 620, alpha: 0, strokeWidth: 2 }, duration: 0.7, ease: 'power2.out' }] });
       // scorer strap
@@ -382,7 +382,7 @@
     // ── Assemble ───────────────────────────────────────────────────────────────
     const GOAL_DUR = 2.3;
     const sequences = [
-      { type: 'shape', shape: 'rect', name: 'base', width: W, height: H, initial: { x: 640, y: 360, fillColor: C.night } },
+      { type: 'shape', shape: 'rect', name: 'base', width: W, height: H, initial: { x: 640, y: 360, fill: C.night } },
       matchup({ name: 'matchup', at: 0, duration: T_A_END, intro: true }),
       stats({ at: T_A_END, duration: T_GOAL + 0.4 - T_A_END }),
       matchup({ name: 'final', at: T_D, duration: DURATION - T_D, intro: false }),

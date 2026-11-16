@@ -106,17 +106,17 @@
 
     const S = [];
     const rect = (o) => ({ type: 'shape', shape: 'rect', ...o });
-    S.push(rect({ name: 'paper', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: PAPER } }));
+    S.push(rect({ name: 'paper', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: PAPER } }));
 
     // roll guides: a hairline on every C, and the bar lines falling with the music
-    whites.filter(m => m % 12 === 0).forEach(m => S.push(rect({ duration: END + 0.6, width: 1, height: KY - ROLL_TOP, initial: { x: M + WW * whites.indexOf(m), y: (ROLL_TOP + KY) / 2, fillColor: INK, alpha: 0.12 }, keyframes: [{ at: END, to: { alpha: 0 }, duration: 0.5 }] })));
+    whites.filter(m => m % 12 === 0).forEach(m => S.push(rect({ duration: END + 0.6, width: 1, height: KY - ROLL_TOP, initial: { x: M + WW * whites.indexOf(m), y: (ROLL_TOP + KY) / 2, fill: INK, alpha: 0.12 }, keyframes: [{ at: END, to: { alpha: 0 }, duration: 0.5 }] })));
     for (let b = 0; b <= 8; b++) {
       const tb = b < 8 ? beatTime(b * 3) : END;
       const appear = tb - LEAD;
       const travel = KY - ROLL_TOP + 2;
       const dur = travel / V;
       S.push(rect({ name: 'barline' + b, at: Math.max(0, appear), duration: dur - Math.max(0, -appear),
-        width: W - 2 * M, height: 1, initial: { x: W / 2, y: ROLL_TOP + Math.max(0, -appear) * V, fillColor: INK, alpha: 0.35 },
+        width: W - 2 * M, height: 1, initial: { x: W / 2, y: ROLL_TOP + Math.max(0, -appear) * V, fill: INK, alpha: 0.35 },
         keyframes: [{ at: 0, to: { y: KY + 2 }, duration: dur - Math.max(0, -appear) }] }));
       if (b < 8) S.push({ type: 'text', name: 'barno' + b, text: String(b + 1), at: Math.max(0, appear), duration: dur - Math.max(0, -appear),
         style: { fontFamily: MONO, fontSize: 15, fill: INK },
@@ -131,7 +131,7 @@
       const appear = n.t - LEAD;                      // bottom edge at ROLL_TOP
       const life = LEAD + n.dur + 0.05;
       S.push(rect({ at: appear, duration: life, width: w, height: h, cornerRadius: 3,
-        initial: { x: keyX(n.midi), y: ROLL_TOP - h / 2, fillColor: n.hand ? BLUE : RED },
+        initial: { x: keyX(n.midi), y: ROLL_TOP - h / 2, fill: n.hand ? BLUE : RED },
         keyframes: [{ at: 0, to: { y: ROLL_TOP - h / 2 + life * V }, duration: life }] }));
     }
 
@@ -143,7 +143,7 @@
     for (let b = 0; b <= 8; b++) {
       const x = M + (b < 8 ? (beatTime(b * 3) - t0) : ev.seconds) * SX;
       const at = S_AT + SWEEP * (x - M) / (W - 2 * M);
-      S.push(rect({ name: 'sumbar' + b, at, width: 1, height: SY0 - SY1 + 60, initial: { x, y: (SY0 + SY1) / 2, fillColor: INK, alpha: 0 },
+      S.push(rect({ name: 'sumbar' + b, at, width: 1, height: SY0 - SY1 + 60, initial: { x, y: (SY0 + SY1) / 2, fill: INK, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 0.3 }, duration: 0.4 }] }));
       if (b < 8) S.push({ type: 'text', name: 'sumno' + b, text: String(b + 1), at, style: { fontFamily: MONO, fontSize: 15, fill: INK },
         initial: { x: x + 6, y: SY1 - 30, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.6 }, duration: 0.4 }] });
@@ -152,7 +152,7 @@
       const x = M + (n.t - t0) * SX;
       const at = S_AT + SWEEP * (x - M) / (W - 2 * M);
       S.push(rect({ at, width: Math.max(4, Math.min(n.dur * SX - 3, W - M - x - 1)), height: 7, anchorX: 0, cornerRadius: 2,
-        initial: { x: x + 1, y: sy(n.midi), fillColor: n.hand ? BLUE : RED, scaleX: 0 },
+        initial: { x: x + 1, y: sy(n.midi), fill: n.hand ? BLUE : RED, scaleX: 0 },
         keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.35, ease: 'power2.out' }] }));
     }
     S.push({ type: 'text', name: 'count', text: `${notes.length} notes · 8 bars · ${ev.seconds} seconds`, at: S_AT + SWEEP,
@@ -160,34 +160,34 @@
       keyframes: [{ at: 0, to: { alpha: 0.6 }, duration: 0.5 }] });
 
     // header band covers the notes above the roll; the foot band hides them once they pass under the keyboard
-    S.push(rect({ width: W, height: H - KY - KEY_LEN + 1, initial: { x: W / 2, y: (KY + KEY_LEN + H) / 2, fillColor: PAPER } }));
-    S.push(rect({ width: W, height: ROLL_TOP, initial: { x: W / 2, y: ROLL_TOP / 2, fillColor: PAPER } }));
-    S.push(rect({ width: W - 2 * M, height: 1, initial: { x: W / 2, y: ROLL_TOP, fillColor: INK, alpha: 0.5 } }));
+    S.push(rect({ width: W, height: H - KY - KEY_LEN + 1, initial: { x: W / 2, y: (KY + KEY_LEN + H) / 2, fill: PAPER } }));
+    S.push(rect({ width: W, height: ROLL_TOP, initial: { x: W / 2, y: ROLL_TOP / 2, fill: PAPER } }));
+    S.push(rect({ width: W - 2 * M, height: 1, initial: { x: W / 2, y: ROLL_TOP, fill: INK, alpha: 0.5 } }));
 
     // keyboard
     const keyIn = () => [{ at: 0, from: { scaleY: 0 }, to: { scaleY: 1 }, duration: 0.6, ease: 'power3.out' }];   // keys unfold down from the top edge
     whites.forEach((m, i) => S.push(rect({ name: 'bed' + m, at: 0.1 + i * 0.012, width: WW + 2, height: KEY_LEN + 2, anchorY: 0,   // each key brings its own ink outline
-      initial: { x: keyX(m), y: KY - 1, fillColor: INK }, keyframes: keyIn() })));
+      initial: { x: keyX(m), y: KY - 1, fill: INK }, keyframes: keyIn() })));
     whites.forEach((m, i) => S.push(rect({ name: 'w' + m, at: 0.1 + i * 0.012, width: WW - 2, height: KEY_LEN - 2,
-      cornerRadius: 2, anchorY: 0, initial: { x: keyX(m), y: KY, fillColor: PAPER }, keyframes: keyIn() })));
+      cornerRadius: 2, anchorY: 0, initial: { x: keyX(m), y: KY, fill: PAPER }, keyframes: keyIn() })));
     const light = (n, black) => {
       const end = n.last ? DURATION + 1 : n.t + n.dur;
       const len = end - n.t;
       const base = black ? KY + BLACK_LEN / 2 : KY + KEY_LEN / 2;
       return rect({ at: n.t, duration: len + 0.14,
         width: black ? BW - 4 : WW - 6, height: black ? BLACK_LEN - 4 : KEY_LEN - 6, cornerRadius: 2,
-        initial: { x: keyX(n.midi), y: base, fillColor: n.hand ? BLUE : RED, alpha: 1 },
+        initial: { x: keyX(n.midi), y: base, fill: n.hand ? BLUE : RED, alpha: 1 },
         keyframes: [
           { at: len, to: { alpha: 0 }, duration: 0.14, ease: 'power2.out' },
         ] });
     };
     notes.filter(n => !isBlack(n.midi)).forEach(n => S.push(light(n, false)));
     for (let m = LOW; m <= HIGH; m++) if (isBlack(m)) S.push(rect({ name: 'b' + m, at: 0.3, width: BW, height: BLACK_LEN, cornerRadius: 2,
-      anchorY: 0, initial: { x: keyX(m), y: KY, fillColor: INK }, keyframes: keyIn() }));
+      anchorY: 0, initial: { x: keyX(m), y: KY, fill: INK }, keyframes: keyIn() }));
     notes.filter(n => isBlack(n.midi)).forEach(n => S.push(light(n, true)));
     // impact tick: a short stroke above the key at the instant it sounds
     for (const n of notes) S.push(rect({ at: n.t, duration: 0.3, width: (isBlack(n.midi) ? BW : WW) + 6, height: 4,
-      initial: { x: keyX(n.midi), y: KY - 6, fillColor: n.hand ? BLUE : RED },
+      initial: { x: keyX(n.midi), y: KY - 6, fill: n.hand ? BLUE : RED },
       keyframes: [{ at: 0, to: { alpha: 0, scaleX: 0.3 }, duration: 0.3, ease: 'power2.out' }] }));
 
     // header type
@@ -212,9 +212,9 @@
 
     // foot: progress through the eight bars
     const FOOT = 1000;
-    S.push(rect({ width: W - 2 * M, height: 1, initial: { x: W / 2, y: FOOT, fillColor: INK, alpha: 0.25 } }));
+    S.push(rect({ width: W - 2 * M, height: 1, initial: { x: W / 2, y: FOOT, fill: INK, alpha: 0.25 } }));
     S.push(rect({ name: 'progress', at: t0, duration: DURATION - t0, width: W - 2 * M, height: 3, anchorX: 0,
-      initial: { x: M, y: FOOT, fillColor: RED, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: END - t0 }] }));
+      initial: { x: M, y: FOOT, fill: RED, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: END - t0 }] }));
     S.push({ type: 'text', name: 'tempo', text: '3/4   ♩ = 144', at: 0.6, style: { fontFamily: MONO, fontSize: 15, fill: INK, letterSpacing: 2 },
       initial: { x: M, y: FOOT + 10, alpha: 0.6 } });
     S.push({ type: 'text', name: 'fin', text: 'fin.', at: END + 0.2, style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 30, fill: RED },

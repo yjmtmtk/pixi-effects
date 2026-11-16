@@ -58,10 +58,10 @@
       const left = { x: pad, anchorX: 0, anchorY: 0.5 };
       const rise = (delay) => ({ at: delay, from: { alpha: 0, y: '+=40' }, duration: 0.7, ease: 'expo.out' });
       return { sequences: [
-        { type: 'shape', shape: 'rect', name: 'paper', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '{paper}' } },
-        { type: 'shape', shape: 'circle', name: 'sun', radius: square ? 'GW*0.27' : 'min(GW,GH)*0.46', initial: { x: tall ? 'GW*0.72' : square ? 'GW*0.8' : 'GW*0.8', y: tall ? 'GH*0.2' : square ? 'GH*0.2' : 'GH*0.52', fillColor: '{accent}' },
+        { type: 'shape', shape: 'rect', name: 'paper', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '{paper}' } },
+        { type: 'shape', shape: 'circle', name: 'sun', radius: square ? 'GW*0.27' : 'min(GW,GH)*0.46', initial: { x: tall ? 'GW*0.72' : square ? 'GW*0.8' : 'GW*0.8', y: tall ? 'GH*0.2' : square ? 'GH*0.2' : 'GH*0.52', fill: '{accent}' },
           keyframes: [{ at: 0.1, from: { scale: 0 }, to: { scale: 1 }, duration: 0.9, ease: 'back.out(1.6)' }, { at: 1.2, to: { scale: 1.06 }, duration: 1.4, ease: 'sine.inOut', repeat: 2, yoyo: true }] },
-        { type: 'shape', shape: 'circle', name: 'dot', radius: 'min(GW,GH)*0.07', initial: { x: tall ? 'GW*0.2' : square ? 'GW*0.52' : 'GW*0.62', y: tall ? 'GH*0.1' : square ? 'GH*0.1' : 'GH*0.14', fillColor: '{ink}' },
+        { type: 'shape', shape: 'circle', name: 'dot', radius: 'min(GW,GH)*0.07', initial: { x: tall ? 'GW*0.2' : square ? 'GW*0.52' : 'GW*0.62', y: tall ? 'GH*0.1' : square ? 'GH*0.1' : 'GH*0.14', fill: '{ink}' },
           keyframes: [{ at: 0.6, from: { scale: 0 }, to: { scale: 1 }, duration: 0.5, ease: 'back.out(2.4)' }] },
         { type: 'text', name: 'tag', text: '{tag}', at: 0.3, style: { fontFamily: FONT, fontSize: tall ? 'GW*0.04' : 'GW*0.022', fontWeight: '700', fill: '{accent}', letterSpacing: 4 },
           initial: { ...left, y: tall ? 'GH*0.42' : square ? 'GH*0.4' : 'GH*0.3' }, keyframes: [rise(0)] },

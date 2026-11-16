@@ -44,7 +44,7 @@ final render 05:58; notes done ~06:05. The canvas layer itself cost almost no ti
 ### Colour with alpha from a hex   [MISSING-CTX]
 - wanted: `'#ffd08a'` at 0.15 alpha for strokes, gradients and glows.
 - tried / did instead: a 1-line `rgba(hex, a)` parser used ~12 times.
-- would have prevented it: an exported `rgba(hex, a)` / `color(hex).alpha(a)` helper, the same parser the library uses for `fillColor`.
+- would have prevented it: an exported `rgba(hex, a)` / `color(hex).alpha(a)` helper, the same parser the library uses for `fill`.
 
 ### A trajectory / polyline helper for state arrays   [MISSING-CTX]
 - wanted: "stroke body i's path from step a to step b, every n-th sample", in chunks so crossings accumulate under `lighter`, and a tapered tail (alpha and width growing to the head).

@@ -40,17 +40,17 @@ export default function chapter(P) {
       { type: 'null', name: 'rig', initial: { x: 330, y: 0 },
         keyframes: [{ at: 0.7, to: { x: 2250 }, duration: 2.1, ease: 'power2.inOut' }] },
       { type: 'shape', shape: 'rect', name: 'band', parent: 'rig', width: BAND_W, height: BAND_H, anchorX: 0.5, anchorY: 0,
-        initial: { x: 0, y: BAND_TOP, fillColor: '#ffffff' } },
+        initial: { x: 0, y: BAND_TOP, fill: '#ffffff' } },
       // three layers cut by that one band
       { type: 'shape', shape: 'rect', name: 'panel', mask: 'band', width: 1920, height: 1080, anchorX: 0, anchorY: 0,
-        initial: { x: 0, y: 0, fillColor: C.ink2 } },
+        initial: { x: 0, y: 0, fill: C.ink2 } },
       { type: 'shape', shape: 'path', name: 'hatch', mask: 'band', d: hatch, strokeCap: 'butt',
-        initial: { strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.16 } },
+        initial: { stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.16 } },
       { type: 'text', name: 'word-band', mask: 'band', text: 'MATTE', style: { ...word, fill: C.red }, initial: wordAt },
       // the window's edges, drawn by two thin lines that ride the same null (so the eye sees where the matte is)
       ...[-BAND_W / 2, BAND_W / 2].map((dx, i) => ({
         type: 'shape', shape: 'rect', name: 'edge-' + i, parent: 'rig', width: 4, height: BAND_H, anchorX: 0.5, anchorY: 0,
-        initial: { x: dx, y: BAND_TOP, fillColor: C.bone, alpha: 0.9 },
+        initial: { x: dx, y: BAND_TOP, fill: C.bone, alpha: 0.9 },
       })),
 
       // (2) A LUMA MATTE: a wide gradient, white behind and black ahead, slides in right after the band: the word fills in for good, softly

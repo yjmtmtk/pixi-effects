@@ -10,7 +10,7 @@ import { runFilms, withFilm, type Film } from './support/withFilm';
 //   (the stroke goes round the shape and each hole)" and "an island inside a hole is not drawn".
 //   skills/pixi-effects/reference/cheatsheet.md, the path row: "unless fillRule: 'evenodd': the biggest is the shape, the others are holes".
 //   So: the ring between the outer outline and the hole is the fill; the hole is empty; the island adds nothing (no fill anywhere inside the hole).
-// - docs/dsl.md, the Style table: "strokeWidth | Pixels. Default 0 (no stroke)"; "strokeColor ... Requires strokeWidth > 0 to render".
+// - docs/dsl.md, the Style table: "strokeWidth | Pixels. Default 0 (no stroke)"; "stroke ... Requires strokeWidth > 0 to render".
 // - docs/dsl.md, "Draw-on": trimStart / trimEnd (default 0 and 1) "are the part of the outline that is stroked" and "a path's several sub-paths count as one
 //   length": with no trim the stroke runs along every sub-path. Without fillRule "several sub-paths in one d are each filled on their own" (dsl.md, Holes).
 // - The documents do NOT say where a shape's stroke sits on its outline (centred, inside or outside; only TEXT is said to be "centred on the glyph edge"),

@@ -39,10 +39,10 @@ describe('gradientOptions', () => {
 });
 
 describe('ShapeSequence.fillGradient', () => {
-  it('fills with a gradient instead of fillColor, from the top level or from `initial`', async () => {
+  it('fills with a gradient instead of fill, from the top level or from `initial`', async () => {
     for (const where of ['top', 'initial'] as const) {
       const gradient = { stops: [[0, '#112233'], [1, '#445566']] };
-      const s = make(where === 'top' ? { fillGradient: gradient, initial: { fillColor: '#ff0000' } } : { initial: { fillGradient: gradient, fillColor: '#ff0000' } });
+      const s = make(where === 'top' ? { fillGradient: gradient, initial: { fill: '#ff0000' } } : { initial: { fillGradient: gradient, fill: '#ff0000' } });
       await s.build();
       const g = s.target as unknown as { fill: ReturnType<typeof vi.fn>; onRender: () => void };
       g.fill = vi.fn();
@@ -54,7 +54,7 @@ describe('ShapeSequence.fillGradient', () => {
   });
 
   it('without a gradient the flat colour path is unchanged', async () => {
-    const s = make({ initial: { fillColor: '#ff0000', fillAlpha: 0.5 } });
+    const s = make({ initial: { fill: '#ff0000', fillAlpha: 0.5 } });
     await s.build();
     const g = s.target as unknown as { fill: ReturnType<typeof vi.fn>; onRender: () => void };
     g.fill = vi.fn();
@@ -62,7 +62,7 @@ describe('ShapeSequence.fillGradient', () => {
     expect(g.fill).toHaveBeenCalledWith({ color: '#ff0000', alpha: 0.5 });
   });
 
-  it('lint: a gradient and fillColor together is fine; stops given as a bare string is not silently accepted', () => {
+  it('lint: a gradient and fill together is fine; stops given as a bare string is not silently accepted', () => {
     const w: string[] = [];
     lintSequence({ type: 'shape', shape: 'rect', width: 1, height: 1, fillGradient: { stops: [[0, '#fff'], [1, '#000']] } } as unknown as SequenceSpec, m => w.push(m));
     expect(w).toEqual([]);

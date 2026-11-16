@@ -100,12 +100,12 @@
     const txt = (o) => ({ type: 'text', ...o, style: { fontFamily: SANS, fill: PAPER, ...o.style } });
 
     // ── background ──
-    S.push({ type: 'shape', name: 'bg', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BLACK } });
+    S.push({ type: 'shape', name: 'bg', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: BLACK } });
 
     // ── static grid: rules draw on from the left ──
     const rule = (name, y, h, color, alpha, at, dur = 0.7) => ({
       type: 'shape', name, shape: 'rect', width: R - L, height: h, anchorX: 0, at,
-      initial: { x: L, y, fillColor: color, alpha, scaleX: 0 },
+      initial: { x: L, y, fill: color, alpha, scaleX: 0 },
       keyframes: [{ at: 0, to: { scaleX: 1 }, duration: dur, ease: 'power3.inOut' }],
     });
     S.push(rule('rule-head', 128, 2, PAPER, 1, 0, 0.9));
@@ -157,10 +157,10 @@
       if (bandOn) {
         // the band: opaque so a row that is overtaken reads as one object; a short amber flash marks the moment
         S.push(child({ type: 'shape', name: rig + '-band', shape: 'rect', width: W, height: ROWH - 2,
-          initial: { x: W / 2, y: ROWH / 2, fillColor: BAND, alpha: 0 },
+          initial: { x: W / 2, y: ROWH / 2, fill: BAND, alpha: 0 },
           keyframes: [{ at: bandOn - start, to: { alpha: 1 }, duration: 0.15, ease: 'power2.out' }] }));
         S.push(child({ type: 'shape', name: rig + '-flash', shape: 'rect', width: W, height: ROWH - 2,
-          initial: { x: W / 2, y: ROWH / 2, fillColor: AMBER, alpha: 0 },
+          initial: { x: W / 2, y: ROWH / 2, fill: AMBER, alpha: 0 },
           keyframes: [{ at: bandOn - start, to: { alpha: 0.35 }, duration: 0.08, ease: 'power2.out' },
                       { at: bandOn - start + 0.12, to: { alpha: 0 }, duration: 0.5, ease: 'power2.out' }] }));
       }
@@ -179,8 +179,8 @@
       const ty = TYPES[tr.type];
       if (ty.box !== 'none') {
         S.push(child({ type: 'shape', name: rig + '-typebox', shape: 'rect', width: 58, height: 28, cornerRadius: 2,
-          initial: ty.box === 'fill' ? { x: COL.type + 29, y: MAINY, fillColor: PAPER }
-                                     : { x: COL.type + 29, y: MAINY, fillAlpha: 0, strokeColor: ty.box === 'dim' ? GRAPHITE : PAPER, strokeWidth: 1.5 } }));
+          initial: ty.box === 'fill' ? { x: COL.type + 29, y: MAINY, fill: PAPER }
+                                     : { x: COL.type + 29, y: MAINY, fillAlpha: 0, stroke: ty.box === 'dim' ? GRAPHITE : PAPER, strokeWidth: 1.5 } }));
       }
       S.push(child({ ...txt({ name: rig + '-type', text: ty.jp, style: { fontSize: 17, fontWeight: '700', fill: ty.box === 'fill' ? BLACK : PAPER } }),
         initial: { x: COL.type + 29, y: MAINY, anchorX: 0.5, anchorY: 0.5 } }));
@@ -195,7 +195,7 @@
       const trackKeys = tr.trackChange ? flap(T.track + 0.1, { text: tr.trackChange, fill: AMBER }, start) : [];
       if (tr.trackChange) {
         S.push(child({ type: 'shape', name: rig + '-trackbox', shape: 'rect', width: 64, height: 46, trimEnd: 0,
-          initial: { x: COL.track, y: MAINY, fillAlpha: 0, strokeColor: AMBER, strokeWidth: 1.5 },
+          initial: { x: COL.track, y: MAINY, fillAlpha: 0, stroke: AMBER, strokeWidth: 1.5 },
           keyframes: [{ at: T.track + 0.2 - start, to: { trimEnd: 1 }, duration: 0.5, ease: 'power2.inOut' }] }));
       }
       S.push(child({ ...txt({ name: rig + '-track', text: tr.track, style: { fontFamily: MONO, fontSize: 34, fontWeight: '500' } }),
@@ -234,16 +234,16 @@
     S.push(txt({ name: 'axis-label', text: '次の20分', at: 1.3, style: { fontSize: 13, fontWeight: '600' }, initial: { x: L, y: AXY - 18 }, keyframes: enter() }));
     S.push(txt({ name: 'axis-label-en', text: 'NEXT 20 MIN', at: 1.34, style: { fontFamily: MONO, fontSize: 10, fill: GRAPHITE, letterSpacing: 1.5 }, initial: { x: L, y: AXY + 4 }, keyframes: enter() }));
     S.push({ type: 'shape', name: 'axis', shape: 'rect', width: AX1 - AX0, height: 1, anchorX: 0, at: 1.3,
-      initial: { x: AX0, y: AXY, fillColor: GRAPHITE, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.8, ease: 'power3.inOut' }] });
+      initial: { x: AX0, y: AXY, fill: GRAPHITE, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.8, ease: 'power3.inOut' }] });
     [40, 45, 50, 55, 60].forEach((m, i) => {
       const at = 1.4 + i * 0.12;
-      S.push({ type: 'shape', name: 'axis-mark' + m, shape: 'rect', width: 1, height: 6, at, initial: { x: axX(m), y: AXY + 3, fillColor: GRAPHITE } });
+      S.push({ type: 'shape', name: 'axis-mark' + m, shape: 'rect', width: 1, height: 6, at, initial: { x: axX(m), y: AXY + 3, fill: GRAPHITE } });
       S.push(txt({ name: 'axis-t' + m, text: m === 60 ? '09:00' : '08:' + m, at, style: { fontFamily: MONO, fontSize: 11, fill: GRAPHITE },
         initial: { x: axX(m), y: AXY + 10, anchorX: 0.5 }, keyframes: enter(at, 4) }));
     });
     // now: a hairline that creeps with the clock (12 s of real time: 8 px)
     S.push({ type: 'shape', name: 'now', shape: 'rect', width: 2, height: 26, at: 1.5,
-      initial: { x: axX(42 + 57 / 60 + 1.5 / 60), y: AXY - 6, fillColor: PAPER, alpha: 0 },
+      initial: { x: axX(42 + 57 / 60 + 1.5 / 60), y: AXY - 6, fill: PAPER, alpha: 0 },
       keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }, { at: 0, to: { x: axX(42 + 57 / 60 + DURATION / 60) }, duration: DURATION - 1.5, ease: 'none' }] });
     S.push(txt({ name: 'now-label', text: 'NOW', at: 1.5, style: { fontFamily: MONO, fontSize: 9, fill: PAPER, letterSpacing: 1 },
       initial: { x: axX(42.98), y: AXY - 32, anchorX: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] }));
@@ -251,9 +251,9 @@
       const at = tr.enters ? T.enter : 1.6 + i * 0.05;
       const keys = [{ at: 0, from: { scaleY: 0 }, to: { scaleY: 1 }, duration: 0.25, ease: 'power2.out' }];
       if (tr.departs) keys.push({ at: T.leave - at, to: { alpha: 0 }, duration: 0.5, ease: 'power2.in' });
-      if (tr.delay) keys.push({ at: T.slide - at, to: { x: axX(tr.min + tr.delay), fillColor: AMBER }, duration: 0.8, ease: 'power3.inOut' });
+      if (tr.delay) keys.push({ at: T.slide - at, to: { x: axX(tr.min + tr.delay), fill: AMBER }, duration: 0.8, ease: 'power3.inOut' });
       S.push({ type: 'shape', name: 'tick-' + tr.id, shape: 'rect', width: 3, height: tr.type === 'ltd' ? 18 : 12, anchorY: 1, at,
-        initial: { x: axX(tr.min), y: AXY - 1, fillColor: PAPER }, keyframes: keys });
+        initial: { x: axX(tr.min), y: AXY - 1, fill: PAPER }, keyframes: keys });
       if (tr.delay) {   // the size of the change, riding on the tick
         S.push(txt({ name: 'delta-' + tr.id, text: '+' + tr.delay, at: T.slide, style: { fontFamily: MONO, fontSize: 11, fontWeight: '700', fill: AMBER },
           initial: { x: axX(tr.min), y: AXY - 34, anchorX: 0.5, alpha: 0 },
@@ -261,7 +261,7 @@
       }
       if (tr.delay) {   // where it should have been: a graphite ghost stays behind
         S.push({ type: 'shape', name: 'ghost-' + tr.id, shape: 'rect', width: 3, height: 18, anchorY: 1, at: T.slide,
-          initial: { x: axX(tr.min), y: AXY - 1, fillColor: GRAPHITE, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.6 }, duration: 0.4 }] });
+          initial: { x: axX(tr.min), y: AXY - 1, fill: GRAPHITE, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.6 }, duration: 0.4 }] });
       }
     });
 

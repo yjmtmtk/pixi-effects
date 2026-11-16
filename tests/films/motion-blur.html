@@ -27,7 +27,7 @@
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
         ...(mb ? { motionBlur: mb === 'true' ? { samples: 8, shutter: 1 } : false } : {}),
         composition: { sequences: [
-          { type: 'shape', shape: 'rect', width: 80, height: 80, initial: { x: 100, y: 360, fillColor: '#ffffff' },
+          { type: 'shape', shape: 'rect', width: 80, height: 80, initial: { x: 100, y: 360, fill: '#ffffff' },
             keyframes: [{ at: 0, to: { x: 2500 }, duration: 4, ease: 'none' }] },
         ] },
       });

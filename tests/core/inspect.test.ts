@@ -71,7 +71,7 @@ describe('inspectScene', () => {
   describe('a picture that crosses text (a shape or an image, not text)', () => {
     // in this mock every layer's box is 200 x 100 at its x / y, whatever width / height it is given
     const rect = (name: string, x: number, y: number, extra: Record<string, unknown> = {}) =>
-      ({ type: 'shape', shape: 'rect', name, width: 10, height: 10, initial: { x, y, fillColor: '#ff0000' }, ...extra });
+      ({ type: 'shape', shape: 'rect', name, width: 10, height: 10, initial: { x, y, fill: '#ff0000' }, ...extra });
     const text = { type: 'text', name: 'label', text: 'a', initial: { x: 100, y: 100 } };
     const crossing = (issues: string[]) => issues.filter(i => /\boverlap\b/.test(i) && i.includes('"label"') && !/text layers/.test(i));
     const run = async (layers: unknown[]) => crossing(inspectScene(await scene(layers), 0, 0, { width: 1280, height: 720 }).issues);
@@ -92,10 +92,10 @@ describe('inspectScene', () => {
     it('is silent for a backdrop that holds the text (the same box), a shape somewhere else, a faint one, a blended or filtered one (a glow), a stroke-only ring, a path, and a text inside its own group', async () => {
       expect(await run([rect('panel', 100, 100), text])).toEqual([]);                                  // the box of the text is the box of the panel: it holds it
       expect(await run([text, rect('far', 700, 400)])).toEqual([]);
-      expect(await run([text, rect('ghost', 150, 100, { initial: { x: 150, y: 100, fillColor: '#f00', alpha: 0.5 } })])).toEqual([]);
+      expect(await run([text, rect('ghost', 150, 100, { initial: { x: 150, y: 100, fill: '#f00', alpha: 0.5 } })])).toEqual([]);
       expect(await run([text, rect('glow', 150, 100, { blendMode: 'screen' })])).toEqual([]);
-      expect(await run([text, { type: 'shape', shape: 'circle', name: 'ring', radius: 10, initial: { x: 150, y: 100, strokeColor: '#fff', strokeWidth: 2 } }])).toEqual([]);
-      expect(await run([text, { type: 'shape', shape: 'path', name: 'curve', d: 'M 0 0 L 400 400', initial: { x: 150, y: 100, fillColor: '#fff' } }])).toEqual([]);
+      expect(await run([text, { type: 'shape', shape: 'circle', name: 'ring', radius: 10, initial: { x: 150, y: 100, stroke: '#fff', strokeWidth: 2 } }])).toEqual([]);
+      expect(await run([text, { type: 'shape', shape: 'path', name: 'curve', d: 'M 0 0 L 400 400', initial: { x: 150, y: 100, fill: '#fff' } }])).toEqual([]);
       const comp = await scene([{ type: 'composition', name: 'group', width: 400, height: 300, sequences: [text] }]);
       expect(inspectScene(comp, 0, 0, { width: 1280, height: 720 }).issues).toEqual([]);
     });

@@ -152,6 +152,10 @@ const SFX_KNOBS = new Set(['pitch', 'brightness', 'seed']);
 const TRANSFORM_KEYS = new Set(['x', 'y', 'z', 'alpha', 'rotation', 'rotationX', 'rotationY', 'scale', 'scaleX', 'scaleY', 'anchor', 'anchorX', 'anchorY',
   'pivot', 'pivotX', 'pivotY', 'skew', 'skewX', 'skewY', 'tint', 'visible', 'autoAlpha']);
 
+/** The colour of each kind of drawn layer (a shape's outline is stroke; a light's and a fog's are color). */
+const COLOUR_OF: Record<string, string> = { shape: 'fill', text: 'fill', image: 'tint', video: 'tint' };
+const COLOUR_WORDS = new Set(['fill', 'color', 'tint', 'stroke', 'fogColor']);
+
 /** The words of a keyframe (GSAP's): anything else is ignored by the timeline, so it is said. */
 const KEYFRAME_KEYS = ['at', 'duration', 'ease', 'repeat', 'yoyo', 'repeatDelay', 'set', 'to', 'from'];
 /** Words other tools use in a tween, and ours (GSAP `delay`, CSS / Lottie `easing`, `dur`): only for a keyframe. */
@@ -223,7 +227,16 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   for (const bag of bags) {
     for (const key of Object.keys(bag ?? {})) {
       if (bag![key] === undefined) continue;
-      if (PROP_KEYS.has(key) || key.includes('.') || /^gradient/i.test(key) || said.has(key) || key === 'speed') continue;     // (speed: lintRemap says what to write)
+      if (said.has(key)) continue;
+      // a colour key another kind owns (a light's color on a rect, a shape's fill on an image): passes the flat list, does nothing here
+      const colour = COLOUR_OF[spec.type];
+      if (colour && COLOUR_WORDS.has(key) && key !== colour && !(colour === 'fill' && (key === 'stroke' || key === 'tint') && spec.type === 'shape') && !(spec.type === 'text' && key === 'tint')) {
+        said.add(key);
+        const kind = kindName(spec as { type: string; shape?: string });
+        warn(`pixi-effects: ${who}: "${key}" is not a property of ${/^[aeiou]/.test(kind) ? 'an' : 'a'} ${kind}: its colour is ${colour} (initial: { ${colour}: … })`);
+        continue;
+      }
+      if (PROP_KEYS.has(key) || key.includes('.') || /^gradient/i.test(key) || key === 'speed') continue;     // (speed: lintRemap says what to write)
       said.add(key);
       const guess = suggestName(key, [...PROP_KEYS]);
       warn(`pixi-effects: ${who}: "${key}" is not an animatable property${guess ? ` — did you mean "${guess}"?` : ''} (in initial, set, to or from). See the cheatsheet for the properties of this kind of layer`);

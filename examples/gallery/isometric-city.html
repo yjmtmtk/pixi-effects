@@ -122,7 +122,7 @@
     const FW = (1 - 2 * INSET) * TW / 2;                            // a building face's screen width
 
     const poly = (name, points, stops, t0, d, extra = {}) => {
-      const { initial, keyframes } = colorKeys('fillColor', stops, t0, d);
+      const { initial, keyframes } = colorKeys('fill', stops, t0, d);
       return { type: 'shape', shape: 'polygon', name, points, colorSpace: 'oklab', initial: { ...initial, ...(extra.initial || {}) }, keyframes: [...keyframes, ...(extra.keyframes || [])] };
     };
     // three visible faces of an iso box standing on tile corners (i0,j0)-(i1,j1), `lift` px above the ground
@@ -215,7 +215,7 @@
       const spots = Array.from({ length: n }, () => [0.22 + rnd() * 0.56, 0.22 + rnd() * 0.56]).sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]));
       spots.forEach(([u, v], k) => {
         const [x, y] = iso(i + u, j + v), r = 5 + rnd() * 3.5, tt = t0 + 0.15 + k * 0.12, dd = DURATION - tt;
-        const trunk = colorKeys('fillColor', stopsOf(COL.trunk), tt, dd), leaf = colorKeys('fillColor', stopsOf(COL.canopy), tt, dd);
+        const trunk = colorKeys('fill', stopsOf(COL.trunk), tt, dd), leaf = colorKeys('fill', stopsOf(COL.canopy), tt, dd);
         layers.push({ type: 'shape', shape: 'rect', name: `trunk-${i}-${j}-${k}`, width: 3, height: 0, anchorY: 1, at: tt, duration: dd, colorSpace: 'oklab',
           initial: { x, y, ...trunk.initial }, keyframes: [{ at: 0, to: { height: 9 }, duration: 0.45, ease: 'power3.out' }, ...trunk.keyframes] });
         layers.push({ type: 'shape', shape: 'circle', name: `tree-${i}-${j}-${k}`, radius: 0, at: tt, duration: dd, colorSpace: 'oklab',
@@ -232,7 +232,7 @@
         ...poly(name, pts, stops, t0, DURATION - t0, extra), at: t0, duration: DURATION - t0,
         mask: {
           type: 'shape', shape: 'rect', width: 0, height: y1 - y0 + 8, anchorX: dir === 'ltr' ? 0 : 1,
-          initial: { x: dir === 'ltr' ? x0 - 3 : x1 + 3, y: (y0 + y1) / 2, fillColor: '#ffffff' },
+          initial: { x: dir === 'ltr' ? x0 - 3 : x1 + 3, y: (y0 + y1) / 2, fill: '#ffffff' },
           keyframes: [{ at: 0, to: { width: x1 - x0 + 6 }, duration: revealDur, ease: 'power2.inOut' }],
         },
       };
@@ -257,7 +257,7 @@
         ],
         mask: {
           type: 'shape', shape: 'rect', width: 0, height: y1 - y0 + 8, anchorX: 1,
-          initial: { x: x1 + 3, y: (y0 + y1) / 2, fillColor: '#ffffff' },
+          initial: { x: x1 + 3, y: (y0 + y1) / 2, fill: '#ffffff' },
           keyframes: [{ at: 0, to: { width: x1 - x0 + 6 }, duration: 0.5, ease: 'power2.inOut' }],
         },
       };
@@ -281,7 +281,7 @@
           const d = DURATION - tc;
           out.push({
             type: 'shape', shape: 'rect', name: `car-${k}-${c}`, width: 11, height: 6, cornerRadius: 1.2, at: tc, duration: d,
-            initial: { x: a[0], y: a[1] - 1, rotation: rot, fillColor: pick(CAR_COLORS) },
+            initial: { x: a[0], y: a[1] - 1, rotation: rot, fill: pick(CAR_COLORS) },
             keyframes: [{ at: 0, from: { x: a[0], y: a[1] - 1 }, to: { x: b[0], y: b[1] - 1 }, duration: D, ease: 'none', repeat: Math.max(0, Math.ceil(d / D) - 1) }],
           });
         });
@@ -332,7 +332,7 @@
       const x = 40 + rnd() * 1200, y = 24 + rnd() * 150;
       if ((x < 620 && y < 185) || (x > 900 && y < 100)) continue;        // keep the title and the label clean
       const t = 10.3 + rnd() * 0.9;
-      stars.push({ type: 'shape', shape: 'circle', name: `star-${stars.length}`, radius: 0.9 + rnd() * 1, initial: { x, y, fillColor: '#fff4dc', alpha: 0 },
+      stars.push({ type: 'shape', shape: 'circle', name: `star-${stars.length}`, radius: 0.9 + rnd() * 1, initial: { x, y, fill: '#fff4dc', alpha: 0 },
         keyframes: [{ at: t, to: { alpha: 0.5 + rnd() * 0.45 }, duration: 0.8, ease: 'sine.out' }] });
     }
     const sunPath = [
@@ -341,7 +341,7 @@
       { at: 5.55, to: { y: 384 }, duration: 5.25, ease: 'sine.in' },
     ];
     const sunStops = phases('#ffb27a', '#fff3d2', '#ff7444');
-    const sunColour = colorKeys('fillColor', sunStops, 0, DURATION);
+    const sunColour = colorKeys('fill', sunStops, 0, DURATION);
     const sun = [
       { type: 'shape', shape: 'circle', name: 'sun-halo', radius: 170, blendMode: 'add', initial: { x: 320, y: 384 }, keyframes: sunPath,
         fillGradient: { type: 'radial', stops: [[0, 'rgba(255,170,100,0.5)'], [0.45, 'rgba(255,140,80,0.14)'], [1, 'rgba(255,140,80,0)']] } },
@@ -360,7 +360,7 @@
       { type: 'text', name: 'title', text: 'Kōbe, 2040', at: 10.0, style: { fontSize: 62, fontFamily: SERIF, fill: '#fff3e4', letterSpacing: 1 },
         initial: { x: 96, y: 92, anchorX: 0, anchorY: 0.5 },
         keyframes: [{ at: 0, from: { alpha: 0, y: 104 }, to: { alpha: 1, y: 92 }, duration: 1.0, ease: 'power3.out' }] },
-      { type: 'shape', shape: 'rect', name: 'rule', width: 0, height: 2, anchorX: 0, at: 10.2, initial: { x: 98, y: 140, fillColor: '#ffcf7c' },
+      { type: 'shape', shape: 'rect', name: 'rule', width: 0, height: 2, anchorX: 0, at: 10.2, initial: { x: 98, y: 140, fill: '#ffcf7c' },
         keyframes: [{ at: 0, to: { width: 64 }, duration: 0.7, ease: 'power3.out' }] },
       { type: 'text', name: 'subtitle', text: '神戸  —  a city that builds itself', at: 10.35, style: { fontSize: 19, fontFamily: SANS, fill: '#fff3e4', letterSpacing: 2 },
         initial: { x: 98, y: 165, anchorX: 0, anchorY: 0.5 },

@@ -80,7 +80,7 @@
     // ── small spec helpers ────────────────────────────────────────────────────────
     const rect = (name, x, y, w, h, fill, extra = {}) => ({
       type: 'shape', shape: 'rect', name, width: w, height: h, ...extra,
-      initial: { x, y, fillColor: fill, ...(extra.initial || {}) },
+      initial: { x, y, fill: fill, ...(extra.initial || {}) },
     });
     const text = (name, str, x, y, style, extra = {}) => ({
       type: 'text', name, text: str, style: { fontFamily: SANS, fill: C.white, ...style }, ...extra,
@@ -89,7 +89,7 @@
     // a wipe mask: grows from a fixed left edge
     const wipeMask = (x, y, w, h, at, dur = 0.5, ease = OUT) => ({
       type: 'shape', shape: 'rect', width: 0, height: h, anchorX: 0,
-      initial: { x, y, fillColor: '#ffffff' },
+      initial: { x, y, fill: '#ffffff' },
       keyframes: [{ at, to: { width: w }, duration: dur, ease }],
     });
     const sfx = (name, at, volume) => ({ type: 'audio', sfx: name, at, volume });
@@ -100,12 +100,12 @@
     const GR = 260;                    // globe radius
     const globeSeq = [
       { type: 'shape', shape: 'circle', name: 'globe-rim', radius: GR,
-        initial: { x: 300, y: 300, strokeColor: C.blueHi, strokeWidth: 2.5, strokeAlpha: 0.7 } },
+        initial: { x: 300, y: 300, stroke: C.blueHi, strokeWidth: 2.5, strokeAlpha: 0.7 } },
     ];
     for (const lat of [-60, -30, 0, 30, 60]) {
       const y = 300 + GR * Math.sin(lat * Math.PI / 180), half = GR * Math.cos(lat * Math.PI / 180);
       globeSeq.push({ type: 'shape', shape: 'line', name: 'lat' + lat, from: [300 - half, y], to: [300 + half, y],
-        initial: { strokeColor: C.blueHi, strokeWidth: 1.5, strokeAlpha: lat === 0 ? 0.6 : 0.3 } });
+        initial: { stroke: C.blueHi, strokeWidth: 1.5, strokeAlpha: lat === 0 ? 0.6 : 0.3 } });
     }
     // meridians: an ellipse whose radiusX = R·|sin(longitude)|, the longitude turning over time
     const SPIN = 38, STEP = 0.1, STING_END = T.wipe + T.wipeD + 0.1;
@@ -114,10 +114,10 @@
       const kf = [];
       for (let t = 0; t < STING_END; t += STEP) kf.push({ at: +t.toFixed(2), to: { radiusX: GR * Math.abs(Math.sin(lon(t + STEP))) }, duration: STEP });
       globeSeq.push({ type: 'shape', shape: 'ellipse', name: 'meridian' + i, radiusX: GR * Math.abs(Math.sin(lon(0))), radiusY: GR,
-        initial: { x: 300, y: 300, strokeColor: C.blueHi, strokeWidth: 1.5, strokeAlpha: 0.35 }, keyframes: kf });
+        initial: { x: 300, y: 300, stroke: C.blueHi, strokeWidth: 1.5, strokeAlpha: 0.35 }, keyframes: kf });
     }
     globeSeq.push({ type: 'shape', shape: 'ellipse', name: 'orbit-ring', radiusX: 300, radiusY: 74, at: 0.4,
-      initial: { x: 300, y: 300, rotation: -16, strokeColor: C.red, strokeWidth: 3, scale: 0.6, alpha: 0 },
+      initial: { x: 300, y: 300, rotation: -16, stroke: C.red, strokeWidth: 3, scale: 0.6, alpha: 0 },
       keyframes: [{ at: 0, to: { scale: 1, alpha: 0.9 }, duration: 0.7, ease: 'expo.out' }] });
 
     const streaks = Array.from({ length: 12 }, (_, i) => {
@@ -177,7 +177,7 @@
         x += bw;
       }
       pts.push([pts[pts.length - 1][0], HORIZON + 4]);
-      const out = [{ type: 'shape', shape: 'polygon', name, points: pts, initial: { fillColor: color } }];
+      const out = [{ type: 'shape', shape: 'polygon', name, points: pts, initial: { fill: color } }];
       if (windows) for (const [bx, top, bw] of boxes) {
         const n = Math.floor((HORIZON - top) / 18);
         for (let k = 0; k < n; k++) if (rnd() < 0.22) {
@@ -214,7 +214,7 @@
     };
     const [sl, slh] = sideCable(TL, -30), [sr, srh] = sideCable(TR, W + 30);
     const BR = C.ink;
-    const cable = (name, d, w) => ({ type: 'shape', shape: 'path', name, d, initial: { strokeColor: BR, strokeWidth: w } });
+    const cable = (name, d, w) => ({ type: 'shape', shape: 'path', name, d, initial: { stroke: BR, strokeWidth: w } });
     prog.push(
       cable('cable-main', `M ${TL} ${TOP} Q ${W / 2} ${SAG} ${TR} ${TOP}`, 3.5),
       cable('cable-left', sl, 3.5), cable('cable-right', sr, 3.5),
@@ -225,10 +225,10 @@
       rect('beam-l', TL, 300, 46, 8, BR), rect('beam-r', TR, 300, 46, 8, BR),
     );
     for (const [i, x] of [TL, TR].entries()) prog.push({ type: 'shape', shape: 'circle', name: 'beacon' + i, radius: 4,
-      initial: { x, y: TOP - 6, fillColor: '#ff3b3b', alpha: 1 },
+      initial: { x, y: TOP - 6, fill: '#ff3b3b', alpha: 1 },
       keyframes: [{ at: i * 0.3, to: { alpha: 0.15 }, duration: 0.6, ease: 'sine.inOut', repeat: 15, yoyo: true }] });
     for (let i = 0; i < 6; i++) prog.push({ type: 'shape', shape: 'circle', name: 'police' + i, radius: 3.5,   // emergency lights on the closed deck
-      initial: { x: 560 + i * 32, y: DECK - 4, fillColor: i % 2 ? '#ff2a2a' : '#4d8bff', alpha: 0.2 },
+      initial: { x: 560 + i * 32, y: DECK - 4, fill: i % 2 ? '#ff2a2a' : '#4d8bff', alpha: 0.2 },
       keyframes: [{ at: (i % 2) * 0.22, to: { alpha: 1 }, duration: 0.22, ease: 'none', repeat: 41, yoyo: true }] });
     // rain: each drop finishes its first fall, then loops top → bottom
     const RV = 950, RDX = -0.22;
@@ -236,7 +236,7 @@
       const x0 = r(-40, W + 200), y0 = r(-40, H), len = r(18, 36);
       const d1 = (H + 40 - y0) / RV, d2 = (H + 80) / RV, reps = Math.ceil((PD - d1) / d2);
       prog.push({ type: 'shape', shape: 'line', name: 'rain' + i, from: [0, 0], to: [len * RDX, len],
-        initial: { x: x0, y: y0, strokeColor: '#a8c6ff', strokeWidth: 1.4, strokeAlpha: r(0.15, 0.4) },
+        initial: { x: x0, y: y0, stroke: '#a8c6ff', strokeWidth: 1.4, strokeAlpha: r(0.15, 0.4) },
         keyframes: [
           { at: 0, to: { y: H + 40, x: x0 + (H + 40 - y0) * RDX }, duration: d1, ease: 'none' },
           { at: d1, from: { y: -40, x: x0 + 40 * RDX }, to: { y: H + 40, x: x0 + (H + 40) * RDX }, duration: d2, ease: 'none', repeat: reps },
@@ -335,7 +335,7 @@
     const subStyle = { fontSize: 21, fontWeight: '400', fill: C.sub };
     const sweep = (name, bar, at, color) => ({
       type: 'shape', shape: 'rect', name, width: 0, height: bar.h, anchorX: 0, at, duration: 2 * SWAP_D + 0.05,
-      initial: { x: bar.x, y: bar.y, fillColor: color },
+      initial: { x: bar.x, y: bar.y, fill: color },
       keyframes: [
         { at: 0, to: { width: bar.w }, duration: SWAP_D, ease: INOUT },
         { at: SWAP_D, to: { x: bar.x + bar.w, width: 0 }, duration: SWAP_D + 0.05, ease: INOUT },
@@ -371,7 +371,7 @@
     const mover = (spec, x) => ({ ...spec, at: tLocal0,
       keyframes: [{ at: 0, to: { x: x - travel }, duration: tDur, ease: 'none' }] });
     const tickMask = () => ({ type: 'shape', shape: 'rect', width: W - TK.clockW - 8, height: TK.h, anchorX: 0,
-      initial: { x: TK.clockW + 8, y: TK.h / 2, fillColor: '#ffffff' } });
+      initial: { x: TK.clockW + 8, y: TK.h / 2, fill: '#ffffff' } });
     ITEMS.forEach(([cat, body], i) => {
       crawl.push(mover(text('tick-cat' + i, cat, cx, TK.h / 2 + 1, { fontSize: TFONT, fontWeight: '800', fill: C.red, letterSpacing: 0 }, { mask: tickMask() }), cx));
       cx += measure(cat, 800, TFONT) + 12;
@@ -412,10 +412,10 @@
         text('loc-label', 'HARBOR CITY', LV.locW / 2, LV.h / 2 + 1, { fontSize: 17, fontWeight: '700', letterSpacing: 1.5 }, { initial: { anchorX: 0.5 } }),
         rect('live-pill', LV.locW, LV.h / 2, LV.pillW, LV.h, C.red, { anchorX: 0 }),
         { type: 'shape', shape: 'circle', name: 'live-ring', radius: 6,
-          initial: { x: LV.locW + 22, y: LV.h / 2, strokeColor: C.white, strokeWidth: 2, strokeAlpha: 0 },
+          initial: { x: LV.locW + 22, y: LV.h / 2, stroke: C.white, strokeWidth: 2, strokeAlpha: 0 },
           keyframes: [{ at: 0.5, from: { radius: 6, strokeAlpha: 0.9 }, to: { radius: 15, strokeAlpha: 0 }, duration: 1, ease: 'power1.out', repeat: Math.floor(liveDur - 1.5) }] },
         { type: 'shape', shape: 'circle', name: 'live-dot', radius: 6,
-          initial: { x: LV.locW + 22, y: LV.h / 2, fillColor: C.white },
+          initial: { x: LV.locW + 22, y: LV.h / 2, fill: C.white },
           keyframes: [{ at: 0.5, to: { alpha: 0.3 }, duration: 0.5, ease: 'sine.inOut', repeat: Math.floor((liveDur - 0.5) / 0.5) - 1, yoyo: true }] },
         text('live-label', 'LIVE', LV.locW + 38, LV.h / 2 + 1, { fontSize: 21, fontWeight: '800', letterSpacing: 2 }),
       ],

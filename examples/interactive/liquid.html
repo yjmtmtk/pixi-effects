@@ -48,7 +48,7 @@
         const at = 0.5 + i * 0.25;
         return [
           { type: 'shape', shape: 'rect', name: `card${i}`, width: cw, height: ch, cornerRadius: `${u}*0.03`, at,
-            initial: { x: cx, y: cy, fillColor: '#1a2030', strokeColor: color, strokeWidth: 3 },
+            initial: { x: cx, y: cy, fill: '#1a2030', stroke: color, strokeWidth: 3 },
             keyframes: [{ at: 0, from: { alpha: 0, scale: 0.85 }, to: { alpha: 1, scale: 1 }, duration: 0.6, ease: 'back.out(1.7)' }] },
           { type: 'text', name: `label${i}`, text: label, at: at + 0.1, style: { fontFamily: FONT, fontSize: `${u}*0.032`, fill: '#8b95a8' },
             initial: { x: tall ? 'GW*0.12' : `GW*${0.07 + 0.135 + i * 0.29 - 0.12}`, y: tall ? `GH*${0.42 + i * 0.185 - 0.04}` : 'GH*0.62', anchorX: 0, anchorY: 0.5 },

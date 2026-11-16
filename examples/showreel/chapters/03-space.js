@@ -11,7 +11,7 @@ export default function chapter(P) {
     keyframes,
     sequences: [
       { type: 'shape', shape: 'rect', name: name + '-paper', width: w, height: h, cornerRadius: 10,
-        initial: { x: w / 2, y: h / 2, fillColor: fill, strokeColor: C.ink, strokeWidth: 3 } },
+        initial: { x: w / 2, y: h / 2, fill: fill, stroke: C.ink, strokeWidth: 3 } },
       { type: 'text', name: name + '-z', text: label, style: { fontSize: 46, fill: ink, fontFamily: F.mono, letterSpacing: 2 },
         initial: { x: 30, y: 26, anchorX: 0, anchorY: 0, alpha: 0.8 } },
       { type: 'text', name: name + '-word', text: big, style: { fontSize: size, fill: ink, fontFamily: F.display },

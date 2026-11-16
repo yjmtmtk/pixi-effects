@@ -54,7 +54,7 @@ export interface MovieOptions {
   composition?: CompositionSpec;
   /**
    * Named variables: numbers an expression reads as identifiers (`x: 'W/2 + shift'`) and strings that `{name}` stands for anywhere in the
-   * composition (`text: '{title}'`, `fillColor: '{accent}'`). Change them later with `movie.setVars()`, which rebuilds the movie at the same time.
+   * composition (`text: '{title}'`, `fill: '{accent}'`). Change them later with `movie.setVars()`, which rebuilds the movie at the same time.
    * A name an expression already means (`W`, `t`, `sin`, `PI`, `value` …) is refused.
    */
   vars?: Vars;

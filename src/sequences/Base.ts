@@ -44,7 +44,7 @@ export abstract class Sequence {
   absoluteStart: number | null = null;
 
   constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape) {
-    this.spec = liftAnchor(spec);
+    this.spec = shapeColourForms(liftAnchor(spec));
     this.parent = parent;
     this.root = root;
     this.at = layerAt(spec);
@@ -150,3 +150,38 @@ function liftAnchor(spec: SequenceSpec): SequenceSpec {
   const { anchorX, anchorY, ...rest } = s;
   return { ...rest, initial: { ...(s.initial ?? {}), ...(anchorX !== undefined ? { anchorX } : {}), ...(anchorY !== undefined ? { anchorY } : {}) } } as unknown as SequenceSpec;
 }
+
+/**
+ * A shape's colours as PixiJS and SVG write them: `fill: { color, alpha }`, `stroke: { color, width, alpha }` (spread into fill / fillAlpha,
+ * stroke / strokeWidth / strokeAlpha, a key written beside it wins) and `'none'` (no fill, no stroke), in initial and in keyframes.
+ */
+function shapeColourForms(spec: SequenceSpec): SequenceSpec {
+  const s = spec as unknown as { type: string; initial?: Record<string, unknown>; keyframes?: Array<Record<string, unknown>> };
+  if (s.type !== 'shape') return spec;
+  const bag = (b: unknown): unknown => {
+    if (!b || typeof b !== 'object') return b;
+    const o = b as Record<string, unknown>;
+    if (!('fill' in o) && !('stroke' in o)) return b;
+    const out: Record<string, unknown> = { ...o };
+    for (const [key, alpha, width] of [['fill', 'fillAlpha', null], ['stroke', 'strokeAlpha', 'strokeWidth']] as const) {
+      const v = o[key];
+      if (v === 'none') { delete out[key]; continue; }
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        const c = v as { color?: unknown; alpha?: unknown; width?: unknown };
+        delete out[key];
+        if (c.color !== undefined) out[key] = c.color;
+        if (c.alpha !== undefined && o[alpha] === undefined) out[alpha] = c.alpha;
+        if (width && c.width !== undefined && o[width] === undefined) out[width] = c.width;
+      }
+    }
+    return out;
+  };
+  const touches = (b: unknown) => !!b && typeof b === 'object' && ('fill' in (b as object) || 'stroke' in (b as object));
+  if (!touches(s.initial) && !(s.keyframes ?? []).some(k => touches(k?.set) || touches(k?.to) || touches(k?.from))) return spec;
+  return {
+    ...s,
+    ...(s.initial ? { initial: bag(s.initial) } : {}),
+    ...(s.keyframes ? { keyframes: s.keyframes.map(k => (k && typeof k === 'object' ? { ...k, ...(k.set ? { set: bag(k.set) } : {}), ...(k.to ? { to: bag(k.to) } : {}), ...(k.from ? { from: bag(k.from) } : {}) } : k)) } : {}),
+  } as unknown as SequenceSpec;
+}
+

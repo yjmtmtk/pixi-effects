@@ -27,7 +27,7 @@
       camera.position.set(0, 0, 5); camera.lookAt({ x: 0, y: 0, z: 0 });
     };
     const cell = (k) => 80 * k + 40;
-    const ref = (k, extra = {}) => ({ type: 'shape', shape: 'rect', name: `ref${k}`, width: 60, height: 60, initial: { x: cell(k), y: 45, fillColor: '#e05030', ...(extra.initial ?? {}) }, ...(extra.blendMode ? { blendMode: extra.blendMode } : {}), ...(extra.filters ? { filters: extra.filters } : {}) });
+    const ref = (k, extra = {}) => ({ type: 'shape', shape: 'rect', name: `ref${k}`, width: 60, height: 60, initial: { x: cell(k), y: 45, fill: '#e05030', ...(extra.initial ?? {}) }, ...(extra.blendMode ? { blendMode: extra.blendMode } : {}), ...(extra.filters ? { filters: extra.filters } : {}) });
     const s3d = (k, name, extra = {}) => ({ type: 'scene3d', name, width: 60, height: 60, initial: { x: cell(k), y: 135, anchorX: 0.5, anchorY: 0.5, ...(extra.initial ?? {}) }, setup: plane,
       ...(extra.blendMode ? { blendMode: extra.blendMode } : {}), ...(extra.keyframes ? { keyframes: extra.keyframes } : {}), ...(extra.filters ? { filters: extra.filters } : {}) });
     const half = (child) => ({ type: 'composition', name: `wrap-${child.name}`, width: 480, height: 180, initial: { alpha: 0.5 }, sequences: [child] });

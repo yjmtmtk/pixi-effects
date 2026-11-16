@@ -38,7 +38,7 @@ const matteFiltersOf = (display: unknown) => ((display as { filters?: Array<{ co
 describe('a named matte', () => {
   it('is not drawn on screen; the layers that name it get a MatteFilter, last among their own filters', async () => {
     const comp = await build([
-      { type: 'shape', shape: 'circle', radius: 30, name: 'disc', initial: { x: 100, y: 100, fillColor: '#ffffff' } },
+      { type: 'shape', shape: 'circle', radius: 30, name: 'disc', initial: { x: 100, y: 100, fill: '#ffffff' } },
       { type: 'shape', shape: 'rect', width: 50, height: 50, name: 'a', mask: 'disc' },
       { type: 'shape', shape: 'rect', width: 50, height: 50, name: 'b', mask: 'disc' },
       { type: 'shape', shape: 'rect', width: 50, height: 50, name: 'c' },

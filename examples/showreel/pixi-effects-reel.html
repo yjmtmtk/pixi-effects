@@ -70,7 +70,7 @@ function (lib, facts) {
     ].filter(Boolean);
   }
   // A full-frame opaque background. EVERY chapter starts with one: the transitions blend two whole chapters.
-  const bg = (color = C.ink, name = 'bg') => ({ type: 'shape', shape: 'rect', name, width: 1920, height: 1080, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: color } });
+  const bg = (color = C.ink, name = 'bg') => ({ type: 'shape', shape: 'rect', name, width: 1920, height: 1080, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: color } });
   // When each chapter starts: a chapter starts `overlap` seconds before the one before it ends (the transition between them runs in that overlap).
   function planOf(table) {
     let at = 0;
@@ -108,7 +108,7 @@ function (lib, facts) {
     const HINT_AT = 2.7;
     const hintStyle = { fontSize: 36, fontFamily: F.mono, fill: C.dim, letterSpacing: 1 };
     const hints = [
-      '{ "type": "shape", "shape": "rect", "rotation": 45, "fillColor": "#ff5a36" }',
+      '{ "type": "shape", "shape": "rect", "rotation": 45, "fill": "#ff5a36" }',
       '{ "type": "text", "text": "pixi-effects", "keyframes": [ … ] }',
     ];
     return {
@@ -119,7 +119,7 @@ function (lib, facts) {
         ...P.tag('00', 'OPEN', '', { at: 2.4 }),
         // the mark: big and alone at frame 0, then it shrinks into its place before the word
         { type: 'shape', shape: 'rect', name: 'mark', width: SIDE, height: SIDE,
-          initial: { x: diamondX, y: midY, rotation: 45, fillColor: C.red, scale: 1 },
+          initial: { x: diamondX, y: midY, rotation: 45, fill: C.red, scale: 1 },
           keyframes: [{ at: 0, from: { x: 960, y: 500, scale: 3.6 }, to: { x: diamondX, y: midY, scale: 1 }, duration: MARK_IN, ease: 'power3.out' }] },
         // the letters assemble: alternately from above and below, each a little after the one before
         ...letters.map((p, i) => ({
@@ -129,7 +129,7 @@ function (lib, facts) {
         })),
         // the hairline draws on under the whole group as the last letters land
         { type: 'shape', shape: 'line', name: 'rule', from: [left, RULE_Y], to: [left + groupW, RULE_Y], trimEnd: 0, strokeCap: 'round',
-          initial: { strokeColor: C.bone, strokeWidth: 3, alpha: 0.7 },
+          initial: { stroke: C.bone, strokeWidth: 3, alpha: 0.7 },
           keyframes: [{ at: 0.55, to: { trimEnd: 1 }, duration: 0.8, ease: 'power2.inOut' }] },
         // the claim, word by word; "data" is the only other red thing on screen
         ...P.animateText('a video is a file of data.', claimStyle, {
@@ -182,7 +182,7 @@ function (lib, facts) {
     }));
     seq.push({
       type: 'shape', shape: 'rect', name: 'rule', height: 14, anchorX: 0, anchorY: 0, at: T1 + 0.55, duration: T1_END - T1 - 0.55,
-      initial: { x: CX - m1.width / 2, y: y1 + m1.height + 14, width: 0, fillColor: C.red },
+      initial: { x: CX - m1.width / 2, y: y1 + m1.height + 14, width: 0, fill: C.red },
       keyframes: [{ at: 0, to: { width: m1.width }, duration: 0.45, ease: 'power3.out' }, { at: -0.25, to: { alpha: 0 }, duration: 0.25 }],
     });
     seq.push(label('l1', 'one layer per letter', y1 + m1.height + 90, T1 + 0.8, T1_END));
@@ -289,11 +289,11 @@ function (lib, facts) {
       const radius = f(DOT_MAX * (1 - 0.72 * c / (COLS - 1)));
       dots.push({
         type: 'shape', shape: 'circle', name: `dot-${r}-${c}`, radius, at, duration: 7 - at, colorSpace: 'oklch',
-        initial: { x: f(PANEL_L + DOT_MAX + c * gapX), y: DOT_TOP + r * DOT_GAP_Y, fillColor: C.bone, scale: 0 },
+        initial: { x: f(PANEL_L + DOT_MAX + c * gapX), y: DOT_TOP + r * DOT_GAP_Y, fill: C.bone, scale: 0 },
         keyframes: [
           { at: 0, to: { scale: 1 }, duration: 0.45, ease: 'power3.out' },
           // the second wave: left to right, each dot swells and flashes vermilion, then settles back
-          { at: f(RIPPLE + c * 0.055 + Math.abs(r - 2) * 0.03 - at), to: { scale: 1.55, fillColor: C.red }, duration: 0.28, ease: 'power2.out', repeat: 1, yoyo: true },
+          { at: f(RIPPLE + c * 0.055 + Math.abs(r - 2) * 0.03 - at), to: { scale: 1.55, fill: C.red }, duration: 0.28, ease: 'power2.out', repeat: 1, yoyo: true },
         ],
       });
     }
@@ -308,21 +308,21 @@ function (lib, facts) {
         P.bg(C.ink),
         // the ring's track is there from the first frame (calm edge), the vermilion arc fills it
         { type: 'shape', shape: 'arc', name: 'track', radius: R, startAngle: 0, endAngle: 360,
-          initial: { x: 'GW*5/16', y: 'GH/2', strokeColor: C.ink2, strokeWidth: RW } },
+          initial: { x: 'GW*5/16', y: 'GH/2', stroke: C.ink2, strokeWidth: RW } },
         // construction lines: the horizon across the whole poster and the ring's vertical axis
         { type: 'shape', shape: 'line', name: 'horizon', from: [96, CY], to: [GW - 96, CY], trimEnd: 0, strokeCap: 'butt',
-          initial: { strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.5 }, keyframes: [drawOn(0.6, 1.5, 'power3.inOut')] },
+          initial: { stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.5 }, keyframes: [drawOn(0.6, 1.5, 'power3.inOut')] },
         { type: 'shape', shape: 'line', name: 'axis', from: [CX, CY - R - 90], to: [CX, CY + R + 90], trimEnd: 0, strokeCap: 'butt',
-          initial: { strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.5 }, keyframes: [drawOn(0.8, 1.1)] },
+          initial: { stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.5 }, keyframes: [drawOn(0.8, 1.1)] },
         // the dial: 60 ticks, one path, drawn on in order
         { type: 'shape', shape: 'path', name: 'dial', d: ticks.trim(), trimEnd: 0, strokeCap: 'butt',
-          initial: { strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.7 }, keyframes: [drawOn(1.0, 1.3)] },
+          initial: { stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.7 }, keyframes: [drawOn(1.0, 1.3)] },
         // the diamond: a closed polygon drawn on
         { type: 'shape', shape: 'polygon', name: 'diamond', points: diamond, trimEnd: 0, strokeJoin: 'miter',
-          initial: { strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.9 }, keyframes: [drawOn(1.5, 1.0)] },
+          initial: { stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.9 }, keyframes: [drawOn(1.5, 1.0)] },
         // the progress ring
         { type: 'shape', shape: 'arc', name: 'ring', radius: R, startAngle: -90, endAngle: -90, strokeCap: 'butt',
-          initial: { x: 'GW*5/16', y: 'GH/2', strokeColor: C.red, strokeWidth: RW },
+          initial: { x: 'GW*5/16', y: 'GH/2', stroke: C.red, strokeWidth: RW },
           keyframes: [{ at: 0.6, to: { endAngle: 270 }, duration: 1.3, ease: 'power2.inOut' }] },
         // the mark: a disc that grows, then morphs into a four-point star while its gradient turns
         { type: 'shape', shape: 'path', name: 'mark', d: disc, morphTo: star, at: 1.9, duration: 5.1, colorSpace: 'oklch',
@@ -336,7 +336,7 @@ function (lib, facts) {
         // the display word, rising through a slot cut by an inline mask
         { type: 'text', name: 'word', text: 'SHAPES', style: wordStyle, at: 1.2, duration: 5.8,
           initial: { x: PANEL_L, y: WORD_Y, anchorX: 0, anchorY: 0.5 },
-          mask: { type: 'shape', shape: 'rect', name: 'word-slot', width: PANEL_W + 40, height: 250, initial: { x: PANEL_L - 10, y: WORD_Y - 135, anchorX: 0, anchorY: 0, fillColor: '#ffffff' } },
+          mask: { type: 'shape', shape: 'rect', name: 'word-slot', width: PANEL_W + 40, height: 250, initial: { x: PANEL_L - 10, y: WORD_Y - 135, anchorX: 0, anchorY: 0, fill: '#ffffff' } },
           keyframes: [{ at: 0, from: { y: WORD_Y + 240 }, to: { y: WORD_Y }, duration: 0.8, ease: 'power3.out' }] },
         ...dots,
         ...P.tag('02', 'SHAPES', 'a line, a ring, a morph, a wave: all shapes, all data'),
@@ -362,7 +362,7 @@ function (lib, facts) {
       keyframes,
       sequences: [
         { type: 'shape', shape: 'rect', name: name + '-paper', width: w, height: h, cornerRadius: 10,
-          initial: { x: w / 2, y: h / 2, fillColor: fill, strokeColor: C.ink, strokeWidth: 3 } },
+          initial: { x: w / 2, y: h / 2, fill: fill, stroke: C.ink, strokeWidth: 3 } },
         { type: 'text', name: name + '-z', text: label, style: { fontSize: 46, fill: ink, fontFamily: F.mono, letterSpacing: 2 },
           initial: { x: 30, y: 26, anchorX: 0, anchorY: 0, alpha: 0.8 } },
         { type: 'text', name: name + '-word', text: big, style: { fontSize: size, fill: ink, fontFamily: F.display },
@@ -429,7 +429,7 @@ function (lib, facts) {
         { type: 'camera', name: 'cam', initial: { y: 270, lookAtY: 610, fogNear: 1500, fogFar: 6500, fogColor: HAZE, fogAmount: 1 },
           keyframes: [{ at: 0, to: { offsetZ: -200 }, duration: 8, ease: 'sine.inOut' }] },
         { type: 'shape', shape: 'rect', name: 'floor', width: 16000, height: 9800, anchorX: 0.5, anchorY: 0, threeD: true,
-          initial: { x: 960, y: FLOOR, z: -9000, rotationX: 90, fillColor: '#bdb3a1' } },
+          initial: { x: 960, y: FLOOR, z: -9000, rotationX: 90, fill: '#bdb3a1' } },
         { type: 'text', name: 'word', text: 'LIGHT', style, threeD: true, castsShadows: true,
           initial: { x: 960, y: FLOOR - m.height * 0.86, z: 0, anchorX: 0.5, anchorY: 0 } },
         { type: 'text', name: 'spec', text: "kind: 'spot'  castsShadows: true", style: { fontSize: 34, fontFamily: F.mono, fill: LAMP },
@@ -484,17 +484,17 @@ function (lib, facts) {
         { type: 'null', name: 'rig', initial: { x: 330, y: 0 },
           keyframes: [{ at: 0.7, to: { x: 2250 }, duration: 2.1, ease: 'power2.inOut' }] },
         { type: 'shape', shape: 'rect', name: 'band', parent: 'rig', width: BAND_W, height: BAND_H, anchorX: 0.5, anchorY: 0,
-          initial: { x: 0, y: BAND_TOP, fillColor: '#ffffff' } },
+          initial: { x: 0, y: BAND_TOP, fill: '#ffffff' } },
         // three layers cut by that one band
         { type: 'shape', shape: 'rect', name: 'panel', mask: 'band', width: 1920, height: 1080, anchorX: 0, anchorY: 0,
-          initial: { x: 0, y: 0, fillColor: C.ink2 } },
+          initial: { x: 0, y: 0, fill: C.ink2 } },
         { type: 'shape', shape: 'path', name: 'hatch', mask: 'band', d: hatch, strokeCap: 'butt',
-          initial: { strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.16 } },
+          initial: { stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.16 } },
         { type: 'text', name: 'word-band', mask: 'band', text: 'MATTE', style: { ...word, fill: C.red }, initial: wordAt },
         // the window's edges, drawn by two thin lines that ride the same null (so the eye sees where the matte is)
         ...[-BAND_W / 2, BAND_W / 2].map((dx, i) => ({
           type: 'shape', shape: 'rect', name: 'edge-' + i, parent: 'rig', width: 4, height: BAND_H, anchorX: 0.5, anchorY: 0,
-          initial: { x: dx, y: BAND_TOP, fillColor: C.bone, alpha: 0.9 },
+          initial: { x: dx, y: BAND_TOP, fill: C.bone, alpha: 0.9 },
         })),
   
         // (2) A LUMA MATTE: a wide gradient, white behind and black ahead, slides in right after the band: the word fills in for good, softly
@@ -608,7 +608,7 @@ function (lib, facts) {
         { type: 'shader', name: 'spiral', fragment: SPIRAL, width: SIDE, height: SIDE, duration: 3.8,
           uniforms: { twist: 1.5, pace: 0.8, signal: C.red, bone: C.bone },
           initial: { x: CX - SIDE / 2, y: CY - SIDE / 2 },
-          mask: { type: 'shape', shape: 'circle', radius: R, initial: { x: CX, y: CY, fillColor: '#ffffff' } },
+          mask: { type: 'shape', shape: 'circle', radius: R, initial: { x: CX, y: CY, fill: '#ffffff' } },
           keyframes: [
             { at: 0.9, to: { 'uniforms.twist': 22, 'uniforms.pace': 3.2 }, duration: 1.6, ease: 'power2.inOut' },
           ] },
@@ -625,7 +625,7 @@ function (lib, facts) {
         // ── beat 2 (2.6 – 3.8): formula B opens inside the disc, then floods the frame ──
         { type: 'shader', name: 'liquid', fragment: LIQUID, at: 2.6, duration: 4.4, resolution: 0.5,
           uniforms: { speed: 0.9, calm: 0, signal: C.red },
-          mask: { type: 'shape', shape: 'circle', radius: 1, initial: { x: CX, y: CY, fillColor: '#ffffff' },
+          mask: { type: 'shape', shape: 'circle', radius: 1, initial: { x: CX, y: CY, fill: '#ffffff' },
             keyframes: [
               { at: 0, to: { radius: R }, duration: 0.45, ease: 'power3.out' },
               { at: 0.55, to: { radius: R_FULL }, duration: 0.7, ease: 'power2.inOut' },
@@ -635,7 +635,7 @@ function (lib, facts) {
             { at: 2.6, to: { 'uniforms.speed': 0.35 }, duration: 1.4, ease: 'power2.out' },
           ] },
         { type: 'shape', shape: 'circle', name: 'rim', radius: R + 6, duration: 3.9,
-          initial: { x: CX, y: CY, fillAlpha: 0, strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.9 },
+          initial: { x: CX, y: CY, fillAlpha: 0, stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.9 },
           keyframes: [{ at: 3.15, to: { radius: R_FULL }, duration: 0.7, ease: 'power2.inOut' }] },
   
         // ── beat 3 (3.6 – 7.0): the title bent like water, settling for the end ──
@@ -651,7 +651,7 @@ function (lib, facts) {
             { at: 0.9, to: { 'filters.water.strength': 4, 'filters.heat.strength': 1.5 }, duration: 1.9, ease: 'power2.inOut' },
           ] },
         { type: 'shape', shape: 'rect', name: 'warp-chip', at: 4.0, duration: 3.0, width: 1200, height: 84, cornerRadius: 10,
-          initial: { x: 960, y: 760, fillColor: C.ink, fillAlpha: 0.88 },
+          initial: { x: 960, y: 760, fill: C.ink, fillAlpha: 0.88 },
           keyframes: [{ at: 0, from: { alpha: 0, y: 784 }, to: { alpha: 1, y: 760 }, duration: 0.6, ease: 'power3.out' }] },
         { type: 'text', name: 'warp-line', text: "filters: [{ type: 'warp', kind: 'wave' }]", at: 4.0, duration: 3.0,
           style: { fontSize: 44, fill: C.red, fontFamily: F.mono },
@@ -769,7 +769,7 @@ function (lib, facts) {
         gravity: 900, drag: 0.8, size: [12, 22], scale: [1, 0.6], fade: { out: 0.4 }, colors: [C.red, C.gold, C.bone, C.cyan], shape: 'rect', spin: [-420, 420], seed: 8, name: 'confetti' }),
     ];
     const ring = { type: 'shape', shape: 'circle', name: 'ring', radius: 150, at: burstAt, duration: 0.8,
-      initial: { x: bx, y: by, fillAlpha: 0, strokeColor: C.gold, strokeWidth: 10, strokeAlpha: 0.9, scale: 0.4 },
+      initial: { x: bx, y: by, fillAlpha: 0, stroke: C.gold, strokeWidth: 10, strokeAlpha: 0.9, scale: 0.4 },
       keyframes: [{ at: 0, to: { scale: 4.2, strokeAlpha: 0, strokeWidth: 2 }, duration: 0.8, ease: 'power3.out' }] };
     const slam = win('w-burst', at(3), BEAT, [
       word('word-burst', [glowAt(5)], [
@@ -846,24 +846,24 @@ function (lib, facts) {
     labels.push({ type: 'text', name: 'label-clock', text: 'clock', style: { fontSize: 38, fill: C.dim, fontFamily: F.mono },
       initial: { x: 96, y: laneY(0), anchorX: 0, anchorY: 0.5 } });
     tracks.push({ type: 'shape', shape: 'rect', name: 'track-clock', width: X1 - X0, height: 4, anchorX: 0, anchorY: 0.5,
-      initial: { x: X0, y: laneY(0), fillColor: C.dim, fillAlpha: 0.35 } });
+      initial: { x: X0, y: laneY(0), fill: C.dim, fillAlpha: 0.35 } });
     lanes.forEach((l, k) => {
       const y = laneY(k + 1);
       labels.push({ type: 'text', name: 'label-' + l.name, text: l.label, style: { fontSize: 38, fill: l.color === C.bone ? C.bone : l.color, fontFamily: F.mono },
         initial: { x: 96, y, anchorX: 0, anchorY: 0.5 } });
       tracks.push({ type: 'shape', shape: 'rect', name: 'track-' + l.name, width: X1 - X0, height: 4, anchorX: 0, anchorY: 0.5,
-        initial: { x: X0, y, fillColor: C.dim, fillAlpha: 0.35 } });
+        initial: { x: X0, y, fill: C.dim, fillAlpha: 0.35 } });
       // the part of the track already travelled: it grows with the same ease as the dot
       dots.push({ type: 'shape', shape: 'rect', name: 'trail-' + l.name, width: X1 - X0, height: 10, anchorX: 0, anchorY: 0.5,
-        initial: { x: X0, y, fillColor: l.color, fillAlpha: 0.55, scaleX: 0 },
+        initial: { x: X0, y, fill: l.color, fillAlpha: 0.55, scaleX: 0 },
         keyframes: [{ at: GO, to: { scaleX: 1 }, duration: l.dur, ease: l.ease }] });
       dots.push({ type: 'shape', shape: 'circle', name: 'dot-' + l.name, radius: 34,
-        initial: { x: X0, y, fillColor: l.color },
+        initial: { x: X0, y, fill: l.color },
         keyframes: [{ at: GO, to: { x: X1 }, duration: l.dur, ease: l.ease }] });
     });
   
     const line = (name, x) => ({ type: 'shape', shape: 'rect', name, width: 4, height: 800, anchorX: 0.5, anchorY: 0,
-      initial: { x, y: 150, fillColor: C.dim, fillAlpha: 0.3 } });
+      initial: { x, y: 150, fill: C.dim, fillAlpha: 0.3 } });
   
     // the race: its own clock is driven by `time` keyframes (the dots and trails inside are written in the race's own seconds)
     const race = {
@@ -885,7 +885,7 @@ function (lib, facts) {
         race,
         // the playhead of the race's clock: the same keyframes, drawn as a tick on the top lane
         { type: 'shape', shape: 'rect', name: 'playhead', width: 8, height: 64, anchorX: 0.5, anchorY: 0.5, cornerRadius: 3,
-          initial: { x: X0, y: laneY(0), fillColor: C.bone },
+          initial: { x: X0, y: laneY(0), fill: C.bone },
           keyframes: clockKeys('x', (t) => X0 + (t / LEN) * (X1 - X0)) },
       ],
     };
@@ -972,14 +972,14 @@ function (lib, facts) {
     // bar lines (every 4 beats) and lane hairlines
     for (let k = Math.ceil(LOOK[0] / 4); k * 4 < LOOK[1]; k++) {
       roll.push({ type: 'shape', shape: 'rect', name: `barline-${k}`, width: 2, height: 600, anchorX: 0.5, anchorY: 0,
-        initial: { x: X(4 * k), y: 296, fillColor: C.bone, alpha: 0.12 } });
+        initial: { x: X(4 * k), y: 296, fill: C.bone, alpha: 0.12 } });
     }
   
     // a note: a bar as long as the note, its token written on it, lit while it sounds
     const note = (e, i, lane, { y, h, color, onAlpha, offAlpha, label }) => {
       const t0 = tOf(e.beat), t1 = tOf(e.beat + e.len), w = e.len * PXB - 8;
       roll.push({ type: 'shape', shape: 'rect', name: `${lane}-bar-${i}`, width: w, height: h, cornerRadius: 8, anchorX: 0, anchorY: 0.5,
-        initial: { x: X(e.beat) + 4, y, fillColor: color, strokeColor: color, strokeWidth: 2,
+        initial: { x: X(e.beat) + 4, y, fill: color, stroke: color, strokeWidth: 2,
           ...(t1 <= 0 ? { fillAlpha: offAlpha * 0.6, strokeAlpha: 0.3 } : t0 <= 0 ? { fillAlpha: onAlpha, strokeAlpha: 1 } : { fillAlpha: offAlpha, strokeAlpha: 0.55 }) },
         keyframes: [
           { at: t0, set: { fillAlpha: onAlpha, strokeAlpha: 1 } },
@@ -1017,7 +1017,7 @@ function (lib, facts) {
           if (c === '.') return;
           const b = 4 * k + s / 4, t = tOf(b);
           roll.push({ type: 'shape', shape: 'rect', name: `${name}-cell-${k}-${s}`, width: STEP - 6, height: 52, cornerRadius: 6,
-            initial: { x: X(b) + adv / 2, y: LANE[name], fillColor: C.gold, alpha: 0.16 },
+            initial: { x: X(b) + adv / 2, y: LANE[name], fill: C.gold, alpha: 0.16 },
             keyframes: t < 0 || t >= D - 0.05 ? [] : [{ at: t, set: { alpha: 0.95 } }, { at: t + 0.02, to: { alpha: 0.22 }, duration: 0.4, ease: 'power2.out' }] });
         });
         roll.push({ type: 'text', name: `${name}-steps-${k}`, text: pattern, style: DRUM,
@@ -1038,16 +1038,16 @@ function (lib, facts) {
       { type: 'shape', shape: 'rect', name: 'ph-glow', width: 90, height: 620, anchorX: 0.5, anchorY: 0,
         initial: { x: PH, y: 292, fillGradient: { angle: 90, stops: [[0, 'rgba(255,90,54,0)'], [0.5, 'rgba(255,90,54,0.55)'], [1, 'rgba(255,90,54,0)']] } },
         keyframes: P.react(env, { duration: D, audioOffset: phase, props: { alpha: { base: 0.15, amount: 0.85, band: 'bass', beats: true, decay: 0.22 } } }) },
-      { type: 'shape', shape: 'rect', name: 'ph-line', width: 4, height: 620, anchorX: 0.5, anchorY: 0, initial: { x: PH, y: 292, fillColor: C.red },
+      { type: 'shape', shape: 'rect', name: 'ph-line', width: 4, height: 620, anchorX: 0.5, anchorY: 0, initial: { x: PH, y: 292, fill: C.red },
         keyframes: changes.flatMap(e => [                        // a flash on every bar line where the chord changes (the sfx hit lands here)
-          { at: tOf(e.beat), set: { width: 14, fillColor: C.bone } },
-          { at: tOf(e.beat) + 0.03, to: { width: 4, fillColor: C.red }, duration: 0.4, ease: 'power2.out' },
+          { at: tOf(e.beat), set: { width: 14, fill: C.bone } },
+          { at: tOf(e.beat) + 0.03, to: { width: 4, fill: C.red }, duration: 0.4, ease: 'power2.out' },
         ]) },
     ];
     // a ring where each melody note starts, on the playhead
     const rings = lead.filter(e => calm(tOf(e.beat))).map((e, i) => ({
       type: 'shape', shape: 'circle', name: `ring-${i}`, at: tOf(e.beat), duration: 0.5,
-      initial: { x: PH, y: leadY(e), radius: 12, fillAlpha: 0, strokeColor: C.red, strokeWidth: 4, alpha: 1 },
+      initial: { x: PH, y: leadY(e), radius: 12, fillAlpha: 0, stroke: C.red, strokeWidth: 4, alpha: 1 },
       keyframes: [{ at: 0, to: { radius: 54, alpha: 0, strokeWidth: 1 }, duration: 0.5, ease: 'power2.out' }],
     }));
   
@@ -1059,7 +1059,7 @@ function (lib, facts) {
       in: { preset: 'rise', duration: 0.6, ease: 'power3.out' }, stagger: { each: 0.09 },
       styleFor: p => (p.text === 'TEXT' ? { fill: C.red } : {}) });
     const cursor = { type: 'shape', shape: 'rect', name: 'cursor', at: 1.0, width: 16, height: 88, anchorX: 0, anchorY: 0.5,
-      initial: { x: 96 + headW.width + 22, y: HEAD_Y + headW.height / 2, fillColor: C.red },
+      initial: { x: 96 + headW.width + 22, y: HEAD_Y + headW.height / 2, fill: C.red },
       keyframes: P.react(env, { duration: D - 1.0, audioOffset: phase + 1.0, props: { alpha: { base: 0.2, amount: 0.8, beats: true, decay: 0.3 } } }) };
     const first = pad.filter(e => tOf(e.beat) <= 0.6).pop() ?? pad[0];
     const chord = { type: 'text', name: 'chord', text: first ? first.name : '', style: mono(96, C.bone, { fontWeight: 'bold' }), at: 0.9,
@@ -1089,7 +1089,7 @@ function (lib, facts) {
         P.bg(C.ink),
         ...P.tag('09', 'SOUND', 'the music under this reel is text, drawn as it plays'),
         ...Object.entries(LANE).filter(([n]) => n !== 'lead').map(([n, y]) => ({ type: 'shape', shape: 'rect', name: `hair-${n}`, width: X1 - X0, height: 2,
-          anchorX: 0, anchorY: 0.5, initial: { x: X0, y: y + 40, fillColor: C.bone, alpha: 0.06 } })),
+          anchorX: 0, anchorY: 0.5, initial: { x: X0, y: y + 40, fill: C.bone, alpha: 0.06 } })),
         { type: 'shape', shape: 'rect', name: 'roll-window', width: X1 - X0, height: 640, anchorX: 0, anchorY: 0,
           initial: { x: X0, y: 284, fillGradient: { angle: 90, stops: [[0, 'rgba(255,255,255,0)'], [0.06, 'rgba(255,255,255,1)'], [0.94, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']] } } },
         { type: 'composition', name: 'roll', width: 6000, height: 1080, mask: { layer: 'roll-window', channel: 'alpha' },
@@ -1142,7 +1142,7 @@ function (lib, facts) {
     for (let v = 0; v <= TOP; v += STEP) {
       const y = yOf(v);
       page1.push({ type: 'shape', shape: 'line', name: 'grid-' + v, from: [X0 - 6, y], to: [X0 + 30 + N * PITCH - 56 + 30, y],
-        initial: { strokeColor: v === 0 ? C.dim : '#232a3b', strokeWidth: v === 0 ? 3 : 2 } });
+        initial: { stroke: v === 0 ? C.dim : '#232a3b', strokeWidth: v === 0 ? 3 : 2 } });
       page1.push({ type: 'text', name: 'tick-' + v, text: String(v), style: mono(34, C.dim), initial: { x: X0 - 26, y, anchorX: 1, anchorY: 0.5 } });
     }
   
@@ -1150,7 +1150,7 @@ function (lib, facts) {
     DATA.forEach(([q, v], i) => {
       const at = BAR_AT + delay[i], h = hOf(v), last = i === N - 1;
       page1.push({ type: 'shape', shape: 'rect', name: 'bar-' + q, width: BW, height: 0, cornerRadius: 6, anchorY: 1, at,
-        initial: { x: cx(i), y: BASE, fillColor: last ? C.red : '#34405c' },
+        initial: { x: cx(i), y: BASE, fill: last ? C.red : '#34405c' },
         keyframes: [{ at: 0, to: { height: h }, duration: BAR_DUR, ease: 'power3.out' }] });
       page1.push({ type: 'text', name: 'val-' + q, text: '{value}', format: { decimals: 1 }, at,
         style: mono(38, last ? C.red : C.bone, { fontWeight: 'bold' }),
@@ -1165,12 +1165,12 @@ function (lib, facts) {
     const total = segLen.reduce((a, b) => a + b, 0);
     const d = pts.map((p, i) => (i ? 'L ' : 'M ') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
     page1.push({ type: 'shape', shape: 'path', name: 'trend-line', d, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round', at: LINE_AT,
-      initial: { strokeColor: C.cyan, strokeWidth: 9 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: LINE_DUR, ease: 'none' }] });
+      initial: { stroke: C.cyan, strokeWidth: 9 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: LINE_DUR, ease: 'none' }] });
     let run = 0;
     pts.forEach((p, i) => {
       if (i) run += segLen[i - 1];
       page1.push({ type: 'shape', shape: 'circle', name: 'dot-' + DATA[i][0], radius: 15, at: LINE_AT + LINE_DUR * run / total,
-        initial: { x: p[0], y: p[1], fillColor: C.ink, strokeColor: C.cyan, strokeWidth: 7, scale: 0 },
+        initial: { x: p[0], y: p[1], fill: C.ink, stroke: C.cyan, strokeWidth: 7, scale: 0 },
         keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.3, ease: 'back.out(2)' }] });
     });
   
@@ -1200,11 +1200,11 @@ function (lib, facts) {
       initial: { x: 96, y: 740, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 1.7, to: { alpha: 1 }, duration: 0.6 }] });
     // the same table again as a small chart
     const MB = 66, MP = 106, MX = 1290, MBASE = 760, MH = 380, mdelay = P.stagger(N, { each: 0.1 });
-    page2.push({ type: 'shape', shape: 'line', name: 'mini-base', from: [MX - 20, MBASE], to: [MX + (N - 1) * MP + MB + 20, MBASE], initial: { strokeColor: INK, strokeWidth: 3 } });
+    page2.push({ type: 'shape', shape: 'line', name: 'mini-base', from: [MX - 20, MBASE], to: [MX + (N - 1) * MP + MB + 20, MBASE], initial: { stroke: INK, strokeWidth: 3 } });
     DATA.forEach(([q, v], i) => {
       const x = MX + MB / 2 + i * MP, last = i === N - 1;
       page2.push({ type: 'shape', shape: 'rect', name: 'mini-' + q, width: MB, height: 0, cornerRadius: 4, anchorY: 1, at: 1.0 + mdelay[i],
-        initial: { x, y: MBASE, fillColor: last ? C.red : INK },
+        initial: { x, y: MBASE, fill: last ? C.red : INK },
         keyframes: [{ at: 0, to: { height: MH * v / MAX }, duration: 0.7, ease: 'power3.out' }] });
       page2.push({ type: 'text', name: 'mini-q-' + q, text: q, style: mono(34, last ? INK : SOFT), initial: { x, y: MBASE + 20, anchorX: 0.5, anchorY: 0 } });
     });
@@ -1253,7 +1253,7 @@ function (lib, facts) {
       '    { "at": 0.6, "from": { "y": 600 }, "to": { "y": 540, "alpha": 1 }, "duration": 0.8, "ease": "power3.out" }', '  ],', '  "threeD": true', '},',
       '{', '  "type": "light",', '  "kind": "spot",', '  "castsShadows": true,', '  "initial": { "x": 400, "y": 200, "z": 600, "intensity": 1.2, "coneAngle": 40 }', '},',
       '{', '  "type": "audio",', '  "sfx": "swoosh",', '  "at": 2.4,', '  "volume": 0.4', '},', '{', '  "type": "shape",', '  "shape": "arc",', '  "radius": 200,',
-      '  "startAngle": -90,', '  "endAngle": -90,', '  "strokeCap": "round",', '  "initial": { "x": 960, "y": 540, "strokeColor": "#ff5a36", "strokeWidth": 24 },',
+      '  "startAngle": -90,', '  "endAngle": -90,', '  "strokeCap": "round",', '  "initial": { "x": 960, "y": 540, "stroke": "#ff5a36", "strokeWidth": 24 },',
       '  "keyframes": [{ "at": 1, "to": { "endAngle": 270 }, "duration": 2, "ease": "power2.inOut" }]', '},',
       '{', '  "type": "shader",', '  "name": "field",', '  "fragment": "void mainImage(out vec4 fragColor, in vec2 fragCoord) { vec2 uv = fragCoord / iResolution.xy; …",',
       '  "uniforms": { "speed": 1, "tint": "#38c8ff" }', '},',
@@ -1284,7 +1284,7 @@ function (lib, facts) {
     const wall = {
       type: 'composition', name: 'wall', width: 1920, height: TOP + contentH + 200, at: 0, duration: 5.6, sequences: wallLayers,
       initial: { x: 0, y: 0 },
-      mask: { type: 'shape', shape: 'rect', width: 1728, height: VIEW, anchorX: 0, anchorY: 0, initial: { x: X0, y: TOP, fillColor: '#ffffff' } },
+      mask: { type: 'shape', shape: 'rect', width: 1728, height: VIEW, anchorX: 0, anchorY: 0, initial: { x: X0, y: TOP, fill: '#ffffff' } },
       keyframes: [
         { at: 0.6, to: { y: -SCROLL }, duration: 2.7, ease: 'power2.in' },
         { at: 3.3, to: { y: -SCROLL - 600 }, duration: 2.3, ease: 'none' },
@@ -1295,13 +1295,13 @@ function (lib, facts) {
     const fade = (name, y, stops) => ({ type: 'shape', shape: 'rect', name, width: 1728, height: 150, anchorX: 0, anchorY: 0, at: 0, duration: 5.6,
       fillGradient: { type: 'linear', angle: 180, stops }, initial: { x: X0, y } });
     const readHead = { type: 'shape', shape: 'rect', name: 'read-head', width: 1728, height: LH + 8, anchorX: 0, anchorY: 0.5, at: 0, duration: 3.5,
-      initial: { x: X0, y: 540, fillColor: C.ink2, alpha: 0 }, keyframes: [{ at: 0.6, to: { alpha: 1 }, duration: 0.4 }, { at: 3.25, to: { alpha: 0 }, duration: 0.2 }] };
+      initial: { x: X0, y: 540, fill: C.ink2, alpha: 0 }, keyframes: [{ at: 0.6, to: { alpha: 1 }, duration: 0.4 }, { at: 3.25, to: { alpha: 0 }, duration: 0.2 }] };
     const linesLabel = { type: 'text', name: 'lines-label', text: `${num(lineCount)} lines`, style: { fontSize: 34, fill: C.dim, fontFamily: F.mono, letterSpacing: 2 },
       at: 0, duration: 3.5, initial: { x: 1824, y: 84, anchorX: 1, anchorY: 0.5, alpha: 0 },
       keyframes: [{ at: 0.7, to: { alpha: 1 }, duration: 0.5 }, { at: 3.25, to: { alpha: 0 }, duration: 0.2 }] };
     // a veil over the wall under the numbers (one layer, so the wall dims as one picture)
     const veil = { type: 'shape', shape: 'rect', name: 'veil', width: 1920, height: 1080, anchorX: 0, anchorY: 0, at: 3.3, duration: D - 3.3,
-      initial: { x: 0, y: 0, fillColor: C.ink, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.85 }, duration: 0.25 }, { at: 2, to: { alpha: 1 }, duration: 0.3 }] };
+      initial: { x: 0, y: 0, fill: C.ink, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.85 }, duration: 0.25 }, { at: 2, to: { alpha: 1 }, duration: 0.3 }] };
   
     // ---- beat 2: three numbers --------------------------------------------------------------------------------------------------------
     const numStyle = { fontSize: 170, fill: C.bone, fontFamily: F.display };
@@ -1333,7 +1333,7 @@ function (lib, facts) {
       { type: 'text', name: 'cmd', text: 'npm i pixi-effects', style: cmdStyle, at: LOCK_AT, duration: D - LOCK_AT,
         initial: { x: 960, y: 450, anchorX: 0.5, anchorY: 0.5 }, keyframes: rise(450, 60, 0) },
       { type: 'shape', shape: 'rect', name: 'cursor', width: Math.round(charW * 92 / FS * 0.9), height: 96, anchorX: 0, anchorY: 0.5, at: LOCK_AT, duration: D - LOCK_AT,
-        initial: { x: 960 + cmdW / 2 + 22, y: 450, fillColor: C.red, alpha: 0 }, keyframes: [{ at: 0.5, to: { alpha: 1 }, duration: 0.2 }] },
+        initial: { x: 960 + cmdW / 2 + 22, y: 450, fill: C.red, alpha: 0 }, keyframes: [{ at: 0.5, to: { alpha: 1 }, duration: 0.2 }] },
       { type: 'text', name: 'url', text: 'github.com/yjmtmtk/pixi-effects', style: { fontSize: 48, fill: C.dim, fontFamily: F.mono, letterSpacing: 1 }, at: LOCK_AT + 0.15, duration: D - LOCK_AT - 0.15,
         initial: { x: 960, y: 590, anchorX: 0.5, anchorY: 0.5 }, keyframes: rise(590, 40, 0) },
       { type: 'text', name: 'status', text: 'experimental · pre-1.0 · MIT', style: { fontSize: 44, fill: C.bone, fontFamily: F.mono, letterSpacing: 4 }, at: LOCK_AT + 0.3, duration: D - LOCK_AT - 0.3,

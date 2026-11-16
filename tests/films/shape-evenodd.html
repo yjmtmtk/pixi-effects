@@ -30,7 +30,7 @@
       for (let i = 0; i < 10; i++) { const r = i % 2 ? 25 : 55, a = -Math.PI / 2 + i * Math.PI / 5; pts.push(`${(cx + r * Math.cos(a)).toFixed(3)} ${(cy + r * Math.sin(a)).toFixed(3)}`); }
       return `M ${pts[0]} ${pts.slice(1).map(p => 'L ' + p).join(' ')} Z M ${cx - 70} ${cy - 70} L ${cx + 70} ${cy - 70} L ${cx + 70} ${cy + 70} L ${cx - 70} ${cy + 70} Z`;
     };
-    const path = (name, d, fillRule) => ({ type: 'shape', shape: 'path', name, d, ...(fillRule ? { fillRule } : {}), initial: { fillColor: '#ffcc00' } });
+    const path = (name, d, fillRule) => ({ type: 'shape', shape: 'path', name, d, ...(fillRule ? { fillRule } : {}), initial: { fill: '#ffcc00' } });
     window.centres = { donutLeft: [160, 90], donutRight: [480, 90], starLeft: [160, 270], starRight: [480, 270] };
     const movie = new Movie();
     window.movie = movie;

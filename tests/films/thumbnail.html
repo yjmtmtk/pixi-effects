@@ -25,9 +25,9 @@
     const movie = new Movie();
     window.movie = movie;
     const sequences = [
-      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#16324f' } },
-      { type: 'shape', shape: 'circle', name: 'ball', radius: 40, initial: { x: 60, y: 120, fillColor: '#ffd166' }, keyframes: [{ at: 0, to: { x: 580 }, duration: 4, ease: 'power2.inOut' }] },
-      { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 80, threeD: true, initial: { x: 320, y: 250, fillColor: '#2ecc71' }, keyframes: [{ at: 0, to: { rotationY: 180 }, duration: 4, ease: 'none' }] },
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#16324f' } },
+      { type: 'shape', shape: 'circle', name: 'ball', radius: 40, initial: { x: 60, y: 120, fill: '#ffd166' }, keyframes: [{ at: 0, to: { x: 580 }, duration: 4, ease: 'power2.inOut' }] },
+      { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 80, threeD: true, initial: { x: 320, y: 250, fill: '#2ecc71' }, keyframes: [{ at: 0, to: { rotationY: 180 }, duration: 4, ease: 'none' }] },
       { type: 'text', name: 'count', text: '{a}{value}', style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 20, y: 20, value: 0 }, keyframes: [{ at: 0, to: { value: 100 }, duration: 4, ease: 'none' }] },
       // a shader layer draws its frame in `awaitFrameAt`, like a 3D layer: the picture a seek, and so a thumbnail and its restore, must wait for
       { type: 'shader', name: 'plasma', width: 160, height: 100, initial: { x: 460, y: 40 }, fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { vec2 uv = fragCoord / iResolution.xy; fragColor = vec4(uv.x, 0.5 + 0.5 * sin(iTime * 3.0 + uv.y * 6.0), 0.5 + 0.5 * cos(iTime * 2.0), 1.0); }' },

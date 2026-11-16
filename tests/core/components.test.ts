@@ -7,7 +7,7 @@ const lowerThird = {
   params: { title: 'Name', role: '', accent: '#ff4f8b', shift: 0 },
   width: 600, height: 120, duration: 3,
   sequences: [
-    { type: 'shape', shape: 'rect', width: 600, height: 120, initial: { fillColor: '{accent}' } },
+    { type: 'shape', shape: 'rect', width: 600, height: 120, initial: { fill: '{accent}' } },
     { type: 'text', name: 'title', text: '{title}', initial: { x: '20 + shift', y: 40 } },
     { type: 'text', name: 'role', text: '{role} · {title}', initial: { x: 20, y: 90 } },
   ],
@@ -25,7 +25,7 @@ describe('expandComponents', () => {
     expect(host).toMatchObject({ type: 'composition', name: 'host', at: 2, width: 600, height: 120, duration: 3, initial: { x: 100, y: 900 } });
     expect(host.use).toBeUndefined();
     expect(host.sequences!.map(l => l.text ?? null)).toEqual([null, 'Aiko', 'Host · Aiko']);
-    expect(host.sequences![0]!.initial).toEqual({ fillColor: '#ff4f8b' });       // a default fills what the instance does not give
+    expect(host.sequences![0]!.initial).toEqual({ fill: '#ff4f8b' });       // a default fills what the instance does not give
     expect(host.params).toEqual({ title: 'Aiko', role: 'Host', accent: '#ff4f8b', shift: 0 });   // kept for the expressions inside (shift)
   });
 
@@ -34,7 +34,7 @@ describe('expandComponents', () => {
     const [a, b] = (spec as { sequences: Layer[] }).sequences;
     expect(a!.sequences![1]!.text).toBe('A');
     expect(b!.sequences![1]!.text).toBe('B');
-    expect(b!.sequences![0]!.initial).toEqual({ fillColor: '#000000' });
+    expect(b!.sequences![0]!.initial).toEqual({ fill: '#000000' });
     expect(lowerThird.sequences[1]!.text).toBe('{title}');
   });
 

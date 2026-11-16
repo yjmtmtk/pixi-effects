@@ -33,23 +33,23 @@
     window.movie = movie;
     try {
       const E = bad ? 'spring(1, 170' : 'spring(1, 170, 12)';
-      const sq = (x, y, c) => ({ type: 'shape', shape: 'rect', width: 90, height: 90, initial: { x, y, fillColor: c } });
+      const sq = (x, y, c) => ({ type: 'shape', shape: 'rect', width: 90, height: 90, initial: { x, y, fill: c } });
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#10131c',
         composition: { sequences: [
           // 1 position, from + to, settles at 1050 after overshooting it
           { ...sq(150, 120, '#ffffff'), name: 'slider', keyframes: [{ at: 0.25, from: { x: 150 }, to: { x: 1050 }, duration: bad ? 1 : 'auto', ease: E }] },
           // 2 scale from 0 with a preset
-          { type: 'shape', shape: 'circle', radius: 60, initial: { x: 600, y: 270, fillColor: '#ffd23f', scale: 0 }, keyframes: [{ at: 0.25, to: { scale: 1 }, duration: 'auto', ease: bad ? 'spring.floppy' : 'spring.bouncy' }] },
+          { type: 'shape', shape: 'circle', radius: 60, initial: { x: 600, y: 270, fill: '#ffd23f', scale: 0 }, keyframes: [{ at: 0.25, to: { scale: 1 }, duration: 'auto', ease: bad ? 'spring.floppy' : 'spring.bouncy' }] },
           // 3 alpha: an overshoot past 1 is clamped by the renderer
-          { ...sq(600, 420, '#3ddc97'), initial: { x: 600, y: 420, fillColor: '#3ddc97', alpha: 0 }, keyframes: [{ at: 0.25, to: { alpha: 1 }, duration: 'auto', ease: 'spring.gentle' }] },
+          { ...sq(600, 420, '#3ddc97'), initial: { x: 600, y: 420, fill: '#3ddc97', alpha: 0 }, keyframes: [{ at: 0.25, to: { alpha: 1 }, duration: 'auto', ease: 'spring.gentle' }] },
           // 4 colour (blue -> pink) along x, then a second keyframe straight after the first
           { ...sq(150, 580, '#2f6bff'), colorSpace: 'oklab', keyframes: [
-            { at: 0.25, to: { fillColor: '#ff3d81', x: 1050 }, duration: 'auto', ease: 'spring(1, 120, 8)' },
+            { at: 0.25, to: { fill: '#ff3d81', x: 1050 }, duration: 'auto', ease: 'spring(1, 120, 8)' },
             { at: 2.0, to: { x: 150 }, duration: 'auto', ease: 'spring.snappy' },
           ] },
           // 5 a yoyo repeat of a spring
-          { type: 'shape', shape: 'circle', radius: 30, initial: { x: 1150, y: 420, fillColor: '#ff7a00' }, keyframes: [{ at: 0.25, to: { y: 220 }, duration: 0.8, ease: 'spring(1, 170, 12)', repeat: 1, yoyo: true }] },
+          { type: 'shape', shape: 'circle', radius: 30, initial: { x: 1150, y: 420, fill: '#ff7a00' }, keyframes: [{ at: 0.25, to: { y: 220 }, duration: 0.8, ease: 'spring(1, 170, 12)', repeat: 1, yoyo: true }] },
         ] },
       });
       window.__ready = true;

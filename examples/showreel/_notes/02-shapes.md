@@ -7,7 +7,7 @@ Model: opus (Claude Opus 5.5, self-reported)   Cycles: 5   Result: works
 - `morphTo` disc (four cubics) to a four-point star (eight L points): no twist, as the docs promise ("closed outlines are lined up").
 - A partial `fillGradient` in a keyframe (`to: { fillGradient: { angle: 405 } }`, stops left out) just worked on a `path`, together with the morph.
 - Rotating / scaling a path about its centre with `pivotX/pivotY` = the point and `x/y` = the same point (pitfall 40) worked exactly.
-- `stagger(n, { grid, from: <index> })` for the halftone release, plus a second per-column wave as a yoyo keyframe (scale + fillColor in oklch).
+- `stagger(n, { grid, from: <index> })` for the halftone release, plus a second per-column wave as a yoyo keyframe (scale + fill in oklch).
 - An inline rect `mask` on the word (a slot it rises through) starts with the layer, as documented; no timing surprises.
 - `check --at ... --onion` was enough to judge every beat; the first run had `warnings none`.
 

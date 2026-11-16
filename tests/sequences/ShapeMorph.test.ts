@@ -41,7 +41,7 @@ async function shape(spec: Record<string, unknown>) {
   const draw = (): Call[] => { calls.length = 0; g.onRender(); return calls.filter(c => c[0] !== 'clear'); };
   return { seq, tl, draw };
 }
-const FILL = { fillColor: '#ffffff' };
+const FILL = { fill: '#ffffff' };
 // the same square with a corner point halfway along the top edge: five corners against BIG's four, so the morph is resampled (morphPoints) instead of paired corner to corner
 const SQUARE5 = 'M 0 0 L 50 0 L 100 0 L 100 100 L 0 100 Z';
 let warn: ReturnType<typeof vi.spyOn>;
@@ -85,7 +85,7 @@ describe('path morph: morphTo + morph (0 → 1)', () => {
   });
 
   it('a trimmed stroke follows the morphing outline', async () => {
-    const { draw } = await shape({ shape: 'path', d: SQUARE5, morphTo: BIG, morph: 0.5, morphPoints: 8, trimEnd: 0.5, initial: { strokeColor: '#fff', strokeWidth: 4 } });
+    const { draw } = await shape({ shape: 'path', d: SQUARE5, morphTo: BIG, morph: 0.5, morphPoints: 8, trimEnd: 0.5, initial: { stroke: '#fff', strokeWidth: 4 } });
     const c = draw();
     expect(c.map(x => x[0])).toEqual(['moveTo', 'lineTo', 'lineTo', 'lineTo', 'lineTo', 'stroke'].slice(0, c.length));
     expect(c.filter(x => x[0] === 'lineTo').length).toBeGreaterThan(1);

@@ -21,7 +21,7 @@ async function shape(spec: Record<string, unknown>) {
   const draw = (): Call[] => { calls.length = 0; g.onRender(); return calls.filter(c => c[0] !== 'clear'); };
   return { seq, tl, draw };
 }
-const STROKE = { strokeColor: '#ffffff', strokeWidth: 6 };
+const STROKE = { stroke: '#ffffff', strokeWidth: 6 };
 
 describe('stroke trim: trimStart / trimEnd on a shape', () => {
   it('a line trimmed to its first quarter draws only that part, stroked', async () => {
@@ -58,7 +58,7 @@ describe('stroke trim: trimStart / trimEnd on a shape', () => {
   });
 
   it('the fill is not trimmed (a trim is for the stroke, like After Effects): the whole geometry is filled, then the stroked part is drawn', async () => {
-    const { draw } = await shape({ shape: 'rect', width: 200, height: 100, trimEnd: 0.5, initial: { fillColor: '#ff0000', ...STROKE } });
+    const { draw } = await shape({ shape: 'rect', width: 200, height: 100, trimEnd: 0.5, initial: { fill: '#ff0000', ...STROKE } });
     const names = draw().map(x => x[0]);
     expect(names.indexOf('rect')).toBeLessThan(names.indexOf('fill'));
     expect(names.indexOf('fill')).toBeLessThan(names.indexOf('beginPath'));

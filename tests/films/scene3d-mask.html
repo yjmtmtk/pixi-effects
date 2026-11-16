@@ -23,7 +23,7 @@
       camera.mode = 'orthographic'; camera.orthographicSize = 1;
       camera.position.set(0, 0, 5); camera.lookAt({ x: 0, y: 0, z: 0 });
     };
-    const circle = (x) => ({ type: 'shape', shape: 'circle', radius: 25, initial: { x, y: 90, fillColor: '#ffffff' } });
+    const circle = (x) => ({ type: 'shape', shape: 'circle', radius: 25, initial: { x, y: 90, fill: '#ffffff' } });
     const s3d = (x, name, extra = {}) => ({ type: 'scene3d', name, width: 70, height: 70, initial: { x, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup: plane, ...extra });
     const movie = new Movie();
     window.movie = movie;

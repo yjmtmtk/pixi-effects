@@ -107,7 +107,7 @@ describe('lintKeys: animatable property names (initial, set, to, from)', () => {
   it('the usual ones are quiet, for every kind of layer', () => {
     const ok = (spec: object, props: string[]) => expect(warns({ ...spec, initial: Object.fromEntries(props.map(p => [p, 1])) })).toEqual([]);
     ok({ type: 'text', text: 'a' }, ['x', 'y', 'alpha', 'rotation', 'scale', 'scaleX', 'scaleY', 'skewX', 'tint', 'anchorX', 'anchorY', 'pivotX', 'value', 'visibleChars', 'fill']);
-    ok({ type: 'shape', shape: 'rect', width: 1, height: 1 }, ['fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth', 'cornerRadius', 'width', 'height', 'trimStart', 'trimEnd', 'z', 'rotationX', 'rotationY']);
+    ok({ type: 'shape', shape: 'rect', width: 1, height: 1 }, ['fill', 'fillAlpha', 'stroke', 'strokeAlpha', 'strokeWidth', 'cornerRadius', 'width', 'height', 'trimStart', 'trimEnd', 'z', 'rotationX', 'rotationY']);
     ok({ type: 'camera' }, ['x', 'y', 'z', 'lookAtX', 'lookAtY', 'lookAtZ', 'fov', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ']);
     ok({ type: 'audio', sfx: 'pop' }, ['volume']);
     ok({ type: 'image', asset: 'a' }, ['x', 'y', 'tint', 'alpha', 'scale']);
@@ -251,5 +251,18 @@ describe('lintKeys: one name for a place', () => {
     expect(w({ positionY: 10 })).toMatch(/did you mean "y"\?/);
     expect(w({ top: 10 })).toMatch(/did you mean "y"\?/);
     expect(w({ tilePositionX: 10 })).toMatch(/"tilePositionX" is not an animatable property/);
+  });
+});
+
+describe('lintKeys: a colour is said with the name this kind of layer uses', () => {
+  it('a shape and a text are coloured by fill (fillColor, strokeColor, color say fill / stroke); an image or a video by tint', () => {
+    const at = (spec: Record<string, unknown>) => warns(spec)[0] ?? '';
+    expect(at({ type: 'shape', shape: 'rect', width: 1, height: 1, initial: { fillColor: '#fff' } })).toMatch(/"fillColor" is not an animatable property — did you mean "fill"\?/);
+    expect(at({ type: 'shape', shape: 'rect', width: 1, height: 1, initial: { strokeColor: '#fff' } })).toMatch(/did you mean "stroke"\?/);
+    expect(at({ type: 'shape', shape: 'rect', width: 1, height: 1, initial: { color: '#fff' } })).toMatch(/"color" is not a property of a rect shape: its colour is fill/);
+    expect(at({ type: 'text', text: 'x', initial: { color: '#fff' } })).toMatch(/"color" is not a property of a text layer: its colour is fill/);
+    expect(at({ type: 'image', asset: 'a', initial: { fill: '#f00' } })).toMatch(/"fill" is not a property of an image layer: its colour is tint/);
+    expect(warns({ type: 'shape', shape: 'rect', width: 1, height: 1, initial: { fill: '#fff', stroke: '#000', strokeWidth: 2, tint: '#fff' } })).toEqual([]);
+    expect(warns({ type: 'light', initial: { color: '#fff', intensity: 1 } })).toEqual([]);
   });
 });

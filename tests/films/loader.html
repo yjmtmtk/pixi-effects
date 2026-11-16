@@ -41,7 +41,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30, background: '#102040', poster: 1,
-        composition: q.has('fail') ? { sequences: [{ type: 'image', asset: 'nope' }] } : { sequences: [{ type: 'shape', shape: 'rect', width: 200, height: 200, initial: { x: 640, y: 360, fillColor: '#ffffff' } }] },
+        composition: q.has('fail') ? { sequences: [{ type: 'image', asset: 'nope' }] } : { sequences: [{ type: 'shape', shape: 'rect', width: 200, height: 200, initial: { x: 640, y: 360, fill: '#ffffff' } }] },
       });
       window.__ready = true;
     } catch (e) { window.__failed = String(e.message || e); }

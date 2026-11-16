@@ -70,7 +70,7 @@
       const start = at + (isOutline ? 0 : dur * 0.0), d = dur;
       return { type: 'shape', shape: 'path', d: shift(p.d, ox, oy), at: o.fillLate && !isOutline ? at + (o.fillLate) : start, name: o.name,
         trimEnd: filled ? 1 : 0, strokeCap: 'round', strokeJoin: 'round',
-        initial: filled ? { fillColor: p.fill, fillAlpha: 0, strokeWidth: 0 } : { strokeColor: p.stroke, strokeWidth: p.strokeWidth },
+        initial: filled ? { fill: p.fill, fillAlpha: 0, strokeWidth: 0 } : { stroke: p.stroke, strokeWidth: p.strokeWidth },
         keyframes: filled ? [{ at: 0, to: { fillAlpha: 1 }, duration: 0.3 }] : [{ at: 0, to: { trimEnd: 1 }, duration: o.fillLate && !isOutline ? d * 0.6 : d, ease: 'power1.inOut' }] };
     });
     const R = (extra) => ({ roughness: 1.3, bowing: 1.2, stroke: INK, strokeWidth: 3.2, ...extra });
@@ -78,10 +78,10 @@
 
     // ---------------------------------------------------------------- the notebook page
     const page = [
-      { type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: PAPER } },
-      ...Array.from({ length: 17 }, (_, i) => ({ type: 'shape', shape: 'line', from: [0, 112 + i * 36], to: [W, 112 + i * 36], initial: { strokeColor: '#b9c9e8', strokeWidth: 1.4, strokeAlpha: 0.7 } })),
-      { type: 'shape', shape: 'line', from: [150, 0], to: [150, H], initial: { strokeColor: '#e8a3a0', strokeWidth: 2, strokeAlpha: 0.8 } },
-      { type: 'shape', shape: 'rect', width: 120, height: 34, anchorX: 0.5, anchorY: 0.5, initial: { x: 120, y: 34, rotation: -8, fillColor: TEAL, alpha: 0.55 } },     // a piece of washi tape
+      { type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: PAPER } },
+      ...Array.from({ length: 17 }, (_, i) => ({ type: 'shape', shape: 'line', from: [0, 112 + i * 36], to: [W, 112 + i * 36], initial: { stroke: '#b9c9e8', strokeWidth: 1.4, strokeAlpha: 0.7 } })),
+      { type: 'shape', shape: 'line', from: [150, 0], to: [150, H], initial: { stroke: '#e8a3a0', strokeWidth: 2, strokeAlpha: 0.8 } },
+      { type: 'shape', shape: 'rect', width: 120, height: 34, anchorX: 0.5, anchorY: 0.5, initial: { x: 120, y: 34, rotation: -8, fill: TEAL, alpha: 0.55 } },     // a piece of washi tape
     ];
     const writing = (text, x, y, size, at, dur, o = {}) => ({ type: 'text', text, at, style: { fontSize: size, fontFamily: o.mono ? MONO : HAND, fill: o.fill ?? INK, fontWeight: o.mono ? '400' : '700' },
       initial: { x, y, anchorX: o.ax ?? 0, anchorY: 0.5, visibleChars: 0, rotation: o.rot ?? 0 }, keyframes: [{ at: 0, to: { visibleChars: text.length }, duration: dur, ease: 'none' }] });

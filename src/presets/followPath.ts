@@ -38,7 +38,7 @@ interface Segment { x0: number; y0: number; x1: number; y1: number; start: numbe
  * steps, which keeps the layer on the path at every rendered frame when `samplesPerSecond` matches the movie's frame rate.
  *
  * ```js
- * { type: 'shape', shape: 'circle', radius: 12, initial: { fillColor: '#ffd166' },
+ * { type: 'shape', shape: 'circle', radius: 12, initial: { fill: '#ffd166' },
  *   keyframes: followPath({ d: 'M 100 600 C 300 100 900 100 1180 600', duration: 4, ease: 'power2.inOut', samplesPerSecond: 30 }) }
  * ```
  */

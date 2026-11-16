@@ -26,7 +26,7 @@ export default function chapter(P) {
       { type: 'camera', name: 'cam', initial: { y: 270, lookAtY: 610, fogNear: 1500, fogFar: 6500, fogColor: HAZE, fogAmount: 1 },
         keyframes: [{ at: 0, to: { offsetZ: -200 }, duration: 8, ease: 'sine.inOut' }] },
       { type: 'shape', shape: 'rect', name: 'floor', width: 16000, height: 9800, anchorX: 0.5, anchorY: 0, threeD: true,
-        initial: { x: 960, y: FLOOR, z: -9000, rotationX: 90, fillColor: '#bdb3a1' } },
+        initial: { x: 960, y: FLOOR, z: -9000, rotationX: 90, fill: '#bdb3a1' } },
       { type: 'text', name: 'word', text: 'LIGHT', style, threeD: true, castsShadows: true,
         initial: { x: 960, y: FLOOR - m.height * 0.86, z: 0, anchorX: 0.5, anchorY: 0 } },
       { type: 'text', name: 'spec', text: "kind: 'spot'  castsShadows: true", style: { fontSize: 34, fontFamily: F.mono, fill: LAMP },

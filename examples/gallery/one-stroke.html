@@ -117,7 +117,7 @@
       const kf = draw ? [{ at: 0, from: { trimEnd: 0 }, to: { trimEnd: 1 }, duration: draw, ease: 'expo.out' }] : [];
       const kfT = draw ? [{ at: draw * 0.4, from: { alpha: 0 }, to: { alpha: 1 }, duration: draw * 0.6 }] : [];
       const line = (n, from, to, k) => ({ type: 'shape', shape: 'line', name: name + '-' + n, at, duration, from, to,
-                                        initial: { strokeColor: RED, strokeWidth: 2 }, keyframes: k });
+                                        initial: { stroke: RED, strokeWidth: 2 }, keyframes: k });
       return [
         line('rule', [g.x0, y], [g.x1, y], kf),
         line('tickL', [g.x0, y - 9], [g.x0, y + 9], kfT),
@@ -135,7 +135,7 @@
 
     const hero = glyph(HERO, LETTER, CYCLE_AT - LETTER, 'hero-in');
     const sequences = [
-      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: PAPER } },
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: PAPER } },
 
       // top information row
       mono('U+4E00  ·  ICHI / ONE', LEFT, TOP, 0.2, ALONE - 0.2, { name: 'info-l', keyframes: rise() }),
@@ -143,7 +143,7 @@
 
       // act 1: a hairline crosses the page, then gathers into the bar of the stroke (bottom edge on the horizon)
       { type: 'shape', shape: 'rect', name: 'line', at: 0.5, duration: LETTER - 0.5, width: RIGHT - LEFT, height: 2,
-        initial: { x: LEFT, y: BASE_Y - hero.barLift, anchorX: 0, anchorY: 1, fillColor: INK, scaleX: 0 },
+        initial: { x: LEFT, y: BASE_Y - hero.barLift, anchorX: 0, anchorY: 1, fill: INK, scaleX: 0 },
         keyframes: [
           { at: 0, to: { scaleX: 1 }, duration: 1, ease: 'expo.inOut' },
           { at: 1, to: { scaleX: (hero.x1 - hero.x0) / (RIGHT - LEFT), scaleY: hero.bar / 2 }, duration: 0.8, ease: 'expo.inOut' },
@@ -186,7 +186,7 @@
     sequences.push({ type: 'text', name: 'latin', text: 'Draw one line.\nYou have written one.', at: LATIN_AT, duration: ALONE - LATIN_AT,
       style: { fontSize: 30, fontFamily: LATIN, fontWeight: '700', fill: INK, align: 'left', lineHeight: 38 },
       initial: { x: LEFT, y: LATIN_Y },
-      mask: { type: 'shape', shape: 'rect', width: 420, height: 100, initial: { x: LEFT - 4, y: LATIN_Y - 10, anchorX: 0, anchorY: 0, fillColor: '#ffffff', scaleX: 0 },
+      mask: { type: 'shape', shape: 'rect', width: 420, height: 100, initial: { x: LEFT - 4, y: LATIN_Y - 10, anchorX: 0, anchorY: 0, fill: '#ffffff', scaleX: 0 },
               keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.7, ease: 'expo.inOut' }] } });
     sequences.push(mono(HERO.label, LEFT, BOTTOM, FINAL, ALONE - FINAL, { name: 'foot-l', style: { fill: INK } }));
     sequences.push(mono(NFACES + ' FACES  ·  1 STROKE', RIGHT, BOTTOM, FINAL, ALONE - FINAL, { name: 'foot-r', initial: { anchorX: 1 } }));

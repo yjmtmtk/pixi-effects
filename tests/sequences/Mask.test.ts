@@ -82,10 +82,10 @@ describe('Sequence — inline mask', () => {
         {
           type: 'shape', shape: 'rect', width: 200, height: 200,
           name: 'box',
-          initial: { x: 'W/2', y: 'H/2', fillColor: '#ff0000' },
+          initial: { x: 'W/2', y: 'H/2', fill: '#ff0000' },
           mask: {
             type: 'shape', shape: 'circle', radius: 80,
-            initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+            initial: { x: 'W/2', y: 'H/2', fill: '#ffffff' },
           },
         },
       ],
@@ -107,8 +107,8 @@ describe('Sequence — inline mask', () => {
       sequences: [
         {
           type: 'shape', shape: 'rect', width: 100, height: 100,
-          initial: { x: 'W/2', y: 'H/2', fillColor: '#ff0000' },
-          mask: { type: 'shape', shape: 'circle', radius: 50, initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' } },
+          initial: { x: 'W/2', y: 'H/2', fill: '#ff0000' },
+          mask: { type: 'shape', shape: 'circle', radius: 50, initial: { x: 'W/2', y: 'H/2', fill: '#ffffff' } },
         },
       ],
     };
@@ -126,7 +126,7 @@ describe('Sequence — inline mask', () => {
       type: 'composition',
       width: 1280, height: 720,
       sequences: [
-        { type: 'shape', shape: 'rect', width: 100, height: 100, initial: { x: 0, y: 0, fillColor: '#ff0000' } },
+        { type: 'shape', shape: 'rect', width: 100, height: 100, initial: { x: 0, y: 0, fill: '#ff0000' } },
       ],
     };
     const seq = new CompositionSequence(spec, root, root);
@@ -138,9 +138,9 @@ describe('Sequence — inline mask', () => {
 
   const maskedRect = (extra: Record<string, unknown>, mask: Record<string, unknown>) => ({
     type: 'composition', width: 1280, height: 720,
-    sequences: [{ type: 'shape', shape: 'rect', width: 100, height: 100, initial: { x: 0, y: 0, fillColor: '#ff0000' }, ...extra, mask }],
+    sequences: [{ type: 'shape', shape: 'rect', width: 100, height: 100, initial: { x: 0, y: 0, fill: '#ff0000' }, ...extra, mask }],
   }) as CompositionSequenceSpec;
-  const circleMask = { type: 'shape', shape: 'circle', radius: 30, initial: { x: 0, y: 0, fillColor: '#ffffff' } };
+  const circleMask = { type: 'shape', shape: 'circle', radius: 30, initial: { x: 0, y: 0, fill: '#ffffff' } };
   type Masked = { mask: unknown; maskInverseSetting: boolean; effects: Array<{ inverse: boolean; mask: unknown }> };
 
   it('an inverted mask ({ layer, invert: true }) is read by its alpha through a MatteFilter (an inverted stencil shows what an outer mask hides): no stencil, no alpha mask effect', async () => {
@@ -181,8 +181,8 @@ describe('Sequence — inline mask', () => {
       sequences: [
         {
           type: 'shape', shape: 'rect', width: 100, height: 100,
-          initial: { x: 0, y: 0, fillColor: '#ff0000' },
-          mask: { type: 'shape', shape: 'circle', radius: 30, initial: { x: 0, y: 0, fillColor: '#ffffff' } },
+          initial: { x: 0, y: 0, fill: '#ff0000' },
+          mask: { type: 'shape', shape: 'circle', radius: 30, initial: { x: 0, y: 0, fill: '#ffffff' } },
         },
       ],
     };
@@ -199,8 +199,8 @@ describe('Sequence — inline mask', () => {
       sequences: [
         {
           type: 'shape', shape: 'rect', width: 50, height: 50,
-          initial: { x: 0, y: 0, fillColor: '#ff0000' },
-          mask: { type: 'shape', shape: 'circle', radius: 25, initial: { x: 0, y: 0, fillColor: '#ffffff' } },
+          initial: { x: 0, y: 0, fill: '#ff0000' },
+          mask: { type: 'shape', shape: 'circle', radius: 25, initial: { x: 0, y: 0, fill: '#ffffff' } },
         },
       ],
     };

@@ -290,7 +290,7 @@
 
     // ================= the movie =================
     const beat = (i) => i * BAR;
-    const bg = (i, color, dur = BAR) => ({ type: 'shape', shape: 'rect', name: `bg${i + 1}`, at: beat(i), duration: dur, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: color } });
+    const bg = (i, color, dur = BAR) => ({ type: 'shape', shape: 'rect', name: `bg${i + 1}`, at: beat(i), duration: dur, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: color } });
     const canvasBeat = (i, name, draw, extra = {}) => ({ type: 'canvas', name, at: beat(i), duration: extra.duration || BAR, width: W, height: H, resolution: 1, draw, ...extra });
     const label = (i, txt, color, dur = BAR) => ({ type: 'text', name: `label${i + 1}`, text: txt, at: beat(i), duration: dur,
       style: { fontSize: 14, fill: color, fontFamily: 'ui-monospace, Menlo, Consolas, monospace', letterSpacing: 3 },

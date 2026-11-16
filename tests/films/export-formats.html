@@ -21,8 +21,8 @@
     import { Movie } from '../../dist/index.js';
     const silent = new URLSearchParams(location.search).has('silent');
     const sequences = [
-      { type: 'shape', shape: 'rect', width: 640, height: 360, initial: { x: 320, y: 180, fillColor: '#123' } },
-      ...Array.from({ length: 12 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 20 + i * 3, initial: { x: 40 + i * 50, y: 60 + (i % 4) * 70, fillColor: i % 2 ? '#ff5a36' : '#38c8ff' },
+      { type: 'shape', shape: 'rect', width: 640, height: 360, initial: { x: 320, y: 180, fill: '#123' } },
+      ...Array.from({ length: 12 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 20 + i * 3, initial: { x: 40 + i * 50, y: 60 + (i % 4) * 70, fill: i % 2 ? '#ff5a36' : '#38c8ff' },
         keyframes: [{ at: 0, duration: 2, to: { x: 600 - i * 40, y: 300 - (i % 5) * 40, rotation: 3 } }] })),
       ...(silent ? [] : [
         { type: 'audio', sfx: 'chime', at: 0.2 },

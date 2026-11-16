@@ -258,7 +258,7 @@
       {
         type: 'shape', shape: 'rect', name: 'title-rule', at: RULE_AT, duration: DURATION - RULE_AT,
         width: 1, height: 1,
-        initial: { x: W / 2, y: T_Y + 58, width: 0, height: 1, fillColor: C.amber, alpha: 0.9 },
+        initial: { x: W / 2, y: T_Y + 58, width: 0, height: 1, fill: C.amber, alpha: 0.9 },
         keyframes: [{ at: 0, to: { width: 220 }, duration: 1.4, ease: 'expo.out' }],
       },
       {
@@ -298,11 +298,11 @@
         out.push(hair ? {
           type: 'shape', shape: 'path', name: `hair-${i}`, at: t, duration: 2 / FPS,
           d: `M ${x} ${y} q ${8 + r() * 10} ${-6 - r() * 8} ${16 + r() * 18} ${2 + r() * 6}`,
-          initial: { strokeColor: '#d8d0bf', strokeWidth: 1, strokeAlpha: 0.35 },
+          initial: { stroke: '#d8d0bf', strokeWidth: 1, strokeAlpha: 0.35 },
         } : {
           type: 'shape', shape: 'circle', name: `speck-${i}`, at: t, duration: (r() < 0.5 ? 1 : 2) / FPS,
           radius: 0.8 + r() * 1.6,
-          initial: { x, y, fillColor: r() < 0.6 ? '#e6dccb' : '#000000', fillAlpha: 0.45 },
+          initial: { x, y, fill: r() < 0.6 ? '#e6dccb' : '#000000', fillAlpha: 0.45 },
         });
       }
       return out;
@@ -311,21 +311,21 @@
     function flicker() {
       const r = rng(31), keys = [];
       for (let f = 0; f < DURATION * FPS; f += 2) keys.push({ at: f / FPS, set: { alpha: r() * 0.06 } });
-      return { type: 'shape', shape: 'rect', name: 'flicker', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: '#000000', alpha: 0 }, keyframes: keys };
+      return { type: 'shape', shape: 'rect', name: 'flicker', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: '#000000', alpha: 0 }, keyframes: keys };
     }
 
     // ---------- letterbox + fade from black ----------
     const bars = [
       { type: 'shape', shape: 'rect', name: 'bar-top', width: W, height: BAR + 2,
-        initial: { x: W / 2, y: 0, anchorY: 1, fillColor: '#000000' },
+        initial: { x: W / 2, y: 0, anchorY: 1, fill: '#000000' },
         keyframes: [{ at: 0.6, to: { y: BAR + 2 }, duration: 2.0, ease: 'power3.inOut' }] },
       { type: 'shape', shape: 'rect', name: 'bar-bottom', width: W, height: BAR + 2,
-        initial: { x: W / 2, y: H, anchorY: 0, fillColor: '#000000' },
+        initial: { x: W / 2, y: H, anchorY: 0, fill: '#000000' },
         keyframes: [{ at: 0.6, to: { y: H - BAR - 2 }, duration: 2.0, ease: 'power3.inOut' }] },
     ];
     const fadeIn = {
       type: 'shape', shape: 'rect', name: 'from-black', width: W, height: H, duration: 2.4,
-      initial: { x: W / 2, y: H / 2, fillColor: '#000000' },
+      initial: { x: W / 2, y: H / 2, fill: '#000000' },
       keyframes: [{ at: 0.2, to: { alpha: 0 }, duration: 2.2, ease: EASE_MOVE }],
     };
 
@@ -380,7 +380,7 @@
     ];
 
     const sequences = [
-      { type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: C.night } },
+      { type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: C.night } },
       { type: 'shape', shape: 'rect', name: 'haze', width: W, height: H, initial: { x: W / 2, y: H / 2, fillGradient: { type: 'radial', center: [0.5, 0.36], radius: 0.75, stops: [[0, 'rgba(46,72,74,0.85)'], [0.45, 'rgba(22,36,38,0.6)'], [1, 'rgba(7,11,12,0)']] } } },
       shard,
       vignette,

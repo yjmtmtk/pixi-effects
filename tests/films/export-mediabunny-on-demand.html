@@ -34,7 +34,7 @@
         ...(q.has('video') ? { assets: [{ name: 'clip', src: '../fixtures/media/colors.mp4' }] } : {}),
         composition: { sequences: [
           ...(q.has('video') ? [{ type: 'video', asset: 'clip', name: 'clip', audio: false, duration: 1, initial: { x: 0, y: 0, scale: 0.2 } }] : []),
-          { type: 'shape', shape: 'rect', name: 'box', width: 40, height: 40, initial: { x: 20, y: 45, fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { x: 140 }, duration: 1, ease: 'none' }] },
+          { type: 'shape', shape: 'rect', name: 'box', width: 40, height: 40, initial: { x: 20, y: 45, fill: '#ffffff' }, keyframes: [{ at: 0, to: { x: 140 }, duration: 1, ease: 'none' }] },
         ] } });
     } catch (e) { window.__initError = String(e?.message ?? e); }
     window.__ready = true;

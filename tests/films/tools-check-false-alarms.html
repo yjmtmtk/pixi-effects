@@ -44,12 +44,12 @@
     const badgeAt = num('badgeAt', 0);
     const cutAt = num('cutAt', fault === 'fadecut' ? 1 : 0.5);
     const sequences = [
-      { type: 'shape', shape: 'circle', name: 'glow', radius: 24, initial: { x: 70, y: 40, fillColor: '#f2c14e' },
+      { type: 'shape', shape: 'circle', name: 'glow', radius: 24, initial: { x: 70, y: 40, fill: '#f2c14e' },
         keyframes: [{ at: 0, to: { scale: 1.4 }, duration: 4, ease: 'none' }, { at: 0, to: { alpha: 0.22 }, duration: 3, ease: 'none' }] },
       { type: 'text', name: 'title', text: fault === 'cutoff' ? 'THIS HEADLINE IS MUCH TOO WIDE FOR THE FRAME' : 'Hello',
         style: { fontSize: 44, fill: '#ffffff' }, initial: { x: 320, y: 110, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
         keyframes: [{ at: 0, from: { y: 150, alpha: 0 }, to: { y: 110, alpha: 1 }, duration: rise, ease: 'power2.out' }] },
-      { type: 'shape', shape: 'rect', name: 'card', width: 200, height: 50, duration: 1.5, initial: { x: 320, y: 210, fillColor: '#4e8ff2' },
+      { type: 'shape', shape: 'rect', name: 'card', width: 200, height: 50, duration: 1.5, initial: { x: 320, y: 210, fill: '#4e8ff2' },
         keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.3 }, { at: cutAt, to: { alpha: 0 }, duration: 1 }] },
       { type: 'text', name: 'entry', text: 'enter', style: { fontSize: 28, fill: '#9fe0a0' }, initial: { x: -300, y: 300, anchorX: 0.5, anchorY: 0.5 },
         keyframes: [{ at: 1, to: { x: 160 }, duration: 0.5, ease: 'power2.out' }] },

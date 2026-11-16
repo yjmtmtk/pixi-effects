@@ -11,7 +11,7 @@ A video is data: `sequences` (text, shape, image, video, audio, composition, cam
 ```js
 // @recipe quickstart
 return [
-  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#10162b' } },
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#10162b' } },
   { type: 'text', text: 'Hello', at: 0.3, duration: 4, style: { fontSize: 140, fill: '#ffffff', fontWeight: '800' },
     initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
     keyframes: [{ at: 0, from: { y: 'GH/2 + 40', alpha: 0 }, to: { y: 'GH/2', alpha: 1 }, duration: 0.6, ease: 'power3.out' }] },

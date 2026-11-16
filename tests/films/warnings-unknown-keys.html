@@ -40,7 +40,7 @@
     const q = new URLSearchParams(location.search);
     const wrong = q.get('mistakes') === '1';
     const pillShape = q.get('pill') === 'circle' ? 'circle' : 'rect';
-    const fill = (c) => ({ fillColor: c });
+    const fill = (c) => ({ fill: c });
     // each mistaken layer: the wrong key when ?mistakes=1, the right way to write it otherwise
     const sequences = [
       { type: 'shape', shape: 'rect', name: 'bar', width: 60, height: 12, ...(wrong ? { duraton: 2 } : { duration: 2 }), initial: { x: 40, y: 20, ...fill('#e04040') } },

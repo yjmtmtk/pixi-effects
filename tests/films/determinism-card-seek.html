@@ -36,8 +36,8 @@
         composition: { sequences: [
           { type: 'composition', name: 'card', threeD: true, width: 600, height: 200, initial: { x: 320, y: 180, pivotX: 300, pivotY: 100 }, sequences: [
             { type: 'shape', shape: 'line', name: 'draw', from: [20, 100], to: [580, 100],
-              initial: { strokeColor: '#ffffff', strokeWidth: 12, trimEnd: 0 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 2, ease: 'none' }] },
-            { type: 'shape', shape: 'rect', name: 'grow', width: 100, height: 10, initial: { x: 300, y: 170, fillColor: '#ffffff', scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 5 }, duration: 2, ease: 'none' }] },
+              initial: { stroke: '#ffffff', strokeWidth: 12, trimEnd: 0 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 2, ease: 'none' }] },
+            { type: 'shape', shape: 'rect', name: 'grow', width: 100, height: 10, initial: { x: 300, y: 170, fill: '#ffffff', scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 5 }, duration: 2, ease: 'none' }] },
           ] },
         ] },
       });

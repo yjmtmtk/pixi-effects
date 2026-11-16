@@ -86,14 +86,14 @@
     const T_END = 4 * BAR;            // 10.0 the conclusion lands; hold to the end
 
     const seq = [];
-    const bg = { type: 'shape', shape: 'rect', name: 'paper', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: PAPER } };
+    const bg = { type: 'shape', shape: 'rect', name: 'paper', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: PAPER } };
     seq.push(bg);
 
     // ---- the coloured area under everything: whatever the triangles leave uncovered ----
     // it floods out from the centre of the empty tilted square once the four triangles are down
     const T_FLOOD = 1.55;
     seq.push({ type: 'shape', shape: 'rect', name: 'area', width: S, height: S, at: T_FLOOD, duration: DURATION - T_FLOOD,
-      initial: { x: X0 + S / 2, y: Y0 + S / 2, fillColor: ACCENT },
+      initial: { x: X0 + S / 2, y: Y0 + S / 2, fill: ACCENT },
       keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.85, ease: 'expo.inOut' }] });
     seq.push({ type: 'audio', sfx: { preset: 'swoosh', pitch: -4, brightness: 0.15, seed: 5 }, at: T_FLOOD + 0.2, volume: 0.3 });
 
@@ -103,7 +103,7 @@
       const at = T_IN + i * 0.16;
       const [ox, oy] = OUT[i];
       seq.push({ type: 'shape', shape: 'polygon', name: t.name, points: t.pts, at, duration: DURATION - at,
-        initial: { pivotX: px, pivotY: py, x: px, y: py, fillColor: INK, strokeColor: PAPER, strokeWidth: 2.5 },
+        initial: { pivotX: px, pivotY: py, x: px, y: py, fill: INK, stroke: PAPER, strokeWidth: 2.5 },
         keyframes: [
           { at: 0, from: { x: px + ox * 28, y: py + oy * 28, alpha: 0 }, to: { x: px, y: py, alpha: 1 }, duration: 0.7, ease: 'power3.out' },
           ...(t.slide !== undefined ? [{ at: T_SLIDE + t.slide - at, to: { x: px + t.move[0], y: py + t.move[1] }, duration: t.slide ? 1.0 : 1.2, ease: 'cubic-bezier(.65, 0, .25, 1)' }] : []),
@@ -114,10 +114,10 @@
     // ---- dimension lines: top edge a | b, right edge a | b (true in both arrangements) ----
     const DIM = '#b3ac9f';
     const dimLine = (name, from, to, at) => ({ type: 'shape', shape: 'line', name, from, to, at, duration: DURATION - at,
-      initial: { strokeColor: DIM, strokeWidth: 1.5, trimEnd: 0 },
+      initial: { stroke: DIM, strokeWidth: 1.5, trimEnd: 0 },
       keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.9, ease: 'power2.inOut' }] });
     const tick = (name, x1, y1, x2, y2, at) => ({ type: 'shape', shape: 'line', name, from: [x1, y1], to: [x2, y2], at, duration: DURATION - at,
-      initial: { strokeColor: DIM, strokeWidth: 1.5 },
+      initial: { stroke: DIM, strokeWidth: 1.5 },
       keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.3 }] });
     const OFF = 18;
     seq.push(dimLine('dim-top', [X0, Y0 - OFF], [X0 + S, Y0 - OFF], 1.2));
@@ -140,7 +140,7 @@
     seq.push(label('gap-c2', 'c²', X0 + S / 2, Y0 + S / 2, T_C, gapStyle(76), { duration: T_SLIDE + 0.4 - T_C, keyframes: [fadeOut(T_SLIDE - T_C - 0.05)] }));
     // the hypotenuse c is traced once, so "side c" has a place to point at
     seq.push({ type: 'shape', shape: 'line', name: 'hyp-c', from: P(A, 0), to: P(S, A), at: T_C + 0.1, duration: T_SLIDE - T_C - 0.1,
-      initial: { strokeColor: PAPER, strokeWidth: 5, trimEnd: 0 },
+      initial: { stroke: PAPER, strokeWidth: 5, trimEnd: 0 },
       keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.8, ease: 'power2.inOut' }, { at: -0.35, to: { alpha: 0 }, duration: 0.3 }] });
     // the letter c on the hypotenuse of the top-right triangle, just inside the gap
     seq.push(label('gap-c', 'c', X0 + A + B / 2 - 20, Y0 + A / 2 + 18, T_C + 0.2, gapStyle(26), { duration: T_SLIDE + 0.4 - T_C - 0.2, keyframes: [fadeOut(T_SLIDE - T_C - 0.25)] }));
@@ -158,7 +158,7 @@
       initial: { x: CX, y: Y0 + 32 },
       keyframes: [{ at: 0, from: { alpha: 0, x: CX - 12 }, to: { alpha: 1, x: CX }, duration: 0.9, ease: 'power3.out' }] });
     seq.push({ type: 'shape', shape: 'line', name: 'rule', from: [CX, Y0 + 104], to: [CX + 48, Y0 + 104], at: 0.9, duration: DURATION - 0.9,
-      initial: { strokeColor: ACCENT, strokeWidth: 3, trimEnd: 0 },
+      initial: { stroke: ACCENT, strokeWidth: 3, trimEnd: 0 },
       keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.6, ease: 'power2.out' }] });
 
     const capStyle = { fontFamily: MATH + ', ' + SERIF_JA, fontSize: 25, fill: INK, lineHeight: 42, letterSpacing: 1, align: 'left' };
@@ -193,7 +193,7 @@
     });
     // underline under the whole equation: the conclusion
     seq.push({ type: 'shape', shape: 'line', name: 'eq-rule', from: [CX, eqY + 56], to: [CX + eqWidth, eqY + 56], at: T_END, duration: DURATION - T_END,
-      initial: { strokeColor: INK, strokeWidth: 2, trimEnd: 0 },
+      initial: { stroke: INK, strokeWidth: 2, trimEnd: 0 },
       keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.9, ease: 'power3.inOut' }] });
 
     // ---- sound ----

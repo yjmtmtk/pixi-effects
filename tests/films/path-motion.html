@@ -26,8 +26,8 @@
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
         composition: { sequences: [
           { type: 'shape', shape: 'path', d: 'M 400 200 L 600 200 L 600 400 L 400 400 Z', morphTo: 'M 700 200 L 900 200 L 900 400 L 700 400 Z',
-            initial: { fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { morph: 1 }, duration: 2, ease: 'none' }] },
-          { type: 'shape', shape: 'circle', radius: 14, initial: { fillColor: '#ff0000' },
+            initial: { fill: '#ffffff' }, keyframes: [{ at: 0, to: { morph: 1 }, duration: 2, ease: 'none' }] },
+          { type: 'shape', shape: 'circle', radius: 14, initial: { fill: '#ff0000' },
             keyframes: followPath({ d: 'M 100 600 L 1100 600 L 1100 100', duration: 3, samplesPerSecond: 30 }) },
         ] },
       });

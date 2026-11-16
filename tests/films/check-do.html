@@ -17,9 +17,9 @@
     window.movie = movie;
     const WARN = new URLSearchParams(location.search).get('warn') === '1';
     await movie.init({ canvas, width: 640, height: 360, duration: 4, frameRate: 30, background: '#101828', vars: { clicks: 0, cx: 120, cy: 260, hot: 0, hint: 'ready' }, composition: { sequences: [
-      { type: 'shape', shape: 'rect', name: 'button', width: 200, height: 80, cornerRadius: 12, initial: { x: 160, y: 100, anchorX: 0.5, anchorY: 0.5, fillColor: '#3aa56e' } },
-      { type: 'shape', shape: 'rect', name: 'hot', width: 160, height: 80, initial: { x: 480, y: 100, anchorX: 0.5, anchorY: 0.5, fillColor: '#c0392b', alpha: '0.4 + 0.6 * hot' } },
-      { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 70, initial: { x: 'cx', y: 'cy', anchorX: 0.5, anchorY: 0.5, fillColor: '#f2c14e' } },
+      { type: 'shape', shape: 'rect', name: 'button', width: 200, height: 80, cornerRadius: 12, initial: { x: 160, y: 100, anchorX: 0.5, anchorY: 0.5, fill: '#3aa56e' } },
+      { type: 'shape', shape: 'rect', name: 'hot', width: 160, height: 80, initial: { x: 480, y: 100, anchorX: 0.5, anchorY: 0.5, fill: '#c0392b', alpha: '0.4 + 0.6 * hot' } },
+      { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 70, initial: { x: 'cx', y: 'cy', anchorX: 0.5, anchorY: 0.5, fill: '#f2c14e' } },
       { type: 'text', name: 'hint', text: '{hint} {clicks}', style: { fontSize: 28, fill: '#ffffff' }, initial: { x: 320, y: 330, anchorX: 0.5, anchorY: 0.5 } },
     ] } });
     movie.pause();

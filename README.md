@@ -159,8 +159,8 @@ Any layer can be placed in depth and viewed through a camera — no 3D engine in
 ```ts
 sequences: [
   { type: 'camera', keyframes: [{ at: 0, from: { x: 'GW/2 - 260' }, to: { x: 'GW/2 + 260' }, duration: 4, ease: 'sine.inOut' }] },
-  { type: 'shape', shape: 'rect', width: 300, height: 200, threeD: true, initial: { x: 'GW/2', y: 'GH/2', z: -400, fillColor: '#3a6ea5' } },
-  { type: 'shape', shape: 'rect', width: 300, height: 200, threeD: true, initial: { x: 'GW/2', y: 'GH/2', z: 250,  fillColor: '#d96a3a' } },
+  { type: 'shape', shape: 'rect', width: 300, height: 200, threeD: true, initial: { x: 'GW/2', y: 'GH/2', z: -400, fill: '#3a6ea5' } },
+  { type: 'shape', shape: 'rect', width: 300, height: 200, threeD: true, initial: { x: 'GW/2', y: 'GH/2', z: 250,  fill: '#d96a3a' } },
 ]
 ```
 

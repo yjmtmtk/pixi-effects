@@ -15,7 +15,7 @@
     window.movie = movie;
     const NAMES = ['sun', 'moon', 'river', 'ridge', 'cloud', 'tower', 'bridge', 'harbour'];      // distinct names: similar ones (bar-1, bar-2) are one row in the timeline
     const layer = (i) => ({ type: 'shape', shape: 'rect', name: NAMES[i], width: 60, height: 30, at: i * 1.2, duration: 12 - i * 1.2,
-      initial: { x: 60 + i * 70, y: 60 + i * 30, fillColor: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#c77dff'][i % 5] },
+      initial: { x: 60 + i * 70, y: 60 + i * 30, fill: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#c77dff'][i % 5] },
       keyframes: [{ at: 0, to: { x: 80 + i * 70 }, duration: 2, ease: 'power2.out' }] });
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 12, frameRate: 30, background: '#101828',

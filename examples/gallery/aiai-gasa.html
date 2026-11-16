@@ -221,7 +221,7 @@
     function ripple(x, y, start, period, stop, maxR, a) {
       const n = Math.max(0, Math.floor((stop - start - 0.75) / period));
       return { type: 'shape', shape: 'circle', radius: 1, at: start, duration: (n + 1) * period,
-        initial: { x, y, fillAlpha: 0, strokeColor: C.ripple, strokeWidth: 1.2, strokeAlpha: 0 },
+        initial: { x, y, fillAlpha: 0, stroke: C.ripple, strokeWidth: 1.2, strokeAlpha: 0 },
         keyframes: [
           { at: 0, from: { radius: 1 }, to: { radius: maxR }, duration: 0.75, ease: 'expo.out', repeat: n, repeatDelay: period - 0.75 },
           { at: 0, from: { strokeAlpha: a }, to: { strokeAlpha: 0 }, duration: 0.75, ease: 'power1.in', repeat: n, repeatDelay: period - 0.75 },
@@ -311,7 +311,7 @@
       const period = between(0.7, 1.3), start = between(0, 1.0), stop = T.rainStop - 0.8 + R() * 1.0;
       const n = Math.max(0, Math.floor((stop - start - 0.3) / period));
       L.push({ type: 'shape', shape: 'rect', width: 1.4, height: 20 + d * 0.05, at: start, duration: (n + 1) * period,
-        initial: { x, y, rotation: Math.atan2(dy, dx) * 180 / Math.PI + 90, fillColor: '#c9d6df', alpha: 0 },
+        initial: { x, y, rotation: Math.atan2(dy, dx) * 180 / Math.PI + 90, fill: '#c9d6df', alpha: 0 },
         keyframes: [
           { at: 0, from: { x, y, alpha: 0.32, scaleY: 1 }, to: { x: x - dx * 0.22, y: y - dy * 0.22, alpha: 0, scaleY: 0.35 }, duration: 0.3, ease: 'power1.in', repeat: n, repeatDelay: period - 0.3 },
         ] });

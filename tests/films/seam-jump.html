@@ -33,8 +33,8 @@
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30,
         composition: { sequences: [
-          { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#102040' } },
-          { type: 'shape', shape: 'circle', name: 'dot', radius: 20, initial: { x: 50, y: 90, fillColor: '#ffffff' },
+          { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#102040' } },
+          { type: 'shape', shape: 'circle', name: 'dot', radius: 20, initial: { x: 50, y: 90, fill: '#ffffff' },
             keyframes: [{ at: 0, to: { x: 250 }, duration: 2, ease: 'none' }] },
         ] },
       });

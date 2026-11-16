@@ -28,7 +28,7 @@ const COMMON_ALIASES: Record<string, string | readonly string[]> = {
   w: 'width', h: 'height', cols: 'columns', sweep: 'degrees', angle: 'degrees',
   playbackrate: 'speed', timescale: 'speed', rate: 'speed',
   // the colour of a text: style.fill (a trial film found `style.colour` got no guess)
-  colour: 'fill', color: 'fill', fontcolor: 'fill', textcolor: 'fill',
+  colour: 'fill', color: 'fill', fontcolor: 'fill', textcolor: 'fill', fillcolor: 'fill', fillstyle: 'fill', strokecolor: 'stroke', strokestyle: 'stroke', bordercolor: 'stroke', outlinecolor: 'stroke',
   // blend modes by the names other programs use
   'linear-dodge': 'add', 'linear dodge': 'add', lineardodge: 'add', linear_dodge: 'add', 'plus-lighter': 'add', pluslighter: 'add', plus_lighter: 'add',
   luminance: 'luminosity', exclude: 'exclusion',

@@ -26,7 +26,7 @@
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#101820',
         composition: { sequences: [
-          { type: 'shape', shape: 'rect', name: 'backdrop', width: 480, height: 270, initial: { x: 240, y: 135, fillColor: '#203040' } },
+          { type: 'shape', shape: 'rect', name: 'backdrop', width: 480, height: 270, initial: { x: 240, y: 135, fill: '#203040' } },
           { type: 'scene3d', name: 'world',
             setup: ({ root, camera, view: v }) => {
               view = v;

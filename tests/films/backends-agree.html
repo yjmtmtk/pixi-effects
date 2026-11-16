@@ -87,9 +87,9 @@
             fillGradient: { angle: 90, stops: [[0, '#ff9a3c'], [1, '#3c5bff']] },
             initial: { x: 150, y: 100 } },
           { type: 'shape', shape: 'circle', name: 'disc', radius: 50,
-            initial: { x: 450, y: 120, fillColor: '#ff3030', alpha: ALPHA } },
+            initial: { x: 450, y: 120, fill: '#ff3030', alpha: ALPHA } },
           { type: 'shape', shape: 'rect', name: 'tile', width: 90, height: 90, blendMode: 'multiply',
-            initial: { x: TILE_X, y: 170, fillColor: '#80e0ff', rotation: 0 },
+            initial: { x: TILE_X, y: 170, fill: '#80e0ff', rotation: 0 },
             keyframes: [{ at: 0, duration: 1.5, to: { rotation: 45 }, ease: 'none' }] },
           { type: 'text', name: 'label', text: 'Backends agree',
             style: { fontFamily: 'Arial', fontSize: 40, fill: '#ffffff' },
@@ -97,7 +97,7 @@
           { type: 'shape', shape: 'circle', name: 'glow', radius: 36,
             filterArea: { x: -76, y: -76, width: 152, height: 152 },
             filters: [{ type: 'blur', strength: 8 }],
-            initial: { x: 560, y: 300, fillColor: '#ffd166' } },
+            initial: { x: 560, y: 300, fill: '#ffd166' } },
         ] },
       });
       window.backend = movie.app.renderer.name || String(movie.app.renderer.type);

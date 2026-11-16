@@ -80,8 +80,8 @@
         lamps.push({
           type: 'shape', shape: 'circle', radius,
           initial: ring
-            ? { x, y, strokeColor: color, strokeWidth: 4 / s, strokeAlpha: 0.7, fillColor: color, fillAlpha: 0.12 }
-            : { x, y, fillColor: color, fillAlpha: 0.35 + r() * 0.35 },
+            ? { x, y, stroke: color, strokeWidth: 4 / s, strokeAlpha: 0.7, fill: color, fillAlpha: 0.12 }
+            : { x, y, fill: color, fillAlpha: 0.35 + r() * 0.35 },
         });
       }
       return {
@@ -96,10 +96,10 @@
     const bobAt = dy => ({ at: 0, to: { y: dy }, duration: DURATION, ease: 'sine.inOut' });
     const badge = [
       { type: 'shape', shape: 'circle', name: 'badge', radius: 100, threeD: true,
-        initial: { x: BX, y: BY, z: BADGE_Z, fillColor: CORAL },
+        initial: { x: BX, y: BY, z: BADGE_Z, fill: CORAL },
         keyframes: [bobAt(BY - 16)] },
       { type: 'shape', shape: 'circle', name: 'badge-ring', radius: 82, threeD: true,
-        initial: { x: BX, y: BY, z: BADGE_Z, strokeColor: CREAM, strokeWidth: 3, strokeAlpha: 0.85, fillAlpha: 0 },
+        initial: { x: BX, y: BY, z: BADGE_Z, stroke: CREAM, strokeWidth: 3, strokeAlpha: 0.85, fillAlpha: 0 },
         keyframes: [bobAt(BY - 16)] },
       { type: 'text', name: 'badge-f', text: 'f/1.4', threeD: true,
         style: { fontFamily: 'Arial Black, Helvetica Neue, system-ui, sans-serif', fontWeight: '900', fontSize: 50, fill: CREAM },
@@ -137,7 +137,7 @@
     ];
     const sign = [
       { type: 'shape', shape: 'rect', name: 'sign', width: 560, height: 116, cornerRadius: 18, threeD: true,
-        initial: { x: SX, y: SY, z: SIGN_Z, fillColor: '#0d1430', fillAlpha: 0.9, strokeColor: AMBER, strokeWidth: 4, alpha: 0.7 },
+        initial: { x: SX, y: SY, z: SIGN_Z, fill: '#0d1430', fillAlpha: 0.9, stroke: AMBER, strokeWidth: 4, alpha: 0.7 },
         keyframes: flicker(1) },
       { type: 'text', name: 'sign-text', text: 'LOOK CLOSER', threeD: true,
         style: { fontFamily: 'Arial Black, Helvetica Neue, system-ui, sans-serif', fontWeight: '900', fontSize: 52, fill: AMBER, letterSpacing: 7 },
@@ -193,7 +193,7 @@
       hud,
       // fade up from black
       { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', name: 'fade-in',
-        initial: { x: 'GW/2', y: 'GH/2', fillColor: '#000000', alpha: 1 },
+        initial: { x: 'GW/2', y: 'GH/2', fill: '#000000', alpha: 1 },
         keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.8, ease: 'power1.out' }] },
       ...sfx,
     ];

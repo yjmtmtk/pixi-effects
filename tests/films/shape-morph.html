@@ -43,7 +43,7 @@
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#000000', composition: { sequences: [
         { type: 'shape', shape: 'path', name: 'morpher', d: D, morphTo: TO,
-          initial: { morph: 0, fillColor: '#ffffff' },
+          initial: { morph: 0, fill: '#ffffff' },
           keyframes: [{ at: 0, to: { morph: 1 }, duration: 1, ease: 'none' }] },
       ] } });
       window.size = async (f) => { const img = await shot(f); return [img.width, img.height]; };

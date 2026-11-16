@@ -125,12 +125,12 @@
       printAt(t, row, 0, label, DIM);
       const x = colX(BAR_COL), y = rowY(row);
       term.push({ type: 'shape', shape: 'rect', name: `track-r${row}`, width: BAR_W, height: BAR_H, cornerRadius: BAR_H / 2, anchorX: 0, at: t,
-        initial: { x, y, fillColor: TRACK } });
+        initial: { x, y, fill: TRACK } });
       term.push({ type: 'shape', shape: 'rect', name: `fill-r${row}`, width: 0, height: BAR_H, cornerRadius: BAR_H / 2, anchorX: 0, at: t, colorSpace: 'oklab',
-        initial: { x, y, fillColor: CYAN },
+        initial: { x, y, fill: CYAN },
         keyframes: [
           { at: 2 / FPS, to: { width: BAR_W }, duration: dur, ease: 'power2.inOut' },
-          { at: 2 / FPS + dur, to: { fillColor: GREEN }, duration: 0.2 },
+          { at: 2 / FPS + dur, to: { fill: GREEN }, duration: 0.2 },
         ] });
       term.push({ type: 'text', name: `pct-r${row}`, text: '{value}%', at: t, style: mono(DIM), colorSpace: 'oklab',
         initial: { x: x + BAR_W + 16, y, anchorX: 0, anchorY: 0.5, value: 0 },
@@ -189,7 +189,7 @@
     const URL = 'https://localhost:3000', URL_COL = 11;
     printAt(T.local, 11, URL_COL, URL, CYAN, { glow: true, name: 'url' });
     term.push({ type: 'shape', shape: 'rect', name: 'url-underline', width: 0, height: 1.5, anchorX: 0, at: T.local,
-      initial: { x: colX(URL_COL), y: rowY(11) + FS * 0.6, fillColor: CYAN, alpha: 0.75 },
+      initial: { x: colX(URL_COL), y: rowY(11) + FS * 0.6, fill: CYAN, alpha: 0.75 },
       keyframes: [{ at: 0, to: { width: URL.length * ADV }, duration: 0.45, ease: 'power3.out' }] });
     sfx('chime', T.local, 0.2, 0.9);   // shortened so it does not ring into the swoosh
 
@@ -199,7 +199,7 @@
 
     cursorKeys.sort((a, b) => a.at - b.at);
     term.push({ type: 'shape', shape: 'rect', name: 'cursor', width: ADV, height: FS * 1.15, anchorX: 0, anchorY: 0.5,
-      initial: { x: colX(2), y: rowY(0), fillColor: TEXT, alpha: 0 }, keyframes: cursorKeys });
+      initial: { x: colX(2), y: rowY(0), fill: TEXT, alpha: 0 }, keyframes: cursorKeys });
 
     // ───────────────────────── window chrome (around the content) ─────────────────────────
     function scanlines(w, h) {
@@ -216,15 +216,15 @@
         fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(0,0,0,0.85)'], [0.7, 'rgba(0,0,0,0.5)'], [1, 'rgba(0,0,0,0)']] } },
       // window: rounded body with a hairline border; title bar is a rounded rect whose lower corners a square patch hides
       { type: 'shape', shape: 'rect', name: 'window', width: WIN_W, height: WIN_H, cornerRadius: 12,
-        initial: { x: wcx, y: wcy, fillColor: BODY, strokeColor: BORDER, strokeWidth: 1 } },
+        initial: { x: wcx, y: wcy, fill: BODY, stroke: BORDER, strokeWidth: 1 } },
       { type: 'shape', shape: 'rect', name: 'titlebar', width: WIN_W - 2, height: TITLE_H + 12, cornerRadius: 12, anchorY: 0,
-        initial: { x: wcx, y: wy + 1, fillColor: BAR } },
+        initial: { x: wcx, y: wy + 1, fill: BAR } },
       { type: 'shape', shape: 'rect', name: 'titlebar-patch', width: WIN_W - 2, height: 12, anchorY: 0,
-        initial: { x: wcx, y: wy + TITLE_H, fillColor: BODY } },
+        initial: { x: wcx, y: wy + TITLE_H, fill: BODY } },
       { type: 'shape', shape: 'rect', name: 'titlebar-rule', width: WIN_W - 2, height: 1, anchorY: 0,
-        initial: { x: wcx, y: wy + TITLE_H, fillColor: BORDER } },
+        initial: { x: wcx, y: wy + TITLE_H, fill: BORDER } },
       ...['#ff5f57', '#febc2e', '#28c840'].map((c, i) => ({ type: 'shape', shape: 'circle', name: `light-${i}`, radius: 6,
-        initial: { x: wx + 22 + i * 20, y: wy + TITLE_H / 2, fillColor: c } })),
+        initial: { x: wx + 22 + i * 20, y: wy + TITLE_H / 2, fill: c } })),
       { type: 'text', name: 'window-title', text: 'nova — zsh — 80×24', style: { fontFamily: SANS, fontSize: 13, fill: DIM },
         initial: { x: wcx, y: wy + TITLE_H / 2, anchorX: 0.5, anchorY: 0.5 } },
     ];
@@ -277,16 +277,16 @@
         initial: { x: TITLE_X - 6, y: NOVA_Y, anchorX: 0, anchorY: 0.5 },
         keyframes: [{ at: 0, from: { alpha: 0, y: NOVA_Y + 34 }, to: { alpha: 1, y: NOVA_Y }, duration: 0.7, ease: 'expo.out' }] },
       { type: 'shape', shape: 'rect', name: 'nova-rule', width: 0, height: 4, anchorX: 0, at: T.rule,
-        initial: { x: TITLE_X, y: NOVA_Y + NOVA_FS * 0.5, fillColor: CYAN },
+        initial: { x: TITLE_X, y: NOVA_Y + NOVA_FS * 0.5, fill: CYAN },
         keyframes: [{ at: 0, to: { width: 72 }, duration: 0.5, ease: 'power3.out' }] },
       // the tagline is typed by a stepped mask: its width jumps to the measured prefix width at every character
       { type: 'text', name: 'tagline', text: TAG, at: T.tag,
         style: { fontFamily: SANS, fontSize: TAG_FS, fontWeight: '400', fill: TEXT },
         initial: { x: TITLE_X, y: TAG_Y, anchorX: 0, anchorY: 0.5 },
         mask: { type: 'shape', shape: 'rect', width: 0, height: TAG_FS * 1.5, anchorX: 0, anchorY: 0.5,
-          initial: { x: TITLE_X - 2, y: TAG_Y, fillColor: '#ffffff' }, keyframes: tagKeys } },
+          initial: { x: TITLE_X - 2, y: TAG_Y, fill: '#ffffff' }, keyframes: tagKeys } },
       { type: 'shape', shape: 'rect', name: 'tag-cursor', width: 17, height: TAG_FS * 1.15, anchorX: 0, anchorY: 0.5, at: T.tag,
-        initial: { x: TITLE_X + 3, y: TAG_Y, fillColor: CYAN }, keyframes: tagCursorKeys },
+        initial: { x: TITLE_X + 3, y: TAG_Y, fill: CYAN }, keyframes: tagCursorKeys },
       { type: 'text', name: 'cta', text: '$ npx create-nova app', at: T.cta,
         style: { fontFamily: MONO, fontSize: 20, fontWeight: '400', fill: DIM },
         initial: { x: TITLE_X, y: CTA_Y, anchorX: 0, anchorY: 0.5 },
@@ -297,7 +297,7 @@
 
     // ───────────────────────── root ─────────────────────────
     const sequences = [
-      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: PAGE } },
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: PAGE } },
       { type: 'shape', shape: 'rect', name: 'ambient-glow', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
         fillGradient: { type: 'radial', radius: 0.62, stops: [[0, 'rgba(90,200,250,0.10)'], [0.55, 'rgba(90,200,250,0.03)'], [1, 'rgba(90,200,250,0)']] } },
       terminal,

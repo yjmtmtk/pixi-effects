@@ -35,7 +35,7 @@ export default function chapter(P) {
   for (let v = 0; v <= TOP; v += STEP) {
     const y = yOf(v);
     page1.push({ type: 'shape', shape: 'line', name: 'grid-' + v, from: [X0 - 6, y], to: [X0 + 30 + N * PITCH - 56 + 30, y],
-      initial: { strokeColor: v === 0 ? C.dim : '#232a3b', strokeWidth: v === 0 ? 3 : 2 } });
+      initial: { stroke: v === 0 ? C.dim : '#232a3b', strokeWidth: v === 0 ? 3 : 2 } });
     page1.push({ type: 'text', name: 'tick-' + v, text: String(v), style: mono(34, C.dim), initial: { x: X0 - 26, y, anchorX: 1, anchorY: 0.5 } });
   }
 
@@ -43,7 +43,7 @@ export default function chapter(P) {
   DATA.forEach(([q, v], i) => {
     const at = BAR_AT + delay[i], h = hOf(v), last = i === N - 1;
     page1.push({ type: 'shape', shape: 'rect', name: 'bar-' + q, width: BW, height: 0, cornerRadius: 6, anchorY: 1, at,
-      initial: { x: cx(i), y: BASE, fillColor: last ? C.red : '#34405c' },
+      initial: { x: cx(i), y: BASE, fill: last ? C.red : '#34405c' },
       keyframes: [{ at: 0, to: { height: h }, duration: BAR_DUR, ease: 'power3.out' }] });
     page1.push({ type: 'text', name: 'val-' + q, text: '{value}', format: { decimals: 1 }, at,
       style: mono(38, last ? C.red : C.bone, { fontWeight: 'bold' }),
@@ -58,12 +58,12 @@ export default function chapter(P) {
   const total = segLen.reduce((a, b) => a + b, 0);
   const d = pts.map((p, i) => (i ? 'L ' : 'M ') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
   page1.push({ type: 'shape', shape: 'path', name: 'trend-line', d, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round', at: LINE_AT,
-    initial: { strokeColor: C.cyan, strokeWidth: 9 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: LINE_DUR, ease: 'none' }] });
+    initial: { stroke: C.cyan, strokeWidth: 9 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: LINE_DUR, ease: 'none' }] });
   let run = 0;
   pts.forEach((p, i) => {
     if (i) run += segLen[i - 1];
     page1.push({ type: 'shape', shape: 'circle', name: 'dot-' + DATA[i][0], radius: 15, at: LINE_AT + LINE_DUR * run / total,
-      initial: { x: p[0], y: p[1], fillColor: C.ink, strokeColor: C.cyan, strokeWidth: 7, scale: 0 },
+      initial: { x: p[0], y: p[1], fill: C.ink, stroke: C.cyan, strokeWidth: 7, scale: 0 },
       keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.3, ease: 'back.out(2)' }] });
   });
 
@@ -93,11 +93,11 @@ export default function chapter(P) {
     initial: { x: 96, y: 740, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 1.7, to: { alpha: 1 }, duration: 0.6 }] });
   // the same table again as a small chart
   const MB = 66, MP = 106, MX = 1290, MBASE = 760, MH = 380, mdelay = P.stagger(N, { each: 0.1 });
-  page2.push({ type: 'shape', shape: 'line', name: 'mini-base', from: [MX - 20, MBASE], to: [MX + (N - 1) * MP + MB + 20, MBASE], initial: { strokeColor: INK, strokeWidth: 3 } });
+  page2.push({ type: 'shape', shape: 'line', name: 'mini-base', from: [MX - 20, MBASE], to: [MX + (N - 1) * MP + MB + 20, MBASE], initial: { stroke: INK, strokeWidth: 3 } });
   DATA.forEach(([q, v], i) => {
     const x = MX + MB / 2 + i * MP, last = i === N - 1;
     page2.push({ type: 'shape', shape: 'rect', name: 'mini-' + q, width: MB, height: 0, cornerRadius: 4, anchorY: 1, at: 1.0 + mdelay[i],
-      initial: { x, y: MBASE, fillColor: last ? C.red : INK },
+      initial: { x, y: MBASE, fill: last ? C.red : INK },
       keyframes: [{ at: 0, to: { height: MH * v / MAX }, duration: 0.7, ease: 'power3.out' }] });
     page2.push({ type: 'text', name: 'mini-q-' + q, text: q, style: mono(34, last ? INK : SOFT), initial: { x, y: MBASE + 20, anchorX: 0.5, anchorY: 0 } });
   });

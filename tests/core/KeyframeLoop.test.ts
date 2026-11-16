@@ -67,7 +67,7 @@ describe('colour and shape paths repeat too', () => {
     const s = new ShapeSequence({ type: 'shape', shape: 'rect', width: 10, height: 10, duration: 5,
       keyframes: [
         { at: 0, to: { width: 50 }, duration: 1, repeat: 3, yoyo: true },
-        { at: 0, to: { fillColor: '#ff0000' }, duration: 1, repeat: 3, yoyo: true },
+        { at: 0, to: { fill: '#ff0000' }, duration: 1, repeat: 3, yoyo: true },
       ] } as unknown as SequenceSpec, comp, comp);
     await s.build();
     const tl = createTimeline({ paused: true });

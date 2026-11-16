@@ -58,17 +58,17 @@
     const card = (c, i) => ({ type: 'composition', name: 'card' + i, width: CARD_W, height: CARD_H, duration: 1,
       initial: { x: `c${i}x`, y: `c${i}y`, pivotX: CARD_W / 2, pivotY: CARD_H / 2 },
       sequences: [
-        { type: 'shape', shape: 'rect', name: 'shadow' + i, width: CARD_W, height: CARD_H, cornerRadius: 16, initial: { x: CARD_W / 2 + 4, y: CARD_H / 2 + 8, anchorX: 0.5, anchorY: 0.5, fillColor: '#000000', fillAlpha: 0.35 } },
-        { type: 'shape', shape: 'rect', name: 'face' + i, width: CARD_W, height: CARD_H, cornerRadius: 16, initial: { x: CARD_W / 2, y: CARD_H / 2, anchorX: 0.5, anchorY: 0.5, fillColor: c.c } },
+        { type: 'shape', shape: 'rect', name: 'shadow' + i, width: CARD_W, height: CARD_H, cornerRadius: 16, initial: { x: CARD_W / 2 + 4, y: CARD_H / 2 + 8, anchorX: 0.5, anchorY: 0.5, fill: '#000000', fillAlpha: 0.35 } },
+        { type: 'shape', shape: 'rect', name: 'face' + i, width: CARD_W, height: CARD_H, cornerRadius: 16, initial: { x: CARD_W / 2, y: CARD_H / 2, anchorX: 0.5, anchorY: 0.5, fill: c.c } },
         { type: 'text', name: 'label' + i, text: c.label, style: { fontFamily: FONT, fontSize: 28, fontWeight: '700', fill: '#1b1b1b' }, initial: { x: CARD_W / 2, y: CARD_H / 2, anchorX: 0.5, anchorY: 0.5 } },
       ] });
     const zone = z => [
-      { type: 'shape', shape: 'rect', name: z.name, width: ZONE_W, height: ZONE_H, cornerRadius: 22, initial: { x: z.x, y: ZONE_Y, anchorX: 0.5, anchorY: 0.5, fillColor: '#18213a' } },
-      { type: 'shape', shape: 'rect', name: z.name + '-glow', width: ZONE_W, height: ZONE_H, cornerRadius: 22, initial: { x: z.x, y: ZONE_Y, anchorX: 0.5, anchorY: 0.5, fillColor: z.c, alpha: `${z.name}Lit` } },
+      { type: 'shape', shape: 'rect', name: z.name, width: ZONE_W, height: ZONE_H, cornerRadius: 22, initial: { x: z.x, y: ZONE_Y, anchorX: 0.5, anchorY: 0.5, fill: '#18213a' } },
+      { type: 'shape', shape: 'rect', name: z.name + '-glow', width: ZONE_W, height: ZONE_H, cornerRadius: 22, initial: { x: z.x, y: ZONE_Y, anchorX: 0.5, anchorY: 0.5, fill: z.c, alpha: `${z.name}Lit` } },
       { type: 'text', name: z.name + '-title', text: z.title.toUpperCase(), style: { fontFamily: FONT, fontSize: 26, fontWeight: '800', fill: z.c, letterSpacing: 4 }, initial: { x: z.x, y: 128, anchorX: 0.5, anchorY: 0.5 } },
     ];
     const composition = { sequences: [
-      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0f1424' } },
       { type: 'text', name: 'tray-title', text: 'TO DO', style: { fontFamily: FONT, fontSize: 26, fontWeight: '800', fill: '#8fa0c8', letterSpacing: 4 }, initial: { x: 190, y: 56, anchorX: 0.5, anchorY: 0.5 } },
       { type: 'text', name: 'status', text: '{status}', style: { fontFamily: FONT, fontSize: 26, fill: '#8fa0c8' }, initial: { x: 'GW/2', y: 686, anchorX: 0.5, anchorY: 0.5 } },
       ...ZONES.flatMap(zone),

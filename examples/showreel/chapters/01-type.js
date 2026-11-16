@@ -30,7 +30,7 @@ export default function chapter(P) {
   }));
   seq.push({
     type: 'shape', shape: 'rect', name: 'rule', height: 14, anchorX: 0, anchorY: 0, at: T1 + 0.55, duration: T1_END - T1 - 0.55,
-    initial: { x: CX - m1.width / 2, y: y1 + m1.height + 14, width: 0, fillColor: C.red },
+    initial: { x: CX - m1.width / 2, y: y1 + m1.height + 14, width: 0, fill: C.red },
     keyframes: [{ at: 0, to: { width: m1.width }, duration: 0.45, ease: 'power3.out' }, { at: -0.25, to: { alpha: 0 }, duration: 0.25 }],
   });
   seq.push(label('l1', 'one layer per letter', y1 + m1.height + 90, T1 + 0.8, T1_END));

@@ -227,7 +227,7 @@
     const canvasLayer = (name, draw, extra = {}) => ({ type: 'canvas', name, width: W, height: H, duration: DURATION, setup: sim, draw, ...extra });
 
     const sequences = [
-      { type: 'shape', name: 'bg', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#06070a' } },
+      { type: 'shape', name: 'bg', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#06070a' } },
       { type: 'shape', name: 'pool', shape: 'circle', radius: R + 140, initial: { x: CX, y: CY, alpha: 0.9,
           fillGradient: { type: 'radial', stops: [{ offset: 0, color: '#141018' }, { offset: 1, color: '#06070a' }] } } },
       canvasLayer('exposure', drawExposure, { params: { exposure: 1 },

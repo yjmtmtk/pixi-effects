@@ -65,7 +65,7 @@ function colorKeys(prop, stops, t0, d) {
   }
   return { initial, keyframes };
 }
-// { type: 'shape', shape: 'polygon', points, colorSpace: 'oklab', at: t0, duration: d, ...colorKeys('fillColor', phases(dawn, day, dusk), t0, d) }
+// { type: 'shape', shape: 'polygon', points, colorSpace: 'oklab', at: t0, duration: d, ...colorKeys('fill', phases(dawn, day, dusk), t0, d) }
 ```
 Isometric box as three polygons (canvas coordinates), rising inside a pivoted composition:
 ```js
@@ -75,5 +75,5 @@ const faces = [[L, F, up(F, h), up(L, h)], [F, R, up(R, h), up(F, h)], [up(B, h)
 const C = iso(i0 + 0.5, j0 + 0.5);
 ({ type: 'composition', width: 'GW', height: 'GH', at: t0, initial: { x: C[0], y: C[1], pivotX: C[0], pivotY: C[1], scaleY: 0 },
    keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 0.8, ease: 'back.out(1.5)' }],
-   sequences: faces.map(points => ({ type: 'shape', shape: 'polygon', points, initial: { fillColor } })) })
+   sequences: faces.map(points => ({ type: 'shape', shape: 'polygon', points, initial: { fill } })) })
 ```

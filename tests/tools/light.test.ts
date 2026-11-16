@@ -55,9 +55,9 @@ const lightSpec = (s: LightState, extra: Record<string, unknown> = {}) => {
 const ambient = (i: number) => L({ kind: 'ambient', intensity: i });
 
 /** A grey card as big as the picture, facing the camera at z = 0. */
-const card = (o: Record<string, unknown> = {}) => ({ type: 'shape', shape: 'rect', name: 'card', width: W, height: H, anchorX: 0, anchorY: 0, threeD: true, initial: { x: 0, y: 0, z: 0, fillColor: '#808080' }, ...o });
+const card = (o: Record<string, unknown> = {}) => ({ type: 'shape', shape: 'rect', name: 'card', width: W, height: H, anchorX: 0, anchorY: 0, threeD: true, initial: { x: 0, y: 0, z: 0, fill: '#808080' }, ...o });
 /** A grey card centred on (160, 90) and tilted: its plane for the reference. */
-const tiltedCard = (rx: number, ry: number) => card({ name: 'tilt', width: 160, height: 90, anchorX: 0.5, anchorY: 0.5, initial: { x: 160, y: 90, z: 0, rotationX: rx, rotationY: ry, fillColor: '#808080' } });
+const tiltedCard = (rx: number, ry: number) => card({ name: 'tilt', width: 160, height: 90, anchorX: 0.5, anchorY: 0.5, initial: { x: 160, y: 90, z: 0, rotationX: rx, rotationY: ry, fill: '#808080' } });
 const tiltedPlane = (rx: number, ry: number) => {
   const lt = { x: 160, y: 90, z: 0, rotationX: rx * DEG, rotationY: ry * DEG, rotationZ: 0, scaleX: 1, scaleY: 1, pivotX: 0, pivotY: 0 };
   const o = layerToWorld(lt, 0, 0), a = layerToWorld(lt, 1, 0), b = layerToWorld(lt, 0, 1);
@@ -211,7 +211,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   it('fog alone, with no light: the far layer is mixed toward the fog colour by the amount at its depth', async () => {
     await withPage(async (cdp) => {
       const fogNear = 300, fogFar = 700, fogColor = '#204060', amount = 0.8;
-      const url = await frame(cdp, [{ type: 'camera', initial: { fogNear, fogFar, fogColor, fogAmount: amount } }, card({ initial: { x: 0, y: 0, z: -200, fillColor: '#808080' } })]);
+      const url = await frame(cdp, [{ type: 'camera', initial: { fogNear, fogFar, fogColor, fogAmount: amount } }, card({ initial: { x: 0, y: 0, z: -200, fill: '#808080' } })]);
       // the card is at z = -200 and faces the camera: the depth along the view direction is the same everywhere on it (CAM.z + 200)
       const f = fogAmount(CAM.z + 200, fogNear, fogFar, amount);
       const fog = [0x20, 0x40, 0x60];
@@ -224,9 +224,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   // ── together with the rest (Task 5) ───────────────────────────────────────────────────────────────────────────────────────────────
   const BACK = '#b0703a';
-  const backdrop = () => ({ type: 'shape', shape: 'rect', name: 'backdrop', width: W, height: H, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: BACK } });
+  const backdrop = () => ({ type: 'shape', shape: 'rect', name: 'backdrop', width: W, height: H, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: BACK } });
   const FOGGED = { fogNear: 300, fogFar: 700, fogColor: '#204060', fogAmount: 0.8 };
-  const farCard = () => card({ initial: { x: 0, y: 0, z: -200, fillColor: '#808080' } });
+  const farCard = () => card({ initial: { x: 0, y: 0, z: -200, fill: '#808080' } });
 
   it('light and fog together: the fog mixes in AFTER the shading, so what is far is shaded first and then misted', async () => {
     await withPage(async (cdp) => {
@@ -252,7 +252,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
         { ...lightSpec(L({ kind: 'point', x: 30, y: 40, z: 140, intensity: 0.9 })), keyframes: [{ at: 0, to: { x: 280 }, duration: 2, ease: 'none' }] },
         { type: 'camera', initial: { focus: 'tilt', aperture: 60, ...FOGGED }, keyframes: [{ at: 0, to: { offsetZ: -60 }, duration: 2, ease: 'sine.inOut' }] },
         tiltedCard(25, 20),
-        card({ name: 'far', initial: { x: 0, y: 0, z: -250, fillColor: '#808080' } }),
+        card({ name: 'far', initial: { x: 0, y: 0, z: -250, fill: '#808080' } }),
       ];
       await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: seq } })})`);
       const o = await cdp.eval('orders([0, 7, 15, 22, 30, 38, 45, 52, 59])');
@@ -265,7 +265,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
   for (const [mode, alpha] of [['multiply', 1], ['multiply', 0.5], ['screen', 1], ['overlay', 1]] as const) {
     it(`a lit layer with blendMode ${mode}${alpha < 1 ? ' at alpha ' + alpha : ''} blends its SHADED colour with what is behind it`, async () => {
       await withPage(async (cdp) => {
-        const url = await frame(cdp, [backdrop(), lightSpec(ambient(0.5)), card({ blendMode: mode, initial: { x: 0, y: 0, z: 0, fillColor: '#808080', alpha } })]);
+        const url = await frame(cdp, [backdrop(), lightSpec(ambient(0.5)), card({ blendMode: mode, initial: { x: 0, y: 0, z: 0, fill: '#808080', alpha } })]);
         const shaded = hexToRgb('#808080').map(v => v * 0.5) as [number, number, number];
         const back = hexToRgb(BACK);
         // multiply and screen are the basic modes (the backdrop reference table holds the advanced ones): worked by hand, source-over with alpha
@@ -289,7 +289,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     await withPage(async (cdp) => {
       const lights = [ambient(0.2), L({ kind: 'point', x: 160, y: 90, z: 150, intensity: 0.7 })];
       const cardComp = { type: 'composition', name: 'cardc', width: W, height: H, threeD: true, initial: { x: 0, y: 0, z: 0 },
-        sequences: [{ type: 'shape', shape: 'rect', width: W, height: H, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#808080' } }] };
+        sequences: [{ type: 'shape', shape: 'rect', width: W, height: H, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#808080' } }] };
       const url = await frame(cdp, [...lights.map(l => lightSpec(l)), cardComp]);
       for (const [x, y] of [[160, 90], [40, 30], [280, 150]] as Array<[number, number]>) near(await rgb(cdp, url, x, y), expected(x, y, FLAT, lights), `card at (${x},${y})`);
     });
@@ -336,10 +336,10 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   // ── shadows (Task 6) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
   const FLOOR = { o: { x: 0, y: 0, z: -100 }, n: { x: 0, y: 0, z: 1 } };
-  const floor = () => card({ name: 'floor', width: 700, height: 500, anchorX: 0.5, anchorY: 0.5, initial: { x: 160, y: 90, z: -100, fillColor: '#808080' } });
+  const floor = () => card({ name: 'floor', width: 700, height: 500, anchorX: 0.5, anchorY: 0.5, initial: { x: 160, y: 90, z: -100, fill: '#808080' } });
   /** A 60 x 60 red square centred on (cx, cy) at depth z: its picture is the whole texture, so its plane is exactly the square. */
   const blocker = (name: string, cx: number, cy: number, z: number, extra: Record<string, unknown> = {}, init: Record<string, unknown> = {}) =>
-    ({ type: 'shape', shape: 'rect', name, width: 60, height: 60, anchorX: 0.5, anchorY: 0.5, threeD: true, castsShadows: true, initial: { x: cx, y: cy, z, fillColor: '#ff0000', ...init }, ...extra });
+    ({ type: 'shape', shape: 'rect', name, width: 60, height: 60, anchorX: 0.5, anchorY: 0.5, threeD: true, castsShadows: true, initial: { x: cx, y: cy, z, fill: '#ff0000', ...init }, ...extra });
   const planeOf = (cx: number, cy: number, z: number, ry = 0): PlaneFrame => {
     const lt = { x: cx, y: cy, z, rotationX: 0, rotationY: ry * DEG, rotationZ: 0, scaleX: 1, scaleY: 1, pivotX: 0, pivotY: 0 };
     const o = layerToWorld(lt, -30, -30), a = layerToWorld(lt, 30, -30), b = layerToWorld(lt, -30, 30);

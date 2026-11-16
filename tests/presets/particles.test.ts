@@ -123,7 +123,7 @@ describe('particles(): look', () => {
 
   it('colours are picked from the list (seeded)', () => {
     const out = particles({ ...base, count: 40, colors: ['#ff0000', '#00ff00', '#0000ff'] }) as any[];
-    const used = new Set(out.map(l => l.initial.fillColor));
+    const used = new Set(out.map(l => l.initial.fill));
     expect(used).toEqual(new Set(['#ff0000', '#00ff00', '#0000ff']));
   });
 

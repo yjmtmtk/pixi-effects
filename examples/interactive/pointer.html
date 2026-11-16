@@ -42,17 +42,17 @@
       const x0 = Math.round(GX * (c + 0.5)), y0 = Math.round(GY * (r + 0.5));
       const near = `clamp(1.8 - sqrt(pow(${x0} - px, 2) + pow(${y0} - py, 2)) / 260, 0.25, 1.8)`;
       // the wave runs by itself (a keyframe, no variable): each dot bobs, started a little later than its neighbour on the diagonal
-      dots.push({ type: 'shape', shape: 'circle', radius: 9, initial: { x: x0, y: y0, scale: near, alpha: `clamp(0.25 + ${near} * 0.4, 0.3, 1)`, fillColor: (r + c) % 2 ? '#6aa8ff' : '#a06bff' },
+      dots.push({ type: 'shape', shape: 'circle', radius: 9, initial: { x: x0, y: y0, scale: near, alpha: `clamp(0.25 + ${near} * 0.4, 0.3, 1)`, fill: (r + c) % 2 ? '#6aa8ff' : '#a06bff' },
         keyframes: [{ at: (c + r) * 0.1, to: { y: '-=26' }, duration: 0.9, ease: 'sine.inOut', repeat: 6, yoyo: true }] });
     }
     const composition = { sequences: [
-      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d1018' } },
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0d1018' } },
       // two soft lights drifting on their own, and a band that sweeps down the picture
-      { type: 'shape', shape: 'circle', radius: 340, initial: { x: 200, y: 180, fillColor: '#6aa8ff', fillAlpha: 0.10 }, keyframes: [{ at: 0, to: { x: 1000, y: 520 }, duration: 8, ease: 'sine.inOut' }] },
-      { type: 'shape', shape: 'circle', radius: 300, initial: { x: 1100, y: 560, fillColor: '#a06bff', fillAlpha: 0.12 }, keyframes: [{ at: 0, to: { x: 300, y: 200 }, duration: 8, ease: 'sine.inOut' }] },
-      { type: 'shape', shape: 'rect', width: 'GW', height: 90, initial: { x: 'GW/2', y: -60, fillColor: '#ffffff', fillAlpha: 0.05 }, keyframes: [{ at: 0, to: { y: 780 }, duration: 2.6, ease: 'none', repeat: 2 }] },
+      { type: 'shape', shape: 'circle', radius: 340, initial: { x: 200, y: 180, fill: '#6aa8ff', fillAlpha: 0.10 }, keyframes: [{ at: 0, to: { x: 1000, y: 520 }, duration: 8, ease: 'sine.inOut' }] },
+      { type: 'shape', shape: 'circle', radius: 300, initial: { x: 1100, y: 560, fill: '#a06bff', fillAlpha: 0.12 }, keyframes: [{ at: 0, to: { x: 300, y: 200 }, duration: 8, ease: 'sine.inOut' }] },
+      { type: 'shape', shape: 'rect', width: 'GW', height: 90, initial: { x: 'GW/2', y: -60, fill: '#ffffff', fillAlpha: 0.05 }, keyframes: [{ at: 0, to: { y: 780 }, duration: 2.6, ease: 'none', repeat: 2 }] },
       ...dots,
-      { type: 'shape', shape: 'arc', name: 'ring', radius: 54, innerRadius: 46, startAngle: 0, endAngle: 270, initial: { x: 'px', y: 'py', fillColor: '#ffffff' },
+      { type: 'shape', shape: 'arc', name: 'ring', radius: 54, innerRadius: 46, startAngle: 0, endAngle: 270, initial: { x: 'px', y: 'py', fill: '#ffffff' },
         keyframes: [{ at: 0, to: { rotation: 360 }, duration: 2, ease: 'none', repeat: 3 }] },
       { type: 'text', name: 'readout', text: '{px}, {py}', style: { fontFamily: FONT, fontSize: 26, fontWeight: '700', fill: '#ffffff' }, initial: { x: 'px', y: 'py + 84', anchorX: 0.5, anchorY: 0.5 } },
       { type: 'text', name: 'hint', text: 'move the pointer', style: { fontFamily: FONT, fontSize: 22, fill: '#8b95a8' }, initial: { x: 36, y: 40, anchorX: 0, anchorY: 0.5 },

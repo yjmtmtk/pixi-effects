@@ -48,9 +48,9 @@
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30,
         composition: { sequences: [
-          { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#16324f' } },
-          { type: 'shape', shape: 'circle', radius: 110, filters: f, initial: { x: 330, y: 330, fillColor: '#ffd166' } },
-          { type: 'shape', shape: 'rect', width: 220, height: 220, filters: f, initial: { x: 700, y: 330, fillColor: '#2ecc71' } },
+          { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#16324f' } },
+          { type: 'shape', shape: 'circle', radius: 110, filters: f, initial: { x: 330, y: 330, fill: '#ffd166' } },
+          { type: 'shape', shape: 'rect', width: 220, height: 220, filters: f, initial: { x: 700, y: 330, fill: '#2ecc71' } },
           { type: 'text', text: 'Filter 123', filters: f, style: { fontSize: 120, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 640, y: 580, anchorX: 0.5, anchorY: 0.5 } },
         ] },
       });

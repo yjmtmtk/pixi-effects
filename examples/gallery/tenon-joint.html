@@ -79,7 +79,7 @@
 
     const rect = (name, parent, cx, cy, w, h, color) => ({
       type: 'shape', shape: 'rect', name, parent, width: w, height: h,
-      initial: { x: cx, y: cy, fillColor: color },
+      initial: { x: cx, y: cy, fill: color },
     });
 
     // the left block: a half-square with the mortise (notch) cut out of its right edge
@@ -106,12 +106,12 @@
     // (a guide at rig coordinate u sits at screen 360 + u * scale, and scale moves with the same ease)
     // on the click the lines turn hinoki and are pulled into the joint (they shrink toward the mark's centre)
     const guideSnap = (axis) => [
-      { at: LOCK, to: { fillColor: HINOKI, alpha: 1 }, duration: 0.04 },
+      { at: LOCK, to: { fill: HINOKI, alpha: 1 }, duration: 0.04 },
       { at: LOCK + 0.06, to: { [axis]: 0 }, duration: 0.42, ease: 'power3.in' },
     ];
     const hGuide = (name, u) => ({
       type: 'shape', shape: 'rect', name, width: W, height: 1, duration: LOCK + 0.7,
-      initial: { x: W / 2, y: CY + u * Z0, fillColor: GRAPHITE, scaleX: 0, alpha: 0.9 },
+      initial: { x: W / 2, y: CY + u * Z0, fill: GRAPHITE, scaleX: 0, alpha: 0.9 },
       keyframes: [
         { at: 0.15, to: { scaleX: 1 }, duration: 1.1, ease: 'power3.inOut' },
         { at: 0, to: { y: CY + u * Z1 }, duration: ZOOM_END, ease: 'expo.inOut' },
@@ -120,7 +120,7 @@
     });
     const vGuide = (name, u, delay) => ({
       type: 'shape', shape: 'rect', name, width: 1, height: H, duration: LOCK + 0.7,
-      initial: { x: W / 2 + u * Z0, y: H / 2, fillColor: GRAPHITE, scaleY: 0, alpha: 0.9 },
+      initial: { x: W / 2 + u * Z0, y: H / 2, fill: GRAPHITE, scaleY: 0, alpha: 0.9 },
       keyframes: [
         { at: 0.35 + delay, to: { scaleY: 1 }, duration: 1.0, ease: 'power3.inOut' },
         { at: 0, to: { x: W / 2 + u * Z1 }, duration: ZOOM_END, ease: 'expo.inOut' },
@@ -145,7 +145,7 @@
     };
 
     const sequences = [
-      { type: 'shape', name: 'ground', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } },
+      { type: 'shape', name: 'ground', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: INK } },
 
       hGuide('guide.top', -TH),
       hGuide('guide.bottom', TH),
@@ -173,7 +173,7 @@
 
       { type: 'text', name: 'wordmark', text: 'HOZO', at: WORD, parent: 'world',
         // the window the name slides out of: everything right of the mark's edge (an inline mask follows the null)
-        mask: { type: 'shape', shape: 'rect', width: W, height: 260, initial: { x: MARK_X + HALF + 22 - W / 2, y: 0, anchorX: 0, fillColor: '#ffffff' } },
+        mask: { type: 'shape', shape: 'rect', width: W, height: 260, initial: { x: MARK_X + HALF + 22 - W / 2, y: 0, anchorX: 0, fill: '#ffffff' } },
         style: { fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', fontSize: 96, fontWeight: '500', letterSpacing: 21, fill: PAPER },
         initial: { x: WORD_X - W / 2, y: MARK_TOP - 21 - CY },
         keyframes: [{ at: 0, from: { x: WORD_X - 190 - W / 2 }, to: { x: WORD_X - W / 2 }, duration: 0.85, ease: 'expo.out' }] },

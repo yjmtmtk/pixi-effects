@@ -31,7 +31,7 @@ const TOL = 3;
 const near = (got: number[], want: number[], label: string) => { for (let k = 0; k < 3; k++) expect(Math.abs(got[k]! - want[k]!), `${label} channel ${k}: got ${got} want ${want}`).toBeLessThanOrEqual(TOL); };
 const RED = [255, 0, 0], BLUE = [0, 0, 255], BLACK = [0, 0, 0];
 /** A 20 x 20 square centred at x = `xExpr`, y = H/2. */
-const square = (fill: string, xExpr: string | number = 'W/2', extra: Record<string, unknown> = {}) => ({ type: 'shape', shape: 'rect', name: 'sq', width: 20, height: 20, initial: { x: xExpr, y: 'H/2', fillColor: fill }, ...extra });
+const square = (fill: string, xExpr: string | number = 'W/2', extra: Record<string, unknown> = {}) => ({ type: 'shape', shape: 'rect', name: 'sq', width: 20, height: 20, initial: { x: xExpr, y: 'H/2', fill: fill }, ...extra });
 const mk = (cdp: any, opts: unknown) => cdp.eval(`mk(${JSON.stringify(opts)})`);
 const px = async (cdp: any, f: number, x: number, y: number): Promise<number[]> => { const url: string = await cdp.eval(`snap(${f})`); return cdp.eval(`px(${JSON.stringify(url)}, ${x}, ${y})`); };
 
@@ -234,8 +234,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
 
   it('a blend mode named by a variable (or by a composition handed to rebuild) is set up like one written out', async () => {
     await withPage(async (cdp) => {
-      const grey = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#404040' } };
-      const orange = (mode: string) => ({ type: 'shape', shape: 'rect', width: 40, height: 40, blendMode: mode, initial: { x: 'W/2', y: 'H/2', fillColor: '#ff8000' } });
+      const grey = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#404040' } };
+      const orange = (mode: string) => ({ type: 'shape', shape: 'rect', width: 40, height: 40, blendMode: mode, initial: { x: 'W/2', y: 'H/2', fill: '#ff8000' } });
       await mk(cdp, { vars: { mode: 'overlay' }, composition: { sequences: [grey, orange('{mode}')] } });
       near(await px(cdp, 0, 80, 45), [128, 64, 0], 'overlay by variable');
       await mk(cdp, { composition: { sequences: [grey, orange('normal')] } });

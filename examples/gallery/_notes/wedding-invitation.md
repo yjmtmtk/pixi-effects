@@ -72,7 +72,7 @@ Model: fable   Cycles: 2 (first run â†’ one batch of three small design edits â†
 function borderTrace(name, L, T, R, B, sw, color, at, speed = 1700) {
   const lenH = R - L + sw, lenV = B - T + sw, dH = lenH / speed, dV = lenV / speed;   // half-stroke overhang closes the corners
   const side = (sfx, geom, init, kf) => ({ type: 'shape', shape: 'rect', name: `${name}-${sfx}`, at, ...geom,
-    initial: { fillColor: color, ...init }, keyframes: [{ ...kf, ease: 'sine.inOut' }] });
+    initial: { fill: color, ...init }, keyframes: [{ ...kf, ease: 'sine.inOut' }] });
   return [
     side('top',    { width: 0, height: sw, anchorX: 0 }, { x: L - sw / 2, y: T }, { at: 0,           to: { width: lenH },  duration: dH }),
     side('right',  { width: sw, height: 0, anchorY: 0 }, { x: R, y: T - sw / 2 }, { at: dH,          to: { height: lenV }, duration: dV }),
@@ -89,7 +89,7 @@ return [...borderTrace('outer', 98, 98, 982, 1252, 2.4, '#bf9d60', 0.7), ...bord
 let seed = 2027; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 const deg = r => r * 180 / Math.PI, rotUp = (dx, dy) => deg(Math.atan2(dx, -dy)), rotRight = (dx, dy) => deg(Math.atan2(dy, dx));
 function stem([bx, by], [dx, dy], len, at, dur = 0.9, leaves = 6, leafLen = 42) {
-  const out = [{ type: 'shape', shape: 'rect', width: 1.8, height: 0, anchorY: 1, at, initial: { x: bx, y: by, rotation: rotUp(dx, dy), fillColor: '#6d8268' },
+  const out = [{ type: 'shape', shape: 'rect', width: 1.8, height: 0, anchorY: 1, at, initial: { x: bx, y: by, rotation: rotUp(dx, dy), fill: '#6d8268' },
     keyframes: [{ at: 0, to: { height: len }, duration: dur, ease: 'power2.out' }] }];
   const px = -dy, py = dx;                                                   // perpendicular
   for (let i = 0; i < leaves; i++) {
@@ -97,7 +97,7 @@ function stem([bx, by], [dx, dy], len, at, dur = 0.9, leaves = 6, leafLen = 42) 
     const lx = dx * Math.cos(ang) + px * side * Math.sin(ang), ly = dy * Math.cos(ang) + py * side * Math.sin(ang);
     const L = leafLen * (1 - 0.4 * i / leaves), reach = dur * (1 - Math.sqrt(1 - s / len));   // when a power2.out tip passes s
     out.push({ type: 'shape', shape: 'ellipse', radiusX: L / 2, radiusY: L * 0.18, anchorX: 0, at: at + reach + 0.04,
-      initial: { x: bx + dx * s, y: by + dy * s, rotation: rotRight(lx, ly), fillColor: ['#8da189', '#6d8268', '#a9b8a2'][i % 3], scale: 0 },
+      initial: { x: bx + dx * s, y: by + dy * s, rotation: rotRight(lx, ly), fill: ['#8da189', '#6d8268', '#a9b8a2'][i % 3], scale: 0 },
       keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.75, ease: 'back.out(1.3)' }] });
   }
   return out;

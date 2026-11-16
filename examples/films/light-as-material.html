@@ -90,7 +90,7 @@
         : { preset, ...(o.pitch != null && { pitch: o.pitch }), ...(o.brightness != null && { brightness: o.brightness }), ...(o.seed != null && { seed: o.seed }) },
       ...(o.duration ? { duration: o.duration } : {}),
     });
-    const bg = (color = INK, extra = {}) => ({ type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, ...extra, initial: { x: W / 2, y: H / 2, fillColor: color, ...(extra.initial || {}) } });
+    const bg = (color = INK, extra = {}) => ({ type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, ...extra, initial: { x: W / 2, y: H / 2, fill: color, ...(extra.initial || {}) } });
     const scene = (name, at, duration, sequences, extra = {}) => ({ type: 'composition', name, at, duration, width: W, height: H, sequences, ...extra });
     const glowBlob = (name, x, y, r, color, alpha = 0.5, extra = {}) => ({
       type: 'shape', shape: 'circle', name, radius: r, blendMode: 'add', ...extra,
@@ -190,8 +190,8 @@
       const progress = (t, row, label, dur) => {
         put(t, row, 0, label, MUTE);
         const x = colX(16), y = rowY(row), BW = 360, BH = 8;
-        lines.push({ type: 'shape', shape: 'rect', name: 'track', width: BW, height: BH, cornerRadius: BH / 2, anchorX: 0, at: t, initial: { x, y, fillColor: '#18213a' } });
-        lines.push({ type: 'shape', shape: 'rect', name: 'fill', width: 0, height: BH, cornerRadius: BH / 2, anchorX: 0, at: t, initial: { x, y, fillColor: AMBER },
+        lines.push({ type: 'shape', shape: 'rect', name: 'track', width: BW, height: BH, cornerRadius: BH / 2, anchorX: 0, at: t, initial: { x, y, fill: '#18213a' } });
+        lines.push({ type: 'shape', shape: 'rect', name: 'fill', width: 0, height: BH, cornerRadius: BH / 2, anchorX: 0, at: t, initial: { x, y, fill: AMBER },
           keyframes: [{ at: 2 / FPS, to: { width: BW }, duration: dur, ease: 'power2.inOut' }] });
         lines.push({ type: 'text', name: 'pct', text: '{value}%', at: t, style: st(MUTE), initial: { x: x + BW + 18, y, anchorX: 0, anchorY: 0.5, value: 0 },
           keyframes: [{ at: 2 / FPS, to: { value: 100 }, duration: dur, ease: 'power2.inOut' }] });
@@ -262,11 +262,11 @@
 
       cursorKeys.sort((a, b) => a.at - b.at);
       const cursor = { type: 'shape', shape: 'rect', name: 'cursor', width: ADV, height: FS * 1.15, anchorX: 0, anchorY: 0.5,
-        initial: { x: colX(2), y: rowY(0), fillColor: AMBER_HI, alpha: 0 }, keyframes: cursorKeys };
+        initial: { x: colX(2), y: rowY(0), fill: AMBER_HI, alpha: 0 }, keyframes: cursorKeys };
 
       // the screen: a composition that scrolls under a fixed mask (the mask stays, the content moves)
       const screen = { type: 'composition', name: 'screen', width: WIN_W, height: 2400, initial: { x: SX, y: SY }, keyframes: scrollKeys,
-        mask: { type: 'shape', shape: 'rect', width: WIN_W - 2, height: SH - 1, anchorX: 0, anchorY: 0, initial: { x: SX + 1, y: SY, fillColor: '#ffffff' } },
+        mask: { type: 'shape', shape: 'rect', width: WIN_W - 2, height: SH - 1, anchorX: 0, anchorY: 0, initial: { x: SX + 1, y: SY, fill: '#ffffff' } },
         sequences: [...lines, cursor] };
 
       // window chrome and screen texture
@@ -274,11 +274,11 @@
       const chrome = [
         { type: 'shape', shape: 'rect', name: 'shadow', width: WIN_W + 150, height: WIN_H + 150, initial: { x: wcx, y: wcy + 34 },
           fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(0,0,0,0.9)'], [0.7, 'rgba(0,0,0,0.5)'], [1, 'rgba(0,0,0,0)']] } },
-        { type: 'shape', shape: 'rect', name: 'window', width: WIN_W, height: WIN_H, cornerRadius: 14, initial: { x: wcx, y: wcy, fillColor: INK2, strokeColor: '#243049', strokeWidth: 1 } },
-        { type: 'shape', shape: 'rect', name: 'titlebar', width: WIN_W - 2, height: TITLE_H + 14, cornerRadius: 14, anchorY: 0, initial: { x: wcx, y: wy + 1, fillColor: '#121a2e' } },
-        { type: 'shape', shape: 'rect', name: 'titlebar-patch', width: WIN_W - 2, height: 14, anchorY: 0, initial: { x: wcx, y: wy + TITLE_H, fillColor: INK2 } },
-        { type: 'shape', shape: 'rect', name: 'titlebar-rule', width: WIN_W - 2, height: 1, anchorY: 0, initial: { x: wcx, y: wy + TITLE_H, fillColor: '#243049' } },
-        ...[0, 1, 2].map(i => ({ type: 'shape', shape: 'circle', name: 'dot' + i, radius: 6, initial: { x: wx + 24 + i * 22, y: wy + TITLE_H / 2, fillColor: '#2c3650' } })),
+        { type: 'shape', shape: 'rect', name: 'window', width: WIN_W, height: WIN_H, cornerRadius: 14, initial: { x: wcx, y: wcy, fill: INK2, stroke: '#243049', strokeWidth: 1 } },
+        { type: 'shape', shape: 'rect', name: 'titlebar', width: WIN_W - 2, height: TITLE_H + 14, cornerRadius: 14, anchorY: 0, initial: { x: wcx, y: wy + 1, fill: '#121a2e' } },
+        { type: 'shape', shape: 'rect', name: 'titlebar-patch', width: WIN_W - 2, height: 14, anchorY: 0, initial: { x: wcx, y: wy + TITLE_H, fill: INK2 } },
+        { type: 'shape', shape: 'rect', name: 'titlebar-rule', width: WIN_W - 2, height: 1, anchorY: 0, initial: { x: wcx, y: wy + TITLE_H, fill: '#243049' } },
+        ...[0, 1, 2].map(i => ({ type: 'shape', shape: 'circle', name: 'dot' + i, radius: 6, initial: { x: wx + 24 + i * 22, y: wy + TITLE_H / 2, fill: '#2c3650' } })),
         { type: 'text', name: 'wtitle', text: 'reel  —  terminal  —  96×20', style: { fontFamily: SANS, fontWeight: '500', fontSize: 14, fill: MUTE, letterSpacing: 1 },
           initial: { x: wcx, y: wy + TITLE_H / 2, anchorX: 0.5, anchorY: 0.5 } },
       ];
@@ -323,8 +323,8 @@
           { at: 4.3, to: { x: 960, y: -300, lookAtX: 960, coneAngle: 80, coneFeather: 0.85, intensity: 1.4 }, duration: 1.3, ease: 'sine.inOut' },
         ] });
       // the room: a wall far back, a floor laid flat from its foot
-      seqs.push({ type: 'shape', shape: 'rect', name: 'wall', width: W * 1.8, height: H * 1.7, threeD: true, initial: { x: W / 2, y: H / 2 - 120, z: WALL_Z, fillColor: '#262f4a' } });
-      seqs.push({ type: 'shape', shape: 'rect', name: 'floor', width: W * 1.9, height: 1500, anchorX: 0.5, anchorY: 0, threeD: true, initial: { x: W / 2, y: FLOOR_Y, z: WALL_Z, rotationX: 90, fillColor: '#141c30' } });
+      seqs.push({ type: 'shape', shape: 'rect', name: 'wall', width: W * 1.8, height: H * 1.7, threeD: true, initial: { x: W / 2, y: H / 2 - 120, z: WALL_Z, fill: '#262f4a' } });
+      seqs.push({ type: 'shape', shape: 'rect', name: 'floor', width: W * 1.9, height: 1500, anchorX: 0.5, anchorY: 0, threeD: true, initial: { x: W / 2, y: FLOOR_Y, z: WALL_Z, rotationX: 90, fill: '#141c30' } });
       // the words: a card that the light reveals and that throws its own shadow on the wall
       seqs.push({ type: 'composition', name: 'title', width: TW, height: TH, threeD: true, castsShadows: true,
         initial: { x: W / 2, y: H / 2 - 30, z: TITLE_Z, pivotX: TW / 2, pivotY: TH / 2 },
@@ -334,7 +334,7 @@
         ] });
       // three blades standing between the lamp and the words
       [430, 960, 1490].forEach((x, i) => seqs.push({ type: 'shape', shape: 'rect', name: 'blade' + i, width: 26, height: 1000, cornerRadius: 4, threeD: true, castsShadows: true,
-        initial: { x: x + (i - 1) * 46, y: H / 2 + 40, z: -70 + i * 32, fillColor: '#d7dde9' } }));
+        initial: { x: x + (i - 1) * 46, y: H / 2 + 40, z: -70 + i * 32, fill: '#d7dde9' } }));
       // dust in the air (2D, additive)
       seqs.push(...particles({ count: 46, at: 0.3, emit: 5, life: [3, 5.5], area: { x: W / 2, y: H / 2, width: W, height: H }, angle: [-110, -70], speed: [4, 16],
         sway: { amp: 14, freq: 0.3 }, size: [0.8, 2.1], fade: { in: 1.4, out: 1.2 }, colors: [AMBER_HI, AMBER, CYAN], blendMode: 'add', seed: 5, name: 'dust' }));
@@ -475,14 +475,14 @@
       links.forEach((l, i) => {
         const [x1, y1] = P(l.source), [x2, y2] = P(l.target), t0 = bloomAt(l.target) - 0.25;
         graph.push({ type: 'shape', shape: 'line', name: 'link' + i, from: [x1, y1], to: [x2, y2], trimEnd: 0, blendMode: 'add', at: t0, duration: dur - t0,
-          initial: { strokeColor: l.target.depth === 1 ? AMBER : CYAN, strokeWidth: l.target.depth === 1 ? 1.6 : 1.1, strokeAlpha: l.target.depth === 1 ? 0.75 : 0.5 },
+          initial: { stroke: l.target.depth === 1 ? AMBER : CYAN, strokeWidth: l.target.depth === 1 ? 1.6 : 1.1, strokeAlpha: l.target.depth === 1 ? 0.75 : 0.5 },
           keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.4, ease: 'power2.out' }] });
       });
       nodes.forEach((n, i) => {
         const [x, y] = P(n), t0 = bloomAt(n), color = n.depth === 0 ? AMBER_HI : n.depth === 1 ? CYAN_HI : WHITE;
         graph.push(glowBlob('halo' + i, x, y, n.r * 3.4, n.depth === 0 ? AMBER : CYAN, n.depth === 2 ? 0.35 : 0.6, { at: t0, duration: dur - t0, initial: { scale: 0 },
           keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.7, ease: 'power2.out' }] }));
-        graph.push({ type: 'shape', shape: 'circle', name: 'node' + i, radius: n.r, at: t0, duration: dur - t0, initial: { x, y, fillColor: color, scale: 0 },
+        graph.push({ type: 'shape', shape: 'circle', name: 'node' + i, radius: n.r, at: t0, duration: dur - t0, initial: { x, y, fill: color, scale: 0 },
           keyframes: [{ at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.snappy' }] });
         if (n.depth === 1) graph.push({ type: 'text', name: 'lbl-' + n.id, text: n.label, at: t0 + 0.1, duration: dur - t0 - 0.1, style: mono(19, { fill: CYAN_HI }),
           initial: { x, y: y - n.r - 12, anchorX: 0.5, anchorY: 1, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.4 }] });
@@ -503,7 +503,7 @@
         if (e <= s) return;
         const t0 = 1.4 + i * 0.12;
         seqs.push({ type: 'shape', shape: 'arc', name: 'slice-' + a.data[0], radius: R_OUT, innerRadius: R_IN, startAngle: s, endAngle: s, at: t0, duration: dur - t0,
-          initial: { x: RX, y: RY, fillColor: SLICE[i % SLICE.length], fillAlpha: 0.92 }, keyframes: [{ at: 0, to: { endAngle: e }, duration: 0.7, ease: 'power3.out' }] });
+          initial: { x: RX, y: RY, fill: SLICE[i % SLICE.length], fillAlpha: 0.92 }, keyframes: [{ at: 0, to: { endAngle: e }, duration: 0.7, ease: 'power3.out' }] });
       });
       seqs.push(glowBlob('ring-glow', RX, RY, 300, AMBER, 0.22, { at: 1.4, duration: dur - 1.4, initial: { alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.2 }] }));
       seqs.push({ type: 'text', name: 'total', text: '{value}', format: { decimals: 0, grouping: true }, at: 1.4, duration: dur - 1.4, style: thin(84, { letterSpacing: 2 }),
@@ -512,7 +512,7 @@
         keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.5 }] });
       types.forEach(([type, n], i) => {
         const y = 300 + i * 36, t0 = 1.6 + i * 0.12;
-        seqs.push({ type: 'shape', shape: 'circle', name: 'leg-dot-' + type, radius: 4, at: t0, duration: dur - t0, initial: { x: 1626, y, fillColor: SLICE[i % SLICE.length], scale: 0 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.3, ease: 'back.out(2)' }] });
+        seqs.push({ type: 'shape', shape: 'circle', name: 'leg-dot-' + type, radius: 4, at: t0, duration: dur - t0, initial: { x: 1626, y, fill: SLICE[i % SLICE.length], scale: 0 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.3, ease: 'back.out(2)' }] });
         seqs.push({ type: 'text', name: 'leg-' + type, text: type, at: t0, duration: dur - t0, style: mono(21), initial: { x: 1646, y, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0, x: 1638 }, to: { alpha: 1, x: 1646 }, duration: 0.4, ease: 'power2.out' }] });
         seqs.push({ type: 'text', name: 'leg-n-' + type, text: String(n), at: t0, duration: dur - t0, style: mono(21, { fill: CYAN_HI }), initial: { x: 1836, y, anchorX: 1, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4 }] });
       });
@@ -522,9 +522,9 @@
       const LX = scaleLinear().domain([0, 45]).range([240, 1680]), LY = scaleLinear().domain([0, 1]).range([935, 860]);
       const pathOf = band => d3line().x(t => LX(t)).y(t => LY(env.at(t, band))).curve(curveCatmullRom.alpha(0.5))(pts);
       seqs.push({ type: 'shape', shape: 'path', name: 'level', d: pathOf('level'), morphTo: pathOf('bass'), trimEnd: 0, strokeCap: 'round', strokeJoin: 'round', blendMode: 'add', at: 2.0, duration: dur - 2,
-        initial: { strokeColor: CYAN, strokeWidth: 2, strokeAlpha: 0.9 },
-        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.6, ease: 'power2.inOut' }, { at: 3.4, to: { morph: 1, strokeColor: AMBER }, duration: 0.8, ease: 'power2.inOut' }] });
-      seqs.push({ type: 'shape', shape: 'line', name: 'level-axis', from: [240, 936], to: [1680, 936], at: 2.0, duration: dur - 2, initial: { strokeColor: DIM, strokeWidth: 1, strokeAlpha: 0.8 } });
+        initial: { stroke: CYAN, strokeWidth: 2, strokeAlpha: 0.9 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.6, ease: 'power2.inOut' }, { at: 3.4, to: { morph: 1, stroke: AMBER }, duration: 0.8, ease: 'power2.inOut' }] });
+      seqs.push({ type: 'shape', shape: 'line', name: 'level-axis', from: [240, 936], to: [1680, 936], at: 2.0, duration: dur - 2, initial: { stroke: DIM, strokeWidth: 1, strokeAlpha: 0.8 } });
       seqs.push({ type: 'text', name: 'level-label', text: 'THE SCORE, READ BACK   ·   LEVEL', at: 2.1, duration: dur - 2.1, style: caps(15, { fill: MUTE }),
         initial: { x: 1680, y: 846, anchorX: 1, anchorY: 1, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4 }, { at: 3.3, set: { text: 'THE SCORE, READ BACK   ·   BASS' } }] });
       seqs.push({ type: 'text', name: 'data-title', text: 'THE FILM, AS DATA', at: 0.3, duration: dur - 0.3, style: thin(54, { letterSpacing: 14 }),
@@ -547,8 +547,8 @@
       const stroke = (drawable, t0, d, color = AMBER_HI, w = 2.6) => {
         for (const p of gen.toPaths(drawable)) {
           const base = { type: 'shape', shape: 'path', d: p.d, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round', at: t0, duration: dur - t0 };
-          sheet.push({ ...base, name: 'sk-glow' + k, blendMode: 'add', initial: { strokeColor: color, strokeWidth: w * 5, strokeAlpha: 0.14 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: d, ease: 'power2.inOut' }] });
-          sheet.push({ ...base, name: 'sk' + k++, initial: { strokeColor: color, strokeWidth: w, strokeAlpha: 0.95 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: d, ease: 'power2.inOut' }] });
+          sheet.push({ ...base, name: 'sk-glow' + k, blendMode: 'add', initial: { stroke: color, strokeWidth: w * 5, strokeAlpha: 0.14 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: d, ease: 'power2.inOut' }] });
+          sheet.push({ ...base, name: 'sk' + k++, initial: { stroke: color, strokeWidth: w, strokeAlpha: 0.95 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: d, ease: 'power2.inOut' }] });
         }
         audio.push(sfx('swipe', t0, { pitch: -8, brightness: -0.6, volume: 0.3, seed: k }));
       };
@@ -606,7 +606,7 @@
         ] });
       for (let i = 0; i < GATES; i++) {
         seqs.push({ type: 'shape', shape: 'rect', name: 'gate' + i, width: 1500, height: 850, cornerRadius: 24, threeD: true, hideBehindCamera: true, blendMode: 'add',
-          initial: { x: 960, y: 540, z: -STEP * i, strokeColor: i % 2 ? AMBER : CYAN, strokeWidth: 5, fillAlpha: 0, strokeAlpha: 0.5 },
+          initial: { x: 960, y: 540, z: -STEP * i, stroke: i % 2 ? AMBER : CYAN, strokeWidth: 5, fillAlpha: 0, strokeAlpha: 0.5 },
           keyframes: react(env, { duration: dur, audioOffset: at, props: { strokeAlpha: { base: 0.4, amount: 0.6, band: 'bass', attack: 0.01, release: 0.25 } } }) });
       }
       // panes: the layers of a film, floating between the gates as thin cards
@@ -614,16 +614,16 @@
       const paneContent = [
         [{ type: 'text', text: 'Aa', style: thin(170, { letterSpacing: 10 }), initial: { x: PW / 2, y: PH / 2, anchorX: 0.5, anchorY: 0.5 } }],
         [{ type: 'text', text: "{ type: 'text',\n  at: 32,\n  duration: 6 }", style: mono(26, { fill: CYAN_HI, align: 'left', lineHeight: 40 }), initial: { x: 60, y: 90, anchorX: 0, anchorY: 0 } }],
-        [{ type: 'shape', shape: 'path', d: d3line().curve(curveCatmullRom.alpha(0.5))([[60, 230], [140, 120], [230, 190], [320, 80], [400, 150], [470, 60]]), initial: { strokeColor: CYAN, strokeWidth: 4 }, strokeCap: 'round' }],
-        [{ type: 'shape', shape: 'arc', radius: 110, startAngle: -90, endAngle: 180, strokeCap: 'round', initial: { x: PW / 2, y: PH / 2, strokeColor: AMBER, strokeWidth: 8 } }],
-        [{ type: 'shape', shape: 'polygon', open: true, points: Array.from({ length: 48 }, (_, i) => [40 + i * 9.2, PH / 2 + Math.sin(i * 0.45) * 70 * Math.exp(-i * 0.02)]), initial: { strokeColor: WHITE, strokeWidth: 3 } }],
-        ...[[0]].map(() => [0, 1, 2, 3, 4].map(i => ({ type: 'shape', shape: 'rect', width: 48, height: 60 + i * 38, anchorY: 1, initial: { x: 120 + i * 72, y: 270, fillColor: i % 2 ? AMBER : CYAN, fillAlpha: 0.8 } }))),
+        [{ type: 'shape', shape: 'path', d: d3line().curve(curveCatmullRom.alpha(0.5))([[60, 230], [140, 120], [230, 190], [320, 80], [400, 150], [470, 60]]), initial: { stroke: CYAN, strokeWidth: 4 }, strokeCap: 'round' }],
+        [{ type: 'shape', shape: 'arc', radius: 110, startAngle: -90, endAngle: 180, strokeCap: 'round', initial: { x: PW / 2, y: PH / 2, stroke: AMBER, strokeWidth: 8 } }],
+        [{ type: 'shape', shape: 'polygon', open: true, points: Array.from({ length: 48 }, (_, i) => [40 + i * 9.2, PH / 2 + Math.sin(i * 0.45) * 70 * Math.exp(-i * 0.02)]), initial: { stroke: WHITE, strokeWidth: 3 } }],
+        ...[[0]].map(() => [0, 1, 2, 3, 4].map(i => ({ type: 'shape', shape: 'rect', width: 48, height: 60 + i * 38, anchorY: 1, initial: { x: 120 + i * 72, y: 270, fill: i % 2 ? AMBER : CYAN, fillAlpha: 0.8 } }))),
       ];
       paneContent.forEach((content, i) => {
         const x = i % 2 ? 1480 : 440, y = i % 3 === 0 ? 330 : 690, z = -STEP * i - 210;
         seqs.push({ type: 'composition', name: 'pane' + i, width: PW, height: PH, threeD: true, hideBehindCamera: true,
           initial: { x, y, z, pivotX: PW / 2, pivotY: PH / 2, rotationY: i % 2 ? -14 : 14, alpha: 0.9 },
-          sequences: [{ type: 'shape', shape: 'rect', width: PW, height: PH, cornerRadius: 16, initial: { x: PW / 2, y: PH / 2, fillColor: '#101a30', fillAlpha: 0.55, strokeColor: WHITE, strokeWidth: 1.5, strokeAlpha: 0.35 } }, ...content] });
+          sequences: [{ type: 'shape', shape: 'rect', width: PW, height: PH, cornerRadius: 16, initial: { x: PW / 2, y: PH / 2, fill: '#101a30', fillAlpha: 0.55, stroke: WHITE, strokeWidth: 1.5, strokeAlpha: 0.35 } }, ...content] });
       });
       // the light at the end of the corridor
       seqs.push({ type: 'shape', shape: 'circle', name: 'sun', radius: 320, threeD: true, hideBehindCamera: true, blendMode: 'add', initial: { x: 960, y: 540, z: -STEP * GATES - 300, alpha: 0 },
@@ -646,7 +646,7 @@
       const seqs = [bg(INK)];
       seqs.push({ type: 'shape', shape: 'ellipse', name: 'floor-glow', radiusX: 760, radiusY: 70, blendMode: 'add', initial: { x: W / 2, y: 790, alpha: 0 },
         fillGradient: { type: 'radial', stops: [[0, rgba(AMBER, 0.4)], [0.5, rgba(AMBER, 0.12)], [1, rgba(AMBER, 0)]] }, keyframes: [{ at: 0.3, to: { alpha: 1 }, duration: 1.6 }] });
-      [820, 880].forEach((y, i) => seqs.push({ type: 'shape', shape: 'rect', name: 'rail' + i, width: W, height: 1, initial: { x: W / 2, y, fillColor: CYAN, fillAlpha: 0 },
+      [820, 880].forEach((y, i) => seqs.push({ type: 'shape', shape: 'rect', name: 'rail' + i, width: W, height: 1, initial: { x: W / 2, y, fill: CYAN, fillAlpha: 0 },
         keyframes: [{ at: 0.6 + i * 0.2, to: { fillAlpha: 0.22 - i * 0.08 }, duration: 1.2 }] }));
       // the sweep: a matte shared by the lockup and its rule (its right edge is soft)
       seqs.push({ type: 'shape', shape: 'rect', name: 'sweep', width: W * 2, height: H, anchorX: 0, anchorY: 0, initial: { x: -W * 2 + 100, y: 0 },
@@ -656,7 +656,7 @@
       seqs.push({ type: 'text', name: 'lockup', text: 'PIXI-EFFECTS', mask: 'sweep', style: TS, initial: { x: W / 2 + 29, y: 470, anchorX: 0.5, anchorY: 0.5 },
         filters: [{ type: 'warp', name: 'hz', kind: 'haze', strength: 9, scale: 60, speed: 1.2 }],
         keyframes: [{ at: 0.2, to: { 'filters.hz.strength': 0 }, duration: 1.7, ease: 'power2.out' }] });
-      seqs.push({ type: 'shape', shape: 'rect', name: 'rule', width: 1140, height: 1, mask: 'sweep', initial: { x: W / 2, y: 574, fillColor: AMBER, fillAlpha: 0.75 } });
+      seqs.push({ type: 'shape', shape: 'rect', name: 'rule', width: 1140, height: 1, mask: 'sweep', initial: { x: W / 2, y: 574, fill: AMBER, fillAlpha: 0.75 } });
       const TAG = 'ONE HTML FILE.  PLAIN DATA.';
       const tagStyle = caps(32, { fill: CYAN_HI, letterSpacing: 10 });
       const tagM = measureText(TAG, tagStyle), tagTop = 618 - tagM.height / 2;
@@ -668,7 +668,7 @@
       const firstW = measureText('ONE HTML FILE.', tagStyle).width, left = W / 2 - tagM.width / 2 + 4;
       const gen = rough.generator();
       gen.toPaths(gen.line(left, 652, left + firstW, 650, { seed: 5, roughness: 1.4, bowing: 1.3 })).forEach((p, i) => seqs.push({ type: 'shape', shape: 'path', name: 'underline' + i, d: p.d, trimEnd: 0, strokeCap: 'round', at: 3.5, duration: dur - 3.5,
-        initial: { strokeColor: AMBER, strokeWidth: 2.4, strokeAlpha: 0.9 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.5, ease: 'power2.inOut' }] }));
+        initial: { stroke: AMBER, strokeWidth: 2.4, strokeAlpha: 0.9 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.5, ease: 'power2.inOut' }] }));
       // the brief, typed again as a ghost at the top
       const GHOST = '❯ Use https://github.com/yjmtmtk/pixi-effects to make a video:';
       const gw = measureText(GHOST, mono(24)).width;
@@ -702,13 +702,13 @@
           keyframes: [{ at: 0, from: { alpha: 0, x: 84 }, to: { alpha: 0.95, x: 96 }, duration: 0.4, ease: 'power2.out' }, { at: -0.25, to: { alpha: 0 }, duration: 0.2 }] });
       });
       seqs.push({ type: 'shape', shape: 'rect', name: 'reel-progress', width: 0, height: 2, anchorX: 0, anchorY: 1, at: T.light, duration: DURATION - T.light,
-        initial: { x: 0, y: H, fillColor: AMBER, fillAlpha: 0.8 }, keyframes: [{ at: 0, from: { width: W * T.light / DURATION }, to: { width: W }, duration: DURATION - T.light, ease: 'none' }] });
+        initial: { x: 0, y: H, fill: AMBER, fillAlpha: 0.8 }, keyframes: [{ at: 0, from: { width: W * T.light / DURATION }, to: { width: W }, duration: DURATION - T.light, ease: 'none' }] });
       seqs.push({ type: 'text', name: 'frame-counter', text: 'f {value}', format: { decimals: 0, pad: 4 }, at: T.light + 0.6, duration: DURATION - T.light - 0.6, style: mono(21, { letterSpacing: 2 }),
         initial: { x: W - 96, y: 1002, anchorX: 1, anchorY: 0.5, value: (T.light + 0.6) * FPS, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.4 }, { at: 0, to: { value: DURATION * FPS }, duration: DURATION - T.light - 0.6, ease: 'none' }] });
       seqs.push({ type: 'text', name: 'mark', text: 'PIXI-EFFECTS   ·   SHOWREEL', at: T.light + 0.6, duration: T.end - T.light - 0.6, style: caps(15, { fill: WHITE }),
         initial: { x: W - 96, y: 86, anchorX: 1, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.6 }, duration: 0.5 }, { at: -0.3, to: { alpha: 0 }, duration: 0.25 }] });
-      seqs.push({ type: 'shape', shape: 'rect', name: 'flash', width: W, height: H, at: T.end - 0.05, duration: 0.95, initial: { x: W / 2, y: H / 2, fillColor: '#fff4e2', alpha: 0 },
+      seqs.push({ type: 'shape', shape: 'rect', name: 'flash', width: W, height: H, at: T.end - 0.05, duration: 0.95, initial: { x: W / 2, y: H / 2, fill: '#fff4e2', alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.05 }, { at: 0.05, to: { alpha: 0 }, duration: 0.85, ease: 'power2.out' }] });
       return seqs;
     }

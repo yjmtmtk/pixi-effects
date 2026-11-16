@@ -24,7 +24,7 @@
     let p3d = null, entry = null;
     if (!LATE) { entry = await import('../../dist/3d.js'); p3d = await import('@pixi/3d'); entry.register3D(); }
 
-    const BAND = { type: 'shape', shape: 'rect', name: 'band', width: 320, height: 24, initial: { x: 160, y: 168, fillColor: '#f2c14e' } };
+    const BAND = { type: 'shape', shape: 'rect', name: 'band', width: 320, height: 24, initial: { x: 160, y: 168, fill: '#f2c14e' } };
     const TEXT = { type: 'text', name: 'label', text: '{label}', style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 8, y: 8 } };
     const cubeLayer = () => {
       const { Mesh3D, CubeGeometry, Material3D, DirectionalLight, AmbientLight } = p3d;

@@ -55,12 +55,12 @@ describe('a `set` keyframe jumps at its own time, not before', () => {
 });
 
 describe('set on live shape style and on image tint is undone by a backward seek', () => {
-  it('shape fillColor + width', async () => {
-    const { s, tl } = await boundRect({ duration: 6, initial: { fillColor: '#ff0000', width: 10 }, keyframes: [{ at: 1, set: { fillColor: '#00ff00', width: 99 } }] });
-    const st = () => (s as unknown as { _state: { fillColor: unknown; width: number } })._state;
+  it('shape fill + width', async () => {
+    const { s, tl } = await boundRect({ duration: 6, initial: { fill: '#ff0000', width: 10 }, keyframes: [{ at: 1, set: { fill: '#00ff00', width: 99 } }] });
+    const st = () => (s as unknown as { _state: { fill: unknown; width: number } })._state;
     expect(st().width).toBe(10);
-    tl.time(2);   expect(st().width).toBe(99); expect(st().fillColor).toBe('#00ff00');
-    tl.time(0);   expect(st().width).toBe(10); expect(st().fillColor).toBe('#ff0000');
+    tl.time(2);   expect(st().width).toBe(99); expect(st().fill).toBe('#00ff00');
+    tl.time(0);   expect(st().width).toBe(10); expect(st().fill).toBe('#ff0000');
   });
 
   it('image tint', async () => {

@@ -330,7 +330,7 @@
     // ── Scene 1: maker splash (0 - 1.6) — centred like a real boot logo ─────────────────────────
     const maker = textImg('KANTERA SOFT', CRM, 2);
     const splash = [
-      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: INK }, duration: T_TITLE },
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: INK }, duration: T_TITLE },
       img(splashHalo, 134, 40, { name: 'maker-halo', at: 0.3, duration: 1.1 }),
       img(lanternOff, 160 - 10, 52, { name: 'maker-lamp-off', at: 0, duration: 0.3 }),
       img(lanternOn, 160 - 10, 52, { name: 'maker-lamp', at: 0.3, duration: 1.1 }),
@@ -347,7 +347,7 @@
     const stars = starField(320, 130, 46, 3, (x, y) => (x > 16 && x < 232 && y > 28 && y < 120) || (x > 244 && y > 8 && y < 50));
     const TW = [[214, 18, 0.3], [40, 14, 0.9], [300, 92, 1.5], [150, 22, 2.1], [236, 112, 0.6]];
     const title = [
-      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', at: T_TITLE, initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } },
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', at: T_TITLE, initial: { x: 'GW/2', y: 'GH/2', fill: INK } },
       img(stars, 0, 0, { name: 'stars', at: T_TITLE }),
       ...TW.map(([x, y, ph], i) => img(twinkle, x - 2, y - 2, { name: 'twinkle' + i, at: T_TITLE, keyframes: windows(blink(ph, tlen, 0.2, 1.4)) })),
       img(moon, 256, 14, { name: 'moon', at: T_TITLE }),
@@ -386,7 +386,7 @@
     const timeSteps = Math.floor(DL / BEAT);
 
     const demo = [
-      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', at: D, duration: DL, initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } },
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', at: D, duration: DL, initial: { x: 'GW/2', y: 'GH/2', fill: INK } },
       img(starField(320, 100, 30, 11), 0, 0, { name: 'demo-stars', at: D, duration: DL }),
       img(moon, 196, 34, { name: 'demo-moon', at: D, duration: DL }),
       img(cloudB, 58, 76, { name: 'cloud-b', at: D, duration: DL, keyframes: stepped(NF, f => ({ x: S * (58 - Math.floor(f / 4)) })) }),

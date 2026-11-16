@@ -58,13 +58,13 @@
     const T = 0.7;                                  // the slide between pages
     const rise = (extra = {}) => ({ from: { y: 46, alpha: 0 }, duration: 1.0, ease: 'power3.out', ...extra });
 
-    const paper = { type: 'shape', shape: 'rect', name: 'paper', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: PAPER } };
+    const paper = { type: 'shape', shape: 'rect', name: 'paper', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: PAPER } };
     const small = (name, text, x, y, at, dur, color = DIM, extra = {}) => ({
       type: 'text', name, text, at, duration: dur - at, style: { fontFamily: SANS, fontSize: 15, fontWeight: '600', fill: color, letterSpacing: 6, ...extra },
       initial: { x, y, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }, { at: 0, from: { x: x - 14 }, to: { x }, duration: 0.8, ease: 'power3.out' }],
     });
     const rule = (name, x, y, w, at, dur, color = INK, h = 2) => ({
-      type: 'shape', shape: 'rect', name, width: w, height: h, anchorX: 0, at, duration: dur - at, initial: { x, y, fillColor: color, scaleX: 0 },
+      type: 'shape', shape: 'rect', name, width: w, height: h, anchorX: 0, at, duration: dur - at, initial: { x, y, fill: color, scaleX: 0 },
       keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.9, ease: 'power3.inOut' }],
     });
     // the footer every page shares: the talk's name on the left, "2 / 5" on the right
@@ -79,8 +79,8 @@
     const P1 = 2.4, D1 = P1 + T;
     const page1 = [
       paper,
-      { type: 'shape', shape: 'circle', name: 'sun', radius: 185, initial: { x: 1085, y: 370, fillColor: TERRA, scale: 0 }, keyframes: [{ at: 0.2, to: { scale: 1 }, duration: 1.4, ease: 'expo.out' }] },
-      { type: 'shape', shape: 'circle', name: 'ring', radius: 185, trimEnd: 0, initial: { x: 1118, y: 346, fillAlpha: 0, strokeColor: INK, strokeWidth: 2, rotation: -90 }, keyframes: [{ at: 0.6, to: { trimEnd: 1 }, duration: 1.6, ease: 'power2.inOut' }] },
+      { type: 'shape', shape: 'circle', name: 'sun', radius: 185, initial: { x: 1085, y: 370, fill: TERRA, scale: 0 }, keyframes: [{ at: 0.2, to: { scale: 1 }, duration: 1.4, ease: 'expo.out' }] },
+      { type: 'shape', shape: 'circle', name: 'ring', radius: 185, trimEnd: 0, initial: { x: 1118, y: 346, fillAlpha: 0, stroke: INK, strokeWidth: 2, rotation: -90 }, keyframes: [{ at: 0.6, to: { trimEnd: 1 }, duration: 1.6, ease: 'power2.inOut' }] },
       small('kicker', 'A SHORT TALK ON WORKING SLOWLY', MX, 118, 0.3, D1, TERRA),
       ...animateText('The Quiet\nHours', { fontFamily: SERIF, fontSize: 160, fill: INK, letterSpacing: -3 }, { by: 'lines', x: MX, y: 180, align: 'left', name: 'title', at: 0.5, duration: D1 - 0.5, in: rise(), stagger: { each: 0.22 } }),
       rule('rule', MX, 604, 520, 1.5, D1),
@@ -105,9 +105,9 @@
     const BASE = 570, BAR_W = 70, GAP = 38, X0 = MX + 8, SCALE = 82;        // 82 px per hour
     const barX = i => X0 + i * (BAR_W + GAP) + BAR_W / 2;
     const bars = stagger(HOURS.map((h, i) => ({ i, h })), { each: 0.1 }).flatMap(({ i, h, at }) => [
-      { type: 'shape', shape: 'rect', name: 'bar-' + i, width: BAR_W, height: 0, anchorY: 1, at: 0.5 + at, duration: D3 - 0.5 - at, initial: { x: barX(i), y: BASE, fillColor: i === 4 ? MUTED : MUTED },
+      { type: 'shape', shape: 'rect', name: 'bar-' + i, width: BAR_W, height: 0, anchorY: 1, at: 0.5 + at, duration: D3 - 0.5 - at, initial: { x: barX(i), y: BASE, fill: i === 4 ? MUTED : MUTED },
         keyframes: [{ at: 0, to: { height: h * SCALE }, duration: 1.0, ease: 'power3.out' },
-                    ...(i === 4 ? [{ at: P3a - 0.5 - at, to: { fillColor: TERRA }, duration: 0.7, ease: 'power2.inOut' }] : [])] },
+                    ...(i === 4 ? [{ at: P3a - 0.5 - at, to: { fill: TERRA }, duration: 0.7, ease: 'power2.inOut' }] : [])] },
       { type: 'text', name: 'day-' + i, text: DAYS[i].toUpperCase(), at: 0.9 + at, duration: D3 - 0.9 - at, style: { fontFamily: SANS, fontSize: 13, fontWeight: '600', fill: i === 4 ? TERRA : DIM, letterSpacing: 4 },
         initial: { x: barX(i), y: BASE + 28, anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }] },
     ]);
@@ -115,7 +115,7 @@
       paper,
       small('kicker', 'DEEP FOCUS, HOURS PER DAY', MX, 112, 0.3, D3, TERRA),
       ...animateText('A week, measured.', { fontFamily: SERIF, fontSize: 64, fill: INK, letterSpacing: -1 }, { by: 'words', x: MX, y: 136, align: 'left', name: 'h', at: 0.4, duration: D3 - 0.4, in: rise({ duration: 0.8 }), stagger: { each: 0.1 } }),
-      { type: 'shape', shape: 'rect', name: 'axis', width: 7 * BAR_W + 6 * GAP + 16, height: 2, anchorX: 0, at: 0.4, duration: D3 - 0.4, initial: { x: X0 - 8, y: BASE + 1, fillColor: INK, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.9, ease: 'power3.inOut' }] },
+      { type: 'shape', shape: 'rect', name: 'axis', width: 7 * BAR_W + 6 * GAP + 16, height: 2, anchorX: 0, at: 0.4, duration: D3 - 0.4, initial: { x: X0 - 8, y: BASE + 1, fill: INK, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.9, ease: 'power3.inOut' }] },
       ...bars,
       // step 2: the best day gets a number and a sentence
       { type: 'text', name: 'big-number', text: '{value}', format: { decimals: 1 }, at: P3a, duration: D3 - P3a, style: { fontFamily: SERIF, fontSize: 210, fill: TERRA, letterSpacing: -6 },
@@ -147,7 +147,7 @@
     const P5 = 2.4, D5 = P5 + 2.5;
     const page5 = [
       paper,
-      { type: 'shape', shape: 'circle', name: 'sun', radius: 150, initial: { x: 1050, y: 300, fillColor: TERRA, scale: 0 }, keyframes: [{ at: 0.6, to: { scale: 1 }, duration: 1.3, ease: 'expo.out' }] },
+      { type: 'shape', shape: 'circle', name: 'sun', radius: 150, initial: { x: 1050, y: 300, fill: TERRA, scale: 0 }, keyframes: [{ at: 0.6, to: { scale: 1 }, duration: 1.3, ease: 'expo.out' }] },
       small('kicker', 'THANK YOU', MX, 118, 0.4, D5, TERRA),
       ...animateText('Go slowly.', { fontFamily: SERIF, fontSize: 168, fill: INK, letterSpacing: -4 }, { by: 'words', x: MX, y: 200, align: 'left', name: 'close', at: 0.6, duration: D5 - 0.6, in: rise({ duration: 1.1 }), stagger: { each: 0.18 } }),
       rule('rule', MX, 520, 320, 1.6, D5),

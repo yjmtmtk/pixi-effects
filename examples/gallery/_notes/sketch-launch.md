@@ -5,7 +5,7 @@ Made on 2026-10-10/11 in the main working session, NOT by a fresh subagent from 
 
 ## How Rough.js is used (the page imports `roughjs` through the import map; the library did not change)
 - `rough.generator()` never touches a canvas: `gen.path / polygon / circle / rectangle / line / linearPath / curve(...)` return a drawable, and `gen.toPaths(drawable)` turns it into plain `{ d, stroke, fill, strokeWidth }` objects. `d` holds only absolute `M` and `C` commands, so it goes straight into `{ type: 'shape', shape: 'path', d }`.
-- A hachure fill comes out FIRST as a path whose stroke colour is the fill colour; the outline comes last. Each path is a layer that draws itself on with `trimEnd`; a solid fill (`stroke: 'none'`, `fill: colour`) becomes a `fillColor` that fades in.
+- A hachure fill comes out FIRST as a path whose stroke colour is the fill colour; the outline comes last. Each path is a layer that draws itself on with `trimEnd`; a solid fill (`stroke: 'none'`, `fill: colour`) becomes a `fill` that fades in.
 - The paths are in the numbers you gave Rough.js, so the page shifts each `d` by the part's place (a small regex over the `M`/`C` pairs) instead of relying on a layer offset.
 - The rocket is one `composition`: it shivers (`x: '+=4'` with `repeat` / `yoyo`) and lifts off (`y: '-=1100'`, `power3.in`) as one object. The flame "boils" with three drawings of the same flame (three seeds) shown in turn by `set` keyframes on `alpha`, like a flipbook.
 

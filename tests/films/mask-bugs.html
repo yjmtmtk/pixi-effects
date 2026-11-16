@@ -34,19 +34,19 @@
     import { Movie } from '../../dist/index.js';
 
     const CASE = new URLSearchParams(location.search).get('case') ?? 'textPlain';
-    const bg = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101020' } };
+    const bg = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#101020' } };
     const textStyle = { fontFamily: 'Arial, sans-serif', fontSize: 220, fontWeight: '900', fill: '#ffffff' };
     const textInit = { x: 320, y: 180, anchorX: 0.5, anchorY: 0.5 };
-    const circle = (r, x, y) => ({ type: 'shape', shape: 'circle', radius: r, initial: { x, y, fillColor: '#ffffff' } });
+    const circle = (r, x, y) => ({ type: 'shape', shape: 'circle', radius: r, initial: { x, y, fill: '#ffffff' } });
     const scenes = {
       textPlain: [bg, { type: 'text', text: 'II', style: textStyle, initial: textInit }],
-      text: [bg, { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffffff' },
+      text: [bg, { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#ffffff' },
         mask: { type: 'text', text: 'II', style: textStyle, initial: textInit } }],
       // an alpha mask that moves: the hole slides right; seeking back must give the same picture as playing forward
       moving: [bg, { type: 'text', text: 'II', style: textStyle, initial: textInit,
-        mask: { invert: true, layer: { type: 'shape', shape: 'circle', radius: 60, initial: { x: 200, y: 180, fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { x: 440 }, duration: 1, ease: 'none' }] } } }],
+        mask: { invert: true, layer: { type: 'shape', shape: 'circle', radius: 60, initial: { x: 200, y: 180, fill: '#ffffff' }, keyframes: [{ at: 0, to: { x: 440 }, duration: 1, ease: 'none' }] } } }],
       inverted: [bg, { type: 'composition', name: 'group', mask: circle(120, 320, 180), sequences: [
-        { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff0000' }, mask: { layer: circle(50, 320, 180), invert: true } },
+        { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#ff0000' }, mask: { layer: circle(50, 320, 180), invert: true } },
       ] }],
     };
     const movie = new Movie();

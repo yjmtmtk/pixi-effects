@@ -61,7 +61,7 @@ export default function chapter(P) {
       { type: 'shader', name: 'spiral', fragment: SPIRAL, width: SIDE, height: SIDE, duration: 3.8,
         uniforms: { twist: 1.5, pace: 0.8, signal: C.red, bone: C.bone },
         initial: { x: CX - SIDE / 2, y: CY - SIDE / 2 },
-        mask: { type: 'shape', shape: 'circle', radius: R, initial: { x: CX, y: CY, fillColor: '#ffffff' } },
+        mask: { type: 'shape', shape: 'circle', radius: R, initial: { x: CX, y: CY, fill: '#ffffff' } },
         keyframes: [
           { at: 0.9, to: { 'uniforms.twist': 22, 'uniforms.pace': 3.2 }, duration: 1.6, ease: 'power2.inOut' },
         ] },
@@ -78,7 +78,7 @@ export default function chapter(P) {
       // ── beat 2 (2.6 – 3.8): formula B opens inside the disc, then floods the frame ──
       { type: 'shader', name: 'liquid', fragment: LIQUID, at: 2.6, duration: 4.4, resolution: 0.5,
         uniforms: { speed: 0.9, calm: 0, signal: C.red },
-        mask: { type: 'shape', shape: 'circle', radius: 1, initial: { x: CX, y: CY, fillColor: '#ffffff' },
+        mask: { type: 'shape', shape: 'circle', radius: 1, initial: { x: CX, y: CY, fill: '#ffffff' },
           keyframes: [
             { at: 0, to: { radius: R }, duration: 0.45, ease: 'power3.out' },
             { at: 0.55, to: { radius: R_FULL }, duration: 0.7, ease: 'power2.inOut' },
@@ -88,7 +88,7 @@ export default function chapter(P) {
           { at: 2.6, to: { 'uniforms.speed': 0.35 }, duration: 1.4, ease: 'power2.out' },
         ] },
       { type: 'shape', shape: 'circle', name: 'rim', radius: R + 6, duration: 3.9,
-        initial: { x: CX, y: CY, fillAlpha: 0, strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.9 },
+        initial: { x: CX, y: CY, fillAlpha: 0, stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.9 },
         keyframes: [{ at: 3.15, to: { radius: R_FULL }, duration: 0.7, ease: 'power2.inOut' }] },
 
       // ── beat 3 (3.6 – 7.0): the title bent like water, settling for the end ──
@@ -104,7 +104,7 @@ export default function chapter(P) {
           { at: 0.9, to: { 'filters.water.strength': 4, 'filters.heat.strength': 1.5 }, duration: 1.9, ease: 'power2.inOut' },
         ] },
       { type: 'shape', shape: 'rect', name: 'warp-chip', at: 4.0, duration: 3.0, width: 1200, height: 84, cornerRadius: 10,
-        initial: { x: 960, y: 760, fillColor: C.ink, fillAlpha: 0.88 },
+        initial: { x: 960, y: 760, fill: C.ink, fillAlpha: 0.88 },
         keyframes: [{ at: 0, from: { alpha: 0, y: 784 }, to: { alpha: 1, y: 760 }, duration: 0.6, ease: 'power3.out' }] },
       { type: 'text', name: 'warp-line', text: "filters: [{ type: 'warp', kind: 'wave' }]", at: 4.0, duration: 3.0,
         style: { fontSize: 44, fill: C.red, fontFamily: F.mono },

@@ -26,7 +26,7 @@ async function open<T>(fn: (cdp: any) => Promise<T>, query = ''): Promise<T> {
     return await fn(cdp);
   } finally { try { proc.kill(); } catch { /* gone */ } server.close(); await check.sleep(200); try { rmSync(dir, { recursive: true, force: true }); } catch { /* held */ } }
 }
-const square = { type: 'shape', shape: 'rect', width: 20, height: 20, initial: { x: 'W/2', y: 'H/2', fillColor: '#ff0000' } };
+const square = { type: 'shape', shape: 'rect', width: 20, height: 20, initial: { x: 'W/2', y: 'H/2', fill: '#ff0000' } };
 const mk = (cdp: any, opts: unknown) => cdp.eval(`mk(${JSON.stringify(opts)})`);
 const SHORT = { duration: 0.5, composition: { sequences: [square] } };
 

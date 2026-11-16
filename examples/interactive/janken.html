@@ -55,11 +55,11 @@
 
     const bob = (t) => ({ at: t, to: { y: '-=80' }, duration: 0.14, ease: 'power2.out', repeat: 1, yoyo: true });
     const sequences = [
-      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#171a2e' } },
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#171a2e' } },
       // the mood of the ending: a wash of colour that depends on who won
-      { type: 'shape', shape: 'rect', name: 'wash-win', at: PON, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffb703', alpha: `0.30*${WIN}` } },
-      { type: 'shape', shape: 'rect', name: 'wash-lose', at: PON, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#2a4a8a', alpha: `0.45*${LOSE}` } },
-      { type: 'shape', shape: 'rect', name: 'wash-draw', at: PON, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#8a5be0', alpha: `0.30*${DRAW}` } },
+      { type: 'shape', shape: 'rect', name: 'wash-win', at: PON, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#ffb703', alpha: `0.30*${WIN}` } },
+      { type: 'shape', shape: 'rect', name: 'wash-lose', at: PON, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#2a4a8a', alpha: `0.45*${LOSE}` } },
+      { type: 'shape', shape: 'rect', name: 'wash-draw', at: PON, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#8a5be0', alpha: `0.30*${DRAW}` } },
       { type: 'text', name: 'cap-you', text: 'YOU', style: { fontFamily: FONT, fontSize: 34, fontWeight: '700', fill: '#9aa6c8', letterSpacing: 6 }, initial: { x: X.you, y: 580, anchorX: 0.5, anchorY: 0.5 } },
       { type: 'text', name: 'cap-cpu', text: 'CPU', style: { fontFamily: FONT, fontSize: 34, fontWeight: '700', fill: '#9aa6c8', letterSpacing: 6 }, initial: { x: X.cpu, y: 580, anchorX: 0.5, anchorY: 0.5 } },
 
@@ -90,7 +90,7 @@
         ...particles({ count: 150, at: 0, emit: 3, life: [0.8, 1.2], area: { x: 640, y: -30, width: 1400 }, angle: [84, 96], speed: [520, 760], size: [2, 3], shape: 'rect', colors: ['#9db8ff', '#6f93e8'], fade: { out: 0.3 }, name: 'drop' }),
       ] },
       { type: 'composition', name: 'rings', at: PON + 0.4, duration: 4.5, width: 1280, height: 720, initial: { alpha: DRAW }, sequences: [0, 1, 2].map(i => ({
-        type: 'shape', shape: 'circle', radius: 170, initial: { x: 640, y: Y, fillAlpha: 0, strokeColor: '#d2b8ff', strokeWidth: 8 },
+        type: 'shape', shape: 'circle', radius: 170, initial: { x: 640, y: Y, fillAlpha: 0, stroke: '#d2b8ff', strokeWidth: 8 },
         keyframes: [{ at: i * 0.55, from: { scale: 0.3, alpha: 1 }, to: { scale: 2.6, alpha: 0 }, duration: 1.4, ease: 'power2.out', repeat: 2 }],
       })) },
       { type: 'text', name: 'again', text: 'Play again: seek back before SHOOT!, or just wait', at: 5.2, style: { fontFamily: FONT, fontSize: 36, fill: '#c8d0ee' }, initial: { x: 640, y: 660, anchorX: 0.5, anchorY: 0.5 },

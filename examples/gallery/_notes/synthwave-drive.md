@@ -65,6 +65,6 @@ function gridRow(k) {                                                    // k = 
     const t = f / FPS, u = k - (t / CYCLE) % 1;
     keyframes.push({ at: f / FPS, set: { y: HORIZON + F / Math.max(u, 0.3), scaleY: clamp(1.6 + 4.5 / u, 1.5, 11), alpha: clamp(1.15 - u / N, 0, 1) } });
   }
-  return { type: 'shape', shape: 'rect', width: 'GW', height: 1, initial: { x: 'GW/2', y: HORIZON + F / k, fillColor: '#ff6cc6' }, keyframes };
+  return { type: 'shape', shape: 'rect', width: 'GW', height: 1, initial: { x: 'GW/2', y: HORIZON + F / k, fill: '#ff6cc6' }, keyframes };
 }
 ```

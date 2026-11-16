@@ -7,7 +7,7 @@ Piece: "Cities at night" — editorial data story, 1280×720, 14 s. Three beats 
 - Keyframe `at` is layer-local → each beat is a nested `composition` with `at`/`duration`, and all its internal timing starts at 0. Enter/exit keyframes on the composition move the whole beat as a unit (`from {alpha:0,y:14}` / `at:-0.35 to {alpha:0,y:-10}`) — one consistent transition language for free.
 - Bar + counter locked by giving both the *same* `to` tween (`at`, `duration`, `ease`) — straight from the bar-chart recipe; `anchorX: 0` for bars growing rightwards.
 - Mask reveal: the mask lives in the parent's coordinates, `anchorX: 0` + `width` keyframe. Worked first time for the line chart.
-- `line`/`polygon` in plain canvas coordinates, `strokeColor`/`strokeWidth` in `initial`; `rotation` in degrees; `fillGradient` radial with alpha stops for the amber "horizon glow"; `'GW/2 - w/2'` to centre a left-anchored title that later slides into the header.
+- `line`/`polygon` in plain canvas coordinates, `stroke`/`strokeWidth` in `initial`; `rotation` in degrees; `fillGradient` radial with alpha stops for the amber "horizon glow"; `'GW/2 - w/2'` to centre a left-anchored title that later slides into the header.
 - `snap()` (frame-grid rounding) for every schedule that must line up (ring slivers, bar stagger).
 - `contactSheet({ times, columns, cellWidth })` + `inspect(frame, { layers: 'none' })` + `save-image.py` — the whole review loop needed no OS screenshots. Named layers made inspect output readable.
 - Local-build importmap swap (`../../dist/…`) exactly as the brief says.
@@ -64,14 +64,14 @@ Leader line that draws itself (a rotated rect growing in width), an elbow is two
 // @recipe leader-line
 const leader = (x, y, angle, length, at, dur = 0.3, color = '#f5b545') => ({
   type: 'shape', shape: 'rect', width: 0, height: 1.5, anchorX: 0, anchorY: 0.5,
-  initial: { x, y, rotation: angle, fillColor: color },
+  initial: { x, y, rotation: angle, fill: color },
   keyframes: [{ at, to: { width: length }, duration: dur, ease: 'power2.out' }],
 });
 return [
   { type: 'text', text: '2.6× the glow of London', style: { fontSize: 28, fill: '#f5b545' }, initial: { x: 900, y: 200, anchorY: 0.5 } },
   leader(886, 220, 90, 300, 0.2),      // down from the note
   leader(886, 520, 180, 360, 0.5),     // then left to the thing it points at
-  { type: 'shape', shape: 'circle', radius: 4, initial: { x: 526, y: 520, fillColor: '#f5b545', scale: 0 },
+  { type: 'shape', shape: 'circle', radius: 4, initial: { x: 526, y: 520, fill: '#f5b545', scale: 0 },
     keyframes: [{ at: 0.8, to: { scale: 1 }, duration: 0.3, ease: 'back.out(2)' }] },
 ];
 ```
@@ -96,7 +96,7 @@ for (const [label, pct, color] of SEGS) {
   for (let j = 0; j < n; j++) {
     const a0 = start + j * sw;
     sequences.push({ type: 'shape', shape: 'polygon', points: arc(a0, Math.min(end, a0 + sw + 0.5)), at: snap(T0 + SWEEP * a0 / 360),
-      initial: { fillColor: color, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 2 / FPS }] });
+      initial: { fill: color, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 2 / FPS }] });
   }
   cum += pct;
 }

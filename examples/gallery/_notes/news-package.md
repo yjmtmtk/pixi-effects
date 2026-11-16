@@ -57,7 +57,7 @@ const measure = (() => { const g = document.createElement('canvas').getContext('
   return (s, weight, size) => { g.font = `${weight} ${size}px ${SANS}`; return g.measureText(s).width; }; })();
 const travel = SPEED * DUR_T;   // every run moves by the same distance, linear → they stay locked
 const mover = (spec, x) => ({ ...spec, keyframes: [{ at: 0, to: { x: x - travel }, duration: DUR_T, ease: 'none' }] });
-const mask = () => ({ type: 'shape', shape: 'rect', width: W - BOX, height: 40, anchorX: 0, initial: { x: BOX, y: 20, fillColor: '#fff' } });
+const mask = () => ({ type: 'shape', shape: 'rect', width: W - BOX, height: 40, anchorX: 0, initial: { x: BOX, y: 20, fill: '#fff' } });
 let x = BOX + 30;
 for (const [cat, body] of ITEMS) {
   crawl.push(mover({ type: 'text', text: cat,  style: { fontFamily: SANS, fontSize: 20, fontWeight: '800', fill: RED },  initial: { x, y: 21, anchorY: 0.5 }, mask: mask() }, x));
@@ -70,7 +70,7 @@ for (const [cat, body] of ITEMS) {
 Band → tag morph (one keyframe animates a rect's geometry):
 
 ```js
-{ type: 'shape', shape: 'rect', width: 1280, height: 0, initial: { x: 640, y: 360, fillColor: RED },
+{ type: 'shape', shape: 'rect', width: 1280, height: 0, initial: { x: 640, y: 360, fill: RED },
   keyframes: [{ at: 0, to: { height: 170 }, duration: 0.35, ease: 'expo.out' },
               { at: 1.2, to: { width: 200, height: 54, x: 180, y: 548 }, duration: 0.5, ease: 'power3.inOut' }] }
 ```

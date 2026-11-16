@@ -59,7 +59,7 @@ Poster 13.5 s (the full-score end frame).
 - AGENTS.md (repo), `skills/pixi-effects/reference/quickstart.md`, `SKILL.md`: workflow; answered.
 - `help music`: score syntax, meter, humanize, musicEvents, musicEnvelope; answered everything except strum order / tail.
 - `help letterSpacing` (got the text section), `help ease` (default is linear), `help anchorX` (rect anchors at top level).
-- `grep strokeColor cheatsheet.md`: style keys go in `initial`. Did not need recipes.
+- `grep stroke cheatsheet.md`: style keys go in `initial`. Did not need recipes.
 
 ## Wished the library had
 - A real acoustic `piano` instrument (`keys` is an electric piano; with `tone: 0.4–0.55` and release it passes, but a nocturne

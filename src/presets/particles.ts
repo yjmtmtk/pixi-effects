@@ -141,7 +141,7 @@ export function particles(opts: ParticlesOptions): SequenceSpec[] {
       out.push({ ...t, ...common, initial: { ...t.initial, ...initial }, keyframes: [...(t.keyframes ?? []), ...kfs] } as unknown as SequenceSpec);
       continue;
     }
-    const style = { ...initial, fillColor: color };
+    const style = { ...initial, fill: color };
     if (shape === 'circle') out.push({ type: 'shape', shape: 'circle', radius: round(s), ...common, initial: style, keyframes: kfs } as SequenceSpec);
     else if (shape === 'rect') out.push({ type: 'shape', shape: 'rect', width: round(s * 2), height: round(s * 2), ...common, initial: style, keyframes: kfs } as SequenceSpec);
     else {

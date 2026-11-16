@@ -20,9 +20,9 @@
     register3D();
     const q = new URLSearchParams(location.search);
     const SCREEN = { type: 'composition', name: 'screen', width: 240, height: 135, sequences: [
-      { type: 'shape', shape: 'rect', name: 'top', width: 240, height: 68, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#e05030' }, keyframes: [{ at: 0, to: { fillColor: '#30e050', width: 120 }, duration: 3 }] },
-      { type: 'shape', shape: 'rect', name: 'bottom', width: 240, height: 67, anchorX: 0, anchorY: 0, initial: { x: 0, y: 68, fillColor: '#3080e0' } },
-      { type: 'shape', shape: 'rect', name: 'tilt', threeD: true, width: 60, height: 60, initial: { x: 200, y: 34, anchorX: 0.5, anchorY: 0.5, fillColor: '#ffffff', rotationY: 0 }, keyframes: [{ at: 0, to: { rotationY: 80 }, duration: 3 }] },
+      { type: 'shape', shape: 'rect', name: 'top', width: 240, height: 68, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fill: '#e05030' }, keyframes: [{ at: 0, to: { fill: '#30e050', width: 120 }, duration: 3 }] },
+      { type: 'shape', shape: 'rect', name: 'bottom', width: 240, height: 67, anchorX: 0, anchorY: 0, initial: { x: 0, y: 68, fill: '#3080e0' } },
+      { type: 'shape', shape: 'rect', name: 'tilt', threeD: true, width: 60, height: 60, initial: { x: 200, y: 34, anchorX: 0.5, anchorY: 0.5, fill: '#ffffff', rotationY: 0 }, keyframes: [{ at: 0, to: { rotationY: 80 }, duration: 3 }] },
       { type: 'text', name: 'count', text: '{value}', style: { fontSize: 40, fill: '#ffffff', fontWeight: '800' }, initial: { x: 120, y: 68, anchorX: 0.5, anchorY: 0.5, value: 0 }, keyframes: [{ at: 0, to: { value: 99 }, duration: 3 }] },
     ] };
     const movie = new Movie();

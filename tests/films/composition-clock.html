@@ -22,7 +22,7 @@
         canvas: document.getElementById('stage'), width: 320, height: 80, duration: 3, frameRate: 30, background: '#000000',
         composition: { sequences: [
           { type: 'composition', name: 'clip', width: 320, height: 80, ...JSON.parse(new URLSearchParams(location.search).get('opts') ?? '{"frameRate":5,"loop":true}'), sequences: [
-            { type: 'shape', shape: 'rect', name: 'sq', width: 20, height: 20, anchorX: 0, anchorY: 0, initial: { x: 0, y: 30, fillColor: '#ffffff' },
+            { type: 'shape', shape: 'rect', name: 'sq', width: 20, height: 20, anchorX: 0, anchorY: 0, initial: { x: 0, y: 30, fill: '#ffffff' },
               keyframes: [{ at: 0, to: { x: 200 }, duration: 1 }] },
           ] },
         ] },

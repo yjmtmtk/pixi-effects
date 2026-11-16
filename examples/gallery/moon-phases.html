@@ -174,7 +174,7 @@
     for (let i = 0; i < 11; i++) {
       const y = 390 + i * 34;
       rays.push({ type: 'shape', shape: 'line', name: 'ray' + i, from: [62, y], to: [600, y], at: 0.2,
-        initial: { strokeColor: AMBER, strokeWidth: 1.5, alpha: 0.16, trimEnd: 0 },
+        initial: { stroke: AMBER, strokeWidth: 1.5, alpha: 0.16, trimEnd: 0 },
         keyframes: [{ at: i * 0.04, to: { trimEnd: 1 }, duration: 1.3, ease: 'power3.out' }] });
     }
 
@@ -182,32 +182,32 @@
       { type: 'null', name: 'orbit', initial: { x: E.x, y: E.y, rotation: -180 }, keyframes: [...steps('rotation', K.map(k => -180 - 45 * k)), epi('rotation', -540 - EP.deg)] },
       // sight line Earth → Moon (blue = what we see)
       { type: 'shape', shape: 'rect', name: 'sight', parent: 'orbit', at: 1.7, width: R - MR - ER - 18, height: 1.5,
-        initial: { x: (ER + 9 + R - MR - 9) / 2, y: 0, fillColor: BLUE, alpha: 0, scaleX: 0 },
+        initial: { x: (ER + 9 + R - MR - 9) / 2, y: 0, fill: BLUE, alpha: 0, scaleX: 0 },
         keyframes: [{ at: 0, to: { alpha: 0.7, scaleX: 1 }, duration: 0.6, ease: 'power3.out' }] },
       // the half of the Moon that faces Earth: a thin blue ring
       { type: 'shape', shape: 'arc', name: 'facing', parent: 'orbit', at: 1.8, radius: MR + 8, innerRadius: MR + 5.5, startAngle: 90, endAngle: 270,
-        initial: { x: R, y: 0, fillColor: BLUE, alpha: 0 },
+        initial: { x: R, y: 0, fill: BLUE, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 0.95 }, duration: 0.5 }] },
       // the Moon itself: dark disc + the sun-side half, counter-rotated so the lit half always faces the sun
       { type: 'shape', shape: 'circle', name: 'moonDark', parent: 'orbit', at: 1.5, radius: MR,
-        initial: { x: R, y: 0, fillColor: '#1b2230', alpha: 0, scale: 0.6 },
+        initial: { x: R, y: 0, fill: '#1b2230', alpha: 0, scale: 0.6 },
         keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.5, ease: 'back.out(2)' }] },
       { type: 'shape', shape: 'arc', name: 'moonLit', parent: 'orbit', at: 1.5, radius: MR, startAngle: 90, endAngle: 270,
-        initial: { x: R, y: 0, fillColor: IVORY, alpha: 0, scale: 0.6, rotation: 180 },
+        initial: { x: R, y: 0, fill: IVORY, alpha: 0, scale: 0.6, rotation: 180 },
         keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.5, ease: 'back.out(2)' },
           ...steps('rotation', K.map(k => 180 + 45 * k)).map(kf => ({ ...kf, at: kf.at - 1.5 })), epi('rotation', 540 + EP.deg, 1.5)] },
     ];
 
     const earth = [
-      { type: 'shape', shape: 'circle', name: 'earthDark', at: 1.1, radius: ER, initial: { x: E.x, y: E.y, fillColor: '#1a2638', alpha: 0, scale: 0.4 },
+      { type: 'shape', shape: 'circle', name: 'earthDark', at: 1.1, radius: ER, initial: { x: E.x, y: E.y, fill: '#1a2638', alpha: 0, scale: 0.4 },
         keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.5, ease: 'back.out(2)' }] },
-      { type: 'shape', shape: 'arc', name: 'earthLit', at: 1.1, radius: ER, startAngle: 90, endAngle: 270, initial: { x: E.x, y: E.y, fillColor: BLUE, alpha: 0, scale: 0.4 },
+      { type: 'shape', shape: 'arc', name: 'earthLit', at: 1.1, radius: ER, startAngle: 90, endAngle: 270, initial: { x: E.x, y: E.y, fill: BLUE, alpha: 0, scale: 0.4 },
         keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.5, ease: 'back.out(2)' }] },
       { type: 'text', name: 'earthLabel', text: '地球', at: 1.4, duration: 1.5, style: { fontFamily: MINCHO, fontSize: 18, fill: DIM, letterSpacing: 4 },
         initial: { x: E.x + 2, y: E.y + 38, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }, { at: -0.3, to: { alpha: 0 }, duration: 0.3 }] },
       { type: 'shape', shape: 'circle', name: 'orbitPath', at: 0.9, radius: R,
-        initial: { x: E.x, y: E.y, strokeColor: LINE, strokeWidth: 1.5, fillAlpha: 0, trimEnd: 0, rotation: 180 },
+        initial: { x: E.x, y: E.y, stroke: LINE, strokeWidth: 1.5, fillAlpha: 0, trimEnd: 0, rotation: 180 },
         keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.4, ease: 'power2.inOut' }] },
     ];
 
@@ -298,7 +298,7 @@
     ];
 
     const sequences = [
-      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: BG } },
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: BG } },
       { type: 'shape', shape: 'rect', name: 'sunGlow', width: 560, height: 'GH', at: 0,
         initial: { x: 280, y: 'GH/2', alpha: 0 },
         fillGradient: { angle: 90, stops: [[0, 'rgba(230,166,89,0.11)'], [0.3, 'rgba(230,166,89,0.045)'], [1, 'rgba(230,166,89,0)']] },

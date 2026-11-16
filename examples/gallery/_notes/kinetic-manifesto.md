@@ -4,7 +4,7 @@ Model: fable   Cycles: 4   Result: works
 ## Went smoothly because the docs said so
 - Layer-local keyframe `at`, scenes stacked over opaque rects with array order as z-order, `anchorX/anchorY: 0.5` for centred text, `{value}` counter with `format`, `contactSheet` / `inspect({ layers: 'none' })` / `snapshot` piped through `save-image.py` — all exactly as written; the first run had `__logs: []`.
 - Pitfall 5 (audio shorter than its layer) made me size every one-shot sfx layer to its clip length (`afinfo`), so 25 audio layers produced zero warnings and the RMS of `movie.audioBuffer` shows hits exactly on the 0.6 s beat grid.
-- The scene-flood recipe (radius ≥ half the diagonal, `power2.in`) worked first time, with a stroked circle on top as an accent rim (`fillAlpha: 0`, `strokeColor`, `strokeWidth`).
+- The scene-flood recipe (radius ≥ half the diagonal, `power2.in`) worked first time, with a stroked circle on top as an accent rim (`fillAlpha: 0`, `stroke`, `strokeWidth`).
 - Pitfall 6 (snap times to the frame grid): a 100 BPM grid is 18 frames per beat, so every event is on an integer frame via `Math.round(t * 30) / 30`.
 
 ## Stumbles
@@ -78,7 +78,7 @@ function column(str, { x, yTop, size, fill, at, stagger = 0.05, duration }) {
 
 // @docs-only — a hard wipe that survives scrubbing: a full-size cover SLIDES in (transform tween), an accent band rides its edge
 const wipeRight = (color, at, W = 1280, H = 720, dur = 0.3) => [
-  { type: 'shape', shape: 'rect', width: W, height: H, at, initial: { x: -W / 2, y: H / 2, fillColor: color }, keyframes: [{ at: 0, to: { x: W / 2 }, duration: dur, ease: 'power3.inOut' }] },
-  { type: 'shape', shape: 'rect', width: 26, height: H, anchorX: 1, at, duration: dur + 1 / 30, initial: { x: 0, y: H / 2, fillColor: '#ff3b1f' }, keyframes: [{ at: 0, to: { x: W }, duration: dur, ease: 'power3.inOut' }] },
+  { type: 'shape', shape: 'rect', width: W, height: H, at, initial: { x: -W / 2, y: H / 2, fill: color }, keyframes: [{ at: 0, to: { x: W / 2 }, duration: dur, ease: 'power3.inOut' }] },
+  { type: 'shape', shape: 'rect', width: 26, height: H, anchorX: 1, at, duration: dur + 1 / 30, initial: { x: 0, y: H / 2, fill: '#ff3b1f' }, keyframes: [{ at: 0, to: { x: W }, duration: dur, ease: 'power3.inOut' }] },
 ];
 ```

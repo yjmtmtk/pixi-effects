@@ -81,17 +81,17 @@
 
     function toggle(i) {
       const track = { type: 'shape', shape: 'rect', name: 'toggle-track', width: 132, height: 70, cornerRadius: 35, colorSpace: 'oklab',
-                      initial: { x: CX, y: CY, fillColor: C.off }, keyframes: [] };
+                      initial: { x: CX, y: CY, fill: C.off }, keyframes: [] };
       const knobX = (t, ks) => { ks.push(kf(t, { x: CX + 31 }, 0.6, 'back.out(2.6)')); };
-      const knob = { type: 'shape', shape: 'circle', name: 'toggle-knob', radius: 28, initial: { x: CX - 31, y: CY, fillColor: C.card }, keyframes: [] };
-      const knobShadow = { type: 'shape', shape: 'circle', name: 'toggle-knob-shadow', radius: 29, initial: { x: CX - 31, y: CY + 3, fillColor: '#1E2233', alpha: 0.13 }, keyframes: [] };
+      const knob = { type: 'shape', shape: 'circle', name: 'toggle-knob', radius: 28, initial: { x: CX - 31, y: CY, fill: C.card }, keyframes: [] };
+      const knobShadow = { type: 'shape', shape: 'circle', name: 'toggle-knob-shadow', radius: 29, initial: { x: CX - 31, y: CY + 3, fill: '#1E2233', alpha: 0.13 }, keyframes: [] };
       for (const t of PLAYS(i)) {
-        track.keyframes.push(kf(t + 0.04, { fillColor: C.brand }, 0.28, 'power2.out'));
+        track.keyframes.push(kf(t + 0.04, { fill: C.brand }, 0.28, 'power2.out'));
         knobX(t, knob.keyframes); knobX(t, knobShadow.keyframes);
         knob.keyframes.push(kf(t, { scaleX: 1.24, scaleY: 0.9 }, 0.12, 'power2.out'), kf(t + 0.12, { scaleX: 1, scaleY: 1 }, 0.55, 'elastic.out(1, 0.4)'));
         hit('click', t);
       }
-      track.keyframes.push(kf(RESET, { fillColor: C.off }, 0.35, 'power2.inOut'));
+      track.keyframes.push(kf(RESET, { fill: C.off }, 0.35, 'power2.inOut'));
       for (const l of [knob, knobShadow]) l.keyframes.push(kf(RESET, { x: CX - 31 }, 0.42, 'power3.inOut'));
       return [track, knobShadow, knob];
     }
@@ -107,15 +107,15 @@
         return ks;
       };
       const btn = { type: 'shape', shape: 'rect', name: 'button', width: BW, height: BH, cornerRadius: BH / 2,
-                    initial: { x: CX, y: BY, fillColor: C.brand }, keyframes: shapeKeys() };
+                    initial: { x: CX, y: BY, fill: C.brand }, keyframes: shapeKeys() };
       const label = { type: 'text', text: 'Submit', name: 'button-label', style: { fontFamily: SANS, fontSize: 21, fontWeight: '600', fill: '#FFFFFF' },
                       initial: { x: CX, y: BY, anchorX: 0.5, anchorY: 0.5 }, keyframes: [] };
-      const ripple = { type: 'shape', shape: 'circle', name: 'button-ripple', radius: 4, initial: { x: CX - 30, y: BY + 6, fillColor: '#FFFFFF', alpha: 0 }, keyframes: [],
-                       mask: { type: 'shape', shape: 'rect', width: BW, height: BH, cornerRadius: BH / 2, initial: { x: CX, y: BY, fillColor: '#FFFFFF' }, keyframes: shapeKeys() } };
+      const ripple = { type: 'shape', shape: 'circle', name: 'button-ripple', radius: 4, initial: { x: CX - 30, y: BY + 6, fill: '#FFFFFF', alpha: 0 }, keyframes: [],
+                       mask: { type: 'shape', shape: 'rect', width: BW, height: BH, cornerRadius: BH / 2, initial: { x: CX, y: BY, fill: '#FFFFFF' }, keyframes: shapeKeys() } };
       const check = { type: 'shape', shape: 'polygon', name: 'button-check', open: true, points: [[CX - 13, BY + 1], [CX - 3, BY + 11], [CX + 15, BY - 10]],
-                      initial: { strokeColor: '#FFFFFF', strokeWidth: 5 }, keyframes: [],
+                      initial: { stroke: '#FFFFFF', strokeWidth: 5 }, keyframes: [],
                       // draw-on: the check only moves rightwards, so a mask growing from its left edge reads as the stroke being drawn
-                      mask: { type: 'shape', shape: 'rect', width: 0, height: 44, anchorX: 0, initial: { x: CX - 17, y: BY, fillColor: '#FFFFFF' }, keyframes: [] } };
+                      mask: { type: 'shape', shape: 'rect', width: 0, height: 44, anchorX: 0, initial: { x: CX - 17, y: BY, fill: '#FFFFFF' }, keyframes: [] } };
       for (const t of PLAYS(i)) {
         ripple.keyframes.push(set(t, { radius: 4, alpha: 0.42 }), kf(t, { radius: 150, alpha: 0 }, 0.6, 'power2.out'));
         label.keyframes.push(kf(t + 0.2, { alpha: 0, scale: 0.85 }, 0.14, 'power2.in'));
@@ -130,14 +130,14 @@
 
     function heart(i) {
       const D = 'M 0 -20 C -30 -50 -70 -10 0 30 C 70 -10 30 -50 0 -20 Z', S = 0.86, HX = CX - 26, HY = CY + 2;
-      const outline = { type: 'shape', shape: 'path', name: 'heart-outline', d: D, initial: { x: HX, y: HY, scale: S, strokeColor: '#B4B9CA', strokeWidth: 4.5 }, keyframes: [] };
-      const fill = { type: 'shape', shape: 'path', name: 'heart-fill', d: D, initial: { x: HX, y: HY, scale: 0, fillColor: C.brand }, keyframes: [] };
-      const ring = { type: 'shape', shape: 'circle', name: 'heart-ring', radius: 16, initial: { x: HX, y: HY, strokeColor: C.tint, strokeWidth: 0 }, keyframes: [] };
+      const outline = { type: 'shape', shape: 'path', name: 'heart-outline', d: D, initial: { x: HX, y: HY, scale: S, stroke: '#B4B9CA', strokeWidth: 4.5 }, keyframes: [] };
+      const fill = { type: 'shape', shape: 'path', name: 'heart-fill', d: D, initial: { x: HX, y: HY, scale: 0, fill: C.brand }, keyframes: [] };
+      const ring = { type: 'shape', shape: 'circle', name: 'heart-ring', radius: 16, initial: { x: HX, y: HY, stroke: C.tint, strokeWidth: 0 }, keyframes: [] };
       const count = { type: 'text', text: '{value}', name: 'heart-count', style: { fontFamily: SANS, fontSize: 24, fontWeight: '700', fill: C.ink },
                       initial: { x: HX + 50, y: HY, anchorX: 0, anchorY: 0.5, value: 128 }, keyframes: [] };
       const sparks = Array.from({ length: 8 }, (_, k) => ({
         type: 'shape', shape: 'circle', name: `heart-spark-${k}`, radius: k % 2 ? 3.5 : 5,
-        initial: { x: HX, y: HY, fillColor: k % 2 ? C.tint : C.brand, alpha: 0 }, keyframes: [], _a: (k / 8) * 2 * Math.PI - Math.PI / 2 + (k % 2 ? 0.2 : 0),
+        initial: { x: HX, y: HY, fill: k % 2 ? C.tint : C.brand, alpha: 0 }, keyframes: [], _a: (k / 8) * 2 * Math.PI - Math.PI / 2 + (k % 2 ? 0.2 : 0),
       }));
       for (const t of PLAYS(i)) {
         outline.keyframes.push(kf(t, { scale: S * 0.78 }, 0.1, 'power2.out'), kf(t + 0.1, { scale: S }, 0.5, 'elastic.out(1.1, 0.4)'), kf(t + 0.12, { alpha: 0 }, 0.1));
@@ -160,16 +160,16 @@
 
     function loader(i) {
       const dots = [-1, 0, 1].map(j => ({ type: 'shape', shape: 'circle', name: `loader-dot-${j + 1}`, radius: 11, colorSpace: 'oklab',
-                                          initial: { x: CX + j * 36, y: CY + 8, fillColor: C.off }, keyframes: [] }));
+                                          initial: { x: CX + j * 36, y: CY + 8, fill: C.off }, keyframes: [] }));
       dots.forEach((d, j) => {
         for (const t of PLAYS(i)) {
-          d.keyframes.push(kf(t + j * 0.11, { fillColor: C.brand }, 0.2, 'power2.out'),
+          d.keyframes.push(kf(t + j * 0.11, { fill: C.brand }, 0.2, 'power2.out'),
                            kf(t + j * 0.11, { y: CY - 18 }, 0.24, 'sine.inOut', ));
           d.keyframes[d.keyframes.length - 1].repeat = 3; d.keyframes[d.keyframes.length - 1].yoyo = true;   // up, down, up, down
           d.keyframes.push(kf(t + j * 0.11 + 0.96, { scale: 1.25 }, 0.08, 'power2.out'), kf(t + j * 0.11 + 1.04, { scale: 1 }, 0.3, 'back.out(3)'));
           if (j === 0) hit('click', t);
         }
-        d.keyframes.push(kf(RESET + j * 0.05, { fillColor: C.off }, 0.3, 'power2.inOut'));
+        d.keyframes.push(kf(RESET + j * 0.05, { fill: C.off }, 0.3, 'power2.inOut'));
       });
       return dots;
     }
@@ -180,9 +180,9 @@
                      initial: { x: L, y: CY - 14, anchorX: 0, anchorY: 0.5 } };
       const count = { type: 'text', text: '{value}%', name: 'download-count', style: { fontFamily: SANS, fontSize: 24, fontWeight: '700', fill: C.ink },
                       initial: { x: L + TW, y: CY - 14, anchorX: 1, anchorY: 0.5, value: 0 }, keyframes: [] };
-      const track = { type: 'shape', shape: 'rect', name: 'download-track', width: TW, height: 12, cornerRadius: 6, initial: { x: CX, y: TY, fillColor: C.line } };
+      const track = { type: 'shape', shape: 'rect', name: 'download-track', width: TW, height: 12, cornerRadius: 6, initial: { x: CX, y: TY, fill: C.line } };
       const bar = { type: 'shape', shape: 'rect', name: 'download-bar', width: 0, height: 12, cornerRadius: 6, anchorX: 0,
-                    initial: { x: L, y: TY, fillColor: C.brand }, keyframes: [] };
+                    initial: { x: L, y: TY, fill: C.brand }, keyframes: [] };
       for (const t of PLAYS(i)) {
         bar.keyframes.push(kf(t, { width: TW }, 1.1, 'power2.inOut'));
         count.keyframes.push(kf(t, { value: 100 }, 1.1, 'power2.inOut'), kf(t + 1.1, { scale: 1.16 }, 0.08, 'power2.out'), kf(t + 1.18, { scale: 1 }, 0.35, 'back.out(3)'));
@@ -200,13 +200,13 @@
       const swing = [16, -14, 10, -7, 4, -2, 0], STEP = 0.075;
       const bellComp = { type: 'composition', name: 'bell', width: 120, height: 120, initial: { x: BX, y: BY, pivotX: 60, pivotY: 20 }, keyframes: [],
         sequences: [
-          { type: 'shape', shape: 'circle', name: 'bell-hook', radius: 6, initial: { x: 60, y: 20, fillColor: C.ink } },
-          { type: 'shape', shape: 'circle', name: 'bell-clapper', radius: 8.5, initial: { x: 60, y: 90, fillColor: C.ink } },
+          { type: 'shape', shape: 'circle', name: 'bell-hook', radius: 6, initial: { x: 60, y: 20, fill: C.ink } },
+          { type: 'shape', shape: 'circle', name: 'bell-clapper', radius: 8.5, initial: { x: 60, y: 90, fill: C.ink } },
           { type: 'shape', shape: 'path', name: 'bell-body', d: 'M 60 24 C 40 24 32 40 32 58 L 32 72 L 22 84 L 98 84 L 88 72 L 88 58 C 88 40 80 24 60 24 Z',
-            initial: { fillColor: C.ink } },
+            initial: { fill: C.ink } },
         ] };
       const BADGE_X = BX + 26, BADGE_Y = BY + 12;
-      const badge = { type: 'shape', shape: 'circle', name: 'bell-badge', radius: 15, initial: { x: BADGE_X, y: BADGE_Y, fillColor: C.brand, strokeColor: C.card, strokeWidth: 3.5, scale: 0, alpha: 0 }, keyframes: [] };
+      const badge = { type: 'shape', shape: 'circle', name: 'bell-badge', radius: 15, initial: { x: BADGE_X, y: BADGE_Y, fill: C.brand, stroke: C.card, strokeWidth: 3.5, scale: 0, alpha: 0 }, keyframes: [] };
       const num = { type: 'text', text: '3', name: 'bell-badge-num', style: { fontFamily: SANS, fontSize: 16, fontWeight: '700', fill: '#FFFFFF' },
                     initial: { x: BADGE_X, y: BADGE_Y, anchorX: 0.5, anchorY: 0.5, scale: 0, alpha: 0 }, keyframes: [] };
       for (const t of PLAYS(i)) {
@@ -246,8 +246,8 @@
         sequences: [
           { type: 'shape', shape: 'rect', name: 'shadow', width: CW + 24, height: CH + 26, initial: { x: LX, y: LY + 8 }, fillGradient: SHADOW(0.11) },
           liftShadow,
-          { type: 'shape', shape: 'rect', name: 'card', width: CW, height: CH, cornerRadius: 22, initial: { x: LX, y: LY, fillColor: C.card, strokeColor: '#E6E8F0', strokeWidth: 1 } },
-          { type: 'shape', shape: 'line', name: 'divider', from: [PAD + 22, 213], to: [PAD + CW - 22, 213], initial: { strokeColor: C.line, strokeWidth: 1.5 } },
+          { type: 'shape', shape: 'rect', name: 'card', width: CW, height: CH, cornerRadius: 22, initial: { x: LX, y: LY, fill: C.card, stroke: '#E6E8F0', strokeWidth: 1 } },
+          { type: 'shape', shape: 'line', name: 'divider', from: [PAD + 22, 213], to: [PAD + CW - 22, 213], initial: { stroke: C.line, strokeWidth: 1.5 } },
           { type: 'text', text: String(i + 1).padStart(2, '0'), name: 'caption-num', style: { fontFamily: MONO, fontSize: 13, fontWeight: '700', fill: C.brand },
             initial: { x: PAD + 24, y: 240, anchorY: 0.5 } },
           { type: 'text', text: title, name: 'caption-title', style: { fontFamily: SANS, fontSize: 16, fontWeight: '700', fill: C.ink },
@@ -263,9 +263,9 @@
     const HY = 74;
     const fadeIn = (at, dx = -14) => (x) => ({ at, from: { alpha: 0, x: x + dx }, to: { alpha: 1, x }, duration: 0.6, ease: 'power3.out' });
     const header = [
-      { type: 'shape', shape: 'rect', name: 'mark', width: 34, height: 34, cornerRadius: 10, initial: { x: X0 + 17, y: HY, fillColor: C.brand },
+      { type: 'shape', shape: 'rect', name: 'mark', width: 34, height: 34, cornerRadius: 10, initial: { x: X0 + 17, y: HY, fill: C.brand },
         keyframes: [{ at: 0.1, from: { scale: 0, rotation: -90 }, to: { scale: 1, rotation: 0 }, duration: 0.6, ease: 'back.out(2.2)' }] },
-      { type: 'shape', shape: 'circle', name: 'mark-dot', radius: 6, initial: { x: X0 + 17, y: HY, fillColor: C.card },
+      { type: 'shape', shape: 'circle', name: 'mark-dot', radius: 6, initial: { x: X0 + 17, y: HY, fill: C.card },
         keyframes: [{ at: 0.25, from: { scale: 0 }, to: { scale: 1 }, duration: 0.5, ease: 'back.out(3)' }] },
       { type: 'text', text: 'Motion Kit', name: 'title', style: { fontFamily: SANS, fontSize: 28, fontWeight: '800', fill: C.ink, letterSpacing: -0.5 },
         initial: { x: X0 + 50, y: HY - 9, anchorY: 0.5 }, keyframes: [fadeIn(0.2)(X0 + 50)] },
@@ -274,9 +274,9 @@
     ];
     const PILL_W = 214, PILL_X = X0 + 3 * CW + 2 * GAP_X - PILL_W / 2;
     const statusPill = [
-      { type: 'shape', shape: 'rect', name: 'pill', width: PILL_W, height: 38, cornerRadius: 19, initial: { x: PILL_X, y: HY, fillColor: C.card, strokeColor: '#E2E5EE', strokeWidth: 1 },
+      { type: 'shape', shape: 'rect', name: 'pill', width: PILL_W, height: 38, cornerRadius: 19, initial: { x: PILL_X, y: HY, fill: C.card, stroke: '#E2E5EE', strokeWidth: 1 },
         keyframes: [{ at: 0.3, from: { alpha: 0, scale: 0.9 }, to: { alpha: 1, scale: 1 }, duration: 0.5, ease: 'back.out(2)' }] },
-      { type: 'shape', shape: 'circle', name: 'pill-dot', radius: 5, colorSpace: 'oklab', initial: { x: PILL_X - PILL_W / 2 + 22, y: HY, fillColor: C.brand },
+      { type: 'shape', shape: 'circle', name: 'pill-dot', radius: 5, colorSpace: 'oklab', initial: { x: PILL_X - PILL_W / 2 + 22, y: HY, fill: C.brand },
         keyframes: [{ at: 0.4, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.3 },
                     { at: 1.2, to: { scale: 1.5 }, duration: 0.45, ease: 'sine.inOut', repeat: 9, yoyo: true },
                     kf(DONE, { scale: 1.9 }, 0.12, 'power2.out'), kf(DONE + 0.12, { scale: 1 }, 0.4, 'back.out(3)')] },
@@ -314,13 +314,13 @@
     const cursorStart = (ox, oy) => ({ x: W - 120 + TIP[0] + ox, y: H + 40 + TIP[1] + oy });
     const cursor = [
       { type: 'shape', shape: 'polygon', name: 'cursor-shadow', points: ARROW, duration: RESET + 0.1,
-        initial: { ...cursorStart(2, 4), fillColor: '#1E2233', alpha: 0.18 }, keyframes: cursorKeys(2, 4) },
+        initial: { ...cursorStart(2, 4), fill: '#1E2233', alpha: 0.18 }, keyframes: cursorKeys(2, 4) },
       { type: 'shape', shape: 'polygon', name: 'cursor', points: ARROW, duration: RESET + 0.1,
-        initial: { ...cursorStart(0, 0), fillColor: C.ink, strokeColor: '#FFFFFF', strokeWidth: 2 }, keyframes: cursorKeys(0, 0) },
+        initial: { ...cursorStart(0, 0), fill: C.ink, stroke: '#FFFFFF', strokeWidth: 2 }, keyframes: cursorKeys(0, 0) },
     ];
     // a click ring under the cursor tip on every press
     cursor.unshift(...tips.map(([x, y], i) => ({ type: 'shape', shape: 'circle', name: `click-ring-${i + 1}`, radius: 5, at: CASCADE[i] - 0.04, duration: 0.5,
-      initial: { x, y, strokeColor: C.brand, strokeWidth: 3 },
+      initial: { x, y, stroke: C.brand, strokeWidth: 3 },
       keyframes: [kf(0, { radius: 26, strokeWidth: 0 }, 0.45, 'power2.out')] })));
 
     // ---------- audio: soft bed + interaction sfx; whooshes on the board's entrance and on the reset ----------

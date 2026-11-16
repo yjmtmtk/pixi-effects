@@ -59,7 +59,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
       type: 'shape', shape: 'rect', width: 10, height: 10, at: 2, duration: 3,
       keyframes: [
         { at: 0.5, to: { alpha: 0.5 }, duration: 1 },
-        { at: 0.5, to: { fillColor: '#ff0000' }, duration: 1 },
+        { at: 0.5, to: { fill: '#ff0000' }, duration: 1 },
       ],
     } as unknown as SequenceSpec, shape, shape);
     await t.build();

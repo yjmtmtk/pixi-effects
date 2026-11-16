@@ -26,7 +26,7 @@
     new Controller(movie, { canvas: document.getElementById('stage') });
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30, background: '#102040',
-        composition: { sequences: [{ type: 'shape', shape: 'rect', width: 200, height: 200, initial: { x: 640, y: 360, fillColor: '#ffffff' } }] } });
+        composition: { sequences: [{ type: 'shape', shape: 'rect', width: 200, height: 200, initial: { x: 640, y: 360, fill: '#ffffff' } }] } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init: ' + e.message); }
   </script>

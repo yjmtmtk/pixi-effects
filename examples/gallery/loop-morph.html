@@ -113,7 +113,7 @@
     // ── typing dots (left / right); they hide behind the body when not in use ──
     for (const [side, i] of [[-1, 0], [1, 2]]) {
       add({ type: 'shape', shape: 'circle', name: side < 0 ? 'dotL' : 'dotR', radius: R,
-        initial: { x: CX, y: CY, fillColor: INK },
+        initial: { x: CX, y: CY, fill: INK },
         keyframes: [
           { at: 0.2, to: { x: CX + side * GAP }, duration: 0.42, ease: 'back.out(1.7)' },
           ...WAVE.flatMap(w => hop(w + i * STAG)),
@@ -124,7 +124,7 @@
 
     // ── the body: a rounded rect that is a dot, a bar, a toggle, a disc, and a dot again ──
     add({ type: 'shape', shape: 'rect', name: 'body', width: 2 * R, height: 2 * R, cornerRadius: R,
-      initial: { x: CX, y: CY, fillColor: INK },
+      initial: { x: CX, y: CY, fill: INK },
       keyframes: [
         // split
         { at: 0.2, to: { scaleX: 1.16, scaleY: 0.86 }, duration: 0.1, ease: 'power2.out' },
@@ -132,14 +132,14 @@
         ...WAVE.flatMap(w => hop(w + STAG)),
         // merge, then stretch into a track
         { at: 2.1, to: { width: 2.55 * R, height: 2.55 * R, cornerRadius: 1.275 * R }, duration: 0.1, ease: 'power2.out' },
-        { at: 2.2, to: { width: BAR, height: BARH, cornerRadius: BARH / 2, fillColor: MUTE }, duration: 0.5, ease: 'expo.out' },
+        { at: 2.2, to: { width: BAR, height: BARH, cornerRadius: BARH / 2, fill: MUTE }, duration: 0.5, ease: 'expo.out' },
         // complete: the track turns accent under the fill
-        { at: 3.85, set: { fillColor: ACC } },
+        { at: 3.85, set: { fill: ACC } },
         // a toggle (off)
         { at: 4.0, to: { width: TW, height: TH, cornerRadius: TH / 2 }, duration: 0.5, ease: 'cubic-bezier(.7,0,.2,1)' },
-        { at: 4.05, to: { fillColor: MUTE }, duration: 0.3, ease: 'power2.inOut' },
+        { at: 4.05, to: { fill: MUTE }, duration: 0.3, ease: 'power2.inOut' },
         // switched on
-        { at: 5.0, to: { fillColor: ACC }, duration: 0.22, ease: 'power2.out' },
+        { at: 5.0, to: { fill: ACC }, duration: 0.22, ease: 'power2.out' },
         // a disc
         { at: 6.0, to: { height: 2 * DISC, width: 2 * DISC, cornerRadius: DISC }, duration: 0.42, ease: 'back.out(1.5)' },
         { at: 6.62, to: { scale: 1.06 }, duration: 0.12, ease: 'power2.out' },
@@ -147,10 +147,10 @@
         // retreat inside the ring
         { at: 8.2, to: { scale: 0 }, duration: 0.28, ease: 'power3.in' },
         // the spinner collapses to a dot at the top of the ring; the dot falls home
-        { at: 9.8, set: { width: RINGW, height: RINGW, cornerRadius: RINGW / 2, y: CY - RING, scale: 1, fillColor: ACC } },
+        { at: 9.8, set: { width: RINGW, height: RINGW, cornerRadius: RINGW / 2, y: CY - RING, scale: 1, fill: ACC } },
         { at: 9.85, to: { y: CY }, duration: 0.34, ease: 'power2.in' },
         { at: 9.85, to: { width: 2 * R, height: 2 * R, cornerRadius: R }, duration: 0.34, ease: 'power2.out' },
-        { at: 9.85, to: { fillColor: INK }, duration: 0.4, ease: 'power1.inOut' },
+        { at: 9.85, to: { fill: INK }, duration: 0.4, ease: 'power1.inOut' },
         { at: 10.19, to: { scaleX: 1.22, scaleY: 0.8 }, duration: 0.07, ease: 'power2.out' },
         { at: 10.26, to: { scaleX: 1, scaleY: 1 }, duration: 0.7, ease: 'elastic.out(1,0.42)' },
       ] });
@@ -158,7 +158,7 @@
     // ── progress fill ──
     const steps = [[2.65, 0.36, 0.35], [3.1, 0.64, 0.3], [3.5, 1, 0.35]];
     add({ type: 'shape', shape: 'rect', name: 'fill', width: BARH, height: BARH, cornerRadius: BARH / 2, anchorX: 0,
-      initial: { x: CX - BAR / 2, y: CY, fillColor: ACC, alpha: 0 },
+      initial: { x: CX - BAR / 2, y: CY, fill: ACC, alpha: 0 },
       keyframes: [
         { at: 2.6, set: { alpha: 1 } },
         ...steps.map(([t, p, d]) => ({ at: t, to: { width: BAR * p }, duration: d, ease: p < 1 ? 'power3.out' : 'expo.out' })),
@@ -175,7 +175,7 @@
 
     // ── toggle knob ──
     add({ type: 'shape', shape: 'circle', name: 'knob', radius: KR,
-      initial: { x: CX - KOFF, y: CY, fillColor: KNOB, scale: 0 },
+      initial: { x: CX - KOFF, y: CY, fill: KNOB, scale: 0 },
       keyframes: [
         { at: 4.38, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2.2)' },
         { at: 4.85, to: { scale: 0.9 }, duration: 0.12, ease: 'power2.out' },          // pressed
@@ -188,20 +188,20 @@
     // ── success: check mark + two ripples ──
     const CHECK = `M ${CX - 33 * S} ${CY + 2 * S} L ${CX - 9 * S} ${CY + 25 * S} L ${CX + 35 * S} ${CY - 22 * S}`;
     add({ type: 'shape', shape: 'path', name: 'check', d: CHECK, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
-      initial: { strokeColor: KNOB, strokeWidth: 13 * S },
+      initial: { stroke: KNOB, strokeWidth: 13 * S },
       keyframes: [
         { at: 6.3, to: { trimEnd: 1 }, duration: 0.36, ease: 'power2.out' },
         { at: 8.0, to: { trimStart: 1 }, duration: 0.24, ease: 'power2.in' },
       ] });
     [[6.62, 2.0], [6.78, 1.55]].forEach(([t, s], i) => add({ type: 'shape', shape: 'circle', name: 'ripple' + i, radius: DISC,
-      at: t, duration: 1.1, initial: { x: CX, y: CY, strokeColor: ACC, strokeWidth: (2.5 - i) * S, strokeAlpha: 0 },
+      at: t, duration: 1.1, initial: { x: CX, y: CY, stroke: ACC, strokeWidth: (2.5 - i) * S, strokeAlpha: 0 },
       keyframes: [{ at: 0, from: { scale: 1, strokeAlpha: 0.9 }, to: { scale: s, strokeAlpha: 0 }, duration: 1.05, ease: 'expo.out' }] }));
 
     // a small burst of eight sparks, like a "like" button
     for (let i = 0; i < 8; i++) {
       const ang = (i * 45 + 22.5) * Math.PI / 180, r0 = DISC + 14, r1 = DISC + 64;
       add({ type: 'shape', shape: 'rect', name: 'spark' + i, at: 6.62, duration: 0.7, width: 22, height: 6, cornerRadius: 3,
-        initial: { x: CX + Math.cos(ang) * r0, y: CY + Math.sin(ang) * r0, rotation: i * 45 + 22.5, fillColor: i % 2 ? INK : ACC },
+        initial: { x: CX + Math.cos(ang) * r0, y: CY + Math.sin(ang) * r0, rotation: i * 45 + 22.5, fill: i % 2 ? INK : ACC },
         keyframes: [
           { at: 0, to: { x: CX + Math.cos(ang) * r1, y: CY + Math.sin(ang) * r1 }, duration: 0.55, ease: 'expo.out' },
           { at: 0, from: { scaleX: 0.2 }, to: { scaleX: 1 }, duration: 0.15, ease: 'power2.out' },
@@ -211,7 +211,7 @@
 
     // ── spinner ring: the disc becomes a ring, opens, chases itself, closes to a point at 12 o'clock ──
     add({ type: 'shape', shape: 'arc', name: 'ring', radius: RING, startAngle: -90, endAngle: 270, strokeCap: 'round',
-      initial: { x: CX, y: CY, strokeColor: ACC, strokeWidth: RINGW, alpha: 0 },
+      initial: { x: CX, y: CY, stroke: ACC, strokeWidth: RINGW, alpha: 0 },
       keyframes: [
         { at: 8.2, set: { alpha: 1 } },
         { at: 8.2, to: { rotation: 540 }, duration: 1.6, ease: 'cubic-bezier(.35,0,.25,1)' },
@@ -259,10 +259,10 @@
       const kf = [];
       STATES.forEach((s, k) => {
         const pos = layoutPag(k);
-        kf.push({ at: s.t, to: { x: pos[i], width: i === k ? PA : PD, fillColor: i === k ? ACC : MUTE }, duration: 0.45, ease: 'cubic-bezier(.5,0,.1,1)' });
+        kf.push({ at: s.t, to: { x: pos[i], width: i === k ? PA : PD, fill: i === k ? ACC : MUTE }, duration: 0.45, ease: 'cubic-bezier(.5,0,.1,1)' });
       });
       add({ type: 'shape', shape: 'rect', name: 'pag' + i, width: i === 5 ? PA : PD, height: PD, cornerRadius: PD / 2,
-        initial: { x: at0[i], y: H - M - 11, fillColor: i === 5 ? ACC : MUTE }, keyframes: kf });
+        initial: { x: at0[i], y: H - M - 11, fill: i === 5 ? ACC : MUTE }, keyframes: kf });
     });
 
     // ── sound ────────────────────────────────────────────────────────────────────

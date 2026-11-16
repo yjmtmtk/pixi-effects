@@ -25,7 +25,7 @@ export default function chapter(P) {
   const HINT_AT = 2.7;
   const hintStyle = { fontSize: 36, fontFamily: F.mono, fill: C.dim, letterSpacing: 1 };
   const hints = [
-    '{ "type": "shape", "shape": "rect", "rotation": 45, "fillColor": "#ff5a36" }',
+    '{ "type": "shape", "shape": "rect", "rotation": 45, "fill": "#ff5a36" }',
     '{ "type": "text", "text": "pixi-effects", "keyframes": [ … ] }',
   ];
   return {
@@ -36,7 +36,7 @@ export default function chapter(P) {
       ...P.tag('00', 'OPEN', '', { at: 2.4 }),
       // the mark: big and alone at frame 0, then it shrinks into its place before the word
       { type: 'shape', shape: 'rect', name: 'mark', width: SIDE, height: SIDE,
-        initial: { x: diamondX, y: midY, rotation: 45, fillColor: C.red, scale: 1 },
+        initial: { x: diamondX, y: midY, rotation: 45, fill: C.red, scale: 1 },
         keyframes: [{ at: 0, from: { x: 960, y: 500, scale: 3.6 }, to: { x: diamondX, y: midY, scale: 1 }, duration: MARK_IN, ease: 'power3.out' }] },
       // the letters assemble: alternately from above and below, each a little after the one before
       ...letters.map((p, i) => ({
@@ -46,7 +46,7 @@ export default function chapter(P) {
       })),
       // the hairline draws on under the whole group as the last letters land
       { type: 'shape', shape: 'line', name: 'rule', from: [left, RULE_Y], to: [left + groupW, RULE_Y], trimEnd: 0, strokeCap: 'round',
-        initial: { strokeColor: C.bone, strokeWidth: 3, alpha: 0.7 },
+        initial: { stroke: C.bone, strokeWidth: 3, alpha: 0.7 },
         keyframes: [{ at: 0.55, to: { trimEnd: 1 }, duration: 0.8, ease: 'power2.inOut' }] },
       // the claim, word by word; "data" is the only other red thing on screen
       ...P.animateText('a video is a file of data.', claimStyle, {

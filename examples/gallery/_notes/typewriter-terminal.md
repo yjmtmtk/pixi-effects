@@ -32,7 +32,7 @@ for program *output* — a terminal prints lines, it does not type them. Both co
 - "Mask keyframes are measured from the layer's start" — the tagline text has `at: T.tag`, its mask has `at: k × 0.05`; no arithmetic.
 - `from` / `from + to` at `at: 0` for every appearance (2-frame fade for output lines, slide-in for the checks) — no `initial.alpha`.
 - Bar-chart recipe: `anchorX: 0` + `width` tween and a `{value}%` counter with the same `at`/`duration`/`ease` stay locked; a
-  `to: { fillColor: GREEN }` / `to: { fill: GREEN }` with `colorSpace: 'oklab'` turns both green at 100 % without a muddy midpoint.
+  `to: { fill: GREEN }` / `to: { fill: GREEN }` with `colorSpace: 'oklab'` turns both green at 100 % without a muddy midpoint.
 - `composition` + `threeD: true`, `pivotX/pivotY` = centre, then `to: { z: -800, x: 188, rotationY: 18 }` — the window steps back
   and turns toward the title exactly as the depth-cards recipe implies. One keyframe. The screen position after perspective is
   `640 + (x − 640) × 989 / (989 − z)`, which I used to land the window's left edge at 5 % margin.
@@ -118,7 +118,7 @@ function typeMono({ tokens, x0, y, at, font = "400 23px Menlo, monospace", famil
   }
   for (let b = snap(t + 0.5), on = false; b < t + 3; b = snap(b + 0.5), on = !on) cursor.push({ at: b, set: { alpha: on ? 1 : 0 } });
   layers.push({ type: 'shape', shape: 'rect', width: ADV, height: size * 1.15, anchorX: 0, anchorY: 0.5,
-                initial: { x: x0, y, fillColor: '#e6edf3', alpha: 0 }, keyframes: cursor });
+                initial: { x: x0, y, fill: '#e6edf3', alpha: 0 }, keyframes: cursor });
   return { layers, end: t };
 }
 
@@ -127,6 +127,6 @@ function typeMasked({ text, x, y, at, style, font, step = 0.05 }) {
   const keys = Array.from({ length: text.length }, (_, i) => ({ at: snap((i + 1) * step), set: { width: measure(text.slice(0, i + 1), font) + 2 } }));
   return { type: 'text', text, at, style, initial: { x, y, anchorX: 0, anchorY: 0.5 },
            mask: { type: 'shape', shape: 'rect', width: 0, height: style.fontSize * 1.5, anchorX: 0, anchorY: 0.5,
-                   initial: { x: x - 2, y, fillColor: '#fff' }, keyframes: keys } };
+                   initial: { x: x - 2, y, fill: '#fff' }, keyframes: keys } };
 }
 ```

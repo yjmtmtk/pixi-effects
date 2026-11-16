@@ -116,7 +116,7 @@
     // ─────────────────────────── small builders ───────────────────────────
     const R = random(2026);
     const rect = (o) => ({ type: 'shape', shape: 'rect', ...o });
-    const full = (fill, o = {}) => rect({ width: W, height: H, ...o, initial: { x: W / 2, y: H / 2, fillColor: fill, ...(o.initial || {}) } });
+    const full = (fill, o = {}) => rect({ width: W, height: H, ...o, initial: { x: W / 2, y: H / 2, fill: fill, ...(o.initial || {}) } });
     const fullGrad = (name, fillGradient, o = {}) => rect({ name, width: W, height: H, ...o, initial: { x: W / 2, y: H / 2, ...(o.initial || {}) }, fillGradient });
     const P = pts => pts.map((p, i) => (i ? 'L ' : 'M ') + p[0] + ' ' + p[1]).join(' ');
     const circleD = (cx, cy, r) => {
@@ -146,7 +146,7 @@
         { type: 'text', name: 'label-num-' + num, text: num, at, duration: until - at, style: { ...NUMERAL, fill: color },
           initial: { x: MARGIN, y, anchorY: 0.5 }, keyframes: [...k, { at: 0, from: { x: MARGIN - 12 }, to: { x: MARGIN }, duration: 0.8, ease: 'power3.out' }] },
         { type: 'shape', shape: 'line', name: 'label-rule-' + num, from: [x1, y + 1], to: [x2, y + 1], at: at + 0.15, duration: until - at - 0.15, trimEnd: 0,
-          initial: { strokeColor: color, strokeWidth: 1.5 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.7, ease: 'power3.inOut' }, { at: -0.5, to: { alpha: 0 }, duration: 0.5 }] },
+          initial: { stroke: color, strokeWidth: 1.5 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.7, ease: 'power3.inOut' }, { at: -0.5, to: { alpha: 0 }, duration: 0.5 }] },
         { type: 'text', name: 'label-word-' + num, text: word, at: at + 0.3, duration: until - at - 0.3, style: { ...CAPS, fill: color },
           initial: { x: x2 + 16, y: y + 1, anchorY: 0.5 }, keyframes: [...fadeKF(0, 0.6, until - at - 0.8, 0.5), { at: 0, from: { x: x2 + 30 }, to: { x: x2 + 16 }, duration: 0.9, ease: 'power3.out' }] },
       ];
@@ -168,7 +168,7 @@
           const dr = draw && (j % 2 ? { at: draw.at + draw.duration * 0.45, duration: draw.duration * 0.55 } : draw);
           layers.push({ type: 'shape', shape: 'path', name: 'stroke', d: shift(d), strokeCap: w > 5 ? 'round' : 'square', strokeJoin: w > 5 ? 'round' : 'miter',
             ...(draw ? { trimEnd: 0 } : {}),
-            initial: { strokeColor: LIGHT, strokeWidth: w, strokeAlpha: a },
+            initial: { stroke: LIGHT, strokeWidth: w, strokeAlpha: a },
             keyframes: [...(dr ? [{ at: dr.at, to: { trimEnd: 1 }, duration: dr.duration, ease: 'power2.inOut' }] : []),
               ...(w > 5 ? react(envA, { at: 18 - cardAt, duration: cardEnd - 18 - 0.05, audioOffset: 18, props: { alpha: { base: 0.55, amount: 0.9, beats: true, decay: 0.32 } } }) : [])] });
         }
@@ -193,16 +193,16 @@
         sequences: [
           rect({ name: 'slab', width: DOOR_W, height: DOOR_H, initial: { x: DOOR_W / 2, y: DOOR_H / 2 },
             fillGradient: { angle: 90, stops: left ? [[0, '#121110'], [0.8, DOOR], [1, '#26231f']] : [[0, '#26231f'], [0.2, DOOR], [1, '#121110']] } }),
-          rect({ name: 'frame', width: DOOR_W - 240, height: DOOR_H - 240, initial: { x: DOOR_W / 2, y: DOOR_H / 2, strokeColor: STONE, strokeWidth: 2, strokeAlpha: 0.1 } }),
-          rect({ name: 'rail', width: DOOR_W - 240, height: 2, initial: { x: DOOR_W / 2, y: DOOR_H * 0.3, fillColor: STONE, fillAlpha: 0.07 } }),
-          { type: 'shape', shape: 'circle', name: 'pull', radius: 17, initial: { x: left ? DOOR_W - 110 : 110, y: DOOR_H / 2 + 40, strokeColor: STONE, strokeWidth: 2, strokeAlpha: 0.22, fillColor: '#0c0b0a', fillAlpha: 0.6 } },
-          rect({ name: 'rim', width: 2, height: DOOR_H, initial: { x: edge, y: DOOR_H / 2, fillColor: LIGHT, fillAlpha: 0.38 } }),
+          rect({ name: 'frame', width: DOOR_W - 240, height: DOOR_H - 240, initial: { x: DOOR_W / 2, y: DOOR_H / 2, stroke: STONE, strokeWidth: 2, strokeAlpha: 0.1 } }),
+          rect({ name: 'rail', width: DOOR_W - 240, height: 2, initial: { x: DOOR_W / 2, y: DOOR_H * 0.3, fill: STONE, fillAlpha: 0.07 } }),
+          { type: 'shape', shape: 'circle', name: 'pull', radius: 17, initial: { x: left ? DOOR_W - 110 : 110, y: DOOR_H / 2 + 40, stroke: STONE, strokeWidth: 2, strokeAlpha: 0.22, fill: '#0c0b0a', fillAlpha: 0.6 } },
+          rect({ name: 'rim', width: 2, height: DOOR_H, initial: { x: edge, y: DOOR_H / 2, fill: LIGHT, fillAlpha: 0.38 } }),
         ],
       };
     };
     // the light in the gap (behind the doors) and its glow (in front of them)
     const gapLight = (name, z, at, duration, keyframes = []) => [
-      rect({ name: name + '-line', threeD: true, at, duration, width: 4, height: DOOR_H, initial: { x: W / 2, y: H / 2, z: z - 2, fillColor: LIGHT }, keyframes }),
+      rect({ name: name + '-line', threeD: true, at, duration, width: 4, height: DOOR_H, initial: { x: W / 2, y: H / 2, z: z - 2, fill: LIGHT }, keyframes }),
       { type: 'shape', shape: 'circle', name: name + '-glow', threeD: true, blendMode: 'add', at, duration, radius: 100,
         initial: { x: W / 2, y: H / 2, z: z + 2, scaleX: 0.9, scaleY: 7 }, fillGradient: { type: 'radial', stops: [[0, LIGHT_A(0.5)], [0.22, LIGHT_A(0.16)], [0.6, LIGHT_A(0.04)], [1, LIGHT_A(0)]] }, keyframes },
     ];
@@ -273,7 +273,7 @@
     S.push({ type: 'shape', shape: 'ellipse', name: 'line-glow', blendMode: 'add', at: LINE_AT, duration: 6.6 - LINE_AT, radiusX: 60, radiusY: 420,
       initial: { x: W / 2, y: H / 2, scaleY: 0 }, fillGradient: { type: 'radial', stops: [[0, LIGHT_A(0.55)], [0.3, LIGHT_A(0.14)], [1, LIGHT_A(0)]] },
       keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 1.8, ease: 'expo.out' }, { at: 6.0 - LINE_AT - 1.5, to: { scaleY: 1.45 }, duration: 1.5, ease: 'power2.inOut' }, { at: 6.0 - LINE_AT, to: { alpha: 0 }, duration: 0.6 }] });
-    S.push(rect({ name: 'line', at: LINE_AT, duration: 6.6 - LINE_AT, width: 3, height: 760, initial: { x: W / 2, y: H / 2, fillColor: LIGHT, scaleY: 0 },
+    S.push(rect({ name: 'line', at: LINE_AT, duration: 6.6 - LINE_AT, width: 3, height: 760, initial: { x: W / 2, y: H / 2, fill: LIGHT, scaleY: 0 },
       keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 1.8, ease: 'expo.out' }, { at: 6.0 - LINE_AT - 1.5, to: { scaleY: 1.64 }, duration: 1.5, ease: 'power2.inOut' }, { at: 6.0 - LINE_AT, to: { alpha: 0 }, duration: 0.6 }] }));
     S.push(...label('i', 'THE LINE', beat(2), 5.6));
     S.push(...essay('Between two things,', beat(3), 6.0, { x: W / 2 + 52, y: 468, style: { fill: STONE } }));
@@ -287,7 +287,7 @@
       fillGradient: { angle: 180, stops: [[0, LIGHT_A(0.42)], [0.25, LIGHT_A(0.1)], [1, LIGHT_A(0)]] },
       initial: { pivotX: 960, pivotY: G.FOOT, x: 960, y: G.FOOT, rotationX: 90 },
       keyframes: [...fadeKF(0.4, 2.5, 12.6, 1.6)] });
-    S.push(rect({ name: 'floor-line', threeD: true, at: 6, duration: 15, width: 5200, height: 2, initial: { x: W / 2, y: G.FOOT, fillColor: STONE, fillAlpha: 0.22 },
+    S.push(rect({ name: 'floor-line', threeD: true, at: 6, duration: 15, width: 5200, height: 2, initial: { x: W / 2, y: G.FOOT, fill: STONE, fillAlpha: 0.22 },
       keyframes: [...fadeKF(3, 3, 12.5, 2)] }));
     // the doors and gate 0
     S.push(...gapLight('gap0', 0, 6, 13.6, [{ at: 12.2, to: { alpha: 0 }, duration: 1.4, ease: 'sine.in' }]));
@@ -298,7 +298,7 @@
     for (let i = 0; i < 34; i++) {
       const gx = W / 2 + (R() - 0.5) * (R() < 0.6 ? 260 : 900), gy = 40 + R() * 1060, gz = -120 + R() * 560;
       S.push({ type: 'shape', shape: 'circle', name: 'mote-' + i, threeD: true, blendMode: 'add', at: 6, duration: 13.5, radius: 1.4 + R() * 2.4,
-        initial: { x: gx, y: gy, z: gz, fillColor: LIGHT, alpha: 0 },
+        initial: { x: gx, y: gy, z: gz, fill: LIGHT, alpha: 0 },
         keyframes: [{ at: 1 + R() * 2, to: { alpha: 0.25 + R() * 0.45 }, duration: 2, ease: 'sine.inOut' }, { at: 11.6 + R(), to: { alpha: 0 }, duration: 1.2 },
           ...wiggle({ duration: 13.5, freq: 0.22, seed: 100 + i, props: { x: { around: gx, amp: 22 }, y: { around: gy, amp: 34 } } })] });
     }
@@ -313,7 +313,7 @@
       const end = gone(z);
       if (end - 18 < 0.5) continue;
       S.push({ type: 'shape', shape: 'circle', name: 'rush-' + i, threeD: true, blendMode: 'add', at: 18, duration: end - 18, radius: 2 + R() * 3,
-        initial: { x: W / 2 + Math.cos(a) * rr * 1.5, y: H / 2 + Math.sin(a) * rr, z, fillColor: LIGHT }, keyframes: fog(z, 18, end).map(k => (k.to ? { ...k, to: { alpha: k.to.alpha * 0.55 } } : { ...k, set: { alpha: k.set.alpha * 0.55 } })) });
+        initial: { x: W / 2 + Math.cos(a) * rr * 1.5, y: H / 2 + Math.sin(a) * rr, z, fill: LIGHT }, keyframes: fog(z, 18, end).map(k => (k.to ? { ...k, to: { alpha: k.to.alpha * 0.55 } } : { ...k, set: { alpha: k.set.alpha * 0.55 } })) });
     }
     // the last pair of doors, where the camera stops
     S.push(...gapLight('gapD', Z_DOORS, 18, SILENCE - 18, fog(Z_DOORS, 18, SILENCE)));
@@ -353,19 +353,19 @@
             ...react(envB, { at: 3, duration: 6, audioOffset: 3, props: { scale: { base: 1, amount: 0.07, beats: true, decay: 0.35 } } })] },
         { type: 'null', name: 'sun-rig', initial: { x: 0, y: 640 }, keyframes: [{ at: 0.3, to: { y: 0 }, duration: 2.4, ease: 'power3.out' }] },
         { type: 'shape', shape: 'path', name: 'sun', parent: 'sun-rig', d: circleD(SUN_C[0], SUN_C[1], SUN_R), morphTo: SUN_SQ,
-          initial: { fillColor: VERMILION, morph: 0 }, keyframes: [{ at: 2.3, to: { morph: 1 }, duration: 0.7, ease: 'power3.inOut' }, { at: 3.0, to: { alpha: 0 }, duration: 0.16, ease: 'power1.in' }] },
-        rect({ name: 'snap-ring', at: 3.0, duration: 0.8, width: 319, height: 325, initial: { x: 966.5, y: 655.5, strokeColor: VERMILION, strokeWidth: 3, alpha: 0.7 },
+          initial: { fill: VERMILION, morph: 0 }, keyframes: [{ at: 2.3, to: { morph: 1 }, duration: 0.7, ease: 'power3.inOut' }, { at: 3.0, to: { alpha: 0 }, duration: 0.16, ease: 'power1.in' }] },
+        rect({ name: 'snap-ring', at: 3.0, duration: 0.8, width: 319, height: 325, initial: { x: 966.5, y: 655.5, stroke: VERMILION, strokeWidth: 3, alpha: 0.7 },
           keyframes: [{ at: 0, to: { scale: 1.32, alpha: 0, strokeWidth: 1 }, duration: 0.8, ease: 'expo.out' }] }),
         { type: 'text', name: 'gate-glyph', text: '間', style: { ...KANJI, fill: INK }, initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5 },
-          mask: { layer: { type: 'shape', shape: 'polygon', points: HOLE, initial: { fillColor: '#ffffff' } }, invert: true } },
+          mask: { layer: { type: 'shape', shape: 'polygon', points: HOLE, initial: { fill: '#ffffff' } }, invert: true } },
         { type: 'text', name: 'sun-glyph', text: '間', style: { ...KANJI, fill: VERMILION }, initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
           keyframes: [{ at: 3.0, to: { alpha: 1 }, duration: 0.1 }],
-          mask: { type: 'shape', shape: 'polygon', points: HOLE, initial: { fillColor: '#ffffff' } } },
+          mask: { type: 'shape', shape: 'polygon', points: HOLE, initial: { fill: '#ffffff' } } },
       ],
     };
     // annotations (paper-local time; the paper starts at 30)
     const ann = (name, from, to, at, until, color) => ({ type: 'shape', shape: 'line', name, from, to, at, duration: until - at, trimEnd: 0,
-      initial: { strokeColor: color, strokeWidth: 1.5 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.7, ease: 'power3.out' }, { at: -0.6, to: { trimStart: 1 }, duration: 0.6, ease: 'power3.in' }] });
+      initial: { stroke: color, strokeWidth: 1.5 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.7, ease: 'power3.out' }, { at: -0.6, to: { trimStart: 1 }, duration: 0.6, ease: 'power3.in' }] });
     const [lgx, lgy] = k2(640, 330), [rgx, rgy] = k2(1132, SUN_C[1]);
     const paperSeq = [
       full(PAPER, { name: 'paper' }),
@@ -377,11 +377,11 @@
         size: [1.2, 3.2], scale: [1, 0.4], colors: [STONE, '#b5ab9b'], fade: { in: 0.05, out: 0.7 }, seed: 32, name: 'dust-l' }),
       kanji,
       ann('ann-l', [lgx - 18, lgy], [430, lgy], 3.0, 8.8, INK),
-      { type: 'shape', shape: 'circle', name: 'ann-l-dot', radius: 4, at: 3.0, duration: 5.8, initial: { x: lgx - 18, y: lgy, fillColor: INK }, keyframes: fadeKF(0, 0.2, 5.2, 0.4) },
+      { type: 'shape', shape: 'circle', name: 'ann-l-dot', radius: 4, at: 3.0, duration: 5.8, initial: { x: lgx - 18, y: lgy, fill: INK }, keyframes: fadeKF(0, 0.2, 5.2, 0.4) },
       { type: 'text', name: 'ann-l-kanji', text: '門', at: 3.35, duration: 5.35, style: { ...KANJI, fontSize: 44, fill: INK }, initial: { x: 410, y: lgy - 14, anchorX: 1, anchorY: 0.5 }, keyframes: fadeKF(0, 0.5, 4.8, 0.4) },
       { type: 'text', name: 'ann-l-word', text: 'GATE', at: 3.5, duration: 5.2, style: { ...CAPS }, initial: { x: 410 + 5, y: lgy + 26, anchorX: 1, anchorY: 0.5 }, keyframes: fadeKF(0, 0.5, 4.6, 0.4) },
       ann('ann-r', [rgx + 14, rgy], [1500, rgy], 3.25, 8.8, VERMILION),
-      { type: 'shape', shape: 'circle', name: 'ann-r-dot', radius: 4, at: 3.25, duration: 5.55, initial: { x: rgx + 14, y: rgy, fillColor: VERMILION }, keyframes: fadeKF(0, 0.2, 4.95, 0.4) },
+      { type: 'shape', shape: 'circle', name: 'ann-r-dot', radius: 4, at: 3.25, duration: 5.55, initial: { x: rgx + 14, y: rgy, fill: VERMILION }, keyframes: fadeKF(0, 0.2, 4.95, 0.4) },
       { type: 'text', name: 'ann-r-kanji', text: '日', at: 3.6, duration: 5.1, style: { ...KANJI, fontSize: 44, fill: VERMILION }, initial: { x: 1520, y: rgy - 14, anchorY: 0.5 }, keyframes: fadeKF(0, 0.5, 4.6, 0.4) },
       { type: 'text', name: 'ann-r-word', text: 'SUN', at: 3.75, duration: 4.95, style: { ...CAPS }, initial: { x: 1520, y: rgy + 26, anchorY: 0.5 }, keyframes: fadeKF(0, 0.5, 4.4, 0.4) },
       ...essay('the sun, seen through a gap in a gate.', 4.5, 8.7, { x: W / 2, y: 914, align: 'center', name: 'caption', style: { fill: INK, fontSize: 40 } }),
@@ -391,7 +391,7 @@
     const COL = 1004;
     paperSeq.push(...animateText('MA', MA, { x: COL - 8, y: 248, align: 'left', name: 'ma', at: 9.75, duration: 7, in: { from: { y: 60, alpha: 0 }, duration: 1.3, ease: 'expo.out' }, stagger: { each: 0.35 } }));
     paperSeq.push({ type: 'shape', shape: 'line', name: 'rule', from: [COL, 548], to: [1640, 548], at: 10.6, duration: 6.4, trimEnd: 0,
-      initial: { strokeColor: INK, strokeWidth: 2 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.0, ease: 'power3.inOut' }] });
+      initial: { stroke: INK, strokeWidth: 2 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.0, ease: 'power3.inOut' }] });
     paperSeq.push(...animateText('the space between things', { ...SERIF, fill: INK, fontSize: 52 }, { by: 'words', x: COL, y: 572, align: 'left', name: 'tagline', at: 11.0, duration: 6,
       in: { from: { y: 22, alpha: 0 }, duration: 1.0, ease: 'power3.out' }, stagger: { each: 0.09 } }));
     const DEF = { fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 18, fill: STONE, lineHeight: 30, letterSpacing: 0.4, align: 'left' };
@@ -399,13 +399,13 @@
       initial: { x: COL + 2, y: 668 }, keyframes: fadeKF(0, 0.9) });
     // the seal, stamped on the D major downbeat (42 s = paper 12)
     const SEAL_X = 1576, SEAL_Y = 744;
-    paperSeq.push(rect({ name: 'seal-ink', at: 12, duration: 5, width: 128, height: 128, cornerRadius: 10, initial: { x: SEAL_X, y: SEAL_Y, rotation: -3, fillColor: VERMILION, alpha: 0.18, scale: 1 },
+    paperSeq.push(rect({ name: 'seal-ink', at: 12, duration: 5, width: 128, height: 128, cornerRadius: 10, initial: { x: SEAL_X, y: SEAL_Y, rotation: -3, fill: VERMILION, alpha: 0.18, scale: 1 },
       keyframes: [{ at: 0.05, to: { scale: 1.12, alpha: 0 }, duration: 0.7, ease: 'power2.out' }] }));
     paperSeq.push({ type: 'composition', name: 'seal', at: 12 - 0.12, duration: 5.12, width: 128, height: 128,
       initial: { x: SEAL_X, y: SEAL_Y, pivotX: 64, pivotY: 64, rotation: -3 },
       keyframes: [{ at: 0, from: { scale: 1.6, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.12, ease: 'power2.in' }],
       sequences: [
-        rect({ name: 'seal-body', width: 128, height: 128, cornerRadius: 10, initial: { x: 64, y: 64, fillColor: VERMILION } }),
+        rect({ name: 'seal-body', width: 128, height: 128, cornerRadius: 10, initial: { x: 64, y: 64, fill: VERMILION } }),
         { type: 'text', name: 'seal-char', text: '間', style: { ...KANJI, fontSize: 84, fill: PAPER }, initial: { x: 64, y: 66, anchorX: 0.5, anchorY: 0.5 } },
       ] });
     const MONO = { fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace", fontSize: 13, letterSpacing: 2, fill: STONE };
@@ -430,7 +430,7 @@
       initial: { x: side === 'l' ? 0 : W, y: H / 2 }, fillGradient: { angle: 90, stops: side === 'l' ? [[0, '#121110'], [0.8, DOOR], [1, '#26231f']] : [[0, '#26231f'], [0.2, DOOR], [1, '#121110']] },
       keyframes: [{ at: 0, to: { x: side === 'l' ? W / 2 - 2 : W / 2 + 2 }, duration: MEET - CLOSE, ease: 'power3.inOut' }, { at: -0.9, to: { alpha: 0 }, duration: 0.7, ease: 'sine.inOut' }] });
     S.push(slideDoor('l'), slideDoor('r'));
-    S.push(rect({ name: 'end-line', at: MEET - 0.1, duration: DURATION - MEET + 0.1, width: 4, height: H, initial: { x: W / 2, y: H / 2, fillColor: LIGHT },
+    S.push(rect({ name: 'end-line', at: MEET - 0.1, duration: DURATION - MEET + 0.1, width: 4, height: H, initial: { x: W / 2, y: H / 2, fill: LIGHT },
       keyframes: [{ at: 0.3, to: { scaleY: 0 }, duration: 0.95, ease: 'power3.in' }] }));
     S.push({ type: 'shape', shape: 'ellipse', name: 'end-glow', blendMode: 'add', at: MEET - 0.1, duration: DURATION - MEET + 0.1, radiusX: 70, radiusY: 620,
       initial: { x: W / 2, y: H / 2 }, fillGradient: { type: 'radial', stops: [[0, LIGHT_A(0.45)], [0.3, LIGHT_A(0.12)], [1, LIGHT_A(0)]] },

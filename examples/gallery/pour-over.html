@@ -84,7 +84,7 @@
     // ── helpers ──────────────────────────────────────────────────────
     const line = (from, to, at, dur, o = {}) => ({
       type: 'shape', shape: 'line', from, to, at, duration: DURATION - at, trimEnd: 0, strokeCap: 'round',
-      initial: { strokeColor: o.color || INK, strokeWidth: o.width || 3, alpha: o.alpha ?? 1 },
+      initial: { stroke: o.color || INK, strokeWidth: o.width || 3, alpha: o.alpha ?? 1 },
       keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: dur, ease: 'power2.inOut' }],
     });
 
@@ -121,7 +121,7 @@
       const x1 = CX + (rnd() - 0.5) * 2 * (CX - filterX(y1) - 8);
       return {
         type: 'shape', shape: 'circle', radius: 2.2 + rnd() * 1.6, at, duration: 0.75,
-        initial: { x: x0, y: y0, fillColor: INK, alpha: 0 },
+        initial: { x: x0, y: y0, fill: INK, alpha: 0 },
         keyframes: [
           { at: 0, to: { alpha: 1 }, duration: 0.12 },
           { at: 0, to: { x: x1, y: y1 }, duration: 0.55, ease: 'power2.in' },
@@ -167,16 +167,16 @@
     const TV_AT = 6.1, TV_OUT = 9.0;
     const topView = [
       { type: 'shape', shape: 'circle', radius: TV.r, at: TV_AT, duration: TV_OUT + 0.6 - TV_AT, trimEnd: 0,
-        initial: { x: TV.x, y: TV.y, strokeColor: INK, strokeWidth: 2, fillAlpha: 0, alpha: 0.35 },
+        initial: { x: TV.x, y: TV.y, stroke: INK, strokeWidth: 2, fillAlpha: 0, alpha: 0.35 },
         keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.0, ease: 'power2.inOut' }, { at: TV_OUT - TV_AT, to: { alpha: 0 }, duration: 0.6 }] },
       { type: 'shape', shape: 'circle', radius: 10, at: TV_AT + 0.3, duration: TV_OUT + 0.6 - TV_AT - 0.3,
-        initial: { x: TV.x, y: TV.y, strokeColor: INK, strokeWidth: 2, fillAlpha: 0, alpha: 0 },
+        initial: { x: TV.x, y: TV.y, stroke: INK, strokeWidth: 2, fillAlpha: 0, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 0.35 }, duration: 0.6 }, { at: TV_OUT - TV_AT - 0.3, to: { alpha: 0 }, duration: 0.6 }] },
       { type: 'shape', shape: 'path', d: spiralD, at: POUR.at, duration: TV_OUT + 0.6 - POUR.at, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
-        initial: { strokeColor: COPPER, strokeWidth: 3 },
+        initial: { stroke: COPPER, strokeWidth: 3 },
         keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: POUR.dur, ease: 'none' }, { at: TV_OUT - POUR.at, to: { alpha: 0 }, duration: 0.6 }] },
       { type: 'shape', shape: 'circle', radius: 6, at: POUR.at, duration: POUR.dur + 0.3,
-        initial: { x: TV.x + spiral.at(0)[0], y: TV.y + spiral.at(0)[1], fillColor: COPPER },
+        initial: { x: TV.x + spiral.at(0)[0], y: TV.y + spiral.at(0)[1], fill: COPPER },
         keyframes: [...sampled(f => { const [x, y] = spiral.at(f); return { x: TV.x + x, y: TV.y + y }; }, 0, POUR.dur),
                     { at: POUR.dur, to: { alpha: 0 }, duration: 0.3 }] },
       text('上から見た図 — TOP VIEW', { fontFamily: MONO, fontSize: 15, letterSpacing: 2 }, M, TV.y + TV.r + 26, TV_AT + 0.4, TV_OUT, { alpha: 0.5, name: 'tvLabel' }),
@@ -198,7 +198,7 @@
     const stream = (at, dur, name) => ({
       type: 'shape', shape: 'line', name, parent: 'kettle', from: [TIP[0], TIP[1] + 6], to: [TIP[0], BED_Y - 6 - K.y + 0], at, duration: dur,
       trimEnd: 0, strokeCap: 'round',
-      initial: { strokeColor: COPPER, strokeWidth: 3 },
+      initial: { stroke: COPPER, strokeWidth: 3 },
       keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.22, ease: 'power1.in' }, { at: dur - 0.28, to: { trimStart: 1 }, duration: 0.26, ease: 'power1.in' }],
     });
     const pourNoise = (at, duration) => ({
@@ -222,13 +222,13 @@
       const land = b(beat), sy = surfaceY(land);
       return [
         { type: 'shape', shape: 'ellipse', radiusX: 4, radiusY: 5, at: land - FALL - 0.12, duration: FALL + 0.12, name: `drop${i}`,
-          initial: { x: CX, y: NOZZLE_Y, fillColor: INK, scaleY: 0.4 },
+          initial: { x: CX, y: NOZZLE_Y, fill: INK, scaleY: 0.4 },
           keyframes: [
             { at: 0, to: { scaleY: 1 }, duration: 0.12, ease: 'sine.out' },
             { at: 0.12, to: { y: sy - 4, scaleY: 1.35 }, duration: FALL, ease: 'power2.in' },
           ] },
         { type: 'shape', shape: 'ellipse', radiusX: 6, radiusY: 1.6, at: land, duration: 0.8,
-          initial: { x: CX, y: sy, strokeColor: level(land) > 2 ? COPPER : INK, strokeWidth: 2, fillAlpha: 0, alpha: 0.9 },
+          initial: { x: CX, y: sy, stroke: level(land) > 2 ? COPPER : INK, strokeWidth: 2, fillAlpha: 0, alpha: 0.9 },
           keyframes: [{ at: 0, to: { radiusX: 48, radiusY: 6, alpha: 0 }, duration: 0.8, ease: 'power2.out' }] },
       ];
     });
@@ -255,7 +255,7 @@
       const dur = Math.min(STEAM_CYCLE + 0.8, DURATION - at);
       return {
         type: 'shape', shape: 'path', at, duration: dur, trimEnd: 0, strokeCap: 'round', d,
-        initial: { strokeColor: INK, strokeWidth: 2.5, alpha: 0.3, y: mid },     // a path's y places its MIDPOINT (like a line)
+        initial: { stroke: INK, strokeWidth: 2.5, alpha: 0.3, y: mid },     // a path's y places its MIDPOINT (like a line)
         keyframes: [
           { at: 0, to: { trimEnd: 1 }, duration: 1.5, ease: 'sine.inOut' },
           { at: 1.0, to: { trimStart: 1 }, duration: STEAM_CYCLE - 0.4, ease: 'sine.in' },
@@ -271,24 +271,24 @@
 
     // ── the composition ──────────────────────────────────────────────
     const sequences = [
-      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: PAPER } },
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: PAPER } },
 
       // header + step progress
       text('POUR-OVER', { fontFamily: MONO, fontSize: 18, letterSpacing: 5 }, M, M, 0.2, null, { alpha: 0.6, name: 'header' }),
       ...[0, 1, 2, 3].map(i => line([M + i * 40, 140], [M + i * 40 + 28, 140], 0.3 + i * 0.06, 0.5, { color: DUST, width: 3 })),
       { type: 'shape', shape: 'line', name: 'progress', from: [M, 140], to: [M + 28, 140], at: 0.5, duration: DURATION - 0.5, strokeCap: 'round',
-        initial: { strokeColor: COPPER, strokeWidth: 3, x: M + 14, y: 140, alpha: 0 },
+        initial: { stroke: COPPER, strokeWidth: 3, x: M + 14, y: 140, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.5 },
           ...[1, 2, 3].map(i => ({ at: i * 3 - 0.5 + 0.2, to: { x: M + 14 + i * 40 }, duration: 0.6, ease: 'power2.inOut' }))] },
 
       // ground and server
       line([492, GROUND], [990, GROUND], 0.2, 1.2, { color: DUST, width: 2 }),
       { type: 'shape', shape: 'rect', width: GLASS.w, height: GLASS.h, cornerRadius: GLASS.r, at: 0.35, duration: DURATION - 0.35, trimEnd: 0,
-        initial: { x: GLASS.x, y: GLASS.y, strokeColor: INK, strokeWidth: 3, fillAlpha: 0 },
+        initial: { x: GLASS.x, y: GLASS.y, stroke: INK, strokeWidth: 3, fillAlpha: 0 },
         keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.3, ease: 'power2.inOut' }] },
       { type: 'shape', shape: 'path', d: `M ${GLASS.x - GLASS.w / 2} 750 C ${GLASS.x - GLASS.w / 2 - 56} 750 ${GLASS.x - GLASS.w / 2 - 56} 866 ${GLASS.x - GLASS.w / 2} 866`,
         at: 1.0, duration: DURATION - 1.0, trimEnd: 0, strokeCap: 'round',
-        initial: { strokeColor: INK, strokeWidth: 3 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.8, ease: 'power2.inOut' }] },
+        initial: { stroke: INK, strokeWidth: 3 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.8, ease: 'power2.inOut' }] },
       // measuring ticks
       line([GLASS.x + GLASS.w / 2 + 10, GLASS_BOTTOM - LIQ_MAX], [GLASS.x + GLASS.w / 2 + 28, GLASS_BOTTOM - LIQ_MAX], 1.2, 0.4, { color: INK, width: 2, alpha: 0.6 }),
       line([GLASS.x + GLASS.w / 2 + 10, GLASS_BOTTOM - LIQ_MAX / 2], [GLASS.x + GLASS.w / 2 + 22, GLASS_BOTTOM - LIQ_MAX / 2], 1.3, 0.4, { color: DUST, width: 2 }),
@@ -296,25 +296,25 @@
 
       // liquid in the server (a copper crema band over the ink)
       { type: 'shape', shape: 'rect', width: GLASS.w, height: 0, at: LIQ_FROM, duration: DURATION - LIQ_FROM, anchorY: 1,
-        initial: { x: GLASS.x, y: GLASS_BOTTOM + 4, fillColor: COPPER },
+        initial: { x: GLASS.x, y: GLASS_BOTTOM + 4, fill: COPPER },
         keyframes: [{ at: 0, to: { height: LIQ_MAX + 8 }, duration: LIQ_DUR, ease: 'sine.inOut' }],
-        mask: { type: 'shape', shape: 'rect', width: GLASS.w - 6, height: GLASS.h - 6, cornerRadius: GLASS.r - 3, initial: { x: GLASS.x, y: GLASS.y, fillColor: '#ffffff' } } },
+        mask: { type: 'shape', shape: 'rect', width: GLASS.w - 6, height: GLASS.h - 6, cornerRadius: GLASS.r - 3, initial: { x: GLASS.x, y: GLASS.y, fill: '#ffffff' } } },
       { type: 'shape', shape: 'rect', width: GLASS.w, height: 0, at: LIQ_FROM, duration: DURATION - LIQ_FROM, anchorY: 1,
-        initial: { x: GLASS.x, y: GLASS_BOTTOM + 4, fillColor: INK },
+        initial: { x: GLASS.x, y: GLASS_BOTTOM + 4, fill: INK },
         keyframes: [{ at: 0, to: { height: LIQ_MAX + 4 }, duration: LIQ_DUR, ease: 'sine.inOut' }],
-        mask: { type: 'shape', shape: 'rect', width: GLASS.w - 6, height: GLASS.h - 6, cornerRadius: GLASS.r - 3, initial: { x: GLASS.x, y: GLASS.y, fillColor: '#ffffff' } } },
+        mask: { type: 'shape', shape: 'rect', width: GLASS.w - 6, height: GLASS.h - 6, cornerRadius: GLASS.r - 3, initial: { x: GLASS.x, y: GLASS.y, fill: '#ffffff' } } },
 
       // dripper: filter paper, plate, cone
       { type: 'shape', shape: 'polygon', points: FILTER, at: 1.0, duration: DURATION - 1.0,
-        initial: { fillColor: DUST, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.8, ease: 'sine.inOut' }] },
+        initial: { fill: DUST, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.8, ease: 'sine.inOut' }] },
       // the bed of grounds, revealed from below
       { type: 'shape', shape: 'polygon', points: BED, at: 1.4, duration: DURATION - 1.4,
-        initial: { fillColor: INK },
-        mask: { type: 'shape', shape: 'rect', width: 320, height: 0, anchorY: 1, initial: { x: CX, y: 682, fillColor: '#ffffff' },
+        initial: { fill: INK },
+        mask: { type: 'shape', shape: 'rect', width: 320, height: 0, anchorY: 1, initial: { x: CX, y: 682, fill: '#ffffff' },
           keyframes: [{ at: 0, to: { height: 96 }, duration: 1.4, ease: 'power2.out' }] } },
       // the bloom: the bed breathes up, then settles under the pour
       { type: 'shape', shape: 'ellipse', radiusX: BED_RX, radiusY: 1, at: 4.3, duration: DURATION - 4.3, name: 'bloom',
-        initial: { x: CX, y: BED_Y, fillColor: INK },
+        initial: { x: CX, y: BED_Y, fill: INK },
         keyframes: [
           { at: 0, to: { radiusY: 24 }, duration: 1.5, ease: 'sine.out' },
           { at: 1.5, to: { radiusY: 18 }, duration: 0.9, ease: 'sine.inOut' },
@@ -324,20 +324,20 @@
       ...[[684, 4.75], [716, 4.95], [700, 5.15], [668, 5.35], [728, 5.5], [692, 5.7], [710, 5.95]].map(([x, at], i) => {
         const dy = 20 * Math.sqrt(Math.max(0, 1 - ((x - CX) / BED_RX) ** 2));
         return { type: 'shape', shape: 'circle', radius: 3.5, at, duration: 0.55,
-          initial: { x, y: BED_Y - dy + 3, strokeColor: DUST, strokeWidth: 1.5, fillAlpha: 0, scale: 0.3 },
+          initial: { x, y: BED_Y - dy + 3, stroke: DUST, strokeWidth: 1.5, fillAlpha: 0, scale: 0.3 },
           keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.35, ease: 'power2.out' }, { at: 0.3, to: { alpha: 0 }, duration: 0.25 }] };
       }),
       // water pooling over the bed while it is poured
       { type: 'shape', shape: 'polygon', name: 'pool', points: [[filterX(560), 560], [2 * CX - filterX(560), 560], [2 * CX - filterX(BED_Y), BED_Y], [filterX(BED_Y), BED_Y]],
-        at: 6.4, duration: 3.6, initial: { fillColor: COPPER, alpha: 0 },
+        at: 6.4, duration: 3.6, initial: { fill: COPPER, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 0.35 }, duration: 0.8, ease: 'sine.inOut' }, { at: 2.2, to: { alpha: 0 }, duration: 0.8, ease: 'sine.inOut' }] },
       line([528, RIM_Y], [672, TIP_Y], 0.55, 1.1),
       line([872, RIM_Y], [728, TIP_Y], 0.55, 1.1),
       line([508, RIM_Y], [892, RIM_Y], 0.45, 0.9, { width: 4 }),
       { type: 'shape', shape: 'rect', width: 220, height: 10, at: 0.9, duration: DURATION - 0.9,
-        initial: { x: CX, y: 696, fillColor: INK, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.7, ease: 'power2.out' }] },
+        initial: { x: CX, y: 696, fill: INK, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.7, ease: 'power2.out' }] },
       { type: 'shape', shape: 'rect', width: 24, height: 12, at: 1.2, duration: DURATION - 1.2,
-        initial: { x: CX, y: 704, fillColor: INK, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4 }] },
+        initial: { x: CX, y: 704, fill: INK, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4 }] },
 
       ...grains,
       ...drops,
@@ -346,11 +346,11 @@
       { type: 'null', name: 'kettle', initial: { x: K.x + 460, y: K.y, rotation: -12 }, keyframes: kettleKf },
       { type: 'shape', shape: 'path', parent: 'kettle', strokeCap: 'round', strokeJoin: 'round',
         d: `M 30 20 L 0 0 C -80 -12 -110 -150 -190 -150 C -238 -150 -268 -132 ${TIP[0]} ${TIP[1]}`,
-        initial: { strokeColor: INK, strokeWidth: 10, fillAlpha: 0 } },
+        initial: { stroke: INK, strokeWidth: 10, fillAlpha: 0 } },
       { type: 'shape', shape: 'rect', parent: 'kettle', width: 260, height: 250, cornerRadius: 70,
-        initial: { x: 140, y: -20, fillColor: DUST, strokeColor: INK, strokeWidth: 3 } },
+        initial: { x: 140, y: -20, fill: DUST, stroke: INK, strokeWidth: 3 } },
       { type: 'shape', shape: 'rect', parent: 'kettle', width: 14, height: 34, cornerRadius: 4,
-        initial: { x: 6, y: 2, fillColor: INK } },
+        initial: { x: 6, y: 2, fill: INK } },
       stream(4.1 + 0.25, 0.85, 'bloomPour'),
       stream(POUR.at - 0.15, POUR.dur + 0.3, 'mainPour'),
 

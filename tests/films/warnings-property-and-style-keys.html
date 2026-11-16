@@ -10,7 +10,7 @@
       (no query)      every key correct: the page gives NO warning (tests/tools/noFalseWarnings.test.ts opens it like this);
       ?mistakes=1     six layers each carry ONE wrong key, two correct layers stand next to them:
                         fader     rect   initial: { alhpa: 0.5 } AND keyframe from/to { alhpa }   (a typo of alpha, written three times)
-                        mover     rect   keyframe to: { fillcolor: '#ff0000' }                    (a shape's style key, fillColor, in the wrong case)
+                        mover     rect   keyframe to: { fillcolor: '#ff0000' }                    (a shape's style key, fill, in the wrong case)
                         spinner   text   keyframe to: { rotaton: 90 }                             (a typo of rotation)
                         (unnamed) rect   initial: { scal: 1.5 }                                   (a typo of scale, on a layer with no name)
                         heading   text   style: { fontsize: 20 }                                  (a typo of fontSize)
@@ -45,16 +45,16 @@
     const a = wrong('fader') ? 'alhpa' : 'alpha';
     const sequences = [
       { type: 'shape', shape: 'rect', name: 'fader', width: 40, height: 20,
-        initial: { x: 40, y: 30, fillColor: '#e04040', [a]: 0.5 },
+        initial: { x: 40, y: 30, fill: '#e04040', [a]: 0.5 },
         keyframes: [{ at: 0.5, from: { [a]: 0 }, to: { [a]: 1 }, duration: 1 }] },
       { type: 'shape', shape: 'rect', name: 'mover', width: 40, height: 20,
-        initial: { x: 40, y: 70, fillColor: '#40e040' },
-        keyframes: [{ at: 0, to: { x: 200, [wrong('mover') ? 'fillcolor' : 'fillColor']: '#ff0000' }, duration: 2 }] },
+        initial: { x: 40, y: 70, fill: '#40e040' },
+        keyframes: [{ at: 0, to: { x: 200, [wrong('mover') ? 'fillcolor' : 'fill']: '#ff0000' }, duration: 2 }] },
       { type: 'text', name: 'spinner', text: 'spin', style: { fontSize: 16, fill: '#ffffff' },
         initial: { x: 40, y: 110, anchorX: 0.5, anchorY: 0.5 },
         keyframes: [{ at: 0, to: { [wrong('spinner') ? 'rotaton' : 'rotation']: 90 }, duration: 2 }] },
       { type: 'shape', shape: 'rect', width: 16, height: 16,
-        initial: { x: 40, y: 150, fillColor: '#e0e040', [wrong('unnamed') ? 'scal' : 'scale']: 1.5 } },
+        initial: { x: 40, y: 150, fill: '#e0e040', [wrong('unnamed') ? 'scal' : 'scale']: 1.5 } },
       { type: 'text', name: 'heading', text: 'Heading',
         style: { [wrong('heading') ? 'fontsize' : 'fontSize']: 20, fill: '#ffffff' }, initial: { x: 120, y: 20 } },
       { type: 'text', name: 'caption', text: 'caption',
@@ -62,8 +62,8 @@
       // correct neighbours: the animatable properties of cheatsheet.md 48 (and a shape's style, a text's fill) in initial and in keyframes,
       // and every text style key cheatsheet.md 54 names
       { type: 'shape', shape: 'rect', name: 'okShape', width: 40, height: 20,
-        initial: { x: 260, y: 30, alpha: 0.8, rotation: 0, scale: 1, scaleX: 1, scaleY: 1, anchorX: 0.5, anchorY: 0.5, skewX: 0, skewY: 0, fillColor: '#4040e0', fillAlpha: 1, strokeColor: '#ffffff', strokeWidth: 1, strokeAlpha: 1 },
-        keyframes: [{ at: 0, to: { x: 280, y: 40, alpha: 1, rotation: 20, scale: 1.2, fillColor: '#40e0e0', strokeWidth: 2 }, duration: 2 },
+        initial: { x: 260, y: 30, alpha: 0.8, rotation: 0, scale: 1, scaleX: 1, scaleY: 1, anchorX: 0.5, anchorY: 0.5, skewX: 0, skewY: 0, fill: '#4040e0', fillAlpha: 1, stroke: '#ffffff', strokeWidth: 1, strokeAlpha: 1 },
+        keyframes: [{ at: 0, to: { x: 280, y: 40, alpha: 1, rotation: 20, scale: 1.2, fill: '#40e0e0', strokeWidth: 2 }, duration: 2 },
                     { at: 1.5, set: { visible: true } }] },
       { type: 'text', name: 'okText', text: 'ok text', initial: { x: 200, y: 120, fill: '#ffffff', alpha: 1 },
         style: { fontSize: 16, fontFamily: 'Arial', fontWeight: '700', fill: '#ffffff', letterSpacing: 1, lineHeight: 20, align: 'left',

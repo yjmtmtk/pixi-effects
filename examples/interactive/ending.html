@@ -74,8 +74,8 @@
     const skyline = Array.from({ length: 14 }, (_, i) => {
       const h = 160 + ((i * 97) % 240), w = 86, x = 40 + i * 92;
       return [
-        { type: 'shape', shape: 'rect', width: w, height: h, initial: { x, y: GROUND + 60 - h / 2, fillColor: i % 2 ? '#1b1740' : '#251a55' }, keyframes: [{ at: i * 0.05, from: { alpha: 0, y: '+=60' }, duration: 0.6, ease: 'power2.out' }] },
-        ...[0, 1, 2].map(r => ({ type: 'shape', shape: 'rect', width: 10, height: 14, initial: { x: x - 14 + (r % 2) * 28, y: GROUND + 20 - h + 30 + r * 38, fillColor: r % 2 ? '#ff4fd8' : '#4fe9ff', alpha: 0.9 },
+        { type: 'shape', shape: 'rect', width: w, height: h, initial: { x, y: GROUND + 60 - h / 2, fill: i % 2 ? '#1b1740' : '#251a55' }, keyframes: [{ at: i * 0.05, from: { alpha: 0, y: '+=60' }, duration: 0.6, ease: 'power2.out' }] },
+        ...[0, 1, 2].map(r => ({ type: 'shape', shape: 'rect', width: 10, height: 14, initial: { x: x - 14 + (r % 2) * 28, y: GROUND + 20 - h + 30 + r * 38, fill: r % 2 ? '#ff4fd8' : '#4fe9ff', alpha: 0.9 },
           keyframes: [{ at: 0.5 + (i + r) * 0.15, to: { alpha: 0.25 }, duration: 0.5, ease: 'sine.inOut', repeat: 7, yoyo: true }] })),
       ];
     }).flat();
@@ -100,11 +100,11 @@
 
     const composition = { sequences: [
       { type: 'shape', shape: 'rect', name: 'sky', width: W, height: H, initial: { x: W / 2, y: H / 2 }, fillGradient: { stops: [[0, '#79c2ff'], [1, '#ffe9bd']] } },
-      { type: 'shape', shape: 'circle', radius: 80, initial: { x: 1060, y: 150, fillColor: '#fff7c9' } },
-      { type: 'shape', shape: 'rect', name: 'ground', width: W, height: H - GROUND, initial: { x: W / 2, y: GROUND + (H - GROUND) / 2, fillColor: '#6bbf6a' } },
-      { type: 'shape', shape: 'rect', name: 'road', width: W, height: 70, initial: { x: W / 2, y: GROUND + 40, fillColor: '#d9c9a3' } },
+      { type: 'shape', shape: 'circle', radius: 80, initial: { x: 1060, y: 150, fill: '#fff7c9' } },
+      { type: 'shape', shape: 'rect', name: 'ground', width: W, height: H - GROUND, initial: { x: W / 2, y: GROUND + (H - GROUND) / 2, fill: '#6bbf6a' } },
+      { type: 'shape', shape: 'rect', name: 'road', width: W, height: 70, initial: { x: W / 2, y: GROUND + 40, fill: '#d9c9a3' } },
       // the signpost at the fork
-      { type: 'shape', shape: 'rect', width: 14, height: 250, initial: { x: 860, y: GROUND - 90, fillColor: '#7a5230' } },
+      { type: 'shape', shape: 'rect', width: 14, height: 250, initial: { x: 860, y: GROUND - 90, fill: '#7a5230' } },
       ...ENDINGS.map((e, i) => label(`${e.icon} ${e.name.toLowerCase()}`, 30, 860, GROUND - 190 + i * 56, { style: { fill: '#fff', stroke: { color: '#7a5230', width: 10 } }, initial: { rotation: -6 + i * 6 } })),
       // before the fork: the robot walks in (and stays when nothing has been chosen)
       emoji('🤖', 150, -120, 470, { name: 'robot', initial: { alpha: is('path', -1) },

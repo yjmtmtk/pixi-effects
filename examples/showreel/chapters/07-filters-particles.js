@@ -102,7 +102,7 @@ export default function chapter(P) {
       gravity: 900, drag: 0.8, size: [12, 22], scale: [1, 0.6], fade: { out: 0.4 }, colors: [C.red, C.gold, C.bone, C.cyan], shape: 'rect', spin: [-420, 420], seed: 8, name: 'confetti' }),
   ];
   const ring = { type: 'shape', shape: 'circle', name: 'ring', radius: 150, at: burstAt, duration: 0.8,
-    initial: { x: bx, y: by, fillAlpha: 0, strokeColor: C.gold, strokeWidth: 10, strokeAlpha: 0.9, scale: 0.4 },
+    initial: { x: bx, y: by, fillAlpha: 0, stroke: C.gold, strokeWidth: 10, strokeAlpha: 0.9, scale: 0.4 },
     keyframes: [{ at: 0, to: { scale: 4.2, strokeAlpha: 0, strokeWidth: 2 }, duration: 0.8, ease: 'power3.out' }] };
   const slam = win('w-burst', at(3), BEAT, [
     word('word-burst', [glowAt(5)], [

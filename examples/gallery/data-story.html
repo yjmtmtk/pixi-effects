@@ -84,11 +84,11 @@
     // a leader line = a thin rect anchored at its start, rotated, growing in width
     const leader = (name, x, y, angle, length, at, dur = 0.3, color = AMBER) => ({
       type: 'shape', shape: 'rect', name, width: 0, height: 1.5, anchorX: 0, anchorY: 0.5,
-      initial: { x, y, rotation: angle, fillColor: color, alpha: 0.9 },
+      initial: { x, y, rotation: angle, fill: color, alpha: 0.9 },
       keyframes: [{ at, to: { width: length }, duration: dur, ease: 'power2.out' }],
     });
     const dot = (name, x, y, r, at, color = AMBER) => ({
-      type: 'shape', shape: 'circle', name, radius: r, initial: { x, y, fillColor: color, scale: 0 },
+      type: 'shape', shape: 'circle', name, radius: r, initial: { x, y, fill: color, scale: 0 },
       keyframes: [{ at, to: { scale: 1 }, duration: 0.3, ease: 'back.out(2)' }],
     });
     // one beat = a nested composition that enters / exits as a unit
@@ -112,7 +112,7 @@
       const NOTE_AT = 2.0;
       const seqs = heading('01 · WHO GLOWS BRIGHTEST?', 'Average night-time radiance, 2025', 'nW / cm² / sr');
       seqs.push({ type: 'shape', shape: 'rect', name: 'axis', width: 1, height: ROWH * (CITIES.length - 1) + BAR_H + 16, anchorY: 0,
-        initial: { x: BAR_X - 1, y: ROW0 - BAR_H / 2 - 8, fillColor: GRID } });
+        initial: { x: BAR_X - 1, y: ROW0 - BAR_H / 2 - 8, fill: GRID } });
       const london = CITIES.find(c => c[0] === 'London');
       const barW = v => BAR_MAX * v / MAX;
       CITIES.forEach(([city, v], i) => {
@@ -120,10 +120,10 @@
         const hi = i === 0, isLondon = city === 'London';
         seqs.push(txt(`label-${city}`, city, { x: BAR_X - 20, y, ax: 1, size: 18, fill: hi ? AMBER : PAPER }));
         seqs.push({ type: 'shape', shape: 'rect', name: `bar-${city}`, width: 0, height: BAR_H, anchorX: 0, at,
-          initial: { x: BAR_X, y, fillColor: hi ? AMBER : INK },
+          initial: { x: BAR_X, y, fill: hi ? AMBER : INK },
           keyframes: [
             { at: 0, to: { width: w }, duration: DUR, ease: EASE },
-            ...(isLondon ? [{ at: NOTE_AT + 0.4 - at, to: { fillColor: '#b9b3a6' }, duration: 0.4 }] : []),     // London lights up when the note points at it
+            ...(isLondon ? [{ at: NOTE_AT + 0.4 - at, to: { fill: '#b9b3a6' }, duration: 0.4 }] : []),     // London lights up when the note points at it
           ] });
         seqs.push(txt(`value-${city}`, '{value}', { x: BAR_X + 10, y, size: 18, weight: '600', fill: hi ? AMBER : PAPER, at,
           initial: { value: 0 }, format: { decimals: 0 },
@@ -152,12 +152,12 @@
       // legend (right-aligned, hand-measured)
       [['London', PAPER, 1200], ['Lagos', AMBER, 1116]].forEach(([n, c, x]) => {
         seqs.push(txt(`legend-${n}`, n, { x, y: 142, ax: 1, size: 14, fill: PAPER }));
-        seqs.push({ type: 'shape', shape: 'circle', name: `legend-dot-${n}`, radius: 4, initial: { x: x - n.length * 7.7 - 12, y: 142, fillColor: c } });
+        seqs.push({ type: 'shape', shape: 'circle', name: `legend-dot-${n}`, radius: 4, initial: { x: x - n.length * 7.7 - 12, y: 142, fill: c } });
       });
       // grid + ticks
       for (let v = 0; v <= VMAX - 10; v += 20) {
         const y = yOf(v);
-        seqs.push({ type: 'shape', shape: 'line', name: `grid-${v}`, from: [PX0 - 10, y], to: [PX1 + 10, y], initial: { strokeColor: v === 0 ? '#2f384f' : GRID, strokeWidth: 1 } });
+        seqs.push({ type: 'shape', shape: 'line', name: `grid-${v}`, from: [PX0 - 10, y], to: [PX1 + 10, y], initial: { stroke: v === 0 ? '#2f384f' : GRID, strokeWidth: 1 } });
         seqs.push(txt(`tick-${v}`, String(v), { x: PX0 - 22, y, ax: 1, size: 13, font: MONO, fill: MUTED }));
       }
       [0, 3, 6, 9, N - 1].forEach(i => seqs.push(txt(`year-${i}`, String(YEAR0 + i), { x: xOf(i), y: PY1 + 22, ax: 0.5, size: 13, font: MONO, fill: MUTED })));
@@ -167,12 +167,12 @@
         const frames = Math.round(DRAW * FPS);
         return [
           { type: 'shape', shape: 'polygon', name: `line-${name}`, points: pts, open: true,
-            initial: { strokeColor: color, strokeWidth: 3, strokeAlpha },
+            initial: { stroke: color, strokeWidth: 3, strokeAlpha },
             mask: { type: 'shape', shape: 'rect', width: 0, height: PY1 - PY0 + 80, anchorX: 0,
-                    initial: { x: PX0 - 5, y: (PY0 + PY1) / 2, fillColor: '#ffffff' },
+                    initial: { x: PX0 - 5, y: (PY0 + PY1) / 2, fill: '#ffffff' },
                     keyframes: [{ at: DRAW_AT, to: { width: PX1 - PX0 + 10 }, duration: DRAW, ease: 'none' }] } },
           { type: 'shape', shape: 'circle', name: `head-${name}`, radius: 5, at: DRAW_AT,
-            initial: { x: pts[0][0], y: pts[0][1], fillColor: color },
+            initial: { x: pts[0][0], y: pts[0][1], fill: color },
             keyframes: Array.from({ length: frames + 1 }, (_, f) => {
               const s = (N - 1) * f / frames, i = Math.min(N - 2, Math.floor(s)), fr = s - i;
               return { at: f / FPS, set: { x: xOf(s), y: pts[i][1] + (pts[i + 1][1] - pts[i][1]) * fr } };
@@ -194,7 +194,7 @@
       const k = LAGOS.findIndex((v, i) => i > 0 && v > LONDON[i]) - 1;                          // last index where London is still ahead
       const d0 = LAGOS[k] - LONDON[k], d1 = LAGOS[k + 1] - LONDON[k + 1], f = d0 / (d0 - d1);
       const cx = xOf(k + f), cy = yOf(LAGOS[k] + (LAGOS[k + 1] - LAGOS[k]) * f), NOTE_Y = 272, RING_AT = 2.2;
-      seqs.push({ type: 'shape', shape: 'circle', name: 'cross-ring', radius: 9, initial: { x: cx, y: cy, strokeColor: AMBER, strokeWidth: 1.5, scale: 0, alpha: 0 },
+      seqs.push({ type: 'shape', shape: 'circle', name: 'cross-ring', radius: 9, initial: { x: cx, y: cy, stroke: AMBER, strokeWidth: 1.5, scale: 0, alpha: 0 },
         keyframes: [{ at: RING_AT, to: { scale: 1, alpha: 1 }, duration: 0.35, ease: 'back.out(2)' }] });
       seqs.push(leader('cross-up', cx, cy - 13, -90, cy - 13 - NOTE_Y, RING_AT + 0.15, 0.25));
       seqs.push(leader('cross-left', cx, NOTE_Y, 180, 95, RING_AT + 0.4, 0.25));
@@ -221,7 +221,7 @@
         for (let j = 0; j < n; j++) {                                   // slivers appear on a frame-snapped linear sweep
           const a0 = start + j * sw, a1 = Math.min(end, a0 + sw + 0.5);
           seqs.push({ type: 'shape', shape: 'polygon', name: `ring-${label}-${j}`, points: arc(a0, a1), at: snap(SW_AT + SW_DUR * a0 / 360),
-            initial: { fillColor: color, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 2 / FPS }] });
+            initial: { fill: color, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 2 / FPS }] });
         }
         // label with a radial leader + horizontal tail, appearing as its segment completes
         const mid = rad((start + end) / 2), c = Math.cos(mid), s = Math.sin(mid), right = c >= 0;
@@ -242,7 +242,7 @@
     // ================================================================ TAKEAWAY
     const END = [
       ...heading('THE TAKEAWAY', '', null).slice(0, 1),
-      { type: 'shape', shape: 'rect', name: 'end-rule', width: 0, height: 2, initial: { x: 640, y: 236, fillColor: AMBER },
+      { type: 'shape', shape: 'rect', name: 'end-rule', width: 0, height: 2, initial: { x: 640, y: 236, fill: AMBER },
         keyframes: [{ at: 0.1, to: { width: 56 }, duration: 0.5, ease: 'power3.out' }] },
       reveal(txt('end-headline', 'The night is decided\none streetlight at a time.', { x: 640, y: 330, ax: 0.5, size: 54, font: SERIF, fill: PAPER, style: { align: 'center', lineHeight: 64 } }), 0.15, 0.5, 10),
       reveal(txt('end-sub', `Streets make ${SEGS[0][1]}% of the glow. London swapped its lamps and dimmed ${Math.round((1 - LONDON[LONDON.length - 1] / LONDON[0]) * 100)}% in a decade.`,
@@ -252,21 +252,21 @@
     // ================================================================ ROOT
     const TITLE_SIZE = 104, HEADER_SIZE = 32;
     const sequences = [
-      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: BG } },
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: BG } },
       { type: 'shape', shape: 'rect', name: 'horizon-glow', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
         fillGradient: { type: 'radial', center: [0.5, 1.08], radius: 0.75, stops: [[0, 'rgba(245,181,69,0.14)'], [0.45, 'rgba(245,181,69,0.04)'], [1, 'rgba(245,181,69,0)']] } },
       { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, duration: DURATION,
         keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1.5 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
 
       // header furniture
-      { type: 'shape', shape: 'rect', name: 'header-rule', width: 0, height: 1, anchorX: 0, at: 1.5, initial: { x: 80, y: 92, fillColor: GRID },
+      { type: 'shape', shape: 'rect', name: 'header-rule', width: 0, height: 1, anchorX: 0, at: 1.5, initial: { x: 80, y: 92, fill: GRID },
         keyframes: [{ at: 0, to: { width: 1120 }, duration: 0.6, ease: EASE_IN }] },
-      { type: 'shape', shape: 'rect', name: 'header-accent', width: 0, height: 2, anchorX: 0, at: 1.5, initial: { x: 80, y: 92, fillColor: AMBER },
+      { type: 'shape', shape: 'rect', name: 'header-accent', width: 0, height: 2, anchorX: 0, at: 1.5, initial: { x: 80, y: 92, fill: AMBER },
         keyframes: [{ at: 0, to: { width: 56 }, duration: 0.5, ease: EASE_IN }] },
       reveal(txt('source', 'Source: VIIRS Day/Night Band annual composites, 2012–2025 · figures illustrative', { x: 80, y: 668, size: 13, fill: MUTED, at: 1.6 }), 0, 0.4, 0),
 
       // title card
-      { type: 'shape', shape: 'rect', name: 'title-accent', width: 0, height: 2, duration: 1.5, initial: { x: 640, y: 250, fillColor: AMBER },
+      { type: 'shape', shape: 'rect', name: 'title-accent', width: 0, height: 2, duration: 1.5, initial: { x: 640, y: 250, fill: AMBER },
         keyframes: [{ at: 0.1, to: { width: 56 }, duration: 0.5, ease: EASE_IN }, { at: 1.1, to: { alpha: 0 }, duration: 0.25 }] },
       txt('subtitle', 'What satellites see after midnight', { x: 640, y: 392, ax: 0.5, size: 24, fill: MUTED, duration: 1.5, initial: { alpha: 0 },
         keyframes: [{ at: 0.35, from: { alpha: 0, y: 400 }, to: { alpha: 1, y: 392 }, duration: 0.4, ease: 'power2.out' }, { at: 1.1, to: { alpha: 0 }, duration: 0.3 }] }),

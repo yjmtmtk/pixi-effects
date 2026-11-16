@@ -733,13 +733,13 @@ export interface Scene2DSequenceSpec extends SequenceCommon {
 // (width, radius, points, …) accept the usual expression language so they
 // can follow the canvas (`width: 'W * 0.5'`) and are resolved once at build.
 //
-// Style properties (`fillColor`, `fillAlpha`, `strokeColor`, `strokeAlpha`,
+// Style properties (`fill`, `fillAlpha`, `stroke`, `strokeAlpha`,
 // `strokeWidth`) live on the regular `initial` / `keyframes` surface and
 // animate via the standard pipeline — every frame the shape redraws itself
 // from its current style state, so colour/width tweens "just work".
 
 /**
- * A gradient fill for a shape (replaces `fillColor`). Positions are relative to the shape's own
+ * A gradient fill for a shape (replaces `fill`). Positions are relative to the shape's own
  * bounds (0–1), so it follows the shape's size. Colours may have alpha (`'rgba(0,0,0,0.6)'`), so a
  * radial gradient from transparent to dark is a vignette. Animatable on shapes and text: a keyframe's `set` / `from` / `to` carries a partial `fillGradient` (see KeyframeProps).
  */
@@ -775,10 +775,10 @@ export interface Trimmable {
 
 interface ShapeBase extends SequenceCommon {
   type: 'shape';
-  /** Fill with a gradient instead of `fillColor` (top level or in `initial`). */
+  /** Fill with a gradient instead of `fill` (top level or in `initial`). */
   fillGradient?: GradientSpec;
   /**
-   * Colour space used to interpolate `fillColor` / `strokeColor` keyframes.
+   * Colour space used to interpolate `fill` / `stroke` keyframes.
    *
    * - `'rgb'` (default): a straight lerp of the red, green and blue channels.
    *   Fast, but a red → green ramp passes through muddy brown / olive

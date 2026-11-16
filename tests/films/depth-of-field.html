@@ -51,13 +51,13 @@
     // a picture to look at: a title in focus, a dot field behind it, a badge in front (1280 x 720, the focus on the title)
     window.demo = async (aperture) => {
       const dots = Array.from({ length: 14 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 30 + (i % 4) * 14, threeD: true,
-        initial: { x: 100 + ((i * 197) % 1100), y: 90 + ((i * 131) % 540), z: -500 - (i % 3) * 200, fillColor: ['#ffb347', '#6ec6ff', '#ff6f91', '#c4f1be'][i % 4] } }));
+        initial: { x: 100 + ((i * 197) % 1100), y: 90 + ((i * 131) % 540), z: -500 - (i % 3) * 200, fill: ['#ffb347', '#6ec6ff', '#ff6f91', '#c4f1be'][i % 4] } }));
       const comp = { sequences: [
-        { type: 'shape', shape: 'rect', width: 1280, height: 720, anchorX: 0, anchorY: 0, initial: { fillColor: '#101626' } },
+        { type: 'shape', shape: 'rect', width: 1280, height: 720, anchorX: 0, anchorY: 0, initial: { fill: '#101626' } },
         { type: 'camera', name: 'cam', initial: { focus: 'title', aperture } },
         ...dots,
         { type: 'text', name: 'title', text: 'Rack focus', threeD: true, style: { fontSize: 120, fill: '#ffffff', fontFamily: 'sans-serif', fontWeight: '700' }, initial: { x: 640, y: 360, z: 0, anchorX: 0.5, anchorY: 0.5 } },
-        { type: 'shape', shape: 'circle', radius: 90, threeD: true, initial: { x: 190, y: 560, z: 350, fillColor: '#ef476f' } },
+        { type: 'shape', shape: 'circle', radius: 90, threeD: true, initial: { x: 190, y: 560, z: 350, fill: '#ef476f' } },
       ] };
       const canvas = document.createElement('canvas'); canvas.width = 1280; canvas.height = 720;      // (destroying a movie removes its canvas from the page)
       if (window.movie) { await window.movie.destroy(); window.movie = null; }

@@ -33,7 +33,7 @@
     window.movie = movie;
     try {
       await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000', composition: { sequences: [
-        { type: 'shape', shape: 'path', name: 'squares', d, ...(rule ? { fillRule: rule } : {}), initial: { fillColor: '#ffcc00', strokeColor: '#0066ff', strokeWidth } },
+        { type: 'shape', shape: 'path', name: 'squares', d, ...(rule ? { fillRule: rule } : {}), initial: { fill: '#ffcc00', stroke: '#0066ff', strokeWidth } },
       ] } });
       const img = await movie.snapshot(0, { as: 'imageData' });
       window.__size = [img.width, img.height];

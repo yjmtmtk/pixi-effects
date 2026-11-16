@@ -56,14 +56,14 @@
     if (shadow) {
       const WALL = { x: s(480), y: s(270), z: s(-GAP), w: s(880), h: s(480), c: '#3a6ea5' }, CARD = { x: s(440), y: s(270), z: 0, w: s(200), h: s(200), c: '#d96a3a' };
       if (mode === 'board') {
-        sequences.push({ type: 'shape', shape: 'rect', width: WALL.w, height: WALL.h, threeD: true, initial: { x: WALL.x, y: WALL.y, z: WALL.z, anchorX: 0.5, anchorY: 0.5, fillColor: WALL.c } });
-        sequences.push({ type: 'shape', shape: 'rect', width: CARD.w, height: CARD.h, threeD: true, castsShadows: q.get('noshadow') !== '1', initial: { x: CARD.x, y: CARD.y, z: CARD.z, anchorX: 0.5, anchorY: 0.5, fillColor: CARD.c } });
+        sequences.push({ type: 'shape', shape: 'rect', width: WALL.w, height: WALL.h, threeD: true, initial: { x: WALL.x, y: WALL.y, z: WALL.z, anchorX: 0.5, anchorY: 0.5, fill: WALL.c } });
+        sequences.push({ type: 'shape', shape: 'rect', width: CARD.w, height: CARD.h, threeD: true, castsShadows: q.get('noshadow') !== '1', initial: { x: CARD.x, y: CARD.y, z: CARD.z, anchorX: 0.5, anchorY: 0.5, fill: CARD.c } });
       } else {
         sequences.push({ type: 'scene3d', name: 'world', followCamera: true, followLights: true,
           setup: ({ root }) => { const w = plane(root, WALL); w.castShadow = false; w.receiveShadow = true; const c = plane(root, CARD); c.castShadow = true; c.receiveShadow = false; } });
       }
     } else if (mode === 'board') {
-      for (const b of BOXES) sequences.push({ type: 'shape', shape: 'rect', width: s(200), height: s(200), threeD: true, initial: { x: s(b.x), y: s(b.y), z: s(b.z), anchorX: 0.5, anchorY: 0.5, fillColor: b.c } });
+      for (const b of BOXES) sequences.push({ type: 'shape', shape: 'rect', width: s(200), height: s(200), threeD: true, initial: { x: s(b.x), y: s(b.y), z: s(b.z), anchorX: 0.5, anchorY: 0.5, fill: b.c } });
     } else {
       sequences.push({ type: 'scene3d', name: 'world', followCamera: true, followLights: true, followFog: true, ...(q.get('aspect') === '1' ? { width: W, height: W } : {}),
         setup: ({ root }) => {

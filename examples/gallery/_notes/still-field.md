@@ -11,8 +11,8 @@ centre unwinding the same half turn and only brightening. The field is perfectly
 - AGENTS.md -> local `SKILL.md` + `quickstart.md` were enough to start; I never opened the cheatsheet or pitfalls in full.
 - `pixi-effects new still-field --size 1080x1080 --duration 12` wrote a ready page with the right size and length in one go.
 - The `recipe` list is easy to scan; `pulse` and `stagger` answered "how do loops and waves work" in 20 lines (I then computed delays myself).
-- The first composition (625 rects with rotation + fillColor keyframes) ran with zero warnings on the first try. Keyframes on different
-  properties overlapping in time (rotation, scaleX/alpha, fillColor) just worked, as the docs say.
+- The first composition (625 rects with rotation + fill keyframes) ran with zero warnings on the first try. Keyframes on different
+  properties overlapping in time (rotation, scaleX/alpha, fill) just worked, as the docs say.
 - `help music` gave everything for the score in one screen; the `check` music read-back (bars per track, what starts on which beat) confirmed the
   16 beats = 12 s at once. Loudness numbers (-19.4 LUFS at volume 0.9) told me exactly how far to raise it (1.4 -> -15.6 LUFS).
 - `check --no-export --at 2.4,4.5,8.2` took ~4 s and the full-size frames were what I needed to judge stroke weight and the type.

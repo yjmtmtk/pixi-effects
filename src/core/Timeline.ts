@@ -139,7 +139,7 @@ const PIXI_SHORTHANDS = new Set([
   'rotation',
   'tint',
   'autoAlpha',
-  'fillColor', 'fillAlpha',
+  'fillAlpha',
 ]);
 
 /**

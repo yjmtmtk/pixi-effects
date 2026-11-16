@@ -193,7 +193,7 @@ A `null` layer draws nothing; it only moves. Any layer can name it as its `paren
 ```js
 { type: 'null', name: 'planet', initial: { x: 640, y: 360 },
   keyframes: [{ at: 0, to: { rotation: 360 }, duration: 8, ease: 'none' }] },
-{ type: 'shape', shape: 'circle', radius: 20, parent: 'planet', initial: { x: 200, y: 0, fillColor: '#ffffff' } },   // circles the point (640, 360)
+{ type: 'shape', shape: 'circle', radius: 20, parent: 'planet', initial: { x: 200, y: 0, fill: '#ffffff' } },   // circles the point (640, 360)
 ```
 
 - A child's `x` / `y` are measured **from the null's origin** (not from the composition's corner): with the null at (640, 360), a child at `x: 200` is drawn at 840. Rotation turns the child about the null's origin; give the null `pivotX` / `pivotY` to turn about another point.
@@ -210,7 +210,7 @@ A `null` layer draws nothing; it only moves. Any layer can name it as its `paren
 ```js
 { type: 'scene3d', name: 'planets', setup: …, update: … },                       // its setup returns { objects: { Mars: mars, … } }
 { type: 'text', text: 'Mars', follow: 'planets/Mars',
-  initial: { x: 18, y: -14, anchorX: 0, anchorY: 1, fontSize: 18, fillColor: '#ffffff' } },   // 18 px right of and 14 px above the planet's centre
+  initial: { x: 18, y: -14, anchorX: 0, anchorY: 1, fontSize: 18, fill: '#ffffff' } },   // 18 px right of and 14 px above the planet's centre
 ```
 
 - The target is `'<layer>/<object>'` or `'<layer>'`. `<layer>` is a name, or a path through nested compositions (`'system/planets/Mars'`); a name is also found anywhere in the movie when only one layer has it. A name nobody has is warned with the names there are (did you mean).
@@ -346,7 +346,7 @@ A composition's content can also **step** and **repeat**:
 
 ```js
 { type: 'composition', width: 200, height: 200, duration: 6, loop: true, frameRate: 12, sequences: [
-  { type: 'shape', shape: 'arc', radius: 60, startAngle: 0, endAngle: 270, initial: { x: 100, y: 100, strokeColor: '#ffffff', strokeWidth: 10 },
+  { type: 'shape', shape: 'arc', radius: 60, startAngle: 0, endAngle: 270, initial: { x: 100, y: 100, stroke: '#ffffff', strokeWidth: 10 },
     keyframes: [{ at: 0, to: { rotation: 360 }, duration: 1 }] },          // one turn, repeated for 6 s, on 12 pictures a second
 ] }
 ```
@@ -364,7 +364,7 @@ composition: {
       params: { name: 'Name', role: '', accent: '#e63946', indent: 0 },     // the names and their defaults: a number or a string
       width: 640, height: 110, duration: 3.5,                                // anything a composition layer has
       sequences: [
-        { type: 'shape', shape: 'rect', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fillColor: '{accent}' } },
+        { type: 'shape', shape: 'rect', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fill: '{accent}' } },
         { type: 'text', text: '{name}', initial: { x: '28 + indent', y: 34, anchorY: 0.5 } },
       ],
     },
@@ -415,8 +415,8 @@ Parametric primitive backed by PIXI v8 `Graphics`. Six kinds, discriminated by `
   width: 'W * 0.8', height: 'H * 0.6', cornerRadius: 24,
   initial: {
     x: 'W/2', y: 'H/2',
-    fillColor: '#1a2640', fillAlpha: 0.85,
-    strokeColor: '#3a5680', strokeWidth: 2,
+    fill: '#1a2640', fillAlpha: 0.85,
+    stroke: '#3a5680', strokeWidth: 2,
   },
 }
 ```
@@ -433,13 +433,13 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `polygon` | `points: [[x,y], …]`                     | `open` (default false), `trimStart`, `trimEnd` |
 | `path`    | `d` (SVG path data)                      | `fillRule`, `trimStart`, `trimEnd`, `morphTo`, `morph`, `morphPoints` |
 
-**Holes (`fillRule: 'evenodd'`) on a `path`.** Several sub-paths in one `d` are each filled on their own: a donut written as two circles is a solid disc. With `fillRule: 'evenodd'` the biggest sub-path is the shape and every other one is a hole cut out of it (the stroke goes round the shape and each hole): `{ shape: 'path', fillRule: 'evenodd', d: 'M 0 -100 A 100 100 0 1 1 0 100 A 100 100 0 1 1 0 -100 Z M 0 -50 A 50 50 0 1 0 0 50 A 50 50 0 1 0 0 -50 Z', initial: { x: 640, y: 360, fillColor: '#ffcc00' } }`. Write the sub-paths in absolute coordinates (each starts with `M`); a **stroke is centred on the outline** (half of `strokeWidth` each side), an island inside a hole is not drawn (nor stroked: it is as if it were not in `d`; real SVG `evenodd` would fill it), and a path that morphs (`morphTo`) has no holes.
+**Holes (`fillRule: 'evenodd'`) on a `path`.** Several sub-paths in one `d` are each filled on their own: a donut written as two circles is a solid disc. With `fillRule: 'evenodd'` the biggest sub-path is the shape and every other one is a hole cut out of it (the stroke goes round the shape and each hole): `{ shape: 'path', fillRule: 'evenodd', d: 'M 0 -100 A 100 100 0 1 1 0 100 A 100 100 0 1 1 0 -100 Z M 0 -50 A 50 50 0 1 0 0 50 A 50 50 0 1 0 0 -50 Z', initial: { x: 640, y: 360, fill: '#ffcc00' } }`. Write the sub-paths in absolute coordinates (each starts with `M`); a **stroke is centred on the outline** (half of `strokeWidth` each side), an island inside a hole is not drawn (nor stroked: it is as if it were not in `d`; real SVG `evenodd` would fill it), and a path that morphs (`morphTo`) has no holes.
 
 **`arc`** is an arc around its local origin (the centre). Angles are in **degrees: 0° is 3 o'clock and positive is clockwise**, so a progress ring starts at `startAngle: -90` (12 o'clock) and animates `endAngle` from `-90` to `270`. With a stroke and no fill it is an open arc line (`strokeCap: 'round'` for rounded ends); with a fill it is a sector (a pie slice), and with `innerRadius` a ring segment (a donut slice). A sweep of 360° or more is a full circle; `endAngle < startAngle` sweeps counter-clockwise. `radius`, `innerRadius`, `startAngle` and `endAngle` are all animatable.
 
 ```ts
 { type: 'shape', shape: 'arc', radius: 120, startAngle: -90, endAngle: -90, strokeCap: 'round',
-  initial: { x: 'GW/2', y: 'GH/2', strokeColor: '#ffd166', strokeWidth: 24 },
+  initial: { x: 'GW/2', y: 'GH/2', stroke: '#ffd166', strokeWidth: 24 },
   keyframes: [{ at: 0, to: { endAngle: 270 }, duration: 2, ease: 'power3.out' }] }   // a progress ring filling clockwise from the top
 ```
 
@@ -447,7 +447,7 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 
 ```ts
 { type: 'shape', shape: 'path', d: 'M 0 50 L 45 95 L 130 0', trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
-  initial: { x: 1040, y: 270, strokeColor: '#7bd88f', strokeWidth: 16 },
+  initial: { x: 1040, y: 270, stroke: '#7bd88f', strokeWidth: 16 },
   keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1, ease: 'power2.inOut' }] }   // a check mark drawing itself
 ```
 
@@ -456,7 +456,7 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 ```ts
 { type: 'shape', shape: 'path', d: 'M 640 160 C 780 160 860 260 860 360 C 860 470 770 560 640 560 C 510 560 420 470 420 360 C 420 250 500 160 640 160 Z',
   morphTo: 'M 640 130 L 700 300 L 880 300 L 735 410 L 790 590 L 640 480 L 490 590 L 545 410 L 400 300 L 580 300 Z',
-  initial: { fillColor: '#ffd166' }, keyframes: [{ at: 0.5, to: { morph: 1 }, duration: 1.5, ease: 'power2.inOut' }] }   // a blob turns into a star
+  initial: { fill: '#ffd166' }, keyframes: [{ at: 0.5, to: { morph: 1 }, duration: 1.5, ease: 'power2.inOut' }] }   // a blob turns into a star
 ```
 
 `strokeCap` (`'butt'`, `'round'`, `'square'`) and `strokeJoin` (`'miter'`, `'round'`, `'bevel'`) work on every shape, at the top level or in `initial`; they are not animated. Sharp corners (the apex of an M in outlined text, a thin polygon) poke out with the default `miter` join: use `'round'`.
@@ -465,17 +465,17 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 
 | Key           | Notes                                                        |
 |---------------|--------------------------------------------------------------|
-| `fillColor`   | Hex string (`'#3399ff'`) or number (`0x3399ff`). Omit = no fill. |
+| `fill`   | Hex string (`'#3399ff'`) or number (`0x3399ff`). Omit = no fill. |
 | `fillAlpha`   | 0..1, default 1                                              |
-| `strokeColor` | Hex string or number. Requires `strokeWidth > 0` to render.  |
+| `stroke` | Hex string or number. Requires `strokeWidth > 0` to render.  |
 | `strokeAlpha` | 0..1, default 1                                              |
 | `strokeWidth` | Pixels. Default 0 (no stroke).                               |
 
-Colour keys (`fillColor`, `strokeColor`) tween smoothly between hues — no snap at the end. Numeric keys (`fillAlpha` / `strokeAlpha` / `strokeWidth`) animate linearly.
+Colour keys (`fill`, `stroke`) tween smoothly between hues — no snap at the end. Numeric keys (`fillAlpha` / `strokeAlpha` / `strokeWidth`) animate linearly.
 
 #### `fillGradient`
 
-Fill a shape with a gradient instead of `fillColor` (top level or in `initial`). Positions are in 0–1 of the shape's own bounds, so the gradient follows the shape's size. Colours may carry alpha, so a radial gradient from transparent to dark is a vignette. Animatable (below), on shapes and on text.
+Fill a shape with a gradient instead of `fill` (top level or in `initial`). Positions are in 0–1 of the shape's own bounds, so the gradient follows the shape's size. Colours may carry alpha, so a radial gradient from transparent to dark is a vignette. Animatable (below), on shapes and on text.
 
 ```ts
 { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
@@ -516,9 +516,9 @@ Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (a st
 {
   type: 'shape', shape: 'circle', radius: 40,
   colorSpace: 'oklch',                       // ← red → green via vibrant orange
-  initial: { fillColor: '#ff0000' },
+  initial: { fill: '#ff0000' },
   keyframes: [
-    { at: 1, to: { fillColor: '#00ff00' }, duration: 2, ease: 'sine.inOut' },
+    { at: 1, to: { fill: '#00ff00' }, duration: 2, ease: 'sine.inOut' },
   ],
 }
 ```
@@ -526,10 +526,10 @@ Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (a st
 ```ts
 {
   type: 'shape', shape: 'circle', radius: 40,
-  initial: { x: 'W/2', y: 'H/2', fillColor: '#ff5577' },
+  initial: { x: 'W/2', y: 'H/2', fill: '#ff5577' },
   keyframes: [
-    { at: 1, to: { fillColor: '#55ddaa' }, duration: 1.0, ease: 'sine.inOut' },
-    { at: 2, to: { strokeColor: '#fff', strokeWidth: 6 }, duration: 0.5 },
+    { at: 1, to: { fill: '#55ddaa' }, duration: 1.0, ease: 'sine.inOut' },
+    { at: 2, to: { stroke: '#fff', strokeWidth: 6 }, duration: 0.5 },
   ],
 }
 ```
@@ -541,7 +541,7 @@ Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (a st
 {
   type: 'shape', shape: 'path',
   d: 'M 0 -20 C -30 -50 -70 -10 0 30 C 70 -10 30 -50 0 -20 Z',
-  initial: { x: 'W/2', y: 'H/2', fillColor: '#ff3366' },
+  initial: { x: 'W/2', y: 'H/2', fill: '#ff3366' },
   keyframes: [
     { at: 0,   from: { alpha: 0, scale: 0 },
                to:   { alpha: 1, scale: 1 },
@@ -561,7 +561,7 @@ For rect / circle / ellipse, `anchorX` / `anchorY` (default `0.5` each; not avai
 {
   type: 'shape', shape: 'rect', width: 0, height: 18, cornerRadius: 9,
   anchorX: 0,                                  // ← left edge at x
-  initial: { x: 0, y: 'H/2', fillColor: '#5599ff' },
+  initial: { x: 0, y: 'H/2', fill: '#5599ff' },
   keyframes: [
     { at: 0, to: { width: 'W' }, duration: 4, ease: 'sine.inOut' },
   ],
@@ -726,9 +726,9 @@ A flight through the scene is [`cameraPath()`](#camerapath) (a route as keyframe
           "duration": 4, "ease": "sine.inOut" }
       ] },
     { "type": "shape", "shape": "rect", "width": 300, "height": 200, "threeD": true,
-      "initial": { "x": "GW/2", "y": "GH/2", "z": -400, "fillColor": "#3a6ea5" } },
+      "initial": { "x": "GW/2", "y": "GH/2", "z": -400, "fill": "#3a6ea5" } },
     { "type": "shape", "shape": "rect", "width": 300, "height": 200, "threeD": true,
-      "initial": { "x": "GW/2", "y": "GH/2", "z": 250, "fillColor": "#d96a3a" } }
+      "initial": { "x": "GW/2", "y": "GH/2", "z": 250, "fill": "#d96a3a" } }
   ]
 }
 ```
@@ -741,7 +741,7 @@ Moving the camera sideways makes the near rectangle slide faster than the far on
     { "type": "camera",
       "keyframes": [{ "at": 0, "to": { "fov": 70 }, "duration": 3, "ease": "sine.inOut" }] },
     { "type": "shape", "shape": "circle", "radius": 120, "threeD": true,
-      "initial": { "x": "GW/2", "y": "GH/2", "z": 300, "fillColor": "#38a169" } }
+      "initial": { "x": "GW/2", "y": "GH/2", "z": 300, "fill": "#38a169" } }
   ]
 }
 ```
@@ -759,7 +759,7 @@ Write `focus` (and, if you want, `aperture`) on the camera and the `threeD` laye
   "sequences": [
     { "type": "camera", "initial": { "focus": "title" } },
     { "type": "text", "name": "title", "text": "Focus", "threeD": true, "style": { "fontSize": 96, "fill": "#ffffff" }, "initial": { "x": "GW/2", "y": "GH/2", "z": 0, "anchorX": 0.5, "anchorY": 0.5 } },
-    { "type": "shape", "shape": "circle", "radius": 140, "threeD": true, "initial": { "x": "GW/2 + 260", "y": "GH/2", "z": -500, "fillColor": "#3a6ea5" } }
+    { "type": "shape", "shape": "circle", "radius": 140, "threeD": true, "initial": { "x": "GW/2 + 260", "y": "GH/2", "z": -500, "fill": "#3a6ea5" } }
   ]
 }
 ```
@@ -771,8 +771,8 @@ A focus pull is a normal keyframe on `focus`; a layer name works there too:
   "sequences": [
     { "type": "camera", "initial": { "focus": "front", "aperture": 60 },
       "keyframes": [{ "at": 1, "to": { "focus": "back" }, "duration": 1, "ease": "power2.inOut" }] },
-    { "type": "shape", "shape": "rect", "name": "front", "width": 300, "height": 200, "threeD": true, "initial": { "x": "GW/2 - 200", "y": "GH/2", "z": 100, "fillColor": "#d96a3a" } },
-    { "type": "shape", "shape": "rect", "name": "back", "width": 300, "height": 200, "threeD": true, "initial": { "x": "GW/2 + 200", "y": "GH/2", "z": -400, "fillColor": "#3a6ea5" } }
+    { "type": "shape", "shape": "rect", "name": "front", "width": 300, "height": 200, "threeD": true, "initial": { "x": "GW/2 - 200", "y": "GH/2", "z": 100, "fill": "#d96a3a" } },
+    { "type": "shape", "shape": "rect", "name": "back", "width": 300, "height": 200, "threeD": true, "initial": { "x": "GW/2 + 200", "y": "GH/2", "z": -400, "fill": "#3a6ea5" } }
   ]
 }
 ```
@@ -798,7 +798,7 @@ A `light` layer lights the `threeD` layers of its composition: they get darker a
 { type: 'light', kind: 'spot', castsShadows: true,                                  // a spotlight that crosses the picture
   initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, lookAtZ: 0, coneAngle: 34, coneFeather: 0.7, intensity: 1.1 },
   keyframes: [{ at: 0.5, to: { x: 1100, lookAtX: 1020 }, duration: 4.5, ease: 'sine.inOut' }] },
-{ type: 'shape', shape: 'rect', name: 'card', width: 300, height: 200, threeD: true, castsShadows: true, initial: { x: 300, y: 300, z: 0, fillColor: '#e0a458' } },
+{ type: 'shape', shape: 'rect', name: 'card', width: 300, height: 200, threeD: true, castsShadows: true, initial: { x: 300, y: 300, z: 0, fill: '#e0a458' } },
 ```
 
 `kind` (a fixed setting on the layer): `'ambient'` (the same colour everywhere), `'point'` (from a position in every direction; the default), `'spot'` (a point light inside a cone around the direction to its look-at point), `'parallel'` (a direction only, from the position toward the look-at point: the sun). `falloff` (also fixed): `'none'` (default), `'smooth'` (full inside `radius`, fading to nothing over `falloffDistance` more), `'inverseSquare'` (full at `radius`, a quarter at twice that). Numbers you can animate:
@@ -947,7 +947,7 @@ Any sequence can carry an inline `mask` — itself a full sequence — that shap
   initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
   mask: {
     type: 'shape', shape: 'circle', radius: 130,
-    initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+    initial: { x: 'W/2', y: 'H/2', fill: '#ffffff' },
   },
 }
 ```
@@ -961,7 +961,7 @@ The mask is itself a sequence, so it can have `keyframes` of its own — useful 
   initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
   mask: {
     type: 'shape', shape: 'circle', radius: 200,
-    initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff', scale: 0 },
+    initial: { x: 'W/2', y: 'H/2', fill: '#ffffff', scale: 0 },
     keyframes: [
       { at: 0, to: { scale: 1 }, duration: 1.0, ease: 'power2.out' },
     ],
@@ -970,7 +970,7 @@ The mask is itself a sequence, so it can have `keyframes` of its own — useful 
 ```
 
 Notes:
-- The mask sequence is rendered as a mask, not as a normal child — its `fillColor` / `strokeColor` only matter for which pixels are kept, not for the visible colour.
+- The mask sequence is rendered as a mask, not as a normal child — its `fill` / `stroke` only matter for which pixels are kept, not for the visible colour.
 - Any sequence type works as a mask (shape / image / text / video / nested composition); shapes are the natural choice for geometric reveals.
 - A plain **shape** mask (not inverted) is a hard-edged stencil, the cheapest way. Every other mask (a text, image or video layer, an inverted or luma mask, a named matte, a list) is drawn into a texture once per frame and applied as a **matte filter**: its edges are soft and antialiased, it costs one offscreen pass, and `blendMode` works with it (see [Mattes](#named-mattes-and-luma)).
 - For a left-to-right wipe, give the mask `anchorX: 0` (rect/circle/ellipse) so `width: 0 → full` grows rightward from the left edge.
@@ -988,7 +988,7 @@ Write the mask layer inside `layer` and add `invert: true` to flip the mask sens
     invert: true,
     layer: {
       type: 'shape', shape: 'circle', radius: 80,
-      initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+      initial: { x: 'W/2', y: 'H/2', fill: '#ffffff' },
       keyframes: [
         { at: 0, to: { radius: 120 }, duration: 1.5, ease: 'sine.inOut' },
         { at: 1.5, to: { radius: 80 }, duration: 1.5, ease: 'sine.inOut' },
@@ -1196,7 +1196,7 @@ anchor, anchorX, anchorY
 pivot, pivotX, pivotY
 skew, skewX, skewY
 tint, autoAlpha
-fillColor, fillAlpha                 (a shape's own colour keys)
+fill, fillAlpha                 (a shape's own colour keys)
 ```
 
 (In addition to plain DisplayObject props like `x`, `y`, `rotation`, `alpha`, `width`, `height`, `visible`.) `blur`, `colorize` and the other colour-matrix shorthands of GSAP's PixiPlugin are gone: use a named filter and animate `filters.<name>.<prop>` (below). **Angles are in degrees**: `rotation`, `skew` / `skewX` / `skewY`, and `rotationX` / `rotationY` for 3D layers.
@@ -1306,7 +1306,7 @@ A **variable** is a name with a value you can change after the movie is built: t
 await movie.init({
   vars: { title: 'NORD', accent: '#e5399a', shift: 0 },           // a number or a string; no booleans (write 0 / 1)
   composition: { sequences: [
-    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '{accent}' } },
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '{accent}' } },
     { type: 'text', text: '{title}', initial: { x: 'W/2 + shift', y: 'H/2' } },
   ] },
 });
@@ -1779,7 +1779,7 @@ A layer travelling along an SVG path, as keyframes for `x` and `y` (and `rotatio
 import { followPath } from 'pixi-effects';
 
 { type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4,
-  initial: { fillColor: '#ffd166' },
+  initial: { fill: '#ffd166' },
   keyframes: followPath({ d: 'M 120 560 C 360 120 920 120 1160 560', duration: 4, ease: 'power2.inOut', orient: true, samplesPerSecond: 30 }) }
 ```
 

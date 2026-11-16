@@ -75,7 +75,7 @@
       initial: { x, y, anchorX: 0, anchorY: 0.5, ...initial },
     });
     const rect = (name, x, y, w, h, r, fill, extra = {}) => ({
-      type: 'shape', shape: 'rect', name, width: w, height: h, cornerRadius: r, initial: { x, y, fillColor: fill }, ...extra,
+      type: 'shape', shape: 'rect', name, width: w, height: h, cornerRadius: r, initial: { x, y, fill: fill }, ...extra,
     });
     const gradRect = (name, x, y, w, h, r, extra = {}) => ({
       type: 'shape', shape: 'rect', name, width: w, height: h, cornerRadius: r, initial: { x, y }, fillGradient: BRAND, ...extra,
@@ -91,7 +91,7 @@
       const t = 0.26 * s, L1 = 0.55 * s, L2 = 1.0 * s, d = Math.SQRT1_2;
       const bar = (i, L, dirX, rot) => ({
         type: 'shape', shape: 'rect', name: `${name}-${i}`, width: t, height: L, cornerRadius: t / 2,
-        initial: { x: vx + dirX * d * (L / 2 - t / 2), y: vy - d * (L / 2 - t / 2), rotation: rot, fillColor: color }, ...extra,
+        initial: { x: vx + dirX * d * (L / 2 - t / 2), y: vy - d * (L / 2 - t / 2), rotation: rot, fill: color }, ...extra,
       });
       return [bar('short', L1, -1, -45), bar('long', L2, 1, 45)];
     };
@@ -154,7 +154,7 @@
     screenUI.push(...group([
       shadow('ring-shadow', RC.x, RC.y + 14, RC.w * 1.12, RC.h * 1.3, 0.13),
       rect('ring-card', RC.x, RC.y, RC.w, RC.h, 28, C.card),
-      { type: 'shape', shape: 'circle', name: 'ring-track', radius: 58, initial: { x: RING.x, y: RING.y, strokeColor: C.track, strokeWidth: 12 } },
+      { type: 'shape', shape: 'circle', name: 'ring-track', radius: 58, initial: { x: RING.x, y: RING.y, stroke: C.track, strokeWidth: 12 } },
       { ...txt('ring-pct', '{value}%', RING.x, RING.y, 30, 800, C.ink, { anchorX: 0.5, value: 0 }), format: { decimals: 0 },
         keyframes: [{ at: T.ring1 - rcAt, to: { value: 50 }, duration: 0.8, ease: 'power3.out' },
                     { at: T.check - rcAt, to: { value: 75 }, duration: 0.6, ease: 'power3.out' }] },
@@ -173,7 +173,7 @@
       const layers = [
         shadow(`row${i}-shadow`, 300, y + 8, 370, 96, 0.10),
         rect(`row${i}-card`, 300, y, 328, 64, 20, C.card),
-        { type: 'shape', shape: 'circle', name: `row${i}-icon`, radius: 18, initial: { x: 170, y, fillColor: tint } },
+        { type: 'shape', shape: 'circle', name: `row${i}-icon`, radius: 18, initial: { x: 170, y, fill: tint } },
         { type: 'shape', shape: 'circle', name: `row${i}-dot`, radius: 6, initial: { x: 170, y }, fillGradient: BRAND },
         txt(`row${i}-name`, name, 202, y - 10, 17, 700, C.ink),
         txt(`row${i}-sub`, sub, 202, y + 12, 12, 500, C.muted),
@@ -181,7 +181,7 @@
       if (done) layers.push({ type: 'shape', shape: 'circle', name: `row${i}-check-bg`, radius: 14, initial: { x: 420, y }, fillGradient: BRAND }, ...check(`row${i}-check`, 420, y, 15, '#ffffff'));
       screenUI.push(...group(layers, { at, until: T.rowsOut, exit: rowExit }));
       if (!done) {   // the open circle; row 2's disappears when its check pops
-        screenUI.push(...group([{ type: 'shape', shape: 'circle', name: `row${i}-open`, radius: 13, initial: { x: 420, y, strokeColor: '#D9D4EA', strokeWidth: 2 } }],
+        screenUI.push(...group([{ type: 'shape', shape: 'circle', name: `row${i}-open`, radius: 13, initial: { x: 420, y, stroke: '#D9D4EA', strokeWidth: 2 } }],
           { at, until: i === 2 ? T.check : T.rowsOut, exit: i === 2 ? undefined : rowExit }));
       }
     });
@@ -217,7 +217,7 @@
       const x = CH.x0 + pitch * (i + 0.5), today = i === WEEK.length - 1;
       chartLayers.push({
         type: 'shape', shape: 'rect', name: `bar${i}`, width: 24, height: 6, cornerRadius: 8, anchorY: 1,
-        initial: { x, y: CH.base, ...(today ? {} : { fillColor: C.tintA }) }, ...(today ? { fillGradient: BRAND } : {}),
+        initial: { x, y: CH.base, ...(today ? {} : { fill: C.tintA }) }, ...(today ? { fillGradient: BRAND } : {}),
         keyframes: [{ at: 0.1 + i * 0.06, to: { height: CH.maxH * v }, duration: 0.6, ease: 'power3.out' }],
       });
       chartLayers.push(txt(`day${i}`, DAYS[i], x, 758, 12, 600, today ? C.ink : C.muted, { anchorX: 0.5 }));

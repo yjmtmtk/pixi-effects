@@ -26,10 +26,10 @@
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
         composition: { sequences: [
           { type: 'null', name: 'rig', initial: { x: 640, y: 360 }, keyframes: [{ at: 0, to: { rotation: 90 }, duration: 2, ease: 'none' }] },
-          { type: 'shape', shape: 'circle', radius: 20, name: 'dot', parent: 'rig', initial: { x: 200, y: 0, fillColor: '#ffffff' } },
+          { type: 'shape', shape: 'circle', radius: 20, name: 'dot', parent: 'rig', initial: { x: 200, y: 0, fill: '#ffffff' } },
           // a chain: the arm doubles in size at 2 s, its dot (red) sits 100 px out
           { type: 'null', name: 'arm', parent: 'rig', initial: { x: 0, y: 0 }, keyframes: [{ at: 2, to: { scale: 2 }, duration: 1, ease: 'none' }] },
-          { type: 'shape', shape: 'circle', radius: 10, name: 'tip', parent: 'arm', initial: { x: 0, y: -100, fillColor: '#ff0000' } },
+          { type: 'shape', shape: 'circle', radius: 10, name: 'tip', parent: 'arm', initial: { x: 0, y: -100, fill: '#ff0000' } },
         ] },
       });
       window.__ready = true;

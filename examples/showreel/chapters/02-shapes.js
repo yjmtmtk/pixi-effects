@@ -52,11 +52,11 @@ export default function chapter(P) {
     const radius = f(DOT_MAX * (1 - 0.72 * c / (COLS - 1)));
     dots.push({
       type: 'shape', shape: 'circle', name: `dot-${r}-${c}`, radius, at, duration: 7 - at, colorSpace: 'oklch',
-      initial: { x: f(PANEL_L + DOT_MAX + c * gapX), y: DOT_TOP + r * DOT_GAP_Y, fillColor: C.bone, scale: 0 },
+      initial: { x: f(PANEL_L + DOT_MAX + c * gapX), y: DOT_TOP + r * DOT_GAP_Y, fill: C.bone, scale: 0 },
       keyframes: [
         { at: 0, to: { scale: 1 }, duration: 0.45, ease: 'power3.out' },
         // the second wave: left to right, each dot swells and flashes vermilion, then settles back
-        { at: f(RIPPLE + c * 0.055 + Math.abs(r - 2) * 0.03 - at), to: { scale: 1.55, fillColor: C.red }, duration: 0.28, ease: 'power2.out', repeat: 1, yoyo: true },
+        { at: f(RIPPLE + c * 0.055 + Math.abs(r - 2) * 0.03 - at), to: { scale: 1.55, fill: C.red }, duration: 0.28, ease: 'power2.out', repeat: 1, yoyo: true },
       ],
     });
   }
@@ -71,21 +71,21 @@ export default function chapter(P) {
       P.bg(C.ink),
       // the ring's track is there from the first frame (calm edge), the vermilion arc fills it
       { type: 'shape', shape: 'arc', name: 'track', radius: R, startAngle: 0, endAngle: 360,
-        initial: { x: 'GW*5/16', y: 'GH/2', strokeColor: C.ink2, strokeWidth: RW } },
+        initial: { x: 'GW*5/16', y: 'GH/2', stroke: C.ink2, strokeWidth: RW } },
       // construction lines: the horizon across the whole poster and the ring's vertical axis
       { type: 'shape', shape: 'line', name: 'horizon', from: [96, CY], to: [GW - 96, CY], trimEnd: 0, strokeCap: 'butt',
-        initial: { strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.5 }, keyframes: [drawOn(0.6, 1.5, 'power3.inOut')] },
+        initial: { stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.5 }, keyframes: [drawOn(0.6, 1.5, 'power3.inOut')] },
       { type: 'shape', shape: 'line', name: 'axis', from: [CX, CY - R - 90], to: [CX, CY + R + 90], trimEnd: 0, strokeCap: 'butt',
-        initial: { strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.5 }, keyframes: [drawOn(0.8, 1.1)] },
+        initial: { stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.5 }, keyframes: [drawOn(0.8, 1.1)] },
       // the dial: 60 ticks, one path, drawn on in order
       { type: 'shape', shape: 'path', name: 'dial', d: ticks.trim(), trimEnd: 0, strokeCap: 'butt',
-        initial: { strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.7 }, keyframes: [drawOn(1.0, 1.3)] },
+        initial: { stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.7 }, keyframes: [drawOn(1.0, 1.3)] },
       // the diamond: a closed polygon drawn on
       { type: 'shape', shape: 'polygon', name: 'diamond', points: diamond, trimEnd: 0, strokeJoin: 'miter',
-        initial: { strokeColor: C.bone, strokeWidth: 3, strokeAlpha: 0.9 }, keyframes: [drawOn(1.5, 1.0)] },
+        initial: { stroke: C.bone, strokeWidth: 3, strokeAlpha: 0.9 }, keyframes: [drawOn(1.5, 1.0)] },
       // the progress ring
       { type: 'shape', shape: 'arc', name: 'ring', radius: R, startAngle: -90, endAngle: -90, strokeCap: 'butt',
-        initial: { x: 'GW*5/16', y: 'GH/2', strokeColor: C.red, strokeWidth: RW },
+        initial: { x: 'GW*5/16', y: 'GH/2', stroke: C.red, strokeWidth: RW },
         keyframes: [{ at: 0.6, to: { endAngle: 270 }, duration: 1.3, ease: 'power2.inOut' }] },
       // the mark: a disc that grows, then morphs into a four-point star while its gradient turns
       { type: 'shape', shape: 'path', name: 'mark', d: disc, morphTo: star, at: 1.9, duration: 5.1, colorSpace: 'oklch',
@@ -99,7 +99,7 @@ export default function chapter(P) {
       // the display word, rising through a slot cut by an inline mask
       { type: 'text', name: 'word', text: 'SHAPES', style: wordStyle, at: 1.2, duration: 5.8,
         initial: { x: PANEL_L, y: WORD_Y, anchorX: 0, anchorY: 0.5 },
-        mask: { type: 'shape', shape: 'rect', name: 'word-slot', width: PANEL_W + 40, height: 250, initial: { x: PANEL_L - 10, y: WORD_Y - 135, anchorX: 0, anchorY: 0, fillColor: '#ffffff' } },
+        mask: { type: 'shape', shape: 'rect', name: 'word-slot', width: PANEL_W + 40, height: 250, initial: { x: PANEL_L - 10, y: WORD_Y - 135, anchorX: 0, anchorY: 0, fill: '#ffffff' } },
         keyframes: [{ at: 0, from: { y: WORD_Y + 240 }, to: { y: WORD_Y }, duration: 0.8, ease: 'power3.out' }] },
       ...dots,
       ...P.tag('02', 'SHAPES', 'a line, a ring, a morph, a wave: all shapes, all data'),

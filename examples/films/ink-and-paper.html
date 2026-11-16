@@ -102,7 +102,7 @@
       audio.push({ type: 'audio', name: `${preset}@${at.toFixed(2)}`, at: snap(at), volume,
         sfx: (pitch == null && brightness == null && seed == null) ? preset : { preset, ...(pitch != null && { pitch }), ...(brightness != null && { brightness }), ...(seed != null && { seed }) },
         ...(duration && { duration }) });
-    const bg = (color, extra = {}) => ({ type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: color }, ...extra });
+    const bg = (color, extra = {}) => ({ type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2, fill: color }, ...extra });
     const fitSize = (text, style, maxW, start) => { let fs = start; while (fs > 40 && measureText(text, { ...style, fontSize: fs }).width > maxW) fs -= 4; return fs; };
     const mono = (fill, size = 24, extra = {}) => ({ ...MONO, fontSize: size, fill, ...extra });
 
@@ -113,9 +113,9 @@
       gen.toPaths(drawable).forEach((p, i) => {
         const solid = p.fill && p.fill !== 'none';
         if (solid) out.push({ type: 'shape', shape: 'path', d: p.d, name: `${name}-fill${i}`, at: at + fillDelay, duration: duration - fillDelay,
-          initial: { fillColor: p.fill, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.35 }], ...(blend && { blendMode: blend }), ...extra });
+          initial: { fill: p.fill, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.35 }], ...(blend && { blendMode: blend }), ...extra });
         else out.push({ type: 'shape', shape: 'path', d: p.d, name: `${name}-${i}`, at, duration, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
-          initial: { strokeColor: p.stroke && p.stroke !== 'none' ? p.stroke : INK, strokeWidth: p.strokeWidth || 4 },
+          initial: { stroke: p.stroke && p.stroke !== 'none' ? p.stroke : INK, strokeWidth: p.strokeWidth || 4 },
           keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: dur, ease }], ...(blend && { blendMode: blend }), ...extra });
       });
       return out;
@@ -315,9 +315,9 @@
     T.barEnd = 9.25;
     const BAR_X = colX(16), BAR_W = 620, BAR_H = 12, barY = rowY(18);
     printAt(T.bar, 18, 3, 'rendering', DIM);
-    term.push({ type: 'shape', shape: 'rect', name: 'track', width: BAR_W, height: BAR_H, cornerRadius: 6, anchorX: 0, at: T.bar, initial: { x: BAR_X, y: barY, fillColor: TERM_LINE } });
+    term.push({ type: 'shape', shape: 'rect', name: 'track', width: BAR_W, height: BAR_H, cornerRadius: 6, anchorX: 0, at: T.bar, initial: { x: BAR_X, y: barY, fill: TERM_LINE } });
     term.push({ type: 'shape', shape: 'rect', name: 'fill', width: 0, height: BAR_H, cornerRadius: 6, anchorX: 0, at: T.bar, colorSpace: 'oklab',
-      initial: { x: BAR_X, y: barY, fillColor: RED }, keyframes: [{ at: 0, to: { width: BAR_W }, duration: T.barEnd - T.bar, ease: 'power1.inOut' }, { at: T.barEnd - T.bar, to: { fillColor: YELLOW }, duration: 0.15 }] });
+      initial: { x: BAR_X, y: barY, fill: RED }, keyframes: [{ at: 0, to: { width: BAR_W }, duration: T.barEnd - T.bar, ease: 'power1.inOut' }, { at: T.barEnd - T.bar, to: { fill: YELLOW }, duration: 0.15 }] });
     term.push({ type: 'text', name: 'pct', text: '{value}%', at: T.bar, style: tmono(DIM), format: { decimals: 0 },
       initial: { x: BAR_X + BAR_W + 18, y: barY, anchorX: 0, anchorY: 0.5, value: 0 }, keyframes: [{ at: 0, to: { value: 100 }, duration: T.barEnd - T.bar, ease: 'power1.inOut' }] });
     T.done = snap(T.barEnd + 0.1);
@@ -328,18 +328,18 @@
     cursorKeys.push({ at: snap(T.done + 0.1), set: { alpha: 1, x: colX(2), y: rowY(20) } });
     blink(cursorKeys, T.done + 0.1, null, 0.4, T0 + 0.5);
     cursorKeys.sort((a, b) => a.at - b.at);
-    term.push({ type: 'shape', shape: 'rect', name: 'cursor', width: ADV, height: FS * 1.2, anchorX: 0, anchorY: 0.5, initial: { x: colX(2), y: rowY(0), fillColor: TXT, alpha: 0 }, keyframes: cursorKeys });
+    term.push({ type: 'shape', shape: 'rect', name: 'cursor', width: ADV, height: FS * 1.2, anchorX: 0, anchorY: 0.5, initial: { x: colX(2), y: rowY(0), fill: TXT, alpha: 0 }, keyframes: cursorKeys });
 
     // window chrome
     const wx = PAD, wy = PAD, wcx = CW / 2, wcy = CHH / 2;
     const chrome = [
       { type: 'shape', shape: 'rect', name: 'shadow', width: WIN_W + 120, height: WIN_H + 120, initial: { x: wcx, y: wcy + 28 },
         fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(0,0,0,0.9)'], [0.7, 'rgba(0,0,0,0.5)'], [1, 'rgba(0,0,0,0)']] } },
-      { type: 'shape', shape: 'rect', name: 'window', width: WIN_W, height: WIN_H, cornerRadius: 14, initial: { x: wcx, y: wcy, fillColor: TERM, strokeColor: TERM_LINE, strokeWidth: 1 } },
-      { type: 'shape', shape: 'rect', name: 'titlebar', width: WIN_W - 2, height: TITLE_H + 14, cornerRadius: 14, anchorY: 0, initial: { x: wcx, y: wy + 1, fillColor: TERM_BAR } },
-      { type: 'shape', shape: 'rect', name: 'titlebar-patch', width: WIN_W - 2, height: 14, anchorY: 0, initial: { x: wcx, y: wy + TITLE_H, fillColor: TERM } },
-      { type: 'shape', shape: 'rect', name: 'titlebar-rule', width: WIN_W - 2, height: 1, anchorY: 0, initial: { x: wcx, y: wy + TITLE_H, fillColor: TERM_LINE } },
-      ...[RED, YELLOW, '#6fbf73'].map((c, i) => ({ type: 'shape', shape: 'circle', name: `light-${i}`, radius: 7, initial: { x: wx + 24 + i * 22, y: wy + TITLE_H / 2, fillColor: c } })),
+      { type: 'shape', shape: 'rect', name: 'window', width: WIN_W, height: WIN_H, cornerRadius: 14, initial: { x: wcx, y: wcy, fill: TERM, stroke: TERM_LINE, strokeWidth: 1 } },
+      { type: 'shape', shape: 'rect', name: 'titlebar', width: WIN_W - 2, height: TITLE_H + 14, cornerRadius: 14, anchorY: 0, initial: { x: wcx, y: wy + 1, fill: TERM_BAR } },
+      { type: 'shape', shape: 'rect', name: 'titlebar-patch', width: WIN_W - 2, height: 14, anchorY: 0, initial: { x: wcx, y: wy + TITLE_H, fill: TERM } },
+      { type: 'shape', shape: 'rect', name: 'titlebar-rule', width: WIN_W - 2, height: 1, anchorY: 0, initial: { x: wcx, y: wy + TITLE_H, fill: TERM_LINE } },
+      ...[RED, YELLOW, '#6fbf73'].map((c, i) => ({ type: 'shape', shape: 'circle', name: `light-${i}`, radius: 7, initial: { x: wx + 24 + i * 22, y: wy + TITLE_H / 2, fill: c } })),
       { type: 'text', name: 'window-title', text: 'reel.html — zsh', style: mono(DIM, 15), initial: { x: wcx, y: wy + TITLE_H / 2, anchorX: 0.5, anchorY: 0.5 } },
     ];
     const screenFx = [
@@ -361,9 +361,9 @@
     sfx('swoosh', snap(T.recede + 0.05), { volume: 0.6, pitch: -5, duration: 0.7 });
     sfx('riser', T0 - 1.3, { volume: 0.75, duration: 1.3 });
     // the paper floods out of the screen
-    const flood = { type: 'shape', shape: 'circle', name: 'flood', radius: 0, at: T0 - 0.38, duration: 0.42, initial: { x: W / 2 - 100, y: H / 2, fillColor: PAPER },
+    const flood = { type: 'shape', shape: 'circle', name: 'flood', radius: 0, at: T0 - 0.38, duration: 0.42, initial: { x: W / 2 - 100, y: H / 2, fill: PAPER },
       keyframes: [{ at: 0, to: { radius: 2300 }, duration: 0.38, ease: 'power3.in' }] };
-    const flash = { type: 'shape', shape: 'rect', name: 'flash', width: W, height: H, at: T0, duration: 0.22, initial: { x: W / 2, y: H / 2, fillColor: '#ffffff', alpha: 0.75 },
+    const flash = { type: 'shape', shape: 'rect', name: 'flash', width: W, height: H, at: T0, duration: 0.22, initial: { x: W / 2, y: H / 2, fill: '#ffffff', alpha: 0.75 },
       keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.2, ease: 'power2.out' }] };
     sfx('hit', T0, { volume: 1, pitch: -1 });
     sfx('swoosh', T0 - 0.1, { volume: 0.7, pitch: 3 });
@@ -432,7 +432,7 @@
       series.forEach((v, i) => {
         const at = 0.42 + 1.4 * (i / (series.length - 1)), last = i === series.length - 1;
         seqs.push({ type: 'shape', shape: 'circle', name: 'dot' + i, radius: last ? 14 : 9, at, duration: dur - at,
-          initial: { x: xs(i), y: ys(v), fillColor: last ? RED : PAPER, strokeColor: INK, strokeWidth: 4, scale: 0 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.35, ease: 'back.out(2.5)' }] });
+          initial: { x: xs(i), y: ys(v), fill: last ? RED : PAPER, stroke: INK, strokeWidth: 4, scale: 0 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.35, ease: 'back.out(2.5)' }] });
         if (i % 2 === 1) sfx('pop', S(4 + at), { volume: 0.4, pitch: Math.round(v / 10) });
       });
       seqs.push({ type: 'text', name: 'peak', text: '97', at: 1.95, duration: dur - 1.95, style: { ...DISPLAY_I, fontSize: 72, fill: RED },
@@ -498,7 +498,7 @@
       }));
       // a paper shadow under it
       seqs.push({ type: 'shape', shape: 'ellipse', name: 'knot-shadow', radiusX: 300, radiusY: 40, at: 0.1, duration: dur - 0.1, blendMode: 'multiply',
-        initial: { x: 540, y: 880, fillColor: TAN, alpha: 0, scaleX: 0.3 }, keyframes: [{ at: 0, to: { alpha: 0.8, scaleX: 1 }, duration: 0.8, ease: 'spring.bouncy' }] });
+        initial: { x: 540, y: 880, fill: TAN, alpha: 0, scaleX: 0.3 }, keyframes: [{ at: 0, to: { alpha: 0.8, scaleX: 1 }, duration: 0.8, ease: 'spring.bouncy' }] });
       // the tree: movie → text / shape / audio / camera / composition → leaves; 300 ticks at build time
       const kinds = ['text', 'shape', 'audio', 'camera', 'composition'], leaves = [3, 3, 2, 1, 3];
       const nodes = [{ id: 'movie', depth: 0, r: 34 }], links = [];
@@ -517,12 +517,12 @@
       links.forEach((l, i) => {
         const a = byId[l.source.id ?? l.source], b = byId[l.target.id ?? l.target], at = tOf(b) - 0.12;
         seqs.push({ type: 'shape', shape: 'line', name: 'link' + i, from: [GX + a.x, GY + a.y], to: [GX + b.x, GY + b.y], at, duration: dur - at, trimEnd: 0, strokeCap: 'round',
-          initial: { strokeColor: INK, strokeWidth: 3 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.3, ease: 'power2.out' }] });
+          initial: { stroke: INK, strokeWidth: 3 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.3, ease: 'power2.out' }] });
       });
       nodes.forEach(n => {
         const at = tOf(n);
         seqs.push({ type: 'shape', shape: 'circle', name: 'node-' + n.id, radius: n.r, at, duration: dur - at,
-          initial: { x: GX + n.x, y: GY + n.y, fillColor: n.depth === 0 ? RED : n.depth === 1 ? YELLOW : PAPER, strokeColor: INK, strokeWidth: 4, scale: 0 },
+          initial: { x: GX + n.x, y: GY + n.y, fill: n.depth === 0 ? RED : n.depth === 1 ? YELLOW : PAPER, stroke: INK, strokeWidth: 4, scale: 0 },
           keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.55, ease: 'spring.bouncy' }] });
         if (n.depth < 2) seqs.push({ type: 'text', name: 'label-' + n.id, text: n.id, at: at + 0.1, duration: dur - at - 0.1, style: mono(INK, 22, { fontWeight: '700' }),
           initial: { x: GX + n.x, y: GY + n.y + n.r + 22, anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.25 }] });
@@ -548,8 +548,8 @@
         initial: { x: 200, y: -380, z: 820, lookAtX: 760, lookAtY: 560, lookAtZ: 0, coneAngle: 52, coneFeather: 0.75, intensity: 0.5, color: '#fff3d8', shadowDiffusion: 16, shadowDarkness: 0.8 },
         keyframes: [{ at: 0.2, to: { x: 1700, lookAtX: 1200 }, duration: dur - 0.6, ease: 'sine.inOut' }] });
       // the paper backdrop and the sun
-      seqs.push({ type: 'shape', shape: 'rect', name: 'wall', width: W * 2.2, height: H * 2.2, threeD: true, initial: { x: W / 2, y: H / 2, z: -500, fillColor: PAPER2 } });
-      seqs.push({ type: 'shape', shape: 'circle', name: 'sun', radius: 180, threeD: true, lit: false, initial: { x: 1360, y: 330, z: -440, fillColor: YELLOW, scale: 0 },
+      seqs.push({ type: 'shape', shape: 'rect', name: 'wall', width: W * 2.2, height: H * 2.2, threeD: true, initial: { x: W / 2, y: H / 2, z: -500, fill: PAPER2 } });
+      seqs.push({ type: 'shape', shape: 'circle', name: 'sun', radius: 180, threeD: true, lit: false, initial: { x: 1360, y: 330, z: -440, fill: YELLOW, scale: 0 },
         keyframes: [{ at: 0.15, to: { scale: 1 }, duration: 0.7, ease: 'spring.bouncy' }] });
       // hills as cut-out paths (canvas coordinates; depth from z)
       const hill = (yTop, amp, seed, z, color, name, casts, at) => {
@@ -559,7 +559,7 @@
         for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i]; d += ` C ${x0 + 80} ${y0} ${x1 - 80} ${y1} ${x1} ${y1}`; }
         d += ` L ${W + 2600} ${H + 1600} Z`;
         return { type: 'shape', shape: 'path', d, name, threeD: true, castsShadows: casts, at, duration: dur - at,
-          initial: { z, fillColor: color, strokeColor: INK, strokeWidth: 5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] };
+          initial: { z, fill: color, stroke: INK, strokeWidth: 5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] };
       };
       seqs.push(hill(560, 70, 5, -320, TAN, 'hill-far', false, 0.05));
       seqs.push(hill(700, 60, 6, -150, PAPER, 'hill-mid', true, 0.12));
@@ -567,7 +567,7 @@
       // birds, three rough ticks in depth
       [[520, 300, -220, 0.4], [640, 360, -260, 0.55], [1700, 420, -180, 0.7]].forEach(([x, y, z, at], i) => {
         seqs.push({ type: 'shape', shape: 'path', d: `M ${x - 22} ${y} Q ${x - 8} ${y - 14} ${x} ${y - 2} Q ${x + 8} ${y - 14} ${x + 22} ${y}`, name: 'bird' + i, threeD: true, lit: false, at, duration: dur - at,
-          initial: { z, strokeColor: INK, strokeWidth: 4, alpha: 0 }, strokeCap: 'round', keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }, { at: 0, to: { x: 40 + i * 20, y: -12 }, duration: dur - at, ease: 'sine.inOut' }] });
+          initial: { z, stroke: INK, strokeWidth: 4, alpha: 0 }, strokeCap: 'round', keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }, { at: 0, to: { x: 40 + i * 20, y: -12 }, duration: dur - at, ease: 'sine.inOut' }] });
       });
       // the word, a card in depth that casts a shadow
       const wstyle = { ...DISPLAY, fontSize: 250, fill: INK, letterSpacing: -4 };
@@ -648,7 +648,7 @@
         keyframes: [{ at: 0, to: { 'uniforms.warp': 1.1, 'uniforms.rings': 12 }, duration: dur, ease: 'sine.inOut' }] });
       // a sun seen through tracing paper
       seqs.push({ type: 'shape', shape: 'circle', name: 'sun2', radius: 230, blendMode: 'multiply', at: 0.2, duration: dur - 0.2,
-        initial: { x: 1600, y: 360, fillColor: YELLOW, alpha: 0, scale: 0.6 }, keyframes: [{ at: 0, to: { alpha: 0.95, scale: 1 }, duration: 0.7, ease: 'spring.bouncy' }, { at: 0.4, to: { x: 1440 }, duration: dur - 0.6, ease: 'sine.inOut' }] });
+        initial: { x: 1600, y: 360, fill: YELLOW, alpha: 0, scale: 0.6 }, keyframes: [{ at: 0, to: { alpha: 0.95, scale: 1 }, duration: 0.7, ease: 'spring.bouncy' }, { at: 0.4, to: { x: 1440 }, duration: dur - 0.6, ease: 'sine.inOut' }] });
       seqs.push({ type: 'text', name: 'sun-label', text: "blendMode: 'multiply'", at: 0.8, duration: dur - 0.8, style: mono(INK, 24), blendMode: 'multiply',
         initial: { x: 1600, y: 650, anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.3 }, { at: 0, to: { x: 1440 }, duration: dur - 1.0, ease: 'sine.inOut' }] });
       // the word, bent by a wave
@@ -687,11 +687,11 @@
       const EX = 1250, EW = 32, GAP = 7, BASE = 720;
       for (let i = 0; i < NB; i++) {
         seqs.push({ type: 'shape', shape: 'rect', name: 'band' + i, width: EW, height: 20, anchorY: 1, cornerRadius: 6, duration: dur, blendMode: 'multiply',
-          initial: { x: EX + i * (EW + GAP), y: BASE, fillColor: i % 5 === 2 ? RED : INK },
+          initial: { x: EX + i * (EW + GAP), y: BASE, fill: i % 5 === 2 ? RED : INK },
           keyframes: react(env, { duration: dur, audioOffset: S(24), props: { height: { base: 18, amount: 400, band: 'b' + i, attack: 0.01, release: 0.14 } } }) });
       }
       seqs.push(...roughLayers(gen.line(EX - 30, BASE + 8, EX + NB * (EW + GAP) + 10, BASE + 10, { seed: 71, roughness: 1.8, stroke: INK, strokeWidth: 5 }), { at: 0.05, dur: 0.4, duration: dur, name: 'eq-base' }));
-      seqs.push({ type: 'shape', shape: 'circle', name: 'pulse', radius: 70, duration: dur, blendMode: 'multiply', initial: { x: 1600, y: 220, fillColor: YELLOW },
+      seqs.push({ type: 'shape', shape: 'circle', name: 'pulse', radius: 70, duration: dur, blendMode: 'multiply', initial: { x: 1600, y: 220, fill: YELLOW },
         keyframes: react(env, { duration: dur, audioOffset: S(24), props: { scale: { base: 1, amount: 0.5, beats: true, decay: 0.2 } } }) });
       seqs.push({ type: 'text', name: 'sound-title', text: 'sound', duration: dur, style: { ...DISPLAY_I, fontSize: 150, fill: RED },
         initial: { x: 120, y: 180, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0, x: 90 }, to: { alpha: 1, x: 120 }, duration: 0.4, ease: 'power3.out' }] });
@@ -717,8 +717,8 @@
       // the card
       const card = [];
       card.push(...roughLayers(gen.rectangle(20, 20, 600, 520, { seed: 81, roughness: 1.6, bowing: 1.2, stroke: INK, strokeWidth: 6 }), { at: 0, dur: 0.5, duration: dur, name: 'card-edge' }));
-      card.push({ type: 'shape', shape: 'circle', name: 'card-dot', radius: 130, duration: dur, colorSpace: 'oklab', initial: { x: 320, y: 230, fillColor: STATES[0][1], scale: 0 },
-        keyframes: [{ at: 0.1, to: { scale: 1 }, duration: 0.6, ease: 'spring.bouncy' }, ...STATES.slice(1).map(([, accent], i) => ({ at: STEP * (i + 1), to: { fillColor: accent }, duration: 0.18 }))] });
+      card.push({ type: 'shape', shape: 'circle', name: 'card-dot', radius: 130, duration: dur, colorSpace: 'oklab', initial: { x: 320, y: 230, fill: STATES[0][1], scale: 0 },
+        keyframes: [{ at: 0.1, to: { scale: 1 }, duration: 0.6, ease: 'spring.bouncy' }, ...STATES.slice(1).map(([, accent], i) => ({ at: STEP * (i + 1), to: { fill: accent }, duration: 0.18 }))] });
       card.push({ type: 'text', name: 'card-title', text: STATES[0][0], duration: dur, style: { ...DISPLAY, fontFamily: CJK, fontSize: 96, fill: INK }, initial: { x: 320, y: 440, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
         keyframes: [{ at: 0.15, to: { alpha: 1 }, duration: 0.3 }, ...STATES.slice(1).flatMap(([title], i) => [{ at: STEP * (i + 1), set: { text: title } }, { at: STEP * (i + 1), from: { scale: 0.85 }, to: { scale: 1 }, duration: 0.3, ease: 'back.out(3)' }])] });
       seqs.push({ type: 'composition', name: 'card', width: 640, height: 560, initial: { x: 1130, y: 240 }, sequences: card });
@@ -823,7 +823,7 @@
       const ckeys = [];
       for (let k = 1; k <= cmd.length; k++) ckeys.push({ at: snap(k * 0.8 / cmd.length), set: { x: cx + measureText(cmd.slice(0, k), cmdStyle).width + 4 } });
       blink(ckeys, 1.0, null, 0.45, 5 - 1.15 - 1 / FPS);
-      seqs.push({ type: 'shape', shape: 'rect', name: 'end-cursor', width: 20, height: 40, anchorX: 0, anchorY: 0.5, at: 1.15, duration: 5 - 1.15, initial: { x: cx + 4, y: 850, fillColor: RED }, keyframes: ckeys });
+      seqs.push({ type: 'shape', shape: 'rect', name: 'end-cursor', width: 20, height: 40, anchorX: 0, anchorY: 0.5, at: 1.15, duration: 5 - 1.15, initial: { x: cx + 4, y: 850, fill: RED }, keyframes: ckeys });
       seqs.push({ type: 'text', name: 'end-url', text: 'github.com/yjmtmtk/pixi-effects', at: 0.95, duration: 5 - 0.95, style: mono(INK, 26, { letterSpacing: 2 }), blendMode: 'multiply',
         initial: { x: W / 2, y: 970, anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.4 }] });
       for (let k = 0; k < cmd.length; k += 2) sfx('typewriter', END_AT + 1.15 + k * 0.8 / cmd.length, { volume: 0.3, pitch: Math.round(rnd() * 4 - 2), seed: k % 5 });

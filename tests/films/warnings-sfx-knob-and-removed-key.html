@@ -45,18 +45,18 @@
     const knob = (name, preset, key, value, at, asObject = false) => wrong
       ? { type: 'audio', name, sfx: asObject ? { preset } : preset, [key]: value, at }
       : { type: 'audio', name, sfx: { preset, [key]: value }, at };
-    const circle = (x) => ({ type: 'shape', shape: 'circle', radius: 30, initial: { x, y: 90, fillColor: '#ffffff' } });
+    const circle = (x) => ({ type: 'shape', shape: 'circle', radius: 30, initial: { x, y: 90, fill: '#ffffff' } });
     const sequences = [
       knob('tick', 'click', 'pitch', pitch, 0.1),
       knob('thud', 'hit', 'brightness', -0.5, 0.3),
       knob('keys', 'typewriter', 'seed', 7, 0.6),
       knob('pop', 'pop', 'pitch', 2, 0.8, true),
-      { type: 'shape', shape: 'rect', name: 'panel', width: 100, height: 100, initial: { x: 80, y: 90, fillColor: '#ff0000' },
+      { type: 'shape', shape: 'rect', name: 'panel', width: 100, height: 100, initial: { x: 80, y: 90, fill: '#ff0000' },
         ...(wrong ? { mask: circle(80), maskInverted: true } : { mask: { layer: circle(80), invert: true } }) },
       // correct neighbours
       { type: 'audio', name: 'okChime', sfx: { preset: 'chime', pitch: -5, brightness: 0.5, seed: 2 }, at: 0.2 },
       { type: 'audio', name: 'okSwoosh', sfx: 'swoosh', at: 1 },
-      { type: 'shape', shape: 'rect', name: 'okHole', width: 100, height: 100, initial: { x: 240, y: 90, fillColor: '#0000ff' }, mask: { layer: circle(240), invert: true } },
+      { type: 'shape', shape: 'rect', name: 'okHole', width: 100, height: 100, initial: { x: 240, y: 90, fill: '#0000ff' }, mask: { layer: circle(240), invert: true } },
     ];
     const movie = new Movie();
     window.movie = movie;

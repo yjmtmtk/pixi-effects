@@ -359,7 +359,7 @@
     };
 
     // ───────────── 2D helpers ─────────────
-    const rect = (name, x, y, w, h, fill, extra = {}) => ({ type: 'shape', shape: 'rect', name, width: w, height: h, ...extra, initial: { x, y, fillColor: fill, ...(extra.initial || {}) } });
+    const rect = (name, x, y, w, h, fill, extra = {}) => ({ type: 'shape', shape: 'rect', name, width: w, height: h, ...extra, initial: { x, y, fill: fill, ...(extra.initial || {}) } });
     const text = (name, str, style, initial, extra = {}) => ({ type: 'text', name, text: str, style, initial, ...extra });
 
     // a text that rises out of (or drops from) a line: masked slide
@@ -367,7 +367,7 @@
       const { initial: xInit = {}, keyframes: xKeys = [], exit = true, ...rest } = extra;
       return text(name, str, style, { x, y: y + dir * box.h, anchorX, anchorY, ...xInit }, {
         at, duration: until - at, ...rest,
-        mask: { type: 'shape', shape: 'rect', name: name + '-mask', width: box.w, height: box.h, initial: { x: box.cx, y: box.cy, fillColor: '#ffffff' } },
+        mask: { type: 'shape', shape: 'rect', name: name + '-mask', width: box.w, height: box.h, initial: { x: box.cx, y: box.cy, fill: '#ffffff' } },
         keyframes: [
           { at: 0, to: { y }, duration: 0.7, ease: IN },
           ...(exit ? [{ at: -0.3, to: { alpha: 0 }, duration: 0.3, ease: OUT }] : []),
@@ -403,16 +403,16 @@
           initial: { fillAlpha: 0.85 },
           keyframes: [{ at: 0.1, to: { width: len }, duration: 0.6, ease: IN }, { at: exitAt, to: { width: 0 }, duration: 0.35, ease: OUT }] }),
         { type: 'shape', shape: 'circle', name: `${name}-end`, radius: 3, at: at + 0.5, duration: until - at - 0.5,
-          initial: { x: lineEnd, y: dy, fillColor: C.ink, scale: 0 },
+          initial: { x: lineEnd, y: dy, fill: C.ink, scale: 0 },
           keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.3, ease: 'back.out(3)' }, { at: exitAt - 0.5, to: { scale: 0 }, duration: 0.2, ease: OUT }] },
         // hotspot on the product: dot + a halo that breathes
         { type: 'shape', shape: 'circle', name: `${name}-halo`, radius: 13, at, duration: until - at,
-          initial: { x: dx, y: dy, fillAlpha: 0, strokeColor: C.accent, strokeWidth: 1.5, strokeAlpha: 0.9, scale: 0 },
+          initial: { x: dx, y: dy, fillAlpha: 0, stroke: C.accent, strokeWidth: 1.5, strokeAlpha: 0.9, scale: 0 },
           keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.45, ease: 'back.out(2.2)' },
                       { at: 0.6, to: { scale: 1.35, strokeAlpha: 0.25 }, duration: 0.8, ease: 'sine.inOut', repeat: 3, yoyo: true },
                       { at: exitAt, to: { scale: 0 }, duration: 0.3, ease: OUT }] },
         { type: 'shape', shape: 'circle', name: `${name}-dot`, radius: 4.5, at, duration: until - at,
-          initial: { x: dx, y: dy, fillColor: C.accent, strokeColor: '#ffffff', strokeWidth: 1.5, scale: 0 },
+          initial: { x: dx, y: dy, fill: C.accent, stroke: '#ffffff', strokeWidth: 1.5, scale: 0 },
           keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'back.out(3)' }, { at: exitAt, to: { scale: 0 }, duration: 0.3, ease: OUT }] },
         revealText(`${name}-eyebrow`, s.eyebrow, EYEBROW, textX, dy - 10, ax, 1, at + 0.3, until, +1,
           { w: boxW, h: 24, cx: boxCx, cy: dy - 10 - 12 }),

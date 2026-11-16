@@ -92,7 +92,7 @@
     for (let d = 340; d >= 200; d -= 2) arcPoints.push([AC + (ARC_R - ARC_T) * Math.cos(rad(d)), AC + (ARC_R - ARC_T) * Math.sin(rad(d))]);
 
     const sequences = [
-      fullRect('bg', { initial: { x: W / 2, y: H / 2, fillColor: BG } }),
+      fullRect('bg', { initial: { x: W / 2, y: H / 2, fill: BG } }),
 
       // a cool glow gathers behind the mark
       { type: 'shape', shape: 'circle', name: 'glow', radius: 360,
@@ -105,21 +105,21 @@
         initial: { x: CX, y: HAIR_Y + R + 8 },
         keyframes: [{ at: 0, to: { y: CY }, duration: 1.7, ease: EASE }],
         mask: { type: 'shape', shape: 'rect', name: 'disc-mask', width: 400, height: HAIR_Y - GAP, anchorY: 0,
-                initial: { x: CX, y: 0, fillColor: '#ffffff' } } },
+                initial: { x: CX, y: 0, fill: '#ffffff' } } },
 
       // its lower sliver stays below the line as a faint reflection
       { type: 'shape', shape: 'circle', name: 'disc-reflection', radius: R, ...life(T.reflect), fillGradient: reflectionGradient,
         initial: { x: CX, y: CY, alpha: 0 },
         keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.1, ease: 'sine.inOut' }],
         mask: { type: 'shape', shape: 'rect', name: 'reflection-mask', width: 400, height: 120, anchorY: 0,
-                initial: { x: CX, y: HAIR_Y + GAP, fillColor: '#ffffff' } } },
+                initial: { x: CX, y: HAIR_Y + GAP, fill: '#ffffff' } } },
 
       // a soft light sweeps across the disc, confined to the upper segment
       { type: 'shape', shape: 'rect', name: 'glint', width: 64, height: 300, at: T.glint, duration: 1.3,
         fillGradient: { angle: 90, stops: [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(255,255,255,0.55)'], [1, 'rgba(255,255,255,0)']] },
         initial: { x: CX - 150, y: CY, rotation: 22 },
         keyframes: [{ at: 0, to: { x: CX + 150 }, duration: 1.2, ease: 'power2.inOut' }],
-        mask: { type: 'shape', shape: 'path', name: 'glint-mask', d: upperSegment, initial: { fillColor: '#ffffff' } } },
+        mask: { type: 'shape', shape: 'path', name: 'glint-mask', d: upperSegment, initial: { fill: '#ffffff' } } },
 
       // the horizon hairline opens from the centre
       { type: 'shape', shape: 'rect', name: 'horizon', width: 0, height: 2, ...life(T.hair),
@@ -129,7 +129,7 @@
 
       // a single pulse leaves the disc …
       { type: 'shape', shape: 'circle', name: 'ripple', radius: R, at: T.pulse, duration: 1.3,
-        initial: { x: CX, y: CY, fillColor: BG, fillAlpha: 0, strokeColor: CHAMP, strokeWidth: 1.5, strokeAlpha: 0.5 },
+        initial: { x: CX, y: CY, fill: BG, fillAlpha: 0, stroke: CHAMP, strokeWidth: 1.5, strokeAlpha: 0.5 },
         keyframes: [{ at: 0, to: { radius: ARC_R + 16, strokeAlpha: 0 }, duration: 1.2, ease: 'power2.out' }] },
 
       // … and the aurora arc swings into place over it
