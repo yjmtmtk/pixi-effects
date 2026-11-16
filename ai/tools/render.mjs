@@ -11,16 +11,7 @@
  * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or CHROME=PATH / --chrome PATH). No npm dependencies.
  * Exit code: 0 = the file was written, 1 = the page or the render failed (no file), 2 = bad usage.
  *
- * Options: -o, --out FILE (default ./<page name>.<format>; the container follows the extension: mp4 webm mov mkv) ·
- *          --format mp4|webm|mov|mkv|wav|ogg|pdf (wav / ogg: only the movie's sound, no picture; a .pdf is the deck as pages: one picture per page of a movie with `stops`; --all-stops makes a page of every stop) · --quality very-low|low|medium|high|very-high (video and audio bitrate, default high) ·
- *          --range A:B (only seconds A to B; 2: runs to the end, :5 starts at the beginning) · --scene NAME (the span of a top-level layer: a movie's scene) · --scale S (output size, 0 < S <= 1: smaller picture, smaller file) ·
- *          --webgl (draw with WebGL, as a browser without WebGPU does; PE_BACKEND=webgl does the same) ·
- *          --draft (for looking: half size, low quality, no motion blur; a --quality you give still wins) ·
- *          --motion-blur SAMPLES (2-64: each frame is drawn that many times over the shutter and averaged; overrides the page's own motionBlur) ·
- *          --shutter FRACTION (with --motion-blur: how long the shutter is open, 0-1 of a frame, default 0.5) ·
- *          --video-codec C (avc hevc vp9 av1 vp8) · --video-bitrate B (a quality or bits a second: 8M, 800k) · --audio-codec C · --query "a=1&b=2" (added to the page URL) · --strict (exit 1 when the page
- *          logged a warning; the file is still written) · --quiet (no progress line) · --timeout SECONDS (default 900) ·
- *          --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
+ * Options: `pixi-effects render --help` lists every one (they are SPEC below, read by args.mjs as every command reads its line).
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -28,6 +19,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { findChrome, findRoot, serve, launchChrome, shown, sleep, LOAD_PRESENT, FORCE_WEBGL, wantsWebgl } from './check.mjs';
 import { parseVar, parseSizes, applyToPage } from './varArgs.mjs';
+import { readArgs, helpText, missing, exitWith, UsageError } from './args.mjs';
 
 const FORMATS = ['mp4', 'webm', 'mov', 'mkv', 'wav', 'ogg', 'pdf'];
 const SOUND_ONLY = ['wav', 'ogg'];
@@ -52,84 +44,98 @@ export function defaultOutput(page, format) {
   return path.resolve(path.basename(page).replace(/\.[^.]+$/, '') + '.' + format);
 }
 
-const USAGE_LINE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|wav|ogg|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--video-codec avc|hevc|vp9|av1|vp8] [--video-bitrate 8M|high] [--audio-codec C] [--motion-blur SAMPLES] [--shutter FRACTION] [--all-stops] [--query a=1] [--var name=value] [--size 1080x1920] [--strict] [--quiet] [--timeout S] [--root DIR] [--chrome PATH] [--webgl] [--help]';
-export const USAGE = [
-  '%s',
-  'options:',
-  '  -o, --out FILE       the file to write (default ./<page name>.<format>; the container follows the extension: mp4 webm mov mkv)',
-  '  --format F           mp4 webm mov mkv wav ogg pdf (wav / ogg: only the movie\'s sound; pdf: the deck as pages, one picture per page of a movie with `stops`; --all-stops makes a page of every stop)',
-  '  --quality Q          very-low low medium high very-high: video and audio bitrate (default high)',
-  '  --range A:B          only seconds A to B (2: runs to the end, :5 starts at the beginning) · --scene NAME: the span of a top-level layer, a movie\'s scene',
-  '  --scale S            output size, 0 < S <= 1: a smaller picture, a smaller file',
-  '  --draft              for looking: half size, low quality, no motion blur (a --quality you give still wins)',
-  '  --motion-blur N      2-64: each frame is drawn N times over the shutter and averaged (overrides the page\'s own motionBlur) · --shutter F: how long the shutter is open, 0-1 of a frame (default 0.5)',
-  '  --video-codec C      avc hevc vp9 av1 vp8 · --video-bitrate B: a quality or bits a second (8M, 800k) · --audio-codec C',
-  '  --query "a=1&b=2"    added to the page URL · --var name=value: a variable of the movie · --size WxH: render at another size',
-  '  --strict             exit 1 when the page logged a warning (the file is still written) · --quiet: no progress line',
-  '  --timeout S          seconds to wait (default 900) · --root DIR: the folder served (default: the nearest folder above the page with dist/) · --chrome PATH',
-  'exit code: 0 the file was written, 1 the page or the render failed (no file), 2 bad usage',
-].join('\n').replace('%s', USAGE_LINE);
+export const SPEC = {
+  name: 'render',
+  usage: '<page.html> [-o out.mp4] [options]',
+  about: 'export the video: the page is drawn in a headless Chrome and the file streamed to disk (nothing is reviewed: that is pixi-effects check)',
+  options: [
+    { flag: '--out', short: '-o', value: 'FILE', help: 'the file to write (default ./<page name>.<format>; the container follows the extension)' },
+    { flag: '--format', value: 'F', help: "mp4 webm mov mkv wav ogg pdf (wav / ogg: only the movie's sound; pdf: the deck, one page per page of a movie with stops)" },
+    { flag: '--quality', value: 'Q', help: 'very-low low medium high very-high: video and audio bitrate (default high)' },
+    { flag: '--range', value: 'A:B', help: 'only seconds A to B (2: runs to the end, :5 starts at the beginning)' },
+    { flag: '--scene', value: 'NAME', help: "the span of a top-level layer: a movie's scene" },
+    { flag: '--scale', value: 'S', help: 'output size, 0 < S <= 1: a smaller picture, a smaller file' },
+    { flag: '--draft', help: 'for looking: half size, low quality, no motion blur (a --quality you give still wins)' },
+    { flag: '--motion-blur', value: 'N', help: "2-64: each frame is drawn N times over the shutter and averaged (overrides the page's own motionBlur)" },
+    { flag: '--shutter', value: 'F', help: 'with --motion-blur: how long the shutter is open, 0-1 of a frame (default 0.5)' },
+    { flag: '--video-codec', value: 'C', help: 'avc hevc vp9 av1 vp8' },
+    { flag: '--video-bitrate', value: 'B', help: 'a quality (very-low … very-high) or bits a second (8M, 800k)' },
+    { flag: '--audio-codec', value: 'C', help: 'the audio codec (aac, opus, …)' },
+    { flag: '--all-stops', help: 'with a PDF: a page for every stop, not only the last of each page' },
+    { flag: '--query', value: '"a=1&b=2"', help: 'added to the page address' },
+    { flag: '--var', value: 'NAME=VALUE', help: 'a variable of the movie (repeatable)' },
+    { flag: '--size', value: 'WxH', help: 'render at another size (one; check takes several)' },
+    { flag: '--strict', help: 'exit 1 when the page logged a warning (the file is still written)' },
+    { flag: '--quiet', help: 'no progress line' },
+    { flag: '--webgl', help: 'draw with WebGL, as a browser without WebGPU does (PE_BACKEND=webgl does the same)' },
+    { flag: '--timeout', value: 'SECONDS', help: 'give up after that long (default 900)' },
+    { flag: '--root', value: 'DIR', help: 'the folder served (default: the nearest folder above the page with dist/)' },
+    { flag: '--chrome', value: 'PATH', help: 'the Chrome / Chromium to use (or CHROME=PATH)' },
+  ],
+  renamed: { '--fail-on-warn': '--strict (the same word as in check: a warning, or anything it would only list, fails the run)' },
+};
+export const USAGE = helpText(SPEC);
 
 export function parseRenderArgs(argv) {
   const o = { range: null, scene: null, scale: null, draft: false, qualityGiven: false, page: null, out: null, format: null, quality: 'high', videoCodec: null, videoBitrate: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, vars: [], size: null, strict: false, quiet: false, timeout: 900, root: null, chrome: null };
-  const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--help' || a === '-h') o.help = true;
-    else if (a === '-o' || a === '--out') o.out = need(i++, a);
+  const r = readArgs(argv, SPEC);
+  if (r.help) return { ...o, help: true };
+  const bad = (m) => { throw new UsageError(`render: ${m}`); };
+  for (const { flag: a, value: v } of r.options) {
+    if (a === '--out') o.out = v;
     else if (a === '--format') {
-      o.format = need(i++, a).toLowerCase();
-      if (!FORMATS.includes(o.format)) throw new Error(`--format must be mp4, webm, mov, mkv, wav, ogg or pdf (got "${o.format}")`);
+      o.format = v.toLowerCase();
+      if (!FORMATS.includes(o.format)) bad(`--format must be mp4, webm, mov, mkv, wav, ogg or pdf (got "${o.format}")`);
     } else if (a === '--quality') {
       o.qualityGiven = true;
-      o.quality = need(i++, a);
-      if (!QUALITIES.includes(o.quality)) throw new Error(`--quality must be very-low, low, medium, high or very-high (got "${o.quality}")`);
+      o.quality = v;
+      if (!QUALITIES.includes(o.quality)) bad(`--quality must be very-low, low, medium, high or very-high (got "${o.quality}")`);
     } else if (a === '--video-bitrate') {
-      o.videoBitrate = need(i++, a);
-      if (!/^(very-low|low|medium|high|very-high|\d+(\.\d+)?\s*[kKmM]?)$/.test(o.videoBitrate)) throw new Error(`--video-bitrate must be a quality (very-low, low, medium, high, very-high) or bits a second (8000000, 8M, 800k), got "${o.videoBitrate}"`);
-    } else if (a === '--video-codec') o.videoCodec = need(i++, a);
-    else if (a === '--audio-codec') o.audioCodec = need(i++, a);
+      o.videoBitrate = v;
+      if (!/^(very-low|low|medium|high|very-high|\d+(\.\d+)?\s*[kKmM]?)$/.test(o.videoBitrate)) bad(`--video-bitrate must be a quality (very-low, low, medium, high, very-high) or bits a second (8000000, 8M, 800k), got "${o.videoBitrate}"`);
+    } else if (a === '--video-codec') o.videoCodec = v;
+    else if (a === '--audio-codec') o.audioCodec = v;
     else if (a === '--motion-blur') {
-      o.motionBlur = Number(need(i++, a));
-      if (!(Number.isInteger(o.motionBlur) && o.motionBlur >= 2 && o.motionBlur <= 64)) throw new Error(`--motion-blur must be a whole number of samples from 2 to 64 (got "${argv[i]}")`);
+      o.motionBlur = Number(v);
+      if (!(Number.isInteger(o.motionBlur) && o.motionBlur >= 2 && o.motionBlur <= 64)) bad(`--motion-blur must be a whole number of samples from 2 to 64 (got "${v}")`);
     } else if (a === '--shutter') {
-      o.shutter = Number(need(i++, a));
-      if (!(o.shutter > 0 && o.shutter <= 1)) throw new Error(`--shutter must be above 0 and at most 1 (0.5 is a 180° shutter), got "${argv[i]}"`);
+      o.shutter = Number(v);
+      if (!(o.shutter > 0 && o.shutter <= 1)) bad(`--shutter must be above 0 and at most 1 (0.5 is a 180° shutter), got "${v}"`);
     } else if (a === '--range') {
-      const m = need(i++, a).match(/^(\d+(?:\.\d+)?)?:(\d+(?:\.\d+)?)?$/);
-      if (!m || (m[1] === undefined && m[2] === undefined)) throw new Error(`--range must look like 2:5 (seconds; 2: runs to the end, :5 starts at the beginning), got "${argv[i]}"`);
+      const m = v.match(/^(\d+(?:\.\d+)?)?:(\d+(?:\.\d+)?)?$/);
+      if (!m || (m[1] === undefined && m[2] === undefined)) bad(`--range must look like 2:5 (seconds; 2: runs to the end, :5 starts at the beginning), got "${v}"`);
       o.range = [m[1] === undefined ? null : Number(m[1]), m[2] === undefined ? null : Number(m[2])];
-      if (o.range[0] !== null && o.range[1] !== null && !(o.range[0] < o.range[1])) throw new Error(`--range ${argv[i]}: it must start before it ends (2:5 is seconds 2 to 5)`);
-    } else if (a === '--scene') o.scene = need(i++, a);
+      if (o.range[0] !== null && o.range[1] !== null && !(o.range[0] < o.range[1])) bad(`--range ${v}: it must start before it ends (2:5 is seconds 2 to 5)`);
+    } else if (a === '--scene') o.scene = v;
     else if (a === '--scale') {
-      o.scale = Number(need(i++, a));
-      if (!(o.scale > 0 && o.scale <= 1)) throw new Error(`--scale must be above 0 and at most 1 (0.5 is half size), got "${argv[i]}"`);
+      o.scale = Number(v);
+      if (!(o.scale > 0 && o.scale <= 1)) bad(`--scale must be above 0 and at most 1 (0.5 is half size), got "${v}"`);
     } else if (a === '--draft') o.draft = true;
-    else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
-    else if (a === '--var') o.vars.push(parseVar(need(i++, a)));
+    else if (a === '--query') o.query = v.replace(/^\?/, '');
+    else if (a === '--var') o.vars.push(parseVar(v));
     else if (a === '--size') {
-      const sizes = parseSizes(need(i++, a));
-      if (sizes.length > 1) throw new Error('render writes one file: one --size (1080x1920); check takes several');
+      const sizes = parseSizes(v);
+      if (sizes.length > 1) bad('render writes one file: one --size (1080x1920); check takes several');
       o.size = sizes[0];
     }
     else if (a === '--all-stops') o.allStops = true;
     else if (a === '--strict') o.strict = true;
-    else if (a === '--fail-on-warn') throw new Error('--fail-on-warn is now --strict (the same word as in check: a warning, or anything it would only list, fails the run)');
     else if (a === '--quiet') o.quiet = true;
     else if (a === '--webgl') o.webgl = true;
-    else if (a === '--timeout') o.timeout = Math.max(10, Number(need(i++, a)) || 900);
-    else if (a === '--root') o.root = need(i++, a);
-    else if (a === '--chrome') o.chrome = need(i++, a);
-    else if (a.startsWith('-')) throw new Error(`unknown option ${a} (see the header of render.mjs)`);
-    else if (!o.page) o.page = a;
-    else throw new Error(`unexpected argument ${a}`);
+    else if (a === '--timeout') o.timeout = Math.max(10, Number(v) || 900);
+    else if (a === '--root') o.root = v;
+    else if (a === '--chrome') o.chrome = v;
   }
-  if (o.shutter !== null && o.motionBlur === null) throw new Error('--shutter goes with --motion-blur SAMPLES');
-  if (o.allStops && o.format !== 'pdf' && !(o.out && formatFromPath(o.out) === 'pdf')) throw new Error('--all-stops goes with a PDF (-o deck.pdf)');
-  o.format ??= (o.out ? formatFromPath(o.out) : null) ?? 'mp4';
-  if (o.range && o.scene !== null) throw new Error('--range and --scene cannot be used together: a scene is a range');
-  if (SOUND_ONLY.includes(o.format) && (o.scale !== null || o.draft || o.motionBlur !== null || o.videoCodec || o.videoBitrate)) throw new Error(`--scale, --draft, --motion-blur, --video-codec and --video-bitrate are for a picture: ${o.format} writes only the sound`);
-  if (o.format === 'pdf' && (o.range || o.scene !== null || o.scale !== null || o.draft)) throw new Error('--range, --scene, --scale and --draft are not for a PDF (a PDF is the pages of a deck)');
+  if (r.positional.length > 1) bad(`unexpected argument ${r.positional[1]} (one page at a time; a path with spaces needs quotes)`);
+  o.page = r.positional[0] ?? null;
+  try {
+    if (o.shutter !== null && o.motionBlur === null) bad('--shutter goes with --motion-blur SAMPLES');
+    if (o.allStops && o.format !== 'pdf' && !(o.out && formatFromPath(o.out) === 'pdf')) bad('--all-stops goes with a PDF (-o deck.pdf)');
+    o.format ??= (o.out ? formatFromPath(o.out) : null) ?? 'mp4';
+  } catch (e) { throw e instanceof UsageError ? e : new UsageError(`render: ${e.message}`); }
+  if (o.range && o.scene !== null) bad('--range and --scene cannot be used together: a scene is a range');
+  if (SOUND_ONLY.includes(o.format) && (o.scale !== null || o.draft || o.motionBlur !== null || o.videoCodec || o.videoBitrate)) bad(`--scale, --draft, --motion-blur, --video-codec and --video-bitrate are for a picture: ${o.format} writes only the sound`);
+  if (o.format === 'pdf' && (o.range || o.scene !== null || o.scale !== null || o.draft)) bad('--range, --scene, --scale and --draft are not for a PDF (a PDF is the pages of a deck)');
   return o;
 }
 
@@ -298,10 +304,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
     if (typeof WebSocket === 'undefined') throw new Error('Node >= 22 is needed (built-in WebSocket)');
     const opts = parseRenderArgs(process.argv.slice(2));
     if (opts.help) { console.log(USAGE); process.exit(0); }
-    if (!opts.page) {
-      console.error(USAGE);
-      process.exit(2);
-    }
+    if (!opts.page) throw missing(SPEC, 'the page to render: pixi-effects render my-video.html -o my-video.mp4');
     const progress = makeProgress({ quiet: opts.quiet, isTTY: !!process.stderr.isTTY, write: s => process.stderr.write(s) });
     const r = await runRender(opts, console.log, progress);
     if (!opts.quiet && process.stderr.isTTY) process.stderr.write('\r              \r');
@@ -316,7 +319,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
     if (rate.note) console.error(`note: ${rate.note}`);
     process.exit(opts.strict && r.logs.length ? 1 : 0);
   } catch (e) {
-    console.error(`pixi-effects render failed: ${e.message}`);
-    process.exit(2);
+    exitWith(e, 'render');
   }
 }

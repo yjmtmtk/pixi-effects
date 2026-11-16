@@ -18,7 +18,7 @@ describe('every command answers --help: usage on stdout, exit 0 (not "unknown op
       for (const flag of ['--help', '-h']) {
         const r = spawnSync(process.execPath, [join(root, `ai/tools/${cmd}.mjs`), flag], { encoding: 'utf8' });
         expect(r.status, `${cmd} ${flag}: ${r.stderr}`).toBe(0);
-        expect(r.stdout).toMatch(new RegExp(`usage: .*${cmd}\\.mjs`));
+        expect(r.stdout).toMatch(new RegExp(`usage: pixi-effects ${cmd} `));
       }
     });
   }

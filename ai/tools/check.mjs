@@ -8,23 +8,12 @@
  * waits for `window.__ready === true`, then checks: console warnings / errors, `movie.inspect` over the whole timeline
  * (grouped), `movie.inspectAudio()`, a contact sheet (a PNG you can look at), and a real export (`movie.render`) that it
  * decodes again: video size / length, audio length, loudness per second, silence. Output goes to `check-out/<name>/` (`--out DIR` writes straight into DIR, with no <name>/ inside it)
- * (`sheet.png`, `<name>.<format>`, `report.json`; a presentation with `stops` also gets `stops.png`, one picture per stop) and a short summary is printed. Exit code 0 = nothing to fix, 1 = problems.
+ * (`sheet.png`, `<name>.<format>`, `report.json`; a presentation with `stops` also gets `stops.png`, one picture per stop) and a short summary is printed. Exit code 0 = nothing to fix, 1 = problems, 2 = the command line is wrong.
  *
  * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or --chrome PATH / CHROME=PATH). No npm dependencies.
  * The page must follow skills/pixi-effects/template.html: it exposes `window.movie` and sets `window.__ready = true` (and `window.__logs`).
  *
- * Options: --draft (the export is a draft: half size, low quality, no motion blur: a much smaller file; the drawing itself is not faster) · --at LIST (pictures at moments you name: 3.5, 50%, f120, title@end, a marker host@in or @drop → frames/*.png and at.png: they are NOT in sheet.png, which is evenly spaced frames) ·
- *          --query "a=1&b=2" (added to the page address: for a page that reads it, such as one video of a batch) ·
- *          --crop X,Y,W,H (with --at: each picture is that part of the canvas, in canvas pixels, enlarged up to 4x so a small figure can be judged) ·
- *          --pick X,Y (with --at, repeatable: what is under that canvas point at each moment, the top layer first, and the object of a scene3d or scene2d layer: `movie.pick`) ·
-
- *          --do "click Lime; hover 640,360; drag card > 770,240; wait 1; key Space" (real mouse and key events on the page, one step after the other, after everything else: what was under the pointer, which
- *          variables changed, whether the page warned, one picture per step in steps/; a point is x,y in canvas pixels, a layer name (the middle of its box) or layer/object, an object of a scene3d or scene2d layer (where movie.project says it is); repeatable) ·
- *          --webgl (draw with WebGL, as a browser without WebGPU does: PixiJS prefers WebGPU where it exists; the page line says which one drew; PE_BACKEND=webgl does the same) ·
- *          --onion A:B (one picture of the movement between A and B seconds, frames overlaid: onion.png) ·
- *          --seam (a movie made to loop: the last frame to the first is compared with the steps between ordinary neighbouring frames; a jump is a problem) ·
- *          --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
- *          --timeout SECONDS (default 240) · --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
+ * Options: `pixi-effects check --help` lists every one (they are SPEC below, read by args.mjs as every command reads its line).
  */
 import { spawn, spawnSync } from 'node:child_process';
 import http from 'node:http';
@@ -33,6 +22,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseVar, parseSizes, applyToPage } from './varArgs.mjs';
+import { readArgs, helpText, missing, exitWith, UsageError } from './args.mjs';
 
 // ───────────────────────────── pure helpers (unit-tested) ─────────────────────────────
 
@@ -86,7 +76,34 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
   return candidates.find(c => c && exists(c)) ?? null;
 }
 
-export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--crop X,Y,W,H] [--pick X,Y] [--do "click Lime; drag card > 770,240"] [--onion 1:3] [--seam] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--webgl] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
+export const SPEC = {
+  name: 'check',
+  usage: '<page.html> [options]',
+  about: 'review a video page: warnings, layout, sound, a contact sheet and a real export, in check-out/<name>/ (report.json, sheet.png, the video)',
+  options: [
+    { flag: '--out', value: 'DIR', help: 'the folder to write into (default check-out/<name>/; DIR itself, with no <name>/ inside it)' },
+    { flag: '--frames', value: 'N', help: 'tiles of the contact sheet (default 12)' },
+    { flag: '--formats', value: 'LIST', help: 'the export(s): mp4, webm, mov, mkv, one or a list (default mp4)' },
+    { flag: '--no-export', help: 'no export (faster while you iterate)' },
+    { flag: '--draft', help: 'the export is a draft: half size, low quality, no motion blur (a much smaller file)' },
+    { flag: '--at', value: 'LIST', help: 'pictures at moments you name: 3.5, 50%, f120, title@end, host@in, @drop (frames/*.png and at.png)' },
+    { flag: '--crop', value: 'X,Y,W,H', help: 'with --at: each picture is that part of the canvas (canvas pixels), enlarged up to 4x' },
+    { flag: '--pick', value: 'X,Y', help: 'with --at, repeatable: what is under that canvas point at each moment, the top layer first (movie.pick)' },
+    { flag: '--do', value: 'STEPS', help: 'real mouse and key events, after everything else: "click Lime; hover 640,360; drag card > 770,240; wait 1; key Space" (repeatable)' },
+    { flag: '--onion', value: 'A:B', help: 'one picture of the movement between A and B seconds, frames overlaid (onion.png)' },
+    { flag: '--seam', help: 'a movie made to loop: the last frame to the first must be an ordinary step' },
+    { flag: '--strict', help: 'text overlaps and stops that still move fail the check (by default they are listed for review)' },
+    { flag: '--query', value: '"a=1&b=2"', help: 'added to the page address (for a page that reads it)' },
+    { flag: '--var', value: 'NAME=VALUE', help: 'a variable of the movie (repeatable; the page declares it in movie.init({ vars }))' },
+    { flag: '--size', value: 'WxH[,WxH]', help: 'check at other sizes (a layout review and a contact sheet each; the export is the first size)' },
+    { flag: '--webgl', help: 'draw with WebGL, as a browser without WebGPU does (PE_BACKEND=webgl does the same)' },
+    { flag: '--timeout', value: 'SECONDS', help: 'give up after that long (default 240)' },
+    { flag: '--root', value: 'DIR', help: 'the folder served (default: the nearest folder above the page with dist/)' },
+    { flag: '--chrome', value: 'PATH', help: 'the Chrome / Chromium to use (or CHROME=PATH)' },
+  ],
+  renamed: {},
+};
+export const USAGE = helpText(SPEC);
 
 /** One failed request, as a sentence the person (or the AI) can act on. `f` is { url, status? , error?, type? }. */
 export function describeLoadFailure(f) {
@@ -135,49 +152,51 @@ export function parseDo(text) {
 
 export function parseArgs(argv) {
   const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, crop: null, draft: false, onion: null, seam: false, query: null, pick: [], do: [], vars: [], sizes: [], help: false };
-  const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--help' || a === '-h') o.help = true;
-    else if (a === '--out') o.out = need(i++, a);
-    else if (a === '--frames') o.frames = Math.max(1, Math.round(Number(need(i++, a))) || 12);
-    else if (a === '--formats') o.formats = need(i++, a).split(',').map(s => s.trim()).filter(Boolean);
-    else if (a === '--no-export') o.export = false;
-    else if (a === '--webgl') o.webgl = true;
-    else if (a === '--strict') o.strict = true;
-    else if (a === '--draft') o.draft = true;
-    else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
-    else if (a === '--at') o.at = need(i++, a);
-    else if (a === '--crop') {
-      const m = need(i++, a).split(',').map(Number);
-      if (m.length !== 4 || !m.every(Number.isFinite) || m[0] < 0 || m[1] < 0 || m[2] < 1 || m[3] < 1) throw new Error(`--crop must look like 100,200,400,300 (x, y, width, height in canvas pixels, width and height at least 1), got "${argv[i]}"`);
+  const r = readArgs(argv, SPEC);
+  if (r.help) return { ...o, help: true };
+  const bad = (m) => { throw new UsageError(`check: ${m}`); };
+  for (const { flag, value: v } of r.options) {
+    if (flag === '--out') o.out = v;
+    else if (flag === '--frames') o.frames = Math.max(1, Math.round(Number(v)) || 12);
+    else if (flag === '--formats') o.formats = v.split(',').map(s => s.trim()).filter(Boolean);
+    else if (flag === '--no-export') o.export = false;
+    else if (flag === '--webgl') o.webgl = true;
+    else if (flag === '--strict') o.strict = true;
+    else if (flag === '--draft') o.draft = true;
+    else if (flag === '--query') o.query = v.replace(/^\?/, '');
+    else if (flag === '--at') o.at = v;
+    else if (flag === '--crop') {
+      const m = v.split(',').map(Number);
+      if (m.length !== 4 || !m.every(Number.isFinite) || m[0] < 0 || m[1] < 0 || m[2] < 1 || m[3] < 1) bad(`--crop must look like 100,200,400,300 (x, y, width, height in canvas pixels, width and height at least 1), got "${v}"`);
       o.crop = { x: Math.round(m[0]), y: Math.round(m[1]), width: Math.round(m[2]), height: Math.round(m[3]) };
     }
-    else if (a === '--pick') {
-      const m = need(i++, a).split(',').map(Number);
-      if (m.length !== 2 || !m.every(Number.isFinite)) throw new Error(`--pick must look like 640,360 (x, y in canvas pixels), got "${argv[i]}"`);
+    else if (flag === '--pick') {
+      const m = v.split(',').map(Number);
+      if (m.length !== 2 || !m.every(Number.isFinite)) bad(`--pick must look like 640,360 (x, y in canvas pixels), got "${v}"`);
       o.pick.push({ x: m[0], y: m[1] });
     }
-    else if (a === '--do') o.do.push(...parseDo(need(i++, a)));
-    else if (a === '--var') o.vars.push(parseVar(need(i++, a)));
-    else if (a === '--size') o.sizes.push(...parseSizes(need(i++, a)));
-    else if (a === '--seam') o.seam = true;
-    else if (a === '--onion') {
-      const m = need(i++, a).match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
-      if (!m || !(Number(m[1]) < Number(m[2]))) throw new Error(`--onion must look like 1:3 (seconds, from before to), got "${argv[i]}"`);
+    else if (flag === '--do') o.do.push(...asUsage(() => parseDo(v)));
+    else if (flag === '--var') o.vars.push(parseVar(v));
+    else if (flag === '--size') o.sizes.push(...parseSizes(v));
+    else if (flag === '--seam') o.seam = true;
+    else if (flag === '--onion') {
+      const m = v.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
+      if (!m || !(Number(m[1]) < Number(m[2]))) bad(`--onion must look like 1:3 (seconds, from before to), got "${v}"`);
       o.onion = [Number(m[1]), Number(m[2])];
     }
-    else if (a === '--timeout') o.timeout = Math.max(10, Number(need(i++, a)) || 240);
-    else if (a === '--root') o.root = need(i++, a);
-    else if (a === '--chrome') o.chrome = need(i++, a);
-    else if (a.startsWith('--')) throw new Error(`unknown option ${a} (see the header of check.mjs)`);
-    else if (!o.page) o.page = a;
-    else throw new Error(`unexpected argument ${a}`);
+    else if (flag === '--timeout') o.timeout = Math.max(10, Number(v) || 240);
+    else if (flag === '--root') o.root = v;
+    else if (flag === '--chrome') o.chrome = v;
   }
-  if (o.crop && !o.at) throw new Error('--crop crops the pictures of --at: give --at too (for example --at 3.5 --crop 100,200,400,300)');
-  if (o.pick.length && !o.at) throw new Error('--pick asks about the moments of --at: give --at too (for example --at 3.5 --pick 640,360)');
+  if (r.positional.length > 1) bad(`unexpected argument ${r.positional[1]} (one page at a time; a path with spaces needs quotes)`);
+  o.page = r.positional[0] ?? null;
+  if (o.crop && !o.at) bad('--crop crops the pictures of --at: give --at too (for example --at 3.5 --crop 100,200,400,300)');
+  if (o.pick.length && !o.at) bad('--pick asks about the moments of --at: give --at too (for example --at 3.5 --pick 640,360)');
   return o;
 }
+
+/** A sentence thrown by a value reader (parseDo) as a usage mistake (exit code 2). */
+const asUsage = (fn) => { try { return fn(); } catch (e) { throw e instanceof UsageError ? e : new UsageError(`check: ${e.message}`); } };
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.mp4': 'video/mp4', '.webm': 'video/webm', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.wasm': 'application/wasm', '.map': 'application/json', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8' };
 
@@ -1016,14 +1035,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
     if (typeof WebSocket === 'undefined') throw new Error('Node >= 22 is needed (built-in WebSocket)');
     const opts = parseArgs(process.argv.slice(2));
     if (opts.help) { console.log(USAGE); process.exit(0); }
-    if (!opts.page) {
-      console.error(USAGE);
-      process.exit(2);
-    }
+    if (!opts.page) throw missing(SPEC, 'the page to check: pixi-effects check my-video.html');
     const report = await runCheck(opts);
     process.exit(report.ok ? 0 : 1);
   } catch (e) {
-    console.error(`pixi-effects check failed: ${e.message}`);
-    process.exit(2);
+    exitWith(e, 'check');
   }
 }
