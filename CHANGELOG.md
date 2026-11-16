@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.56.0
 
 From a fresh-agent trial on 0.55.0 (Sonnet and Opus, four briefs each). All eight delivered, and none wrote a wrong name. These are what they tripped on:
 
