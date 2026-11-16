@@ -42,7 +42,7 @@
       return { objects: { cube } };
     };
     const update = (t, { objects }) => { objects.cube.rotation.set(0.4, t * 1.2, 0); };
-    const dispose = () => { window.__disposes++; };
+    const destroy = () => { window.__disposes++; };
     // ?lights=1: the composition's camera and a spot light that casts, followed by the layer; a floor behind the cube receives its shadow
     const lightSetup = async (ctx) => {
       window.__setups++;
@@ -59,7 +59,7 @@
       { type: 'light', kind: 'ambient', initial: { intensity: 0.2 } },
       { type: 'light', kind: 'spot', castsShadows: true, initial: { x: 60, y: 20, z: 400, lookAtX: 160, lookAtY: 90, lookAtZ: 0, coneAngle: 60, coneFeather: 0.3, intensity: 1 } },
     ];
-    window.__layer = (over = {}) => LIGHTS ? ({ type: 'scene3d', name: 'world', followCamera: true, followLights: true, setup: lightSetup, update, dispose, ...over }) : ({ type: 'scene3d', name: 'world', ...(q.get('reuse') === '0' ? { reuse: false } : {}), ...(q.get('late') === '1' ? { keyframes: [{ at: 2, to: { 'scene3d.cube.position.y': 9 }, duration: 0.01 }] } : {}), ...(VIEWSET ? { keyframes: [{ at: 1, to: { 'scene3d.view.exposure': 0.6 }, duration: 1 }] } : {}), width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update, dispose, ...over });
+    window.__layer = (over = {}) => LIGHTS ? ({ type: 'scene3d', name: 'world', followCamera: true, followLights: true, setup: lightSetup, update, destroy, ...over }) : ({ type: 'scene3d', name: 'world', ...(q.get('reuse') === '0' ? { reuse: false } : {}), ...(q.get('late') === '1' ? { keyframes: [{ at: 2, to: { 'scene3d.cube.position.y': 9 }, duration: 0.01 }] } : {}), ...(VIEWSET ? { keyframes: [{ at: 1, to: { 'scene3d.view.exposure': 0.6 }, duration: 1 }] } : {}), width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update, destroy, ...over });
     window.__text = { type: 'text', name: 'label', text: '{label}', style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 160, y: 24, anchorX: 0.5, anchorY: 0.5 } };
     window.__screen = { type: 'composition', name: 'screen', width: 200, height: 200, sequences: [
       { type: 'shape', shape: 'rect', width: 200, height: 200, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#203040' } },

@@ -26,7 +26,7 @@ export interface LayerTexture {
   width: number;
   height: number;
   /** Stop showing the layer on the mesh (it is drawn on the stage again; the mesh keeps the last picture). The material and the texture are freed with the scene3d layer. */
-  dispose(): void;
+  destroy(): void;
 }
 
 /** What a scene3d layer lends to `layerTexture` (on its context, not enumerable). */
@@ -50,7 +50,7 @@ export interface ShownLayer {
   /** After a rebuild that keeps the scene3d layer: find the layer of the new tree (throws if it is gone); the function returned shows it from the swap on. */
   prepare(host: LayerTextureHost): () => void;
   keepHidden(): void;
-  dispose(): void;
+  destroy(): void;
 }
 
 export const HOST = Symbol.for('pixi-effects:scene3d-host');
@@ -114,7 +114,7 @@ export async function layerTexture(ctx: Scene3DContext, name: string, options: L
       };
     },
     keepHidden() { if (hidden && !disposed) display.visible = false; },
-    dispose() {
+    destroy() {
       if (disposed) return;
       disposed = true;
       untrack();

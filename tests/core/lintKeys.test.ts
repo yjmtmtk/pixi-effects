@@ -236,3 +236,10 @@ describe('lintKeys: a canvas takes scaleMode, as an image does', () => {
   });
 });
 
+
+describe('lintKeys: the clean-up hook of a scene layer is destroy', () => {
+  it('dispose (and cleanup) say destroy, as PixiJS and the movie do', () => {
+    expect(warns({ type: 'scene2d', setup: () => ({}), dispose: () => {} })[0]).toMatch(/"dispose" is not a scene2d layer key — did you mean "destroy"\?/);
+    expect(warns({ type: 'scene2d', setup: () => ({}), destroy: () => {} })).toEqual([]);
+  });
+});

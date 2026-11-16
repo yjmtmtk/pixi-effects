@@ -681,7 +681,7 @@ export interface CanvasSequenceSpec extends SequenceCommon {
   scaleMode?: 'linear' | 'nearest';
 }
 
-/** Handed to a scene2d layer's setup / update / dispose. One per layer. */
+/** Handed to a scene2d layer's setup / update / destroy. One per layer. */
 export interface Scene2DContext {
   /** The layer's own PixiJS container, in the layer's pixels (0, 0 is the top-left of its box): add Graphics, Sprites, Text, a ParticleContainer, Meshes here. */
   root: Container;
@@ -718,7 +718,7 @@ export interface Scene2DSequenceSpec extends SequenceCommon {
    */
   update?: (t: number, ctx: Scene2DContext) => void;
   /** Cleanup for resources you made (the root and everything under it are destroyed by the layer; textures you made are yours). */
-  dispose?: (ctx: Scene2DContext) => void;
+  destroy?: (ctx: Scene2DContext) => void;
   /**
    * A rebuild (`setVars`, `resize`, `rebuild`) keeps this layer's scene when the layer did not change (same `name`, same `setup` function, same size): `setup` runs once. Default `true`;
    * a layer with no `name` is always built again. `false`: `setup` runs again at every rebuild (when it reads something a variable changes).

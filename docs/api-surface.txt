@@ -639,7 +639,7 @@ interface Scene2DContext
   texture(name: string): Texture<TextureSource<any>>
   width: number
 interface Scene2DSequenceSpec extends SequenceCommon
-  dispose?: ((ctx: Scene2DContext) => void)
+  destroy?: ((ctx: Scene2DContext) => void)
   height?: string | number
   reuse?: boolean
   setup: (ctx: Scene2DContext) => void | Scene2DSetupResult | Promise<void | Scene2DSetupResult>
@@ -992,7 +992,7 @@ interface FitCameraOptions
   margin?: number
 function layerTexture(ctx: Scene3DContext, name: string, options?: LayerTextureOptions): Promise<LayerTexture>
 interface LayerTexture
-  dispose(): void
+  destroy(): void
   height: number
   material: FlatMaterial
   texture: RenderTexture
@@ -1001,7 +1001,7 @@ interface LayerTextureOptions
   resolution?: number
   transparent?: boolean
 interface LoadedModel
-  clips: string[]
+  animations: string[]
   fit(n: number): void
   model: Model3D
   object: Container3D
@@ -1025,7 +1025,7 @@ interface Scene3DContext
   view: View3D<Container3D>
   width: number
 interface Scene3DSequenceSpec extends SequenceCommon
-  dispose?: ((ctx: Scene3DContext) => void)
+  destroy?: ((ctx: Scene3DContext) => void)
   followCamera?: boolean
   followFog?: boolean
   followLights?: boolean

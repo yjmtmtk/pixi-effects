@@ -1431,7 +1431,7 @@ The layer is a layer like any other (`at`, `alpha`, `mask`, `filters`, `blendMod
 
 ## A 3D scene with a model, a light and a shadow, under a title (`scene3d`)
 
-A real 3D scene as one layer, drawn by PixiJS 3D inside PixiJS itself: a floor that receives a shadow, a glTF model whose clip is posed from the time, a cube moved by a keyframe, a sun that casts. The layer takes a mask like any layer: a circle wipe reveals it, and a 2D title sits over it. Everything in `update` is set from `t` (a function of the time: playback, a seek and an export agree). `loadModel` names the clips (`model.clips`), measures the model (`model.size()`), fits it (`model.fit(n)`: the longest side n units) and poses it from the time (`model.pose(t)`); `fitCamera(ctx, model.object)` puts the camera where the whole model fits.
+A real 3D scene as one layer, drawn by PixiJS 3D inside PixiJS itself: a floor that receives a shadow, a glTF model whose clip is posed from the time, a cube moved by a keyframe, a sun that casts. The layer takes a mask like any layer: a circle wipe reveals it, and a 2D title sits over it. Everything in `update` is set from `t` (a function of the time: playback, a seek and an export agree). `loadModel` names the animations (`model.animations`), measures the model (`model.size()`), fits it (`model.fit(n)`: the longest side n units) and poses it from the time (`model.pose(t)`); `fitCamera(ctx, model.object)` puts the camera where the whole model fits.
 
 ```js
 // @docs-only scene3d-basics

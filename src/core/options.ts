@@ -41,6 +41,7 @@ const COMMON_ALIASES: Record<string, string | readonly string[]> = {
   posterize: 'frameRate', posterizetime: 'frameRate', stepped: 'frameRate', looping: 'loop', loops: 'loop', cycle: 'loop',
   // named moments of a composition, by the words video editors, players and After Effects use
   cues: 'markers', cuepoints: 'markers', cuepoint: 'markers', marks: 'markers', timemarkers: 'markers', chaptermarkers: 'markers', compmarkers: 'markers', marker: 'markers',
+  dispose: 'destroy', cleanup: 'destroy', teardown: 'destroy', unmount: 'destroy',
   component: 'use', instanceof: 'use', instance: 'use', ref: 'use', props: 'params', properties: 'params', args: 'params', inputs: 'params',
   // the words of CSS, HTML media and canvas
   opacity: 'alpha', src: 'asset', url: 'asset', href: 'asset', file: 'asset', path: 'asset', repeat: 'loop', muted: 'audio', mute: 'audio',

@@ -656,7 +656,7 @@ It is a layer like any other: `name`, `at`, `duration`, `initial` (`anchorX` / `
 |---|---|
 | `setup(ctx)` | **Required.** Builds the scene once (may be async: Movie.init waits). Returns `{ objects }`: the names `scene2d.<name>.<path>` keyframes reach (`root` is added). |
 | `update(t, ctx)` | Per frame, `t` the layer's own seconds. Sets the scene from the time. |
-| `dispose(ctx)` | Frees what you made (the root and everything under it are destroyed by the layer; textures you made are yours). |
+| `destroy(ctx)` | Frees what you made (the root and everything under it are destroyed by the layer; textures you made are yours). |
 | `width`, `height` | The layer's box in px or an expression; default the composition's size. Nothing is clipped to it (give a `mask` to clip); `anchorX` / `anchorY` name a point of it and `check` draws it for the determinism test (the layout check measures what is drawn). |
 | `reuse` | Default `true`: a rebuild (`setVars`, `resize`) keeps the scene of a named layer whose `setup` function and size did not change, so `setup` runs once. `false`: setup runs at every rebuild. |
 
@@ -889,7 +889,7 @@ scene3d({
 | `reuse?` | `boolean` | a rebuild (`setVars`, `resize`, `rebuild`) keeps the scene of a layer that did not change (same `name`, `setup`, size and options): `setup` runs once. Default `true`; a layer with no `name` is always built again; `false` runs `setup` at every rebuild. |
 | `setup` | `(ctx) => { objects? } \| Promise<…>` | builds the scene once; async, so `Movie.init` waits for a model to load. A setup that throws stops `init` with the layer's name and the reason. |
 | `update?` | `(t, ctx) => void` | per frame, `t` = the layer's own time in seconds. Set everything from `t`. |
-| `dispose?` | `(ctx) => void` | cleanup for what you made (the view and everything under its root are destroyed by the layer). |
+| `destroy?` | `(ctx) => void` | cleanup for what you made (the view and everything under its root are destroyed by the layer). |
 
 `ctx` is `{ view, root, camera, renderer, width, height, objects, space? }`: the `View3D`, its `root` (add meshes, models and lights here), its `camera` (`fov` in degrees, `mode: 'perspective' | 'orthographic'`; place it with `position.set` and `lookAt`), PixiJS's renderer, the layer size, and the `objects` setup returned (plus `camera` and `view`). Keyframes reach any of them as **`scene3d.<object>.<path>`** (`'scene3d.cube.rotation.y'`, `'scene3d.view.exposure'`); a path to an object setup did not name warns once with the known names.
 
@@ -926,7 +926,7 @@ With `followCamera: true` the view's camera is put where the composition's `came
 
 ### glTF models: `loadModel`, `fitCamera`
 
-`const model = await loadModel('model.glb', { animation, speed, offset, loop })` in `setup`: `model.object` (a group centred on the model's box: add it to `root`, place, turn and scale it about its centre), `model.clips` (the clip names), `model.size()`, `model.fit(n)` (the longest side n units: n px under `followCamera`), `model.pose(t)` (the clip at `t × speed + offset`, looped or held: call it in `update`). `animation` is a clip name, an index or `false` (the bind pose); default the first clip. `fitCamera(ctx, model.object, { direction, margin })` puts the camera where the whole model fits (a three-quarter view by default). Recipes `scene3d-basics` and `scene3d-in-space`.
+`const model = await loadModel('model.glb', { animation, speed, offset, loop })` in `setup`: `model.object` (a group centred on the model's box: add it to `root`, place, turn and scale it about its centre), `model.animations` (the names of its animations), `model.size()`, `model.fit(n)` (the longest side n units: n px under `followCamera`), `model.pose(t)` (the clip at `t × speed + offset`, looped or held: call it in `update`). `animation` is a clip name, an index or `false` (the bind pose); default the first clip. `fitCamera(ctx, model.object, { direction, margin })` puts the camera where the whole model fits (a three-quarter view by default). Recipes `scene3d-basics` and `scene3d-in-space`.
 
 ### Keeping the scene across rebuilds: `reuse`
 

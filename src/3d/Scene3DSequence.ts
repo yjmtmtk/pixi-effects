@@ -17,7 +17,7 @@ import type { PropValue } from '../types';
 import type { Scene3DContext, Scene3DSequenceSpec } from './types';
 
 /** The keys a scene3d layer has besides the common ones. */
-const OWN_KEYS = ['width', 'height', 'view', 'resolution', 'setup', 'update', 'dispose', 'followCamera', 'followLights', 'followFog', 'reuse'] as const;
+const OWN_KEYS = ['width', 'height', 'view', 'resolution', 'setup', 'update', 'destroy', 'followCamera', 'followLights', 'followFog', 'reuse'] as const;
 /** What the layer owns: given in `view`, they are ignored. */
 const LAYER_OWNED = ['width', 'height', 'autoResize'] as const;
 
@@ -567,10 +567,10 @@ export class Scene3DSequence extends Sequence implements RayPickable {
     // another layer has this layer's scene (or this layer never took the one it borrowed): the scene, the 2D layers on meshes and the lights are not this layer's to let go
     const kept = this._donated || this._borrowed !== null;
     if (!kept) {
-      if (this._ctx && spec.dispose) {
-        try { spec.dispose(this._ctx); } catch (err) { console.warn(`${this._who()}: dispose() threw —`, err); }
+      if (this._ctx && spec.destroy) {
+        try { spec.destroy(this._ctx); } catch (err) { console.warn(`${this._who()}: destroy() threw —`, err); }
       }
-      for (const h of [...this._shown]) { try { h.dispose(); } catch { /* the 2D layer is gone with its tree */ } }
+      for (const h of [...this._shown]) { try { h.destroy(); } catch { /* the 2D layer is gone with its tree */ } }
       this._drawHooks.clear();
       for (const free of this._owned.splice(0)) free();
       this._lightMirror?.dispose();

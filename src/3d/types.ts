@@ -2,7 +2,7 @@ import type { Renderer } from 'pixi.js';
 import type { Camera3D, Container3D, View3D, View3DOptions } from '@pixi/3d';
 import type { SequenceCommon, PropValue, SpaceNow } from '../types';
 
-/** Handed to setup / update / dispose. One per scene3d layer. */
+/** Handed to setup / update / destroy. One per scene3d layer. */
 export interface Scene3DContext {
   /** The PixiJS 3D view the layer shows: a PixiJS display object that draws the scene inside PixiJS's own renderer. */
   view: View3D;
@@ -65,5 +65,5 @@ export interface Scene3DSequenceSpec extends SequenceCommon {
    */
   update?: (t: number, ctx: Scene3DContext) => void;
   /** Cleanup for resources you made (the view and everything under its root are destroyed by the layer). */
-  dispose?: (ctx: Scene3DContext) => void;
+  destroy?: (ctx: Scene3DContext) => void;
 }

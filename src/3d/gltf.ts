@@ -20,8 +20,8 @@ export interface LoadedModel {
   object: Container3D;
   /** The PixiJS 3D model inside `object` (its `player`, `materials`, `skeletons`). */
   model: Model3D;
-  /** The names of the clips the file has. */
-  clips: string[];
+  /** The names of the animations the file has (PixiJS 3D's `animationLabels`). */
+  animations: string[];
   /** The size of the model's bounding box now (with `fit`), in the scene's units. */
   size(): { x: number; y: number; z: number };
   /** Scale `object` so the model's longest side is `n` (a model in metres in a scene in composition pixels: `fit(400)` under `followCamera`). */
@@ -68,7 +68,7 @@ export async function loadModel(url: string, options: LoadModelOptions = {}): Pr
   };
   pose(0);
   return {
-    object, model, clips,
+    object, model, animations: clips,
     size: () => ({ x: base.x * object.scale.x, y: base.y * object.scale.y, z: base.z * object.scale.z }),
     fit: (n: number) => {
       const longest = Math.max(base.x, base.y, base.z);

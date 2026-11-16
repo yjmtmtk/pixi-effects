@@ -362,8 +362,8 @@ export class Scene2DSequence extends Sequence {
 
   override destroy(): void {
     const kept = this._donated || this._borrowed !== null;               // another layer has this scene, or this layer never took the one it borrowed
-    if (!kept && this._ctx && this._spec.dispose) {
-      try { this._spec.dispose(this._ctx); } catch (err) { console.warn(`${this._who()}: dispose() threw —`, err); }
+    if (!kept && this._ctx && this._spec.destroy) {
+      try { this._spec.destroy(this._ctx); } catch (err) { console.warn(`${this._who()}: destroy() threw —`, err); }
     }
     // the box holds the scene only while this layer owns it (a donated scene moved to the new layer's box; a borrowed one never came here)
     const box = this._box;

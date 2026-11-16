@@ -24,7 +24,7 @@ const CAMERA = [...COMMON] as const satisfies readonly KeysOfUnion<CameraSequenc
 const LIGHT = [...COMMON, 'kind', 'falloff'] as const satisfies readonly KeysOfUnion<LightSequenceSpec>[];
 const SHADER = [...COMMON, 'fragment', 'uniforms', 'width', 'height', 'resolution', 'transparent'] as const satisfies readonly KeysOfUnion<ShaderSequenceSpec>[];
 const CANVAS = [...COMMON, 'draw', 'setup', 'width', 'height', 'resolution', 'params', 'seed', 'scaleMode'] as const satisfies readonly KeysOfUnion<CanvasSequenceSpec>[];
-const SCENE2D = [...COMMON, 'setup', 'update', 'dispose', 'width', 'height', 'reuse'] as const satisfies readonly KeysOfUnion<Scene2DSequenceSpec>[];
+const SCENE2D = [...COMMON, 'setup', 'update', 'destroy', 'width', 'height', 'reuse'] as const satisfies readonly KeysOfUnion<Scene2DSequenceSpec>[];
 const NULL = [...COMMON] as const satisfies readonly KeysOfUnion<NullSequenceSpec>[];
 
 const SHAPE = [...COMMON, 'shape', 'fillGradient', 'colorSpace', 'strokeCap', 'strokeJoin'] as const;
