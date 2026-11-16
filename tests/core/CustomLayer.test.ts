@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 // the package entry pulls in Movie, which wants the real plugin exports: the mock only replaces what the layer code touches
 vi.mock('pixi.js', async (importOriginal) => ({ ...(await importOriginal<object>()), ...(await import('../space/mockPixi')).createPixiMock() }));
 import { Container } from 'pixi.js';
-import { Sequence, registerSequenceType } from '../../src/index';
+import { Sequence } from '../../src/sequences/Base';
+import { registerSequenceType } from '../../src/core/Composition';
 import { CompositionSequence } from '../../src/sequences/Composition';
 import { createTimeline } from '../../src/core/timelineEngine';
 import type { CompositionShape, SequenceSpec } from '../../src/types';

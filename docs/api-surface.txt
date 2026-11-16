@@ -146,18 +146,6 @@ interface CompositionSequenceSpec extends SequenceCommon
   type: "composition"
   use?: string
   width?: number
-interface CompositionShape
-  duration: number
-  findLayer?: ((name: string) => Sequence | null)
-  frameRate?: number
-  height: number
-  layerNames?: (() => string[])
-  onLayerBuilt?: (() => void | Promise<void>)
-  renderer?: Renderer<HTMLCanvasElement>
-  reuse?: ReusePool
-  spaceAt?: ((t: number) => SpaceNow)
-  vars?: Record<string, number>
-  width: number
 interface CompositionSpec extends SequenceCommon
   components?: Record<string, ComponentSpec>
   height?: number
@@ -604,7 +592,6 @@ interface RectShapeSpec extends ShapeBase, Trimmable
   height: PropValue
   shape: "rect"
   width: PropValue
-function registerSequenceType(type: string, ctor: SequenceCtor): void
 interface RenderOptions
   audio?: { codec?: string | undefined; bitrate?: string | number | undefined; }
   draft?: boolean
@@ -647,20 +634,6 @@ interface Scene2DSequenceSpec extends SequenceCommon
   width?: string | number
 interface Scene2DSetupResult
   objects?: Record<string, object>
-class Sequence
-  at: number
-  build(): Promise<void>
-  buildFilters(): void
-  destroy(): void
-  duration: number
-  intrinsicHeight: number
-  intrinsicWidth: number
-  parent: CompositionShape | null
-  root: CompositionShape
-  scope(): Scope
-  spec: SequenceSpec
-  target: Container<ContainerChild> | null
-  constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
 interface SequenceCommon
   at?: number | `${string}@${string}`
   blendMode?: BlendModeName
@@ -677,7 +650,6 @@ interface SequenceCommon
   name?: string
   parent?: string
   threeD?: boolean
-type SequenceCtor = { new (spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape): Sequence }
 type SequenceSpec = | NullSequenceSpec | VideoSequenceSpec | ImageSequenceSpec | TextSequenceSpec | AudioSequenceSpec | CompositionSequenceSpec | CameraSequenceSpec | LightSequenceSpec | Sh…
 interface SfxKnobs
   brightness?: number
@@ -725,10 +697,6 @@ interface SoundReport
   peakDb: number
   sampleRate: number
   windows: { t: number; rmsDb: number; }[]
-interface SpaceNow
-  camera: CameraState
-  fog: FogState | null
-  lights: LightState[]
 interface SplitOptions
   align?: "left" | "center" | "right"
   by?: "chars" | "words" | "lines"
