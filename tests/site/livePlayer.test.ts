@@ -30,7 +30,7 @@ async function withFixture<T>(opts: { reduce?: boolean }, fn: (cdp: any) => Prom
   } finally { try { proc.kill(); } catch { /* gone */ } server.close(); await check.sleep(200); try { rmSync(dir, { recursive: true, force: true }); } catch { /* held */ } }
 }
 
-const state = (cdp: any) => cdp.eval(`(() => Object.fromEntries(['hero', 'two', 'broken'].map(id => {
+const state = (cdp: any) => cdp.eval(`(() => Object.fromEntries(['hero', 'two', 'tall', 'broken'].map(id => {
   const f = document.getElementById(id), i = f.querySelector('iframe');
   return [id, { iframe: i ? i.getAttribute('src') : null, live: f.classList.contains('is-live'), ready: f.classList.contains('is-ready'),
     playing: !!(i && i.contentWindow && i.contentWindow.movie && i.contentWindow.movie.isPlaying), note: (f.querySelector('.live-note') || {}).textContent || '',
@@ -77,6 +77,20 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the live p
     await withFixture({ reduce: true }, async (cdp) => {
       await check.sleep(2500);
       expect((await state(cdp)).hero.iframe).toBe(null);
+    });
+  }, 60000);
+
+  it('the picture fills the frame, whatever the page around the canvas does (a vertical page capped at 420px with padding)', async () => {
+    await withFixture({ reduce: true }, async (cdp) => {
+      await cdp.eval(`document.querySelector('#tall .live-play').click()`);
+      await until(cdp, (x) => x.tall.ready);
+      const r = await cdp.eval(`(() => { const i = document.querySelector('#tall iframe'), w = i.contentWindow, c = w.document.getElementById('stage').getBoundingClientRect();
+        return { fw: i.clientWidth, fh: i.clientHeight, x: c.left, y: c.top, w: c.width, h: c.height }; })()`);
+      expect(r.fw).toBeGreaterThan(500);
+      expect(Math.abs(r.x)).toBeLessThan(1.5);
+      expect(Math.abs(r.y)).toBeLessThan(1.5);
+      expect(Math.abs(r.w - r.fw)).toBeLessThan(1.5);
+      expect(Math.abs(r.h - r.fh)).toBeLessThan(1.5);
     });
   }, 60000);
 

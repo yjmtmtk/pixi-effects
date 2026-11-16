@@ -7,6 +7,22 @@
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var current = null;
 
+  // A piece's page is kept as its AI wrote it: the template's padding and a .stage capped at a width (420px for a vertical one). In the
+  // frame only the picture shows: the stage fills the frame and the canvas fills the stage, its aspect kept. The frame is invisible until
+  // the piece is ready, so this lands before anyone sees it.
+  var FIT = 'html,body{margin:0!important;padding:0!important;height:100%!important;overflow:hidden!important}' +
+    '.stage{position:fixed!important;inset:0!important;width:auto!important;max-width:none!important;margin:0!important;z-index:2147483000}' +
+    '.stage canvas{width:100%!important;height:100%!important;border-radius:0!important;object-fit:contain}';
+  function fit(w) {
+    var d = null;
+    try { d = w && w.document; } catch (e) { return; }
+    if (!d || !d.head || d.URL === 'about:blank' || d.getElementById('pe-live-fit')) return;
+    var s = d.createElement('style');
+    s.id = 'pe-live-fit';
+    s.textContent = FIT;
+    d.head.appendChild(s);
+  }
+
   function stop(fig) {
     var f = fig.querySelector('iframe');
     if (f) f.remove();                                       // the iframe goes, and its sound with it
@@ -38,6 +54,7 @@
       if (!ifr.isConnected) return;
       var w = null;
       try { w = ifr.contentWindow; } catch (e) { /* another origin: never on this site */ }
+      fit(w);
       var logs = (w && w.__logs) || [];
       var failed = false;
       for (var i = 0; i < logs.length; i++) if (/init failed/.test(String(logs[i]))) failed = true;

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>fixture · a vertical piece laid out like the template</title>
+  <!-- tests/site/livePlayer.test.ts: the page around the canvas is the template's (padding, a .stage capped at 420px), as an agent leaves it.
+       The site's frame must still show the picture filling the frame. -->
+  <style>
+    body { background: #05040a; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(420px, 100%); margin: 0 auto; }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="stage"><canvas id="stage" width="1080" height="1920"></canvas></div>
+  <script>window.__logs = [];</script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1080, height: 1920, duration: 3, frameRate: 30, background: '#e91e63',
+        composition: { layers: [{ type: 'shape', name: 'dot', shape: 'circle', radius: 200, initial: { x: 540, y: 960, fill: '#ffffff' } }] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + e.message); }
+  </script>
+</body>
+</html>

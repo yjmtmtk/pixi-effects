@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>fixture · the live player</title>
-  <!-- tests/site/livePlayer.test.ts: three players. 'hero' starts by itself when seen (data-autoplay); 'two' is a second working piece; 'broken' never starts. -->
+  <!-- tests/site/livePlayer.test.ts: four players. 'hero' starts by itself when seen (data-autoplay); 'two' is a second working piece; 'tall' is a vertical page laid out like the template; 'broken' never starts. -->
   <link rel="stylesheet" href="../../../site/shared/tokens.css">
   <link rel="stylesheet" href="../../../site/shared/site.css">
   <script src="../../../site/shared/live.js" defer></script>
@@ -17,6 +17,10 @@
     <figure class="live" id="two" data-page="../../films/animate-text.html">
       <img src="poster.jpg" alt="a pink poster" width="320" height="180">
       <button class="live-play" type="button" aria-label="Play the second">▶</button>
+    </figure>
+    <figure class="live" id="tall" data-page="tall.html" style="width:540px;aspect-ratio:9/16">
+      <img src="poster.jpg" alt="a pink poster" width="320" height="180">
+      <button class="live-play" type="button" aria-label="Play the tall one">▶</button>
     </figure>
     <figure class="live" id="broken" data-page="broken.html">
       <img src="poster.jpg" alt="a pink poster" width="320" height="180">
