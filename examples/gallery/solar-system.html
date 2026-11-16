@@ -205,7 +205,7 @@
     }
 
     // cameras: orbit() for the opening sweep, then a sampled flight camera (cut on the same pose)
-    seqs.push(orbit({ name: 'cam-orbit', duration: ORBIT_END, degrees: 26, start: -26, radius: WIDE_DIST, center: [CX, LOOK_Y], ease: 'sine.inOut' }));
+    seqs.push(orbit({ name: 'cam-orbit', duration: ORBIT_END, degrees: 26, startAngle: -26, radius: WIDE_DIST, center: [CX, LOOK_Y], ease: 'sine.inOut' }));
     {
       const s = sampled(camProps, ORBIT_END, DURATION);
       seqs.push({ type: 'camera', name: 'cam-flight', at: ORBIT_END, duration: DURATION - ORBIT_END, initial: s.initial, keyframes: s.keyframes });

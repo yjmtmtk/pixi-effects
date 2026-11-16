@@ -1679,7 +1679,7 @@ A camera that circles a point. There is no per-frame expression in the DSL, so t
 import { orbit } from 'pixi-effects';
 
 sequences: [
-  orbit({ duration: 6, degrees: 40 }),                                   // ±20° around the centre of a 1280×720 canvas
+  orbit({ duration: 6, degrees: 40 }),                                   // ±20° around the middle of the movie, whatever its size
   // …threeD layers…
 ]
 ```
@@ -1687,13 +1687,12 @@ sequences: [
 | Option | Notes |
 |---|---|
 | `duration`, `degrees` | required. `degrees` is the total sweep (negative = the other way) |
-| `start` | start angle in degrees; default `-degrees / 2` (0 = straight in front of the centre) |
-| `radius` | distance from the centre; default = the default camera distance for `height` and `fov`, so `z = 0` is 1:1 at angle 0 |
-| `center` | `[x, y]` to circle and look at; default the canvas centre |
-| `width`, `height` | canvas size for the defaults (1280 × 720) |
+| `startAngle` | start angle in degrees; default `-degrees / 2` (0 = straight in front of the centre) |
+| `radius` | distance from the centre; default = the default camera distance for the movie's height and `fov`, so `z = 0` is 1:1 at angle 0 |
+| `center` | `[x, y]` to circle and look at; default the middle of the movie (`W/2`, `H/2`: the camera's values are expressions of the movie's size) |
 | `fov`, `ease`, `at`, `name`, `samplesPerSecond` | `ease` default `'sine.inOut'` |
 
-`z` is specified, so it stops following `fov`; for an orbit **plus** a dolly zoom write your own `fov` and `z = (H/2) / tan(fov/2)` keyframes.
+`z` is specified, so it stops following `fov`; for an orbit **plus** a dolly zoom give `dollyZoom: { from, to }`.
 
 ### `wiggle`
 

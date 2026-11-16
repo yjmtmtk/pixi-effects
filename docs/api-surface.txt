@@ -505,12 +505,10 @@ interface OrbitOptions
   duration: number
   ease?: string
   fov?: number
-  height?: number
   name?: string
   radius?: number
   samplesPerSecond?: number
-  start?: number
-  width?: number
+  startAngle?: number
 function particles(opts: ParticlesOptions): SequenceSpec[]
 interface ParticlesOptions
   angle?: Range
