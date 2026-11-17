@@ -3,7 +3,7 @@
 <head><meta charset="UTF-8" /><title>film · loadModel colourways (KHR_materials_variants)</title></head>
 <body style="margin:0">
   <!-- Test film (tests/films/scene3d-variants.test.ts): loadModel('../fixtures/variants-box.gltf' | .glb | spin-box.gltf) with its colourways.
-       ?file=gltf|glb|plain  ?variant=NAME (at load)  ?timed=1 (update(t) sets "orange" before 1 s, "blue" after)  ?bad=load|set (a name that is not there).
+       ?file=gltf|glb|plain  ?variant=NAME (at load)  ?timed=1 (update(t) sets "orange" before 1 s, "blue" after)  ?override=1 (the model's materials replaced by clones after load)  ?alias=1 (loaded by an Assets alias)  ?bad=load|set (a name that is not there).
        The page gives window.model, window.err (an error a call threw), boxColour(frame) and baseColour(frame) ([r, g, b] at the box's and the base's
        centre), hashOf(frame), window.__logs. -->
   <canvas id="stage" width="320" height="180"></canvas>
@@ -20,7 +20,10 @@
     import * as P3D from '@pixi/3d';
     register3D();
     const q = new URLSearchParams(location.search);
-    const file = { gltf: '../fixtures/variants-box.gltf', glb: '../fixtures/variants-box.glb', plain: '../fixtures/spin-box.gltf' }[q.get('file') || 'gltf'];
+    import { Assets } from 'pixi.js';
+    const files = { gltf: '../fixtures/variants-box.gltf', glb: '../fixtures/variants-box.glb', plain: '../fixtures/spin-box.gltf' };
+    if (q.get('alias')) Assets.add({ alias: 'vbox', src: files.glb });
+    const file = q.get('alias') ? 'vbox' : files[q.get('file') || 'gltf'];
     let view = null;
     const movie = new Movie();
     window.movie = movie;
@@ -48,6 +51,7 @@
               try { m = await loadModel(file, { animation: false, ...(q.get('variant') ? { variant: q.get('variant') } : {}), ...(q.get('bad') === 'load' ? { variant: 'red' } : {}) }); }
               catch (e) { window.err = e.message; m = await loadModel(file, { animation: false }); }
               window.model = m;
+              if (q.get('override')) m.model.materials = (mat) => mat.clone();
               if (q.get('bad') === 'set') { try { m.setVariant('gren'); } catch (e) { window.err = e.message; } }
               ctx.root.addChild(m.object, new P3D.AmbientLight({ intensity: 1.2 }));
               const sun = new P3D.DirectionalLight({ intensity: 2 }); sun.rotation.set(-0.9, 0.5, 0); ctx.root.addChild(sun);

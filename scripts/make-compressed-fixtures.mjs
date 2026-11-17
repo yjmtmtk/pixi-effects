@@ -51,6 +51,13 @@ const accessors = (n) => [
   gltf.meshes[0].primitives[0].indices = 2;
   writeFileSync(join(dir, 'ktx2-box.gltf'), JSON.stringify(gltf) + '\n');
   console.log('ktx2-box.gltf');
+  // the same box with a PNG fallback beside the KTX2 image (KHR_texture_basisu used, not required): drawn from the PNG unless a page asks for KTX2
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4UKFRYXOCocLmxIcKDQArpgYZHaj/7wAAAABJRU5ErkJggg==', 'base64');
+  const fb = { ...gltf, extensionsRequired: undefined,
+    textures: [{ source: 1, extensions: { KHR_texture_basisu: { source: 0 } } }],
+    images: [{ uri: 'lenses-normal.ktx2', mimeType: 'image/ktx2' }, { uri: `data:image/png;base64,${png.toString('base64')}`, mimeType: 'image/png' }] };
+  writeFileSync(join(dir, 'ktx2-fallback-box.gltf'), JSON.stringify(fb) + '\n');
+  console.log('ktx2-fallback-box.gltf');
 }
 
 // Meshopt box: buffer 0 is the fallback (no data), buffer 1 the compressed streams

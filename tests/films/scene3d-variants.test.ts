@@ -51,6 +51,25 @@ runFilms('scene3d: loadModel colourways (KHR_materials_variants)', () => {
     });
   }, 120_000);
 
+  it('the model\'s own material overrides are honoured: a colourway is resolved through model.materials when it is shown, and forward and backward agree', async () => {
+    await on('file=gltf&timed=1&override=1&variant=blue', async (film) => {
+      const h = (f: number) => film.eval<string>(`hashOf(${f})`);
+      const first = await h(5);
+      await h(60);
+      expect(await h(5)).toBe(first);
+      expect(orange(await film.eval<number[]>('boxColour(5)'))).toBe(true);
+      expect(blue(await film.eval<number[]>('boxColour(40)'))).toBe(true);
+      expect(await film.eval(`(() => { const box = window.model.model.getChildByLabel('box', true); return box.material === window.model.model.materials[1]; })()`)).toBe(true);
+    });
+  }, 120_000);
+
+  it('a model loaded by an Assets alias still lists its colourways (the file is found as Assets found it)', async () => {
+    await on('alias=1', async (film) => {
+      expect(await film.eval<string[]>('window.__logs')).toEqual([]);
+      expect(await film.eval('window.model.variants')).toEqual(['orange', 'blue', 'green']);
+    });
+  }, 120_000);
+
   it('a name that is not there says which there are (at load and in setVariant); a model with none says so', async () => {
     await on('file=gltf&bad=load', async (film) => {
       expect(await film.eval<string>('window.err')).toMatch(/loadModel: the model has no colourway "red" \(its colourways: "orange", "blue", "green"\)/);

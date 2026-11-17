@@ -34,8 +34,18 @@ runFilms('scene3d: loadModel with compressed glTF (KTX2, Draco, Meshopt)', () =>
     });
   }, 120_000);
 
+  it('a KTX2 texture with a PNG beside it is drawn from the PNG, as in 1.0: the KTX2 loader is not registered for it (no network, the same picture on every GPU)', async () => {
+    await on('file=fallback', async (film) => {
+      expect(await film.eval('window.err')).toBe(null);
+      expect(await film.eval<string[]>('window.__logs')).toEqual([]);
+      expect(await film.eval<boolean>('ktxParser()')).toBe(false);
+      expect(await film.eval<number>('drawn()')).toBeGreaterThan(500);
+    });
+  }, 120_000);
+
   it('a model whose only textures are KTX2 loads with no line on the page for it, and the transcoder is pinned to this pixi.js', async () => {
     await on('file=ktx2', async (film) => {
+      expect(await film.eval<boolean>('ktxParser()')).toBe(true);
       expect(await film.eval('window.err')).toBe(null);
       expect(await film.eval<string[]>('window.__logs')).toEqual([]);
       expect(await film.eval<number>('drawn()')).toBeGreaterThan(500);

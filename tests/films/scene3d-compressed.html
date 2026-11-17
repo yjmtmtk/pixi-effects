@@ -2,9 +2,9 @@
 <html lang="en">
 <head><meta charset="UTF-8" /><title>film · loadModel with compressed glTF (KTX2, Draco, Meshopt)</title></head>
 <body style="margin:0">
-  <!-- Test film (tests/films/scene3d-compressed.test.ts): loadModel of a compressed model in a scene3d layer. ?file=ktx2|draco|meshopt
+  <!-- Test film (tests/films/scene3d-compressed.test.ts): loadModel of a compressed model in a scene3d layer. ?file=ktx2|fallback|draco|meshopt
        ?decoder=missing (the Draco decoder is pointed at a file that is not there: what a page offline, or one that blocks other sites, meets).
-       The page gives window.model, window.err (what loadModel threw), window.ktx (the KTX2 transcoder URLs), hashOf(frame), window.__logs. -->
+       The page gives window.model, window.err (what loadModel threw), window.ktx (the KTX2 transcoder URLs after the load), ktxParser() (is the KTX2 loader registered), hashOf(frame), window.__logs. -->
   <canvas id="stage" width="320" height="180"></canvas>
   <script>
     window.__logs = [];
@@ -16,12 +16,12 @@
   <script type="module">
     import { Movie } from '../../dist/index.js';
     import { register3D, loadModel, fitCamera } from '../../dist/3d.js';
-    import { ktxTranscoderUrls } from 'pixi.js';
+    import { ktxTranscoderUrls, Assets } from 'pixi.js';
     import * as P3D from '@pixi/3d';
     register3D();
-    window.ktx = { ...ktxTranscoderUrls };
+    window.ktxParser = () => Assets.loader.parsers.some((p) => p.id === 'ktx2');
     const q = new URLSearchParams(location.search);
-    const file = { ktx2: '../fixtures/ktx2-box.gltf', draco: '../fixtures/draco/Box.gltf', meshopt: '../fixtures/meshopt-box.gltf' }[q.get('file')];
+    const file = { ktx2: '../fixtures/ktx2-box.gltf', fallback: '../fixtures/ktx2-fallback-box.gltf', draco: '../fixtures/draco/Box.gltf', meshopt: '../fixtures/meshopt-box.gltf' }[q.get('file')];
     if (q.get('decoder') === 'missing') P3D.setDracoDecoderPath({ jsUrl: '/tests/fixtures/no-such-draco-wrapper.js', wasmUrl: '/tests/fixtures/no-such-draco.wasm' });
     const movie = new Movie();
     window.movie = movie;
@@ -36,6 +36,7 @@
               let m = null;
               try { m = await loadModel(file, { animation: false }); } catch (e) { window.err = e.message; return; }
               window.model = m;
+              window.ktx = { ...ktxTranscoderUrls };
               ctx.root.addChild(m.object, new P3D.AmbientLight({ intensity: 1.2 }));
               const sun = new P3D.DirectionalLight({ intensity: 2 }); sun.rotation.set(-0.9, 0.5, 0); ctx.root.addChild(sun);
               fitCamera(ctx, m.object, { direction: [0.6, 0.5, 1] });

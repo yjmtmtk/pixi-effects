@@ -76,11 +76,11 @@ describe('probe on a glTF model: what an author needs before writing the page (n
     expect(r.stdout).toMatch(/gstatic/);                                       // where the Draco decoder comes from, so an offline page knows
   });
 
-  it('each compression says what it needs: Meshopt nothing, KTX2 nothing on the page (pixi-effects/3d registers it), Draco its decoder from gstatic', async () => {
+  it('each compression says what it needs: Meshopt nothing, KTX2 nothing on the page (loadModel registers it for a KTX2-only texture), Draco its decoder from gstatic', async () => {
     const meshopt = await probe(fixture('meshopt-box.gltf'));
     expect(meshopt.stdout).toMatch(/note .*EXT_meshopt_compression.*built into PixiJS 3D/);
     const ktx2 = await probe(fixture('ktx2-box.gltf'));
-    expect(ktx2.stdout).toMatch(/note .*KHR_texture_basisu.*register3D/);
+    expect(ktx2.stdout).toMatch(/note .*KHR_texture_basisu.*loadModel register/);
     expect(ktx2.stdout).not.toMatch(/import 'pixi\.js\/ktx2'/);
   });
 

@@ -4,6 +4,7 @@
 import { Assets } from 'pixi.js';
 import { Container3D, Matrix4, Mesh3D, Model3D, Vector3, dracoDecoderUrls, glbToGltf } from '@pixi/3d';
 import { suggestName } from '../core/options';
+import { ensureKtx2, needsKtx2 } from './ktx2';
 import type { Scene3DContext } from './types';
 
 export interface LoadModelOptions {
@@ -44,36 +45,62 @@ export interface LoadedModel {
 }
 
 interface GltfJsonLike {
+  extensionsUsed?: string[];
+  materials?: unknown[];
+  textures?: Array<{ source?: number; extensions?: { KHR_texture_basisu?: unknown } }>;
   extensions?: { KHR_materials_variants?: { variants?: Array<{ name?: string }> } };
   meshes?: Array<{ primitives?: Array<{ material?: number; extensions?: { KHR_materials_variants?: { mappings?: Array<{ material: number; variants: number[] }> } } }> }>;
 }
 
-/** The file's own glTF JSON (a .glb's JSON chunk, or the .gltf text): what PixiJS 3D does not keep, the colourways. Read from the cache of the load just made. */
+/** The file's own glTF JSON (a .glb's JSON chunk, or the .gltf text): what PixiJS 3D does not keep (the colourways, which textures are KTX2-only).
+ *  Found as Assets finds the file (an alias, a basePath), and for a .glb only its header and JSON chunk are read, not the binary. Null when it cannot be read. */
 async function gltfJson(url: string): Promise<GltfJsonLike | null> {
+  const resolved = (Assets as unknown as { resolver?: { resolve(k: string): { src?: unknown } | undefined } }).resolver?.resolve(url)?.src;
+  const src = typeof resolved === 'string' ? resolved : url;
   try {
-    const buf = await (await fetch(url)).arrayBuffer();
-    const b = new Uint8Array(buf);
-    if (b[0] === 0x67 && b[1] === 0x6c && b[2] === 0x54 && b[3] === 0x46) return glbToGltf(buf).json as unknown as GltfJsonLike;   // 'glTF'
-    return JSON.parse(new TextDecoder().decode(b)) as GltfJsonLike;
+    const res = await fetch(src);
+    if (!res.ok || !res.body) return null;
+    const reader = res.body.getReader();
+    let got = new Uint8Array(0);
+    const need = async (n: number): Promise<boolean> => {
+      while (got.length < n) {
+        const { done, value } = await reader.read();
+        if (done) return got.length >= n;
+        const next = new Uint8Array(got.length + value.length); next.set(got); next.set(value, got.length); got = next;
+      }
+      return true;
+    };
+    if (!(await need(4))) return null;
+    if (got[0] === 0x67 && got[1] === 0x6c && got[2] === 0x54 && got[3] === 0x46) {                // 'glTF': header, then the JSON chunk
+      if (!(await need(20))) return null;
+      const len = new DataView(got.buffer).getUint32(12, true);
+      if (!(await need(20 + len))) return null;
+      reader.cancel().catch(() => {});
+      return JSON.parse(new TextDecoder().decode(got.subarray(20, 20 + len))) as GltfJsonLike;
+    }
+    while (await need(got.length + 1)) { /* read the whole .gltf text */ }
+    return JSON.parse(new TextDecoder().decode(got)) as GltfJsonLike;
   } catch { return null; }
 }
 
-/** What `setVariant` swaps: for every mesh of the model whose glTF primitive has colourways, its own material and the one for each colourway. */
-function colourways(json: GltfJsonLike | null, model: Model3D, source: { geometries?: unknown[][] }): { names: string[]; parts: Array<{ mesh: Mesh3D; own: Mesh3D['material']; by: Map<number, Mesh3D['material']> }> } {
+/** What `setVariant` swaps: for every mesh of the model whose glTF primitive has colourways, the index of its own material and of the one for each
+ *  colourway. Indices, not materials: they are looked up in `model.materials` when shown, so the model's own material overrides are honoured. */
+function colourways(json: GltfJsonLike | null, model: Model3D, source: { geometries?: unknown[][] }): { names: string[]; parts: Array<{ mesh: Mesh3D; own: number; by: Map<number, number> }> } {
   const names = (json?.extensions?.KHR_materials_variants?.variants ?? []).map((v, i) => v.name ?? `variant ${i}`);
-  const parts: Array<{ mesh: Mesh3D; own: Mesh3D['material']; by: Map<number, Mesh3D['material']> }> = [];
+  const parts: Array<{ mesh: Mesh3D; own: number; by: Map<number, number> }> = [];
   if (!names.length || !json?.meshes) return { names, parts };
   const where = new Map<unknown, { m: number; p: number }>();                           // each primitive's Geometry3D -> its glTF mesh and primitive
   (source.geometries ?? []).forEach((prims, m) => prims.forEach((g, p) => where.set(g, { m, p })));
-  const materials = model.materials;
+  const fallback = json.materials?.length ?? 0;                                          // PixiJS 3D's default material, for a primitive with none
   const walk = (node: { children?: unknown[] }): void => {
     if (node instanceof Mesh3D) {
       const at = where.get(node.geometry);
-      const mappings = at ? json.meshes?.[at.m]?.primitives?.[at.p]?.extensions?.KHR_materials_variants?.mappings : undefined;
-      if (mappings?.length) {
-        const by = new Map<number, Mesh3D['material']>();
-        for (const mp of mappings) { const mat = materials[mp.material]; if (mat) for (const v of mp.variants) by.set(v, mat as Mesh3D['material']); }
-        parts.push({ mesh: node, own: node.material, by });
+      const prim = at ? json.meshes?.[at.m]?.primitives?.[at.p] : undefined;
+      const mappings = prim?.extensions?.KHR_materials_variants?.mappings;
+      if (prim && mappings?.length) {
+        const by = new Map<number, number>();
+        for (const mp of mappings) for (const v of mp.variants) by.set(v, mp.material);
+        parts.push({ mesh: node, own: prim.material ?? fallback, by });
       }
     }
     for (const c of node.children ?? []) walk(c as { children?: unknown[] });
@@ -87,14 +114,17 @@ const label = 'pixi-effects: loadModel';
 /** Load a glTF / GLB (a URL relative to the page) as a PixiJS 3D model, ready to pose from the time. Call it in a scene3d layer's `setup` (await it). */
 export async function loadModel(url: string, options: LoadModelOptions = {}): Promise<LoadedModel> {
   if (typeof url !== 'string' || !url) throw new Error(`${label}: the first argument is the model's URL: await loadModel('model.glb')`);
+  const json = await gltfJson(url);
+  if (needsKtx2(json)) ensureKtx2();                                                     // only for a texture with no other image (see ktx2.ts)
   let source;
   try { source = await Assets.load(url); }
   catch (e) {
-    const json = await gltfJson(url) as { extensionsUsed?: string[] } | null;
-    if (json?.extensionsUsed?.includes('KHR_draco_mesh_compression')) {
+    const msg = String((e as Error)?.message ?? e);
+    // the Draco decoder could not be fetched (offline, a page that blocks other sites): its worker's init failure, not any failure of a Draco file
+    if (json?.extensionsUsed?.includes('KHR_draco_mesh_compression') && /importScripts|Failed to fetch Draco WASM|Draco worker|not initiali[sz]ed/i.test(msg)) {
       const name = url.split(/[?#]/)[0]!.split('/').pop();
       throw new Error(`${label}: "${name}" is compressed with Draco and its decoder could not be loaded (from ${dracoDecoderUrls.jsUrl}: offline, or a page that blocks other sites?). `
-        + `Serve draco_wasm_wrapper.js and draco_decoder.wasm yourself and call setDracoDecoderPath({ jsUrl, wasmUrl }) from '@pixi/3d' before loading, or export the model again without Draco. (${(e as Error)?.message ?? e})`);
+        + `Serve draco_wasm_wrapper.js and draco_decoder.wasm yourself and call setDracoDecoderPath({ jsUrl, wasmUrl }) from '@pixi/3d' before loading, or export the model again without Draco. (${msg})`);
     }
     throw e;
   }
@@ -121,22 +151,27 @@ export async function loadModel(url: string, options: LoadModelOptions = {}): Pr
   model.position.set(-(box.min.x + box.max.x) / 2, -(box.min.y + box.max.y) / 2, -(box.min.z + box.max.z) / 2);
   const base = { x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z };
 
-  const ways = colourways(await gltfJson(url), model, source as { geometries?: unknown[][] });
+  const ways = colourways(json, model, source as { geometries?: unknown[][] });
+  const names = Object.freeze([...ways.names]) as string[];
   let current: string | null = null;
   const unknownVariant = (where: string, name: string): string => {
+    if (!json) return `pixi-effects: ${where}: the file could not be read again to find its colourways (asked for "${name}")`;
     if (!ways.names.length) return `pixi-effects: ${where}: the model has no colourways (its file has no KHR_materials_variants)`;
     const near = suggestName(name, ways.names);
     return `pixi-effects: ${where}: the model has no colourway "${name}" (its colourways: ${ways.names.map((n) => `"${n}"`).join(', ')})${near ? `; did you mean "${near}"?` : ''}`;
   };
+  // every call sets every part (a few meshes: cheap), so a frame does not depend on what was shown before, nor on materials changed since
   const setVariant = (name: string | null): void => {
-    if (name === current) return;
-    if (name === null) { for (const part of ways.parts) part.mesh.material = part.own; current = null; return; }
-    const i = ways.names.indexOf(name);
-    if (i < 0) throw new Error(unknownVariant('setVariant', String(name)));
-    for (const part of ways.parts) part.mesh.material = part.by.get(i) ?? part.own;
+    const i = name === null ? -1 : ways.names.indexOf(name);
+    if (name !== null && i < 0) throw new Error(unknownVariant('setVariant', String(name)));
+    const materials = model.materials;
+    for (const part of ways.parts) {
+      const mat = materials[i < 0 ? part.own : part.by.get(i) ?? part.own];
+      if (mat && part.mesh.material !== mat) part.mesh.material = mat as Mesh3D['material'];
+    }
     current = name;
   };
-  if (options.variant !== undefined) {
+  if (options.variant !== undefined && options.variant !== null) {
     if (!ways.names.includes(options.variant)) throw new Error(unknownVariant('loadModel', String(options.variant)));
     setVariant(options.variant);
   }
@@ -159,7 +194,7 @@ export async function loadModel(url: string, options: LoadModelOptions = {}): Pr
       object.scale.set(k, k, k);
     },
     pose,
-    variants: ways.names,
+    variants: names,
     get variant() { return current; },
     setVariant,
   };
