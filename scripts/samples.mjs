@@ -115,7 +115,7 @@ export function renderHero(ctx) {
 <div class="hero-panel" id="hero-panel" role="tabpanel" aria-labelledby="tab-${first.lang}">
   ${sentences}
   <div class="hero-video">
-${figure(ctx, first, { autoplay: true, lazy: false })}
+${figure(ctx, first, { lazy: false })}
   <div class="hero-facts">${factsHtml(first)}</div>
   </div>
 </div>`;

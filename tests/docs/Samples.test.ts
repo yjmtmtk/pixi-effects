@@ -94,7 +94,7 @@ describe('the sample regions sync-site writes', () => {
       expect(html).toContain(`lang="${s.lang}"`);
     });
     expect(cardsIn(html)).toHaveLength(1);                                   // one hero player; the tabs swap what it plays
-    expect(html).toMatch(/data-autoplay/);
+    expect(html).not.toMatch(/data-autoplay/);                                // the owner's call (2026-11-17): nothing plays until it is pressed
     expect(html).not.toMatch(/hero-card|data-card/);
   });
 });
