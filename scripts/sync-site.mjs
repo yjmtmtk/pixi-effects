@@ -2,12 +2,12 @@
 //   node scripts/sync-site.mjs            write
 //   node scripts/sync-site.mjs --check    write nothing; exit 1 and list the pages that are out of date
 // A page may list `parts` (default head, header, footer) and extra `regions` (see REGIONS) in site/pages.json.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { renderFooter, renderHead, renderHeader, rootPrefix } from './site-parts.mjs';
-import { renderHero, renderPromo, renderRefined } from './samples.mjs';
-import { renderGallery } from './gallery.mjs';
+import { renderHero, renderPromo, renderRefined, loadSamples, validateSample } from './samples.mjs';
+import { renderGallery, loadGallery } from './gallery.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -66,7 +66,28 @@ export function syncSite({ root = ROOT, check = false } = {}) {
   return { stale, written };
 }
 
+/** What is wrong with the samples and the gallery sync-site writes (a bad entry would drop its card without a word), as sentences; [] when fine. */
+export function dataErrors(root) {
+  const out = [];
+  let samples = [];
+  try { const d = loadSamples(root); samples = Array.isArray(d) ? d : d.samples ?? []; } catch (e) { out.push(`site/samples/samples.json: ${e.message}`); }
+  for (const s of samples) {
+    for (const e of validateSample(s)) out.push(`sample ${s.id}: ${e}`);
+    for (const f of [s.page, s.poster]) if (typeof f === 'string' && !existsSync(join(root, 'site/samples', String(s.id), f))) out.push(`sample ${s.id}: site/samples/${s.id}/${f} is missing`);
+  }
+  let pieces = [];
+  try { pieces = loadGallery(root); } catch (e) { out.push(`site/gallery/pieces.json: ${e.message}`); }
+  for (const p of pieces) {
+    for (const k of ['id', 'title', 'subtitle', 'page', 'poster']) if (typeof p[k] !== 'string' || !p[k]) out.push(`gallery ${p.id}: ${k} must be a non-empty string`);
+    if (!(p.width > 0 && p.height > 0)) out.push(`gallery ${p.id}: width and height must be above 0`);
+    for (const f of [p.page, p.poster]) if (typeof f === 'string' && f && !existsSync(join(root, 'site/gallery', f))) out.push(`gallery ${p.id}: site/gallery/${f} is missing`);
+  }
+  return out;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const bad = dataErrors(ROOT);
+  if (bad.length) { console.error(`the site's data is wrong, nothing written:\n  ${bad.join('\n  ')}`); process.exit(1); }
   const check = process.argv.includes('--check');
   const { stale, written } = syncSite({ check });
   if (check && stale.length) { console.error(`out of date (run \`npm run site:sync\`): ${stale.join(', ')}`); process.exit(1); }
