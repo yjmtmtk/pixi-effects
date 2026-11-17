@@ -30,7 +30,7 @@ describe('site/samples/samples.json', () => {
     for (const s of samples) expect(s.version, s.id).toBe('1.0.0');
     const kinds = samples.map((s: any) => s.kind);
     expect(kinds.filter((k: string) => k === 'one').length).toBeGreaterThanOrEqual(4);
-    expect(kinds.filter((k: string) => k === 'refined').length).toBeGreaterThanOrEqual(2);
+    expect(kinds.filter((k: string) => k === 'refined').length).toBeGreaterThanOrEqual(1);
     expect(kinds.filter((k: string) => k === 'promo')).toHaveLength(1);
   });
 

@@ -100,24 +100,6 @@
       "version": "1.0.0"
     },
     {
-      "id": "pan-marche-refined",
-      "kind": "refined",
-      "lang": "ja",
-      "title": "Bread market",
-      "messages": [
-        "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：週末のパンのマルシェの告知、15秒。",
-        "もっとやわらかい手描き風にして、パンが焼き上がる湯気を入れて。",
-        "最後に日付と場所（11月23日・中央公園）を大きく出して、鐘の音で終わらせて。"
-      ],
-      "page": "pan-marche.html",
-      "poster": "poster.jpg",
-      "alt": "A hand-drawn bread market notice: a loaf bakes with rising steam, the breads line up, and it ends on 11.23 at the central park with a bell.",
-      "minutes": 12,
-      "runs": 1,
-      "model": "Claude Opus",
-      "version": "1.0.0"
-    },
-    {
       "id": "promo-pixi-effects",
       "kind": "promo",
       "lang": "en",

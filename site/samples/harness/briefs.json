@@ -56,15 +56,5 @@
       "Slow the ending down and finish on the logo with “Download free”.",
       "The corners of the phone screen stick out past the phone's rounded frame. Please fix that."
     ]
-  },
-  {
-    "id": "pan-marche-refined",
-    "lang": "ja",
-    "kind": "refined",
-    "message": "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：週末のパンのマルシェの告知、15秒。",
-    "followups": [
-      "もっとやわらかい手描き風にして、パンが焼き上がる湯気を入れて。",
-      "最後に日付と場所（11月23日・中央公園）を大きく出して、鐘の音で終わらせて。"
-    ]
   }
 ]
