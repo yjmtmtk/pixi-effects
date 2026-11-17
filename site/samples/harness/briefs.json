@@ -43,6 +43,10 @@
     "id": "promo",
     "lang": "en",
     "kind": "promo",
-    "message": "Make a promo video for this project. It will be the main video on its website, so make it about a minute long and show clearly what the project can do."
+    "message": "Make a promo video for this project. It will be the main video on its website, so make it about a minute long and show clearly what the project can do.",
+    "followups": [
+      "In the scene \"It checks its own work.\", the contact sheet is just coloured bars in boxes, so it doesn't look like a real contact sheet: show small pictures of the earlier scenes instead. Also the \"chart\" label there is white on white.",
+      "In the same scene the terminal window runs under the contact sheet: its right edge overlaps the sheet's left edge. Give each its own space with a clear gap between them."
+    ]
   }
 ]

@@ -394,7 +394,7 @@
       ];
       const L = [bg(C.ink), glow(1450, 400, 700, C.violet, 0.2),
         txt('It checks its own work.', 110, 120, { fontSize: 72, fontWeight: '800', fill: '#ffffff' }, { initial: { anchorY: 0.5 }, keyframes: [fadeUp(0.1)] }),
-        { type: 'shape', shape: 'rect', name: 'terminal', width: 1000, height: 640, cornerRadius: 22, initial: { x: TX + 470, y: 570, fill: '#0a0714' }, keyframes: [{ at: 0.1, from: { alpha: 0 }, duration: 0.4 }] },
+        { type: 'shape', shape: 'rect', name: 'terminal', width: 910, height: 640, cornerRadius: 22, initial: { x: 535, y: 570, fill: '#0a0714' }, keyframes: [{ at: 0.1, from: { alpha: 0 }, duration: 0.4 }] },
         ...[C.pink, C.orange, C.green].map((c, i) => ({ type: 'shape', shape: 'circle', radius: 9, initial: { x: TX - 6 + i * 30, y: 280, fill: c } })),
       ];
       term.forEach(([line, at, fill], i) => {
@@ -414,17 +414,19 @@
       L.push({ type: 'text', name: 'done', text: '✓ promo.mp4', at: 5.1, style: { fontFamily: MONO, fontSize: 30, fontWeight: '700', fill: C.green }, initial: { x: TX - 20, y: PY + 62, anchorY: 0.5 },
         keyframes: [{ at: 0, from: { alpha: 0, scale: 1.3 }, duration: 0.25, ease: 'back.out(2)' }] });
       L.push({ type: 'audio', sfx: 'chime', at: 5.1, volume: 0.8 });
-      // the contact sheet the check writes: a tile per scene of this film
-      const tiles = [['sentence', C.deep, C.pink], ['data', C.ink, C.orange], ['type', C.violetText, '#ffffff'], ['2.5D', '#0c0918', C.sky],
-        ['3D', '#0d0a16', '#e6e0ff'], ['particles', '#0a0716', C.orange], ['chart', C.lav, C.violet], ['shader', C.violet, C.pink], ['sound', C.deep, C.green]];
-      const GX = 1170, GY = 330, TW = 200, TH = 113, TG = 18;
+      // the contact sheet the check writes: real frames of the scenes above (thumbs/scene-N.jpg, taken from this film at the time beside each)
+      const tiles = [['6.5s', 'sentence'], ['15.5s', 'data'], ['21.5s', 'type'], ['24.5s', '2.5D'], ['28.5s', '3D'],
+        ['32.5s', 'particles'], ['37.5s', 'chart'], ['40.5s', 'shader'], ['46.5s', 'sound']];
+      const GX = 1230, GY = 330, TW = 200, TH = 113, TG = 18, TS = TW / 480;   // thumbs are 480×270
       L.push(txt('sheet.png', GX - TW / 2, GY - TH / 2 - 44, { fontFamily: MONO, fontSize: 24, fill: C.codeCom }, { at: 2.1, initial: { anchorY: 0.5 }, keyframes: [fadeUp(0, 0.4, 10)] }));
-      tiles.forEach(([name, fill, accent], i) => {
+      tiles.forEach(([time, name], i) => {
         const x = GX + (i % 3) * (TW + TG), y = GY + Math.floor(i / 3) * (TH + TG), at = 2.2 + i * 0.07;
-        const pop = [{ at: 0, from: { alpha: 0, scale: 0.6 }, to: { alpha: 1, scale: 1 }, duration: 0.3, ease: 'back.out(1.8)' }];
-        L.push({ type: 'shape', shape: 'rect', width: TW, height: TH, cornerRadius: 8, at, initial: { x, y, fill, stroke: '#ffffff', strokeWidth: 2, strokeAlpha: 0.25 }, keyframes: pop });
-        L.push({ type: 'shape', shape: 'rect', width: TW * 0.5, height: 12, cornerRadius: 6, at, initial: { x, y: y - 12, fill: accent }, keyframes: pop });
-        L.push(txt(name, x, y + 24, { fontFamily: MONO, fontSize: 18, fill: '#ffffff' }, { at, initial: { anchorX: 0.5, anchorY: 0.5, alpha: 0.85 }, keyframes: pop }));
+        const pop = (s = 1) => [{ at: 0, from: { alpha: 0, scale: 0.6 * s }, to: { alpha: 1, scale: s }, duration: 0.3, ease: 'back.out(1.8)' }];
+        L.push({ type: 'image', name: 'thumb-' + name, asset: 'thumb' + i, at, initial: { x, y, anchorX: 0.5, anchorY: 0.5, scale: TS }, keyframes: pop(TS) });
+        // a caption band at the foot of the tile, as on the check's sheet: legible on light and dark frames alike
+        L.push({ type: 'shape', shape: 'rect', width: TW, height: 24, at, initial: { x, y: y + TH / 2 - 12, fill: '#000000', alpha: 0.7 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.7 }, duration: 0.3 }] });
+        L.push(txt(time + '  ' + name, x - TW / 2 + 8, y + TH / 2 - 12, { fontFamily: MONO, fontSize: 15, fill: '#ffffff' }, { at, initial: { anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.3 }] }));
+        L.push({ type: 'shape', shape: 'rect', width: TW, height: TH, at, initial: { x, y, stroke: '#ffffff', strokeWidth: 2, strokeAlpha: 0.3 }, keyframes: pop() });
       });
       L.push(txt('MP4 · WebM · MOV', GX + TW + TG, 790, { fontSize: 50, fontWeight: '800', fill: '#ffffff' }, { at: 3.4, initial: { anchorX: 0.5, anchorY: 0.5 }, keyframes: [fadeUp(0)] }));
       L.push(txt('exported in the browser, no server', GX + TW + TG, 850, { fontSize: 32, fill: C.codeCom }, { at: 3.6, initial: { anchorX: 0.5, anchorY: 0.5 }, keyframes: [fadeUp(0)] }));
@@ -486,6 +488,7 @@
         poster: 56.5,
         loudness: -16,
         background: C.deep,
+        assets: Array.from({ length: 9 }, (_, i) => ({ name: 'thumb' + i, src: `./thumbs/scene-${i}.jpg` })),
         composition: { layers, transitions },
       });
       window.__ready = true;

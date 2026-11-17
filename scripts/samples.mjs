@@ -21,7 +21,9 @@ export function validateSample(s) {
   if (!KINDS.includes(s.kind)) out.push(`kind must be one of ${KINDS.join(', ')}`);
   if (!LANGS.includes(s.lang)) out.push(`lang must be one of ${LANGS.join(', ')}`);
   if (!Array.isArray(s.messages) || s.messages.some((m) => typeof m !== 'string' || !m)) out.push('messages must be a list of the messages sent');
-  else if (s.kind === 'refined' ? s.messages.length < 2 : s.messages.length !== 1) out.push(`messages: a ${s.kind} piece has ${s.kind === 'refined' ? 'two or more' : 'exactly one'}`);
+  else if (s.kind === 'refined' ? s.messages.length < 2 : s.kind === 'promo' ? s.messages.length < 1 : s.messages.length !== 1) {
+    out.push(`messages: a ${s.kind} piece has ${s.kind === 'refined' ? 'two or more' : s.kind === 'promo' ? 'one or more (the follow-ups shown as sent)' : 'exactly one'}`);
+  }
   if (!(typeof s.minutes === 'number' && s.minutes > 0)) out.push('minutes must be a positive number (wall clock, first message to the delivered MP4)');
   if (!Number.isInteger(s.runs) || s.runs < 1 || s.runs > 3) out.push('runs must be 1, 2 or 3 (best of N, at most 3)');
   if (s.model !== 'Claude Opus') out.push('model must be "Claude Opus" (the samples are made by Opus only)');
@@ -95,7 +97,7 @@ export function renderPromo(ctx) {
   return `<div class="promo" id="sample-${esc(s.id)}">
 ${figure(ctx, s)}
 <div class="promo-chat">
-  <p class="msg you"><span class="prompt" aria-hidden="true">&gt;</span> ${esc(s.messages[0])}</p>
+${s.messages.map((m) => `  <p class="msg you"><span class="prompt" aria-hidden="true">&gt;</span> ${esc(m)}</p>`).join('\n')}
   <div class="msg done"><span class="ok" aria-hidden="true">✓</span> promo video delivered ${factsHtml(s)}</div>
 </div>
 </div>`;

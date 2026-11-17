@@ -72,11 +72,16 @@ describe('the sample regions sync-site writes', () => {
     }
   });
 
-  it('samples-promo: the one message and the video it made', () => {
+  it('samples-promo: every message sent, in order, "N messages" when there were several, and the video it made', () => {
     const html = region('samples-promo');
     const p = samples.find((s: any) => s.kind === 'promo');
     expect(html).toContain('Make a promo video for this project.');
+    let at = -1;
+    for (const m of p.messages) { const i = html.indexOf(m.replace(/&/g, '&amp;').replace(/"/g, '&quot;')); expect(i, m).toBeGreaterThan(at); at = i; }
+    if (p.messages.length > 1) expect(html).toContain(`${p.messages.length} messages`);
     expect(cardsIn(html)).toEqual([`site/samples/${p.id}/${p.page}`]);
+    expect(validateSample({ ...p, messages: [p.messages[0], 'Then fix this.'] })).toEqual([]);   // a promo may take follow-ups, shown as they were sent
+    expect(validateSample({ ...p, messages: [] }).join(' ')).toMatch(/messages/);
   });
 
   it('samples-hero: a tab per language (role, aria-selected on the first); the sentence carries its language; no link to a card', () => {
