@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 - **A model's colourways (glTF `KHR_materials_variants`).** `loadModel(url, { variant: 'street' })` starts in one; the loaded model lists them (`variants`), says which is shown (`variant`) and switches with `setVariant(name)` (`null`: the file's own colours). It only swaps materials, so it can follow the time from `update(t)` or a click. A wrong name says the right ones. `pixi-effects probe model.glb` lists them.
 - **KTX2 textures need nothing on the page.** A model with a texture whose only image is KTX2 makes `loadModel` register PixiJS's KTX2 loader and pin its transcoder to the pixi.js in use (PixiJS's default fetched the newest one); a path the page set with `setKTXTranscoderPath` is left alone. A texture with a PNG / JPEG beside its KTX2 image is still drawn from that, as in 1.0 (offline, the same on every GPU).
