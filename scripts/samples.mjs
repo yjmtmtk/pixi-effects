@@ -45,8 +45,10 @@ export function jpegSize(file) {
   let i = 2;
   while (i + 9 < b.length) {
     if (b[i] !== 0xff) { i++; continue; }
+    while (b[i + 1] === 0xff && i + 9 < b.length) i++;              // fill bytes: any number of 0xFF may come before a marker
     const m = b[i + 1];
     if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { width: b.readUInt16BE(i + 7), height: b.readUInt16BE(i + 5) };
+    if ((m >= 0xd0 && m <= 0xd9) || m === 0x01) { i += 2; continue; }  // RSTn, SOI, EOI, TEM carry no length
     i += 2 + b.readUInt16BE(i + 2);
   }
   return null;

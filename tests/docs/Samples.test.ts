@@ -1,9 +1,11 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { resolve } from 'node:path';
 // @ts-expect-error plain ESM script without types
-import { loadSamples, validateSample, heroSamples, LANGS } from '../../scripts/samples.mjs';
+import { loadSamples, validateSample, heroSamples, LANGS, jpegSize } from '../../scripts/samples.mjs';
 // @ts-expect-error plain ESM script without types
 import { REGIONS } from '../../scripts/sync-site.mjs';
 
@@ -49,6 +51,19 @@ describe('site/samples/samples.json', () => {
     const hero = heroSamples(samples);
     expect(hero.map((s: any) => s.lang)).toEqual(LANGS.filter((l: string) => samples.some((s: any) => s.kind === 'one' && s.lang === l)));
     expect(hero.every((s: any) => s.kind === 'one')).toBe(true);
+  });
+});
+
+describe('jpegSize: a poster\'s size, read from its SOF marker', () => {
+  it('reads past fill bytes (any number of 0xFF before a marker) and markers that carry no length', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'jpeg-'));
+    try {
+      const sof = [0xff, 0xc0, 0x00, 0x11, 0x08, 0x02, 0xd0, 0x07, 0x80, 0x03, 0x01, 0x22, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01];   // 1920 x 720
+      const app0 = [0xff, 0xff, 0xff, 0xe0, 0x00, 0x04, 0x00, 0x00];                  // APP0 with two fill bytes before it
+      const bytes = Buffer.from([0xff, 0xd8, ...app0, 0xff, 0xd0, 0xff, 0xff, ...sof, 0xff, 0xd9]);   // and a lone RST0, more fill
+      const f = join(dir, 'p.jpg'); writeFileSync(f, bytes);
+      expect(jpegSize(f)).toEqual({ width: 1920, height: 720 });
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });
 
