@@ -2,9 +2,11 @@
 # The promo of this project: a fresh Claude Opus session inside a clean clone of the site branch, given exactly the owner's phrase.
 # AGENTS.md (and CLAUDE.md, which points to it) is the only guidance; nothing of this computer's user settings is loaded.
 #   site/samples/harness/promo.sh <run#> <work-root> [<repository: a path or URL>] [<branch>]
+# The message is briefs.json's "promo" entry, unchanged.
 set -u
 RUN="$1"; ROOT="$2"; REPO="${3:-https://github.com/yjmtmtk/pixi-effects}"; BRANCH="${4:-main}"
-MSG="Make a promo video for this project."
+HERE="$(cd "$(dirname "$0")" && pwd)"
+MSG="$(node -e "process.stdout.write(require('$HERE/briefs.json').find(x=>x.id==='promo').message)")" || { echo "no promo brief"; exit 2; }
 D="$ROOT/promo-run$RUN"; rm -rf "$D"; mkdir -p "$D"
 git clone --quiet --branch "$BRANCH" "$REPO" "$D/pixi-effects" || exit 1
 cd "$D/pixi-effects"

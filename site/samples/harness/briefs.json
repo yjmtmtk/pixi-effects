@@ -38,5 +38,11 @@
       "Slow the ending down and finish on the logo with “Download free”.",
       "The corners of the phone screen stick out past the phone's rounded frame. Please fix that."
     ]
+  },
+  {
+    "id": "promo",
+    "lang": "en",
+    "kind": "promo",
+    "message": "Make a promo video for this project. It will be the main video on its website, so make it about a minute long and show clearly what the project can do."
   }
 ]
