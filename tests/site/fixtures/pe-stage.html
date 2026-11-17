@@ -5,6 +5,7 @@
   <title>fixture · a piece laid out like the old gallery</title>
   <!-- tests/site/livePlayer.test.ts: the page around the canvas is the old gallery's (a centring grid body, a .pe-stage capped at 960px).
        The site's frame must still show the picture filling the frame. -->
+  <link rel="stylesheet" href="../../../src/loader.css" />
   <style>
     html, body { height: 100%; }
     body { background: #0d1220; margin: 0; padding: 16px; box-sizing: border-box; display: grid; place-items: center; }
@@ -13,7 +14,7 @@
   </style>
 </head>
 <body>
-  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas></div>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
   <script>window.__logs = [];</script>
   <script type="importmap">
   { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny" } }
@@ -23,6 +24,7 @@
     const movie = new Movie();
     window.movie = movie;
     try {
+      if (location.search.includes('slow')) await new Promise((r) => setTimeout(r, 2500));   // the piece's own loader stays up a while
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 3, frameRate: 30, background: '#e91e63',
         composition: { layers: [{ type: 'shape', name: 'dot', shape: 'circle', radius: 200, initial: { x: 640, y: 360, fill: '#ffffff' } }] },

@@ -39,7 +39,7 @@ pre code{background:none;padding:0;font-size:inherit}
 .live{position:relative;margin:0;border-radius:var(--radius);overflow:hidden;background:var(--code-bg);box-shadow:var(--shadow-lg);cursor:pointer}
 .live img{width:100%;height:auto;display:block}
 .live iframe{position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .25s ease;background:var(--code-bg)}
-.live.is-ready iframe{opacity:1}
+.live.is-ready iframe,.live.is-showing iframe{opacity:1}
 .live.is-ready{cursor:default}
 .live-play{position:absolute;left:50%;top:50%;width:68px;height:68px;margin:-34px 0 0 -34px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:var(--pink-deep);font-size:24px;line-height:68px;padding-left:5px;cursor:pointer;box-shadow:0 10px 30px -8px rgba(29,22,48,.45);transition:transform .15s ease}
 .live-play:hover{transform:scale(1.06)}

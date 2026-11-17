@@ -30,7 +30,7 @@ async function withFixture<T>(opts: { reduce?: boolean; width?: number; height?:
   } finally { try { proc.kill(); } catch { /* gone */ } server.close(); await check.sleep(200); try { rmSync(dir, { recursive: true, force: true }); } catch { /* held */ } }
 }
 
-const state = (cdp: any) => cdp.eval(`(() => Object.fromEntries(['hero', 'two', 'tall', 'broken'].map(id => {
+const state = (cdp: any) => cdp.eval(`(() => Object.fromEntries(['hero', 'two', 'tall', 'own', 'broken'].map(id => {
   const f = document.getElementById(id), i = f.querySelector('iframe');
   return [id, { iframe: i ? i.getAttribute('src') : null, live: f.classList.contains('is-live'), ready: f.classList.contains('is-ready'),
     playing: !!(i && i.contentWindow && i.contentWindow.movie && i.contentWindow.movie.isPlaying), note: (f.querySelector('.live-note') || {}).textContent || '',
@@ -171,6 +171,20 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the live p
       await cdp.eval(`document.querySelector('#broken .live-play').click()`);
       await until(cdp, (x) => x.broken.note !== '', 20000);
       expect(await note('broken')).toBe(null);
+    });
+  }, 60000);
+
+  it('a piece with the library\'s own loader (.pe-loader) shows it while it gets ready: the frame is seen at once, the site\'s note steps aside', async () => {
+    await withFixture({ reduce: true }, async (cdp) => {
+      await cdp.eval(`document.querySelector('#own .live-play').click()`);
+      const look = () => cdp.eval(`(() => { const f = document.querySelector('#own'), i = f.querySelector('iframe'); const d = i && i.contentDocument;
+        const l = d && d.querySelector('.pe-loader');
+        return { seen: !!i && getComputedStyle(i).opacity === '1', ready: f.classList.contains('is-ready'), site: !!f.querySelector('.live-loading'),
+          own: !!l && !l.classList.contains('pe-loader--done') && d.defaultView.getComputedStyle(l).display !== 'none' }; })()`);
+      const t0 = Date.now(); let r = await look();
+      while (!(r.seen && r.own) && Date.now() - t0 < 2000) { await check.sleep(50); r = await look(); }
+      expect(r).toEqual({ seen: true, ready: false, site: false, own: true });
+      await until(cdp, (x) => x.own?.ready ?? false);
     });
   }, 60000);
 

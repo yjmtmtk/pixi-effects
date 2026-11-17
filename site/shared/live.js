@@ -47,7 +47,7 @@
     loading(fig, false);
     var f = fig.querySelector('iframe');
     if (f) f.remove();                                       // the iframe goes, and its sound with it
-    fig.classList.remove('is-live', 'is-ready');
+    fig.classList.remove('is-live', 'is-ready', 'is-showing');
     if (current === fig) current = null;
   }
 
@@ -77,6 +77,10 @@
       var w = null;
       try { w = ifr.contentWindow; } catch (e) { /* another origin: never on this site */ }
       fit(w);
+      // the piece's own loader (pixi-effects' .pe-loader, with how far it is) is on screen: show the frame now, the site's note steps aside
+      var own = null;
+      try { own = w && w.document && w.document.querySelector('.pe-loader:not(.pe-loader--done)'); } catch (e) { /* another origin */ }
+      if (own && !fig.classList.contains('is-showing')) { fig.classList.add('is-showing'); loading(fig, false); }
       var logs = (w && w.__logs) || [];
       var failed = false;
       for (var i = 0; i < logs.length; i++) if (/init failed/.test(String(logs[i]))) failed = true;
