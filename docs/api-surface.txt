@@ -973,13 +973,17 @@ interface LoadedModel
   model: Model3D
   object: Container3D
   pose(t: number): void
+  setVariant(name: string | null): void
   size(): { x: number; y: number; z: number; }
+  variant: string | null
+  variants: string[]
 function loadModel(url: string, options?: LoadModelOptions): Promise<LoadedModel>
 interface LoadModelOptions
   animation?: string | number | false
   loop?: boolean
   offset?: number
   speed?: number
+  variant?: string
 function register3D(): void
 function scene3d(spec: Scene3DLayerSpec): LayerSpec
 interface Scene3DContext

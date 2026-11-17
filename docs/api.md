@@ -667,7 +667,7 @@ In a scene3d layer's `setup`: the 2D layer `name` (a composition listed before t
 
 ### `loadModel(url, options?): Promise<LoadedModel>`
 
-Loads a glTF / GLB as a PixiJS 3D `Model3D`: `{ object, model, animations, size(), fit(n), pose(t) }`; options `animation` (a name, an index, `false`), `speed`, `offset`, `loop`.
+Loads a glTF / GLB as a PixiJS 3D `Model3D`: `{ object, model, animations, size(), fit(n), pose(t), variants, variant, setVariant(name) }`; options `animation` (a name, an index, `false`), `speed`, `offset`, `loop`, `variant` (a colourway to start in). `variants` are the file's colourways (glTF `KHR_materials_variants`), `variant` the one shown (`null`: the file's own colours), `setVariant(name | null)` switches (it swaps materials only: call it from `update(t)` or a click). A name that is not there throws with the names there are. Compressed files: Meshopt loads offline; KTX2 textures need nothing on the page (`register3D()` registers the loader); Draco's decoder loads from www.gstatic.com, and when it cannot `loadModel` says what to do (`setDracoDecoderPath` from `@pixi/3d`, or export without Draco).
 
 ### `fitCamera(ctx, object, options?): void`
 
