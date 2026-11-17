@@ -72,7 +72,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Lab in
   it('each touchable piece starts live on a click and reports ready', async () => {
     await withLab(async (cdp) => {
       const n: number = await cdp.eval(`document.querySelectorAll('#touch figure.live').length`);
-      expect(n).toBeGreaterThanOrEqual(2);
+      expect(n).toBeGreaterThanOrEqual(1);
       for (let i = 0; i < n; i++) {
         await cdp.eval(`document.querySelectorAll('#touch figure.live .live-play')[${i}].click()`);
         expect(await readyIn(cdp, `#touch figure.live:nth-of-type(${i + 1}) iframe`), `piece ${i}`).toBe(true);

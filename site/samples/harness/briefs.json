@@ -39,7 +39,12 @@
     "id": "lab-drag",
     "lang": "en",
     "kind": "lab",
-    "message": "Use https://github.com/yjmtmtk/pixi-effects to make an interactive video of a sneaker in 3D that the viewer can turn by dragging, with its name and price. Untouched, it plays as an ordinary 10-second turntable video."
+    "message": "Use https://github.com/yjmtmtk/pixi-effects to make an interactive video of a sneaker in 3D that the viewer can turn by dragging, with its name and price. Untouched, it plays as an ordinary 10-second turntable video.",
+    "followups": [
+      "Let the viewer switch the colour by clicking. Keep two colourways (blue and black-red), drop the third, and shrink the textures to 1024 px so the model file is much lighter.",
+      "The model's licence (CC BY 4.0) asks you to say when you changed it: add to the credit that one colourway was removed and the textures were shrunk.",
+      "On a website the video sits in a frame about 600 px wide, and there the player bar covers the colour dots, so clicking them hits the bar instead. Move the colour row up so the bar never covers it, at any size."
+    ]
   },
   {
     "id": "brewly-refined",

@@ -60,7 +60,7 @@
 .touch{display:grid;gap:18px}
 .touch .live figcaption{position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.92);color:var(--ink);font-weight:800;font-size:14px;border-radius:999px;padding:6px 12px;pointer-events:none}
 .touch .live.is-ready figcaption{display:none}
-@media (min-width:700px){ .touch{grid-template-columns:1fr 1fr} }
+/* one under the other: side by side they were too small to read or drag */
 
 /* embed */
 .snippet{margin:0 0 14px;background:var(--code-bg);color:var(--code-ink);border-radius:var(--radius-sm);padding:18px 20px;font-size:14px;line-height:1.6;overflow-x:auto;box-shadow:var(--shadow)}

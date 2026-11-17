@@ -56,9 +56,9 @@ describe('lab/index.html', () => {
     expect(main).toContain(kb(s.mp4));
   });
 
-  it('the touchable pieces are live players of pages that pin 1.0.0, with their posters', () => {
+  it('the touchable piece is a live player of a page that pins 1.0.0, with its poster (one piece: the sneaker shows both drag and click)', () => {
     const pages = [...main.matchAll(/<figure class="live"[^>]*data-page="([^"]+)"/g)].map((m) => m[1]!);
-    expect(pages.length).toBeGreaterThanOrEqual(2);
+    expect(pages.length).toBeGreaterThanOrEqual(1);
     for (const p of pages) {
       const file = resolve(root, 'lab', p);
       expect(existsSync(file), p).toBe(true);

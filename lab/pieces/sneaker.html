@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AERO DRIFT 2 — drag to turn</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/loader.css" />
+  <style>
+    body { background: #e9e4dc; margin: 0; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+      font-family: system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; color: #6b645b; }
+    .stage { position: relative; width: min(1100px, 100%); --pe-loader-bg: #f1ede6; background: #f1ede6; border-radius: 10px; }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; touch-action: none; }
+    /* the hint is page UI, not part of the video: it is never in the export */
+    .hint { position: absolute; right: 3%; top: 4.5%; display: flex; align-items: center; gap: 8px; padding: 7px 13px 7px 10px;
+      background: rgba(255,255,255,0.78); border-radius: 999px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: #2b2622;
+      pointer-events: none; transition: opacity 0.6s; box-shadow: 0 2px 10px rgba(60,40,20,0.08); }
+    .hint svg { width: 22px; height: 22px; }
+    .hint.gone { opacity: 0; }
+    .credit { font-size: 12px; max-width: min(1100px, 100%); text-align: center; }
+    .credit a { color: inherit; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="hint" id="hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 4 0 0 0 16 0"/><path d="M17 15.5l3-3.5 1 4.2"/><path d="M20 12a8 4 0 0 0-16 0" opacity=".35"/></svg>Drag to turn · click a colour</div>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+  <div class="credit">Drag the sneaker to turn it (left / right to spin, up / down to tilt); let go and the turntable carries on. Double-click to put it back. Click a colour dot (or the colourway name) to switch between the two colourways.
+    Scrubbing or exporting plays the plain 10-second turntable, in the colourway that is chosen.<br>
+    Model: “Materials Variants Shoe” by Shopify, from the <a href="https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/MaterialsVariantsShoe">Khronos glTF Sample Assets</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.
+    Changed for this page: the “beach” colourway was removed (the “midnight” and “street” colourways are kept) and all textures were reduced from 2048 to 1024 px.
+    Product name and price are invented.</div>
+
+  <script>
+    window.__logs = [];
+    let group = '';
+    const text = (a) => { if (typeof a[0] === 'string' && a[0].includes('%')) { let i = 1; a = [a[0].replace(/%([csdifoO])/g, (_, f) => f === 'c' ? (i++, '') : String(a[i++])), ...a.slice(i)]; } return a.map(x => (x && x.message) || String(x)).join(' '); };
+    const gc = console.groupCollapsed.bind(console), ge = console.groupEnd.bind(console);
+    console.groupCollapsed = (...a) => { group = text(a); gc(...a); };
+    console.groupEnd = () => { group = ''; ge(); };
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + (group ? group + ' — ' : '') + text(a)); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/controller.js",
+      "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/3d.js",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
+      "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@1.0.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    import { register3D, loadModel } from 'pixi-effects/3d';
+    import { Container3D, DirectionalLight, FlatMaterial, Geometry3D, Mesh3D } from '@pixi/3d';
+    import { Assets, CanvasSource, Texture } from 'pixi.js';
+
+    register3D();     // before movie.init
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 10;
+
+    // ───────────── the product (invented) ─────────────
+    const PRODUCT = { eyebrow: 'NEW · ALL-DAY RUNNER', name: ['AERO', 'DRIFT 2'], line: 'Knit upper · foam midsole · 248 g', price: 148, currency: '$' };
+
+    // the two colourways: each is a variant of the model file (KHR_materials_variants), its own base-colour texture
+    const COLOURWAYS = [
+      { variant: 'midnight', name: 'Midnight Blue',     swatch: '#1c7cb3', dot: null },
+      { variant: 'street',   name: 'Street Black / Red', swatch: '#232224', dot: '#e8334a' },
+    ];
+    const MODEL = 'assets/shoe.glb';
+
+    // ───────────── palette & type ─────────────
+    const C = { bgIn: '#fbf8f3', bgOut: '#e6dfd4', ink: '#1f1b18', mute: '#857c71', accent: '#e8552d', rule: '#d8cfc2' };
+    const SANS = 'system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif';
+    const IN = 'expo.out';
+
+    // ───────────── the turntable and the viewer's hand ─────────────
+    // The film: one full turn in 10 s, from a three-quarter view. The hand adds to it (yaw) and tilts it (pitch).
+    const POSTER = 2.6;
+    const BASE_YAW = -0.6 - (POSTER / DURATION) * Math.PI * 2;   // the poster moment is the three-quarter view
+    const hand = { yaw: 0, pitch: 0 };
+    const PITCH_MIN = -0.35, PITCH_MAX = 0.55;
+    const SHOE_X = 1.15;          // the shoe sits right of centre, the type on the left
+
+    // a flat disc facing +y with a soft radial shadow texture; stretched to the shoe's footprint, it turns with the shoe
+    function shadowDisc(segments = 64) {
+      const positions = [0, 0, 0], normals = [0, 1, 0], uvs = [0.5, 0.5], indices = [];
+      for (let i = 0; i <= segments; i++) {
+        const a = i / segments * Math.PI * 2, x = Math.sin(a), z = Math.cos(a);
+        positions.push(x, 0, z); normals.push(0, 1, 0); uvs.push(x / 2 + 0.5, z / 2 + 0.5);
+        if (i > 0) indices.push(0, i, i + 1);
+      }
+      return new Geometry3D({ positions: new Float32Array(positions), normals: new Float32Array(normals), uvs: new Float32Array(uvs), indices: new Uint32Array(indices) });
+    }
+    function shadowTexture() {
+      const c = Object.assign(document.createElement('canvas'), { width: 256, height: 256 });
+      const g = c.getContext('2d'), gr = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+      gr.addColorStop(0, 'rgba(40,25,10,0.55)'); gr.addColorStop(0.45, 'rgba(40,25,10,0.28)'); gr.addColorStop(1, 'rgba(40,25,10,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+      return new Texture({ source: new CanvasSource({ resource: c }) });
+    }
+
+    // PixiJS 3D loads the model's default material only; the other variant's base-colour texture is read from the same .glb here
+    async function variantTextures(url, fallback) {
+      const buf = await (await fetch(url)).arrayBuffer();
+      const dv = new DataView(buf), jsonLen = dv.getUint32(12, true);
+      const gltf = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, jsonLen)));
+      const bin = 20 + jsonLen + 8;
+      const names = gltf.extensions.KHR_materials_variants.variants.map(v => v.name);
+      const prim = gltf.meshes[0].primitives[0];
+      const out = {};
+      for (const m of prim.extensions.KHR_materials_variants.mappings) {
+        const texIndex = gltf.materials[m.material].pbrMetallicRoughness.baseColorTexture.index;
+        const image = gltf.images[gltf.textures[texIndex].source];
+        for (const v of m.variants) {
+          if (m.material === prim.material) { out[names[v]] = fallback; continue; }      // the one the loader already made
+          const view = gltf.bufferViews[image.bufferView];
+          const src = URL.createObjectURL(new Blob([new Uint8Array(buf, bin + (view.byteOffset || 0), view.byteLength)], { type: image.mimeType }));
+          try { out[names[v]] = await Assets.load({ src, parser: 'loadTextures' }); } finally { URL.revokeObjectURL(src); }
+          const a = out[names[v]].source, b = fallback.source;           // sample it the way the loader samples the default one
+          Object.assign(a.style, { addressModeU: b.style.addressModeU, addressModeV: b.style.addressModeV, magFilter: b.style.magFilter, minFilter: b.style.minFilter });
+          a.autoGenerateMipmaps = b.autoGenerateMipmaps; a.updateMipmaps?.();
+        }
+      }
+      return out;
+    }
+    const meshesOf = (node, list = []) => { if (node.material) list.push(node); for (const c of node.children ?? []) meshesOf(c, list); return list; };
+
+    let shoe, shoeMaterial, colourTextures;
+    const product3d = {
+      type: 'scene3d', name: 'shoe', width: W, height: H, resolution: 1.5,
+      initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5 },
+      view: { toneMapping: 'aces', environment: { skyColor: 0xfff4e6, groundColor: 0x6b5a48, intensity: 1.05 } },
+      setup: async ({ root, camera }) => {
+        shoe = await loadModel(MODEL, { animation: false });
+        shoeMaterial = meshesOf(shoe.object)[0].material;
+        colourTextures = await variantTextures(MODEL, shoeMaterial.textures.baseColor);
+        shoe.fit(3.0);                                                  // the longest side 3 units
+        const h = shoe.size()[1] ?? 1.33;
+        // tilt (the hand's pitch) about the shoe's middle, inside it the turntable (time + the hand's yaw)
+        const tilt = new Container3D(); tilt.position.set(SHOE_X, h / 2, 0);   // tilts about the shoe's middle
+        const turntable = new Container3D();                                  // the shoe's centre is the turntable's: its sole at -h/2
+        turntable.addChild(shoe.object);
+        tilt.addChild(turntable);
+        const shadow = new Mesh3D({ geometry: shadowDisc(), material: new FlatMaterial({ baseColorTexture: shadowTexture(), alphaMode: 'blend' }) });
+        shadow.position.set(0, -h / 2 + 0.005, 0); shadow.scale.set(1.8, 1, 0.72);
+        turntable.addChild(shadow);
+        root.addChild(tilt);
+        const key = new DirectionalLight({ intensity: 2.4 }); key.rotation.set(-0.75, -0.55, 0);
+        const rim = new DirectionalLight({ intensity: 1.3 }); rim.rotation.set(-0.35, 2.6, 0);
+        root.addChild(key, rim);
+        camera.fov = 30;
+        camera.position.set(0, 1.7, 7.6);
+        camera.lookAt({ x: 0, y: 0.7, z: 0 });
+        const rise = { y: -0.25, base: h / 2 };                                      // the opening move, by keyframe
+        return { objects: { tilt, turntable, rise } };
+      },
+      update: (t, { objects: { tilt, turntable, rise } }) => {
+        turntable.rotation.y = BASE_YAW + (t / DURATION) * Math.PI * 2 + hand.yaw;
+        tilt.rotation.x = hand.pitch;
+        tilt.position.y = rise.base + rise.y;
+        const tex = colourTextures[COLOURWAYS[movie.vars.colour]?.variant];   // the chosen colourway (a movie variable)
+        if (tex && shoeMaterial.textures.baseColor !== tex) shoeMaterial.textures.baseColor = tex;
+      },
+      keyframes: [
+        { at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.8, ease: 'power2.out' },
+        { at: 0, to: { 'scene3d.rise.y': 0 }, duration: 1.4, ease: IN },
+      ],
+    };
+
+    // ───────────── type ─────────────
+    const LX = 96;
+    const T = { eyebrow: 0.35, name: 0.5, line: 1.0, rule: 1.15, price: 1.3 };
+    // text that rises out of an invisible line (a masked slide)
+    function rise(name, str, style, x, y, at, h, extra = {}) {
+      return { type: 'text', name, text: str, style, at, duration: DURATION - at,
+        initial: { x, y: y + h, ...(extra.initial || {}) }, ...(extra.layer || {}),
+        mask: { type: 'shape', shape: 'rect', name: name + '-mask', width: 760, height: h, initial: { x: x + 380 - 20, y: y + h / 2, fill: '#ffffff' } },
+        keyframes: [{ at: 0, to: { y }, duration: 0.9, ease: IN }, { at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.35 }, ...(extra.keyframes || [])] };
+    }
+    // the colour row: a dot per colourway, a ring round the chosen one (it follows the variable `colour`), the name beside them
+    // It sits at the TOP of the column: the player bar is a fixed 58 CSS px over the bottom of the canvas, so the smaller the frame,
+    // the higher it reaches (canvas y ≈ 720 − 58 × 1280 / display width: 596 at 600 px, 455 at 280 px). Up here it stays clear
+    // down to a frame about 120 px wide (the ring's top, y 95).
+    const SW = { x0: LX + 14, y: 112, gap: 38, r: 12 };
+    function swatches() {
+      const at = T.price + 0.4, duration = DURATION - at;
+      const pop = (i) => [{ at: 0.08 * i, from: { scale: 0 }, to: { scale: 1 }, duration: 0.45, ease: 'back.out(2.4)' }];
+      return [
+        { type: 'shape', shape: 'circle', name: 'swatch-ring', radius: SW.r + 5, at, duration,
+          initial: { x: `${SW.x0} + colour * ${SW.gap}`, y: SW.y, fillAlpha: 0, stroke: C.ink, strokeWidth: 1.5 }, keyframes: pop(0) },
+        ...COLOURWAYS.flatMap((c, i) => [
+          { type: 'shape', shape: 'circle', name: `swatch-${i}`, radius: SW.r, at, duration,
+            initial: { x: SW.x0 + i * SW.gap, y: SW.y, fill: c.swatch, stroke: '#ffffff', strokeWidth: 1.5 }, keyframes: pop(i) },
+          ...(c.dot ? [{ type: 'shape', shape: 'circle', name: `swatch-${i}-dot`, radius: SW.r * 0.42, at, duration,
+            initial: { x: SW.x0 + i * SW.gap, y: SW.y, fill: c.dot }, keyframes: pop(i) }] : []),
+        ]),
+      ];
+    }
+    const NAME = { fontFamily: SANS, fontSize: 104, fontWeight: '900', letterSpacing: -2, fill: C.ink };
+    const type = [
+      rise('eyebrow', PRODUCT.eyebrow, { fontFamily: SANS, fontSize: 15, fontWeight: '700', letterSpacing: 4, fill: C.accent }, LX + 2, 176, T.eyebrow, 24),
+      rise('name-1', PRODUCT.name[0], NAME, LX - 4, 204, T.name, 116),
+      rise('name-2', PRODUCT.name[1], NAME, LX - 4, 304, T.name + 0.1, 116),
+      rise('line', PRODUCT.line, { fontFamily: SANS, fontSize: 21, fontWeight: '500', fill: C.mute }, LX, 432, T.line, 32),
+      { type: 'shape', shape: 'rect', name: 'rule', width: 0, height: 2, anchorX: 0, at: T.rule, duration: DURATION - T.rule,
+        initial: { x: LX, y: 486, fill: C.rule }, keyframes: [{ at: 0, to: { width: 340 }, duration: 0.8, ease: IN }] },
+      rise('price', `${PRODUCT.currency}{value}`, { fontFamily: SANS, fontSize: 64, fontWeight: '800', letterSpacing: -1, fill: C.ink }, LX - 2, 506, T.price, 80,
+        { initial: { value: 0 }, layer: { format: { decimals: 0 } }, keyframes: [{ at: 0.05, to: { value: PRODUCT.price }, duration: 1.0, ease: 'power3.out' }] }),
+      rise('price-unit', 'USD', { fontFamily: SANS, fontSize: 15, fontWeight: '700', letterSpacing: 3, fill: C.mute }, LX + 172, 534, T.price + 0.25, 24),
+      rise('colour', 'Colourway — {colourName}', { fontFamily: SANS, fontSize: 15, fontWeight: '600', letterSpacing: 1, fill: C.mute }, SW.x0 + SW.gap * 2 - 4, SW.y - 10, T.price + 0.4, 24),
+      ...swatches(),
+    ];
+
+    // a 360° ring of ticks under the price: the turn of the film, read as a clock hand (the film's turn only, not the hand's)
+    const progress = [
+      { type: 'shape', shape: 'arc', name: 'turn-track', radius: 13, startAngle: -90, endAngle: 270, at: T.price + 0.4, duration: DURATION - T.price - 0.4,
+        initial: { x: 'GW - 70', y: 'GH - 102', stroke: C.rule, strokeWidth: 3, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.5 }] },
+      { type: 'shape', shape: 'arc', name: 'turn-arc', radius: 13, startAngle: -90, endAngle: -90, at: 0, duration: DURATION,
+        initial: { x: 'GW - 70', y: 'GH - 102', stroke: C.accent, strokeWidth: 3, strokeCap: 'round', alpha: 0 },
+        keyframes: [{ at: T.price + 0.4, to: { alpha: 1 }, duration: 0.5 }, { at: 0, to: { endAngle: 270 }, duration: DURATION, ease: 'none' }] },
+      { type: 'text', name: 'turn-label', text: '360°', style: { fontFamily: SANS, fontSize: 13, fontWeight: '700', letterSpacing: 2, fill: C.mute },
+        at: T.price + 0.4, duration: DURATION - T.price - 0.4, initial: { x: 'GW - 96', y: 'GH - 102', anchorX: 1, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.5 }] },
+    ];
+
+    const background = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2 },
+        fillGradient: { type: 'radial', center: [0.66, 0.5], radius: 0.85, stops: [[0, C.bgIn], [0.6, '#f1ece4'], [1, C.bgOut]] } },
+    ];
+
+    // ───────────── sound: 96 bpm, a bar = 2.5 s, four bars = the film ─────────────
+    const audio = [
+      { type: 'audio', name: 'music', volume: 0.55,
+        music: { bpm: 96, reverb: 0.3, tracks: [
+          { inst: 'keys', vol: 0.5, notes: 'Fmaj7:4 Am7:4 Dm9:4 Bbmaj7:4' },
+          { inst: 'bass', vol: 0.55, notes: 'f2:2 c2:2 a1:2 e2:2 d2:2 a1:2 bb1:2 f2:2' },
+          { inst: 'pluck', vol: 0.3, notes: '_:4 c5:1 a4:1 e5:2 _:4 f5:1 d5:1 a4:2' } ],
+          drums: { from: 4, kick: 'x.......x.......', hat: '..o...o...o...o.' } },
+        keyframes: [{ at: -1.2, to: { volume: 0 }, duration: 1.2 }] },
+      { type: 'audio', name: 'sfx-swoosh', sfx: { preset: 'swoosh', brightness: -0.3 }, at: T.name - 0.1, volume: 0.45 },
+      { type: 'audio', name: 'sfx-price', sfx: { preset: 'coin', pitch: -5 }, at: T.price + 0.9, volume: 0.35 },
+    ];
+
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    window.__hand = hand;
+    new Controller(movie, { canvas, theme: { accent: C.accent } });
+
+    try {
+      await movie.init({
+        canvas, width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER,
+        background: C.bgIn, loudness: -16,
+        vars: { colour: 0, colourName: COLOURWAYS[0].name },
+        composition: { layers: [...background, product3d, ...type, ...progress, ...audio] },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+      throw e;                                               // no movie: no interaction
+    }
+
+    // ───────────── the hand: drag to turn ─────────────
+    const hint = document.getElementById('hint');
+    const reset = () => { hand.yaw = 0; hand.pitch = 0; };
+    // the film stays the film: scrubbing the timeline or exporting plays the plain turntable
+    movie.on('seeking', () => { if (!dragging) reset(); });
+    const render = movie.render.bind(movie);
+    movie.render = (opts) => { reset(); return render(opts); };
+
+    // ───────────── the colour: click a dot (or the colourway's name) ─────────────
+    const colourUnder = (x, y) => {
+      const name = movie.pick(x, y, { only: ['swatch-0', 'swatch-1', 'swatch-1-dot', 'colour'] })?.name ?? '';
+      if (name.startsWith('swatch-')) return Number(name.split('-')[1]);
+      if (name === 'colour') return (movie.vars.colour + 1) % COLOURWAYS.length;    // the name: the next colourway
+      return null;
+    };
+    const setColour = (i) => movie.setVars({ colour: i, colourName: COLOURWAYS[i].name });
+    window.__setColour = setColour;
+    movie.hover({ only: ['swatch-0', 'swatch-1', 'swatch-1-dot', 'colour'],
+      onEnter: () => { if (!dragging) canvas.style.cursor = 'pointer'; }, onLeave: () => { if (!dragging) canvas.style.cursor = 'grab'; } });
+
+    let dragging = false, moved = false;
+    // a drag or a colour click is not a play / pause: the player's click handler must not see it (capture runs before the player's own listener)
+    canvas.addEventListener('click', (e) => { if (moved) { e.stopImmediatePropagation(); moved = false; } }, true);
+    canvas.style.cursor = 'grab';
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const colour = colourUnder(...movie.canvasPoint(e));
+      if (colour !== null) {
+        moved = true;                                        // swallow the click that follows
+        hint.classList.add('gone');
+        if (colour !== movie.vars.colour) setColour(colour); // the movie keeps playing (or stays paused) at the same frame
+        return;
+      }
+      dragging = true; moved = false;
+      hint.classList.add('gone');
+      const wasPlaying = movie.isPlaying;
+      if (wasPlaying) movie.pause();                         // the viewer holds the shoe: the turntable stops under the hand
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = 'grabbing';
+      const [x0, y0] = movie.canvasPoint(e);
+      const start = { ...hand };
+      const move = (ev) => {
+        const [x, y] = movie.canvasPoint(ev);
+        if (Math.hypot(x - x0, y - y0) > 4) moved = true;
+        hand.yaw = start.yaw + (x - x0) * 0.011;             // a drag across the whole picture is about two turns
+        hand.pitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, start.pitch + (y - y0) * 0.006));
+        movie.redraw();
+      };
+      const up = () => {
+        canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', up);
+        dragging = false; canvas.style.cursor = 'grab';
+        if (wasPlaying) movie.play();                        // let go: the turntable carries on (a plain click then reaches the player: pause)
+      };
+      canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+    });
+    canvas.addEventListener('dblclick', () => { reset(); movie.redraw(); });
+  </script>
+</body>
+</html>
