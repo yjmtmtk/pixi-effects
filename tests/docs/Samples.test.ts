@@ -29,7 +29,7 @@ describe('site/samples/samples.json', () => {
     expect(samples.filter((s: any) => s.placeholder).map((s: any) => s.id)).toEqual([]);
     for (const s of samples) expect(s.version, s.id).toBe('1.0.0');
     const kinds = samples.map((s: any) => s.kind);
-    expect(kinds.filter((k: string) => k === 'one').length).toBeGreaterThanOrEqual(4);
+    expect(kinds.filter((k: string) => k === 'one').length).toBeGreaterThanOrEqual(2);
     expect(kinds.filter((k: string) => k === 'refined').length).toBeGreaterThanOrEqual(1);
     expect(kinds.filter((k: string) => k === 'promo')).toHaveLength(1);
   });
@@ -40,11 +40,12 @@ describe('site/samples/samples.json', () => {
     expect(validateSample({ ...good, messages: ['a', 'b'] }).join(' ')).toMatch(/messages/);
     expect(validateSample({ ...good, kind: 'refined', messages: ['a'] }).join(' ')).toMatch(/messages/);
     expect(validateSample({ ...good, lang: 'fr' }).join(' ')).toMatch(/lang/);
+    expect(validateSample({ ...good, lang: 'zh' }).join(' ')).toMatch(/lang/);
     expect(validateSample({ ...good, model: 'Fable' }).join(' ')).toMatch(/model/);
   });
 
-  it('the hero has one sentence per language, in the order en, ja, zh, es, ko (a language with no sample has no tab)', () => {
-    expect(LANGS).toEqual(['en', 'ja', 'zh', 'es', 'ko']);
+  it('the hero has one sentence per language, English and Japanese only, in that order (a language with no sample has no tab)', () => {
+    expect(LANGS).toEqual(['en', 'ja']);
     const hero = heroSamples(samples);
     expect(hero.map((s: any) => s.lang)).toEqual(LANGS.filter((l: string) => samples.some((s: any) => s.kind === 'one' && s.lang === l)));
     expect(hero.every((s: any) => s.kind === 'one')).toBe(true);

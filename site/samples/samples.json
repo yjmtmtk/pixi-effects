@@ -33,54 +33,6 @@
       "version": "1.0.0"
     },
     {
-      "id": "shanshui-ink",
-      "kind": "one",
-      "lang": "zh",
-      "title": "山水 ink wash",
-      "messages": [
-        "用 https://github.com/yjmtmtk/pixi-effects 做一个视频：15 秒，水墨风：墨滴在宣纸上晕开，变成远山和小船，最后书法字一笔一笔写出「山水」，配古筝。"
-      ],
-      "page": "shanshui.html",
-      "poster": "poster.jpg",
-      "alt": "An ink-wash painting: a drop of ink spreads into misty mountains, a fishing boat drifts, and the characters 山水 are brushed in stroke by stroke.",
-      "minutes": 12,
-      "runs": 3,
-      "model": "Claude Opus",
-      "version": "1.0.0"
-    },
-    {
-      "id": "lluvia-ciudades",
-      "kind": "one",
-      "lang": "es",
-      "title": "Rain in five cities",
-      "messages": [
-        "Usa https://github.com/yjmtmtk/pixi-effects para hacer un vídeo: 20 segundos, un gráfico de barras con la lluvia anual de cinco ciudades (Tokio 1530 mm, Londres 690, Bombay 2200, Seattle 960, El Cairo 25) que crece, se ordena de mayor a menor y termina con una frase que explica el resultado. Música tranquila."
-      ],
-      "page": "lluvia.html",
-      "poster": "poster.jpg",
-      "alt": "A bar chart of yearly rain in five cities grows, sorts itself and ends on “Bombay gets 88 times more rain than Cairo”.",
-      "minutes": 4,
-      "runs": 1,
-      "model": "Claude Opus",
-      "version": "1.0.0"
-    },
-    {
-      "id": "summer-sale",
-      "kind": "one",
-      "lang": "ko",
-      "title": "Summer sale",
-      "messages": [
-        "https://github.com/yjmtmtk/pixi-effects 를 사용해서 영상을 만들어 줘: 12초, 1080×1080 정사각형. 신나는 댄스 비트에 맞춰 'BIG', 'BOLD', 'BRIGHT' 세 단어가 박자마다 튀어나오고, 드롭에서 'SUMMER SALE 50%'가 번쩍이며 등장."
-      ],
-      "page": "summer-sale.html",
-      "poster": "poster.jpg",
-      "alt": "BIG, BOLD and BRIGHT hit on the beat, then SUMMER SALE 50% bursts out on the drop.",
-      "minutes": 4,
-      "runs": 1,
-      "model": "Claude Opus",
-      "version": "1.0.0"
-    },
-    {
       "id": "brewly-refined",
       "kind": "refined",
       "lang": "en",

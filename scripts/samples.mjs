@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** The languages of the hero's sentence, in tab order, with their labels. */
-export const LANGS = ['en', 'ja', 'zh', 'es', 'ko'];
-export const LANG_LABEL = { en: 'English', ja: '日本語', zh: '中文', es: 'Español', ko: '한국어' };
+export const LANGS = ['en', 'ja'];
+export const LANG_LABEL = { en: 'English', ja: '日本語' };
 const KINDS = ['one', 'refined', 'promo'];
 
 export function loadSamples(root) {

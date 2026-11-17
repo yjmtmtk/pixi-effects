@@ -12,24 +12,6 @@
     "message": "https://github.com/yjmtmtk/pixi-effects を使って動画を作って：縦型（1080×1920）15秒。家計簿アプリの新機能『レシート撮るだけ』の告知：スマホでレシートを撮ると金額が自動で飛んできてグラフが伸びる。"
   },
   {
-    "id": "shanshui-ink",
-    "lang": "zh",
-    "kind": "one",
-    "message": "用 https://github.com/yjmtmtk/pixi-effects 做一个视频：15 秒，水墨风：墨滴在宣纸上晕开，变成远山和小船，最后书法字一笔一笔写出「山水」，配古筝。"
-  },
-  {
-    "id": "lluvia-ciudades",
-    "lang": "es",
-    "kind": "one",
-    "message": "Usa https://github.com/yjmtmtk/pixi-effects para hacer un vídeo: 20 segundos, un gráfico de barras con la lluvia anual de cinco ciudades (Tokio 1530 mm, Londres 690, Bombay 2200, Seattle 960, El Cairo 25) que crece, se ordena de mayor a menor y termina con una frase que explica el resultado. Música tranquila."
-  },
-  {
-    "id": "summer-sale",
-    "lang": "ko",
-    "kind": "one",
-    "message": "https://github.com/yjmtmtk/pixi-effects 를 사용해서 영상을 만들어 줘: 12초, 1080×1080 정사각형. 신나는 댄스 비트에 맞춰 'BIG', 'BOLD', 'BRIGHT' 세 단어가 박자마다 튀어나오고, 드롭에서 'SUMMER SALE 50%'가 번쩍이며 등장."
-  },
-  {
     "id": "lab-choose",
     "lang": "en",
     "kind": "lab",
