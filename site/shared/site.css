@@ -44,6 +44,10 @@ pre code{background:none;padding:0;font-size:inherit}
 .live-play{position:absolute;left:50%;top:50%;width:68px;height:68px;margin:-34px 0 0 -34px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:var(--pink-deep);font-size:24px;line-height:68px;padding-left:5px;cursor:pointer;box-shadow:0 10px 30px -8px rgba(29,22,48,.45);transition:transform .15s ease}
 .live-play:hover{transform:scale(1.06)}
 .live.is-live .live-play{display:none}
+.live-loading{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:999px;background:rgba(29,22,48,.82);color:#fff;font-size:15px;font-weight:700;z-index:2;pointer-events:none}
+.live-spin{width:16px;height:16px;border-radius:50%;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;animation:live-spin .8s linear infinite}
+@keyframes live-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){ .live-spin{animation:none;border-color:#fff;border-top-color:#fff;opacity:.6} }
 .live-note{position:absolute;left:12px;right:12px;bottom:12px;margin:0;padding:8px 12px;border-radius:10px;background:rgba(29,22,48,.82);color:#fff;font-size:14px}
 @media (prefers-reduced-motion:reduce){ .live iframe{transition:none} .live-play{transition:none} }
 /* a piece in a window over the page, at its own size (live.js, data-modal) */

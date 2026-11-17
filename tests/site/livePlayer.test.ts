@@ -160,6 +160,20 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the live p
     });
   }, 60000);
 
+  it('while a piece gets ready, its frame says so (a "Loading" note over the poster); the note goes when it plays, and when it fails', async () => {
+    await withFixture({ reduce: true }, async (cdp) => {
+      const note = (id: string) => cdp.eval(`(() => { const n = document.querySelector('#${id} .live-loading'); return n ? { text: n.textContent.trim(), shown: getComputedStyle(n).display !== 'none', role: n.getAttribute('role') } : null; })()`);
+      await cdp.eval(`document.querySelector('#two .live-play').click()`);
+      const early = await note('two');
+      expect(early).toEqual({ text: 'Loading', shown: true, role: 'status' });
+      await until(cdp, (x) => x.two.ready);
+      expect(await note('two')).toBe(null);
+      await cdp.eval(`document.querySelector('#broken .live-play').click()`);
+      await until(cdp, (x) => x.broken.note !== '', 20000);
+      expect(await note('broken')).toBe(null);
+    });
+  }, 60000);
+
   it('a piece that cannot start leaves its poster and says so (never an empty box)', async () => {
     await withFixture({ reduce: true }, async (cdp) => {
       await cdp.eval(`document.querySelector('#broken .live-play').click()`);

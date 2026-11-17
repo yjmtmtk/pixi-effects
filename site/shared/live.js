@@ -32,7 +32,19 @@
     if (c && c.tagName === 'CANVAS') (c.parentElement && c.parentElement !== d.body ? c.parentElement : c).classList.add('pe-live-stage');
   }
 
+  function loading(fig, on) {
+    var n = fig.querySelector('.live-loading');
+    if (!on) { if (n) n.remove(); return; }
+    if (n) return;
+    n = document.createElement('p');
+    n.className = 'live-loading'; n.setAttribute('role', 'status');
+    var spin = document.createElement('span'); spin.className = 'live-spin'; spin.setAttribute('aria-hidden', 'true');
+    n.appendChild(spin); n.appendChild(document.createTextNode('Loading'));
+    fig.appendChild(n);
+  }
+
   function stop(fig) {
+    loading(fig, false);
     var f = fig.querySelector('iframe');
     if (f) f.remove();                                       // the iframe goes, and its sound with it
     fig.classList.remove('is-live', 'is-ready');
@@ -58,6 +70,7 @@
     ifr.title = (label || 'A piece').replace(/^Play /, '');
     fig.appendChild(ifr);
     fig.classList.add('is-live');
+    loading(fig, true);
     var t0 = Date.now();
     (function poll() {
       if (!ifr.isConnected) return;
@@ -69,6 +82,7 @@
       for (var i = 0; i < logs.length; i++) if (/init failed/.test(String(logs[i]))) failed = true;
       if (!failed && w && w.__ready === true) {
         fig.classList.add('is-ready');
+        loading(fig, false);
         var movie = w.movie;
         if (movie && typeof movie.play === 'function') {
           if (opts && opts.muted) { try { movie.muted = true; } catch (e) { /* the bar still works */ } }   // no click yet: a browser would block the sound
