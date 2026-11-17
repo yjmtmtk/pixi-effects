@@ -7,23 +7,29 @@
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var current = null;
 
-  // A piece's page is kept as its AI wrote it: the template's padding and a .stage capped at a width (420px for a vertical one). In the
-  // frame only the picture shows: the stage fills the frame and the canvas fills the stage, its aspect kept. The frame is invisible until
+  // A piece's page is kept as its AI wrote it: the template's padding and a .stage capped at a width (420px for a vertical one), or the old
+  // gallery's centring grid and .pe-stage. In the frame only the picture shows: what holds canvas#stage fills the frame and the canvas
+  // fills it, its aspect kept. The frame is invisible until
   // the piece is ready, so this lands before anyone sees it.
   var FIT = 'html,body{margin:0!important;padding:0!important;height:100%!important;overflow:hidden!important}' +
-    '.stage{position:fixed!important;inset:0!important;width:auto!important;max-width:none!important;margin:0!important;z-index:2147483000}' +
-    '.stage canvas{width:100%!important;height:100%!important;border-radius:0!important;object-fit:contain}' +
+    '.pe-live-stage{position:fixed!important;inset:0!important;width:auto!important;max-width:none!important;margin:0!important;border-radius:0!important;z-index:2147483000}' +
+    '.pe-live-stage canvas#stage,canvas#stage.pe-live-stage{width:100%!important;height:100%!important;border-radius:0!important;object-fit:contain}' +
     // the pieces are pinned to 1.0.0, whose loop button looks the same on and off without a theme (fixed in the library after 1.0.0)
     '.mc-loop{position:relative}.mc-loop[aria-pressed="false"]{opacity:.4}.mc-loop[aria-pressed="true"]{opacity:1;color:var(--mc-accent,#007AFF)}' +
     '.mc-loop[aria-pressed="true"]::after{content:"";position:absolute;left:50%;bottom:1px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:currentColor}';
   function fit(w) {
     var d = null;
     try { d = w && w.document; } catch (e) { return; }
-    if (!d || !d.head || d.URL === 'about:blank' || d.getElementById('pe-live-fit')) return;
-    var s = d.createElement('style');
-    s.id = 'pe-live-fit';
-    s.textContent = FIT;
-    d.head.appendChild(s);
+    if (!d || !d.head || d.URL === 'about:blank') return;
+    if (!d.getElementById('pe-live-fit')) {
+      var s = d.createElement('style');
+      s.id = 'pe-live-fit';
+      s.textContent = FIT;
+      d.head.appendChild(s);
+    }
+    // whatever holds the movie's canvas (.stage in the template, .pe-stage in the old gallery) becomes the whole frame
+    var c = d.getElementById('stage');
+    if (c && c.tagName === 'CANVAS') (c.parentElement && c.parentElement !== d.body ? c.parentElement : c).classList.add('pe-live-stage');
   }
 
   function stop(fig) {
@@ -75,11 +81,56 @@
     })();
   }
 
-  function wire(fig) {
-    var btn = fig.querySelector('.live-play');
-    if (btn) btn.addEventListener('click', function (e) { e.stopPropagation(); start(fig); });
+  // data-modal (a gallery card): the piece opens in a window over the page, at its own size (data-w x data-h CSS pixels), smaller only
+  // when the screen is. A card is too small to watch, and fullscreen on a big monitor blows the picture up past its own pixels.
+  function openModal(fig) {
+    if (current) stop(current);
+    var W = Number(fig.getAttribute('data-w')) || 1280, H = Number(fig.getAttribute('data-h')) || 720;
+    var title = fig.getAttribute('data-title') || '', line = fig.getAttribute('data-line') || '';
+    var back = fig.querySelector('.live-play');
+    var d = document.createElement('dialog');
+    d.className = 'live-modal';
+    d.setAttribute('aria-label', title || 'A piece');
+    var close = document.createElement('button');
+    close.type = 'button'; close.className = 'live-modal-close'; close.setAttribute('aria-label', 'Close'); close.textContent = '×';
+    var frame = document.createElement('figure');
+    frame.className = 'live live-modal-frame';
+    frame.setAttribute('data-page', fig.getAttribute('data-page'));
     var img = fig.querySelector('img');
-    if (img) img.addEventListener('click', function () { start(fig); });
+    if (img) { var poster = img.cloneNode(); poster.removeAttribute('loading'); frame.appendChild(poster); }
+    var cap = document.createElement('div');
+    cap.className = 'live-modal-caption';
+    var h = document.createElement('p'); h.className = 'live-modal-title'; h.textContent = title;
+    var l = document.createElement('p'); l.className = 'live-modal-line'; l.textContent = line;
+    cap.appendChild(h); if (line) cap.appendChild(l);
+    d.appendChild(close); d.appendChild(frame); d.appendChild(cap);
+    function size() {
+      var k = Math.min(1, (window.innerWidth - 32) / W, (window.innerHeight - 140) / H);
+      frame.style.width = Math.floor(W * k) + 'px';
+      frame.style.height = Math.floor(H * k) + 'px';
+      d.style.width = frame.style.width;                     // the window is as wide as the picture: the caption wraps under it
+    }
+    size();
+    window.addEventListener('resize', size);
+    close.addEventListener('click', function () { d.close(); });
+    d.addEventListener('click', function (e) { if (e.target === d) d.close(); });          // a click on the backdrop
+    d.addEventListener('close', function () {
+      window.removeEventListener('resize', size);
+      stop(frame);
+      d.remove();
+      if (back) back.focus();
+    });
+    document.body.appendChild(d);
+    if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+    start(frame);
+  }
+
+  function wire(fig) {
+    var open = fig.hasAttribute('data-modal') ? function () { openModal(fig); } : function () { start(fig); };
+    var btn = fig.querySelector('.live-play');
+    if (btn) btn.addEventListener('click', function (e) { e.stopPropagation(); open(); });
+    var img = fig.querySelector('img');
+    if (img) img.addEventListener('click', open);
     if (fig.hasAttribute('data-autoplay') && !reduce && 'IntersectionObserver' in window) {
       var seen = false;
       var io = new IntersectionObserver(function (entries) {
@@ -89,7 +140,7 @@
     }
   }
 
-  window.peLive = { start: start, stop: stop };                 // for a page that swaps what a player plays (the landing page's language tabs)
+  window.peLive = { start: start, stop: stop, openModal: openModal };                 // for a page that swaps what a player plays (the landing page's language tabs)
 
   function init() { var all = document.querySelectorAll('figure.live'); for (var i = 0; i < all.length; i++) wire(all[i]); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

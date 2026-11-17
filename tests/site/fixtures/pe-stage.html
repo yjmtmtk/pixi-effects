@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>fixture · a piece laid out like the old gallery</title>
+  <!-- tests/site/livePlayer.test.ts: the page around the canvas is the old gallery's (a centring grid body, a .pe-stage capped at 960px).
+       The site's frame must still show the picture filling the frame. -->
+  <style>
+    html, body { height: 100%; }
+    body { background: #0d1220; margin: 0; padding: 16px; box-sizing: border-box; display: grid; place-items: center; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+</head>
+<body>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas></div>
+  <script>window.__logs = [];</script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 3, frameRate: 30, background: '#e91e63',
+        composition: { layers: [{ type: 'shape', name: 'dot', shape: 'circle', radius: 200, initial: { x: 640, y: 360, fill: '#ffffff' } }] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + e.message); }
+  </script>
+</body>
+</html>

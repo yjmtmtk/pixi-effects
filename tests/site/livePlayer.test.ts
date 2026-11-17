@@ -16,13 +16,13 @@ const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 const PAGE = 'tests/site/fixtures/live.html';
 
-async function withFixture<T>(opts: { reduce?: boolean }, fn: (cdp: any) => Promise<T>): Promise<T> {
+async function withFixture<T>(opts: { reduce?: boolean; width?: number; height?: number }, fn: (cdp: any) => Promise<T>): Promise<T> {
   const { server, port } = await check.serve(root);
   const dir = mkdtempSync(join(tmpdir(), 'live-'));
   const { proc, cdp } = await launchPage(chrome, dir);
   try {
     await cdp.send('Page.enable');
-    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 800, height: 1400, deviceScaleFactor: 1, mobile: false });
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: opts.width ?? 800, height: opts.height ?? 1400, deviceScaleFactor: 1, mobile: false });
     if (opts.reduce) await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/${PAGE}` });
     await check.sleep(800);
@@ -91,6 +91,60 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the live p
       expect(Math.abs(r.y)).toBeLessThan(1.5);
       expect(Math.abs(r.w - r.fw)).toBeLessThan(1.5);
       expect(Math.abs(r.h - r.fh)).toBeLessThan(1.5);
+    });
+  }, 60000);
+
+  const modal = (cdp: any) => cdp.eval(`(() => { const d = document.querySelector('dialog.live-modal'); const f = d && d.querySelector('figure.live'); const i = f && f.querySelector('iframe');
+    return { open: !!(d && d.open), page: i ? i.getAttribute('src') : null, w: f ? f.clientWidth : 0, h: f ? f.clientHeight : 0, ready: !!(f && f.classList.contains('is-ready')),
+      title: d ? (d.querySelector('.live-modal-title') || {}).textContent : null, cardIframe: !!document.querySelector('#modal iframe'),
+      focus: document.activeElement && document.activeElement.getAttribute('aria-label') }; })()`);
+
+  it('data-modal: a click opens the piece in a window over the page at its own size (1280 x 720 on a big screen), not in the small card', async () => {
+    await withFixture({ reduce: true, width: 1600, height: 1000 }, async (cdp) => {
+      await cdp.eval(`document.querySelector('#modal .live-play').click()`);
+      const t0 = Date.now(); let m = await modal(cdp);
+      while (!(m.open && m.ready) && Date.now() - t0 < 20000) { await check.sleep(150); m = await modal(cdp); }
+      expect(m.open).toBe(true);
+      expect(m.page).toBe('../../films/animate-text.html');
+      expect(m.ready).toBe(true);
+      expect([m.w, m.h]).toEqual([1280, 720]);
+      expect(m.title).toBe('The modal one');
+      expect(m.cardIframe).toBe(false);
+    });
+  }, 60000);
+
+  it('data-modal: on a small screen the window shrinks to fit, keeping the shape; Escape closes it, stops the piece and gives the focus back', async () => {
+    await withFixture({ reduce: true }, async (cdp) => {                         // 800 px wide
+      await cdp.eval(`document.querySelector('#modal .live-play').focus(); document.querySelector('#modal .live-play').click()`);
+      const t0 = Date.now(); let m = await modal(cdp);
+      while (!m.open && Date.now() - t0 < 10000) { await check.sleep(100); m = await modal(cdp); }
+      expect(m.w).toBeLessThan(800);
+      expect(m.w).toBeGreaterThan(700);
+      expect(Math.abs(m.w / m.h - 1280 / 720)).toBeLessThan(0.01);
+      await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+      await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+      await check.sleep(300);
+      m = await modal(cdp);
+      expect(m.open).toBe(false);
+      expect(m.page).toBe(null);
+      expect(m.focus).toBe('Play the modal one');
+    });
+  }, 60000);
+
+  it('data-modal: a page laid out like the old gallery (.pe-stage, a centring grid) still fills the window: the canvas is the whole frame', async () => {
+    await withFixture({ reduce: true, width: 1600, height: 1000 }, async (cdp) => {
+      await cdp.eval(`document.querySelector('#pe .live-play').click()`);
+      const t0 = Date.now(); let r: any = null;
+      while (Date.now() - t0 < 20000) {
+        r = await cdp.eval(`(() => { const f = document.querySelector('dialog.live-modal figure.live'); if (!f || !f.classList.contains('is-ready')) return null;
+          const c = f.querySelector('iframe').contentWindow.document.getElementById('stage').getBoundingClientRect();
+          return { fw: f.clientWidth, fh: f.clientHeight, x: c.left, y: c.top, w: c.width, h: c.height }; })()`);
+        if (r) break; await check.sleep(150);
+      }
+      expect(r).not.toBe(null);
+      expect([r.fw, r.fh]).toEqual([1280, 720]);
+      expect(Math.abs(r.x) + Math.abs(r.y)).toBeLessThan(1.5);
+      expect(Math.abs(r.w - r.fw) + Math.abs(r.h - r.fh)).toBeLessThan(2);
     });
   }, 60000);
 

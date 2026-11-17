@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>fixture · the live player</title>
-  <!-- tests/site/livePlayer.test.ts: four players. 'hero' starts by itself when seen (data-autoplay); 'two' is a second working piece; 'tall' is a vertical page laid out like the template; 'broken' never starts. -->
+  <!-- tests/site/livePlayer.test.ts: four players. 'hero' starts by itself when seen (data-autoplay); 'two' is a second working piece; 'tall' is a vertical page laid out like the template; 'modal' opens in a window over the page (data-modal); 'broken' never starts. -->
   <link rel="stylesheet" href="../../../site/shared/tokens.css">
   <link rel="stylesheet" href="../../../site/shared/site.css">
   <script src="../../../site/shared/live.js" defer></script>
@@ -21,6 +21,14 @@
     <figure class="live" id="tall" data-page="tall.html" style="width:540px;aspect-ratio:9/16">
       <img src="poster.jpg" alt="a pink poster" width="320" height="180">
       <button class="live-play" type="button" aria-label="Play the tall one">▶</button>
+    </figure>
+    <figure class="live" id="modal" data-page="../../films/animate-text.html" data-modal data-w="1280" data-h="720" data-title="The modal one" data-line="It opens in a window over the page, at its own size.">
+      <img src="poster.jpg" alt="a pink poster" width="1280" height="720">
+      <button class="live-play" type="button" aria-label="Play the modal one">▶</button>
+    </figure>
+    <figure class="live" id="pe" data-page="pe-stage.html" data-modal data-w="1280" data-h="720" data-title="The old gallery one">
+      <img src="poster.jpg" alt="a pink poster" width="1280" height="720">
+      <button class="live-play" type="button" aria-label="Play the old gallery one">▶</button>
     </figure>
     <figure class="live" id="broken" data-page="broken.html">
       <img src="poster.jpg" alt="a pink poster" width="320" height="180">

@@ -48,6 +48,12 @@ describe('the gallery region sync-site writes', () => {
       expect(html).toMatch(new RegExp(`src="site/gallery/${p.poster}"[^>]*width="${p.width}" height="${p.height}"`));
       expect(html).toContain(`aria-label="Play ${p.title.replace(/&/g, '&amp;')}"`);
     }
-    expect(html).not.toMatch(/unedited|1 message/);                         // not the one-sentence claim
+    expect(html).not.toMatch(/unedited|1 message/);
+    const figs = [...html.matchAll(/<figure class="live"[^>]*>/g)].map((m) => m[0]);
+    pieces.forEach((p, i) => {                                               // opens in a window at its own size (site/shared/live.js, data-modal)
+      expect(figs[i]).toMatch(/ data-modal/);
+      expect(figs[i]).toContain(`data-w="${p.width}" data-h="${p.height}"`);
+      expect(figs[i]).toContain(`data-title="${p.title.replace(/&/g, '&amp;')}"`);
+    });                         // not the one-sentence claim
   });
 });

@@ -15,7 +15,7 @@ export function renderGallery(ctx) {
   const pieces = ctx.gallery ?? loadGallery(ctx.root_dir);
   const at = (f) => `${ctx.root}site/gallery/${f}`;
   return pieces.map((p) => `<article class="sample card gallery-card" id="gallery-${esc(p.id)}">
-<figure class="live" data-page="${esc(at(p.page))}" style="--ar:${(p.width / p.height).toFixed(4)}">
+<figure class="live" data-page="${esc(at(p.page))}" data-modal data-w="${p.width}" data-h="${p.height}" data-title="${esc(p.title)}" data-line="${esc(p.subtitle)}" style="--ar:${(p.width / p.height).toFixed(4)}">
   <img src="${esc(at(p.poster))}" alt="${esc(p.title)}: ${esc(p.subtitle)}" width="${p.width}" height="${p.height}" loading="lazy">
   <button class="live-play" type="button" aria-label="Play ${esc(p.title)}">▶</button>
 </figure>
