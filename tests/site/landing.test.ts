@@ -79,7 +79,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
     });
   }, 30000);
 
-  it('the copy button copies the command, and when the clipboard is refused it selects the command instead', async () => {
+  it('the copy button copies the command, and when the clipboard is refused it selects the command instead, then says Copy again', async () => {
     await withLanding(1440, async (cdp) => {
       await cdp.eval(`navigator.clipboard.writeText = () => Promise.reject(new Error('denied'))`);
       await cdp.eval(`document.querySelector('#start [data-copy]').click()`);
@@ -87,6 +87,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
       const r = await cdp.eval(`({ selection: String(getSelection()), label: document.querySelector('#start [data-copy]').textContent })`);
       expect(r.selection.trim()).toBe('npx skills add yjmtmtk/pixi-effects');
       expect(r.label).toMatch(/select|press/i);
+      await check.sleep(4500);                                              // then it says Copy again, ready for another try
+      expect(await cdp.eval(`document.querySelector('#start [data-copy]').textContent`)).toBe('Copy');
     });
     await withLanding(1440, async (cdp) => {
       await cdp.eval(`window.__copied = null; navigator.clipboard.writeText = (t) => { window.__copied = t; return Promise.resolve(); }`);
