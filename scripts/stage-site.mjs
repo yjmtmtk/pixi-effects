@@ -25,6 +25,8 @@ export async function stageSite(outDir, { root = ROOT } = {}) {
   copy('lab');
   copy('site/shared');
   copy('site/samples');
+  copy('site/gallery');
+  copy('site/_assets');
   return outDir;
 }
 

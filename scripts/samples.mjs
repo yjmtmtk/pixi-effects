@@ -1,5 +1,5 @@
 // The samples of the 1.0 site: site/samples/samples.json, one folder per piece (site/samples/<id>/: the agent's page, its poster).
-// sync-site writes them into the pages as static HTML (regions samples-hero, samples-promo, samples-one, samples-refined; see REGIONS there).
+// sync-site writes them into the pages as static HTML (regions samples-hero, samples-promo, samples-refined; see REGIONS there).
 // How a sample is made: site/samples/README.md.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -77,16 +77,6 @@ function figure(ctx, s, { autoplay = false, lazy = true } = {}) {
 
 const listOf = (ctx) => ctx.samples ?? loadSamples(ctx.root_dir).samples;
 
-export function renderOne(ctx) {
-  return listOf(ctx).filter((s) => s.kind === 'one').map((s) => `<article class="sample card" id="sample-${esc(s.id)}">
-${figure(ctx, s)}
-<div class="sample-body">
-  <p class="sentence" lang="${esc(s.lang)}">${esc(s.messages[0])}</p>
-  ${factsHtml(s)}
-</div>
-</article>`).join('\n');
-}
-
 export function renderRefined(ctx) {
   return listOf(ctx).filter((s) => s.kind === 'refined').map((s) => `<article class="sample refined card" id="sample-${esc(s.id)}">
 ${figure(ctx, s)}
@@ -115,7 +105,7 @@ export function renderHero(ctx) {
   const hero = heroSamples(listOf(ctx));
   if (!hero.length) return '';
   const first = hero[0];
-  const tabs = hero.map((s, i) => { const z = sizeOf(ctx, s) ?? { width: 16, height: 9 }; return `<button type="button" role="tab" id="tab-${s.lang}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" aria-controls="hero-panel" data-card="sample-${esc(s.id)}" data-page="${esc(pagePath(ctx, s))}" data-poster="${esc(posterPath(ctx, s))}" data-w="${z.width}" data-h="${z.height}" data-alt="${esc(s.alt)}" data-title="${esc(s.title)}" data-meta="${esc(caption(s))}">${LANG_LABEL[s.lang]}</button>`; }).join('\n  ');
+  const tabs = hero.map((s, i) => { const z = sizeOf(ctx, s) ?? { width: 16, height: 9 }; return `<button type="button" role="tab" id="tab-${s.lang}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" aria-controls="hero-panel" data-page="${esc(pagePath(ctx, s))}" data-poster="${esc(posterPath(ctx, s))}" data-w="${z.width}" data-h="${z.height}" data-alt="${esc(s.alt)}" data-title="${esc(s.title)}" data-meta="${esc(caption(s))}">${LANG_LABEL[s.lang]}</button>`; }).join('\n  ');
   const sentences = hero.map((s, i) => `<p class="sentence" lang="${esc(s.lang)}" data-tab="tab-${s.lang}"${i ? ' hidden' : ''}>${esc(s.messages[0])}</p>`).join('\n  ');
   return `<div class="hero-tabs" role="tablist" aria-label="The sentence, in ${hero.length} languages">
   ${tabs}
@@ -125,7 +115,6 @@ export function renderHero(ctx) {
   <div class="hero-video">
 ${figure(ctx, first, { autoplay: true, lazy: false })}
   <div class="hero-facts">${factsHtml(first)}</div>
-  <p class="hero-link"><a class="hero-card" href="#sample-${esc(first.id)}">See this one with its card</a></p>
   </div>
 </div>`;
 }

@@ -7,12 +7,12 @@ const root = resolve(__dirname, '../..');
 const read = (p: string) => readFileSync(resolve(root, p), 'utf8');
 const html = read('index.html');
 const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
-const visibleWords = () => main.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<!--site:samples-[\s\S]*?<!--\/site:samples-[a-z]+-->/g, ' ')
+const visibleWords = () => main.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<!--site:([a-z-]+)-->[\s\S]*?<!--\/site:\1-->/g, ' ')                  // every generated region (samples, gallery) aside
   .replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').split(/\s+/).filter(Boolean).length;
 
 describe('the landing page (index.html at the repository root, deployed as the site root)', () => {
-  it('has the sections of the design, in order: hero, the promo of this project, one sentence, a few more messages, start, for the curious', () => {
-    const ids = ['hero', 'promo', 'one-sentence', 'refined', 'start', 'curious'];
+  it('has the sections of the design, in order: hero, the promo of this project, the gallery, a few more messages, start, for the curious', () => {
+    const ids = ['hero', 'promo', 'gallery', 'refined', 'start', 'curious'];
     const at = ids.map((id) => main.indexOf(`id="${id}"`));
     at.forEach((i, n) => expect(i, ids[n]).toBeGreaterThan(-1));
     expect([...at].sort((a, b) => a - b)).toEqual(at);
@@ -28,8 +28,10 @@ describe('the landing page (index.html at the repository root, deployed as the s
     expect(main).toContain('<!--site:samples-promo-->');
   });
 
-  it('carries the one-sentence cards and the refined cards', () => {
-    expect(main).toContain('<!--site:samples-one-->');
+  it('carries the gallery and the refined cards, and the hero points at the gallery', () => {
+    expect(main).toContain('<!--site:gallery-->');
+    expect(main).not.toContain('<!--site:samples-one-->');
+    expect(main).toMatch(/<a class="text-link" href="#gallery">/);
     expect(main).toContain('<!--site:samples-refined-->');
   });
 

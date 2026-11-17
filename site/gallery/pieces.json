@@ -1,0 +1,254 @@
+{
+  "pieces": [
+    {
+      "id": "synthwave-drive",
+      "title": "Synthwave Drive",
+      "subtitle": "A retro night-drive loop: striped sun, neon grid floor racing in, a title that flickers on",
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "page": "synthwave-drive.html",
+      "poster": "posters/synthwave-drive.jpg"
+    },
+    {
+      "id": "aurora-logo",
+      "title": "AURORA",
+      "subtitle": "A restrained logo reveal: a horizon line, a light that rises through it, a letter-spaced lock-up",
+      "width": 1280,
+      "height": 720,
+      "duration": 8,
+      "page": "aurora-logo.html",
+      "poster": "posters/aurora-logo.jpg"
+    },
+    {
+      "id": "kinetic-manifesto",
+      "title": "Kinetic Manifesto",
+      "subtitle": "Five bilingual statements on making things, slammed onto a 100 BPM grid",
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "page": "kinetic-manifesto.html",
+      "poster": "posters/kinetic-manifesto.jpg"
+    },
+    {
+      "id": "film-titles",
+      "title": "The Long Night",
+      "subtitle": "Main-title sequence for an imaginary thriller: a PixiJS 3D shard in fog, letterboxed credits, film grain",
+      "width": 1280,
+      "height": 720,
+      "duration": 14,
+      "page": "film-titles.html",
+      "poster": "posters/film-titles.jpg"
+    },
+    {
+      "id": "news-package",
+      "title": "NORTH 24 — Breaking",
+      "subtitle": "A broadcast news package: channel stinger, BREAKING flash, wipe-masked lower third, live ticker and running clock",
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "page": "news-package.html",
+      "poster": "posters/news-package.jpg"
+    },
+    {
+      "id": "sports-scoreboard",
+      "title": "Matchday Graphics",
+      "subtitle": "Broadcast football package: crests, count-up score, stat bars, momentum graph and a GOAL stinger",
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "page": "sports-scoreboard.html",
+      "poster": "posters/sports-scoreboard.jpg"
+    },
+    {
+      "id": "app-promo",
+      "title": "Tidy — app promo",
+      "subtitle": "A habit-tracker promo: 2.5D phone mock-up, sliding UI cards, a progress ring and streak that count up, swapping captions, logo + Download",
+      "width": 1080,
+      "height": 1080,
+      "duration": 12,
+      "page": "app-promo.html",
+      "poster": "posters/app-promo.jpg"
+    },
+    {
+      "id": "network-explainer",
+      "title": "What happens when you open a page",
+      "subtitle": "A flat explainer: client, CDN, server and database, one packet and 130 ms at a time",
+      "width": 1280,
+      "height": 720,
+      "duration": 14,
+      "page": "network-explainer.html",
+      "poster": "posters/network-explainer.jpg"
+    },
+    {
+      "id": "d3-story",
+      "title": "d3 × pixi-effects",
+      "subtitle": "d3 computes, pixi-effects performs: a bar chart, a self-drawing line, a donut and a world map with great-circle routes, every number from d3 scales, line, pie, arc and geoPath",
+      "width": 1280,
+      "height": 720,
+      "duration": 23,
+      "page": "d3-story.html",
+      "poster": "posters/d3-story.jpg"
+    },
+    {
+      "id": "elastic-exposure",
+      "title": "Elastic exposure",
+      "subtitle": "Six bodies of light in a circle under gravity, every collision a note, traced as one long exposure",
+      "width": 1280,
+      "height": 720,
+      "duration": 14,
+      "page": "elastic-exposure.html",
+      "poster": "posters/elastic-exposure.jpg"
+    },
+    {
+      "id": "rain-fourteen-days",
+      "title": "Fourteen Days of Rain",
+      "subtitle": "365 day-bars re-sort themselves: half a year's rain falls on 14 days (illustrative data)",
+      "width": 1280,
+      "height": 720,
+      "duration": 13,
+      "page": "rain-fourteen-days.html",
+      "poster": "posters/rain-fourteen-days.jpg"
+    },
+    {
+      "id": "tenon-joint",
+      "title": "HOZO",
+      "subtitle": "A logo sting for an invented joinery workshop: two blocks slide out of a close-up and lock with one wooden click",
+      "width": 1280,
+      "height": 720,
+      "duration": 9,
+      "page": "tenon-joint.html",
+      "poster": "posters/tenon-joint.jpg"
+    },
+    {
+      "id": "isometric-city",
+      "title": "Kōbe, 2040",
+      "subtitle": "A seeded isometric city builds itself from dawn to dusk — three polygon faces per block, oklab light, windows that wake up",
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "page": "isometric-city.html",
+      "poster": "posters/isometric-city.jpg"
+    },
+    {
+      "id": "lamplighter",
+      "title": "LAMPLIGHTER",
+      "subtitle": "The attract mode of a 1988 cartridge that never existed: maker splash, title screen, demo play, title again, with its own chiptune",
+      "width": 1280,
+      "height": 720,
+      "duration": 13.6,
+      "page": "lamplighter.html",
+      "poster": "posters/lamplighter.jpg"
+    },
+    {
+      "id": "loop-grid",
+      "title": "Loop Grid",
+      "subtitle": "An original two-bar loop written as text; every cell is a note and flares the moment it sounds",
+      "width": 1080,
+      "height": 1080,
+      "duration": 13,
+      "page": "loop-grid.html",
+      "poster": "posters/loop-grid.jpg"
+    },
+    {
+      "id": "nagiro-light",
+      "title": "NAGIRO",
+      "subtitle": "A quiet product film for an invented table light, told only with light on aluminium and opal glass",
+      "width": 1280,
+      "height": 720,
+      "duration": 13,
+      "page": "nagiro-light.html",
+      "poster": "posters/nagiro-light.jpg"
+    },
+    {
+      "id": "product-spin",
+      "title": "ORRI ONE",
+      "subtitle": "A glossy PixiJS 3D product turntable with spec callouts and a brand lock-up, studio white to graphite",
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "page": "product-spin.html",
+      "poster": "posters/product-spin.jpg"
+    },
+    {
+      "id": "cycle-lane-race",
+      "title": "Paris pedals past Copenhagen",
+      "subtitle": "An FT-style bar-chart race of protected cycle lanes",
+      "width": 1280,
+      "height": 720,
+      "duration": 14,
+      "page": "cycle-lane-race.html",
+      "poster": "posters/cycle-lane-race.jpg"
+    },
+    {
+      "id": "rain-walk-home",
+      "title": "Rain Walk Home",
+      "subtitle": "A 320x180 pixel cut-scene: afternoon to night, rain, a lit window",
+      "width": 1280,
+      "height": 720,
+      "duration": 14,
+      "page": "rain-walk-home.html",
+      "poster": "posters/rain-walk-home.jpg"
+    },
+    {
+      "id": "sketch-launch",
+      "title": "Sketch to Launch",
+      "subtitle": "A notebook page where a rocket draws itself stroke by stroke, is coloured in with hachure, counts down and lifts off toward a moon; every wobbly line comes from Rough.js as plain path data",
+      "width": 1280,
+      "height": 720,
+      "duration": 14.5,
+      "page": "sketch-launch.html",
+      "poster": "posters/sketch-launch.jpg"
+    },
+    {
+      "id": "loop-morph",
+      "title": "Small Motions",
+      "subtitle": "One dot becomes a loader, a progress bar, a toggle, a check and a spinner, and comes home: a seamless 12 s loop",
+      "width": 1080,
+      "height": 1080,
+      "duration": 12,
+      "page": "loop-morph.html",
+      "poster": "posters/loop-morph.jpg"
+    },
+    {
+      "id": "sprint-trace",
+      "title": "Sprint Trace",
+      "subtitle": "A 100 m final in real time, told only with traces and numbers",
+      "width": 1280,
+      "height": 720,
+      "duration": 14,
+      "page": "sprint-trace.html",
+      "poster": "posters/sprint-trace.jpg"
+    },
+    {
+      "id": "ui-microinteractions",
+      "title": "UI motion kit",
+      "subtitle": "Six microinteractions on a 3×2 board — toggle, ripple + check, like burst, loader, download, bell — played as a cascade, then all at once",
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "page": "ui-microinteractions.html",
+      "poster": "posters/ui-microinteractions.jpg"
+    },
+    {
+      "id": "hasshahyo",
+      "title": "発車標 Departure Board",
+      "subtitle": "A station board where nothing moves unless the information changed: a departure, a delay, a track change",
+      "width": 1280,
+      "height": 720,
+      "duration": 10,
+      "page": "hasshahyo.html",
+      "poster": "posters/hasshahyo.jpg"
+    },
+    {
+      "id": "sora-no-ichinichi",
+      "title": "空の一日",
+      "subtitle": "A day of sky, dawn to night, as one slow colour field with a 24-hour scale",
+      "width": 1280,
+      "height": 720,
+      "duration": 13,
+      "page": "sora-no-ichinichi.html",
+      "poster": "posters/sora-no-ichinichi.jpg"
+    }
+  ]
+}

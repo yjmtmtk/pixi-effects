@@ -13,8 +13,6 @@
       if (focus) tab.focus();
       panel.setAttribute('aria-labelledby', tab.id);
       [].forEach.call(panel.querySelectorAll('.sentence'), function (p) { p.hidden = p.getAttribute('data-tab') !== tab.id; });
-      var link = panel.querySelector('a.hero-card');
-      if (link) link.setAttribute('href', '#' + tab.getAttribute('data-card'));
       if (fig.getAttribute('data-page') === tab.getAttribute('data-page')) return;
       var wasLive = fig.classList.contains('is-live');
       if (window.peLive) window.peLive.stop(fig);

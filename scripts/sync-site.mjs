@@ -6,7 +6,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { renderFooter, renderHead, renderHeader, rootPrefix } from './site-parts.mjs';
-import { renderHero, renderOne, renderPromo, renderRefined } from './samples.mjs';
+import { renderHero, renderPromo, renderRefined } from './samples.mjs';
+import { renderGallery } from './gallery.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -20,11 +21,12 @@ REGIONS['recipe-list'] = ({ root_dir }) => {
   const ids = [...md.matchAll(/\/\/ @recipe ([^\n]+)/g)].map((m) => esc(m[1].trim()));
   return `<ul class="recipe-ids">\n${ids.map((id) => `<li><code>${id}</code></li>`).join('\n')}\n</ul>`;
 };
-/** The samples (site/samples/samples.json), as static HTML: the hero's tabs and player, the promo, the one-sentence cards, the refined cards. */
+/** The samples (site/samples/samples.json), as static HTML: the hero's tabs and player, the promo, the refined cards. */
 REGIONS['samples-hero'] = renderHero;
 REGIONS['samples-promo'] = renderPromo;
-REGIONS['samples-one'] = renderOne;
 REGIONS['samples-refined'] = renderRefined;
+/** The gallery (site/gallery/pieces.json): pieces picked from the old gallery, each a live player. */
+REGIONS['gallery'] = renderGallery;
 /** The Lab's "light" block: the comparison piece as a page and as an MP4, and the player the page loads once (lab/sizes.json, measured by scripts/lab-sizes.mjs). */
 REGIONS['lab-sizes'] = ({ root_dir }) => {
   const s = JSON.parse(readFileSync(join(root_dir, 'lab/sizes.json'), 'utf8'));

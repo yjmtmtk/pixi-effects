@@ -53,23 +53,14 @@ describe('site/samples/samples.json', () => {
 });
 
 describe('the sample regions sync-site writes', () => {
-  it('samples-one: every one-sentence piece has exactly one card, with its sentence, its minutes and "unedited"', () => {
-    const html = region('samples-one');
-    const ones = samples.filter((s: any) => s.kind === 'one');
-    expect(cardsIn(html)).toEqual(ones.map((s: any) => `site/samples/${s.id}/${s.page}`));
-    for (const s of ones) {
-      expect(html).toContain(`id="sample-${s.id}"`);
-      expect(html).toContain(`lang="${s.lang}"`);
-      expect(html).toContain(`${s.minutes} min`);
-    }
-    expect(html).toMatch(/1 message/);
-    expect(html).toMatch(/unedited/);
+  it('the hero says "best of N" when a piece was picked from several runs', () => {
+    const one = samples.find((s: any) => s.kind === 'one');
+    const html = REGIONS['samples-hero']({ ...ctx, samples: [{ ...one, runs: 3 }] });
+    expect(html).toMatch(/best of 3/);
   });
 
-  it('says "best of N" when a piece was picked from several runs', () => {
-    const one = samples.find((s: any) => s.kind === 'one');
-    const html = REGIONS['samples-one']({ ...ctx, samples: [{ ...one, runs: 3 }] });
-    expect(html).toMatch(/best of 3/);
+  it('there is no one-sentence card list any more (the hero shows the one-sentence pieces; the gallery took the section)', () => {
+    expect(REGIONS['samples-one']).toBeUndefined();
   });
 
   it('samples-refined: every message, in order, and "N messages"', () => {
@@ -88,17 +79,17 @@ describe('the sample regions sync-site writes', () => {
     expect(cardsIn(html)).toEqual([`site/samples/${p.id}/${p.page}`]);
   });
 
-  it('samples-hero: a tab per language (role, aria-selected on the first), each tab pointing at its card; the sentence carries its language', () => {
+  it('samples-hero: a tab per language (role, aria-selected on the first); the sentence carries its language; no link to a card', () => {
     const html = region('samples-hero');
     const hero = heroSamples(samples);
     const tabs = [...html.matchAll(/<button[^>]*role="tab"[^>]*>/g)].map((m) => m[0]);
     expect(tabs).toHaveLength(hero.length);
     expect(tabs[0]).toMatch(/aria-selected="true"/);
     hero.forEach((s: any, i: number) => {
-      expect(tabs[i]).toContain(`data-card="sample-${s.id}"`);
       expect(html).toContain(`lang="${s.lang}"`);
     });
     expect(cardsIn(html)).toHaveLength(1);                                   // one hero player; the tabs swap what it plays
     expect(html).toMatch(/data-autoplay/);
+    expect(html).not.toMatch(/hero-card|data-card/);
   });
 });
