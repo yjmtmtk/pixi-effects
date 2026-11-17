@@ -1,0 +1,12 @@
+/* The gallery page (gallery/index.html). Shared tokens and parts: ../site/shared/. The pieces: ../site/gallery/. */
+
+.gallery-head{padding-top:clamp(40px,6vw,88px);max-width:820px}
+.gallery-head h1{font-size:clamp(44px,7.6vw,104px);letter-spacing:-.05em;line-height:.94;font-weight:900}
+.gallery-head h1::after{content:"";display:inline-block;width:.32em;height:.32em;margin-left:.12em;border-radius:.06em;background:var(--pink);transform:rotate(45deg) translateY(-.08em)}
+.lede{margin-top:20px;font-size:clamp(17px,1.5vw,20px);color:var(--ink-2);max-width:58ch;line-height:1.5}
+
+.cards{display:grid;gap:22px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));align-items:start;padding:clamp(40px,5vw,72px) 0 clamp(64px,8vw,112px)}
+.gallery-card .live{border-radius:0;box-shadow:none}
+.sample-body{padding:18px 20px 20px;display:grid;gap:8px}
+.gallery-title{font-size:18px;line-height:1.25;font-weight:800;letter-spacing:-.01em}
+.gallery-line{font-size:15px;line-height:1.45;color:var(--ink-2)}

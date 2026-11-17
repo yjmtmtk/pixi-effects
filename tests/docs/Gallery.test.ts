@@ -38,6 +38,22 @@ describe('site/gallery/pieces.json', () => {
   });
 });
 
+describe('the gallery page (gallery/index.html)', () => {
+  it('is a page of the site with the gallery region, marked current in the header, and its players point back up to site/gallery/', () => {
+    const pages = JSON.parse(readFileSync(resolve(root, 'site/pages.json'), 'utf8')).pages;
+    const entry = pages.find((p: any) => p.file === 'gallery/index.html');
+    expect(entry).toBeTruthy();
+    expect(entry.current).toBe('gallery');
+    expect(entry.regions).toContain('gallery');
+    const html = readFileSync(resolve(root, 'gallery/index.html'), 'utf8');
+    expect(html).toContain('<!--site:gallery-->');
+    expect(html).toMatch(/<a href="\.\.\/gallery\/" aria-current="page">Gallery<\/a>/);
+    const first = html.match(/<figure class="live"[^>]*data-page="([^"]+)"/)![1];
+    expect(first).toBe(`../site/gallery/${pieces[0].page}`);
+    expect(html).toMatch(/<h1[^>]*>Gallery<\/h1>/);
+  });
+});
+
 describe('the gallery region sync-site writes', () => {
   it('a card per piece, in order: a live player of its page, its poster at its own size, its title and its line', () => {
     const html = REGIONS['gallery'](ctx) as string;

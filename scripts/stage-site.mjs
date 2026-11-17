@@ -23,6 +23,7 @@ export async function stageSite(outDir, { root = ROOT } = {}) {
   copy('site/landing/landing.js');
   copy('site/for-ai.css');
   copy('lab');
+  copy('gallery');
   copy('site/shared');
   copy('site/samples');
   copy('site/gallery');

@@ -92,7 +92,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
       await withLanding(width, async (cdp) => {
         const figs: any[] = await cdp.eval(`[...document.querySelectorAll('figure.live')].map(f => { const i = f.querySelector('img');   // the poster's width and height are the video's
           return { page: f.dataset.page, frame: f.clientWidth / f.clientHeight, video: +i.getAttribute('width') / +i.getAttribute('height') }; })`);
-        expect(figs.length).toBeGreaterThan(3);
+        expect(figs.length).toBeGreaterThanOrEqual(3);                       // the hero, the promo, the refined piece (the gallery is its own page)
         for (const f of figs) expect(Math.abs(f.frame - f.video) / f.video, `${width}px ${f.page}`).toBeLessThan(0.01);
       });
     }

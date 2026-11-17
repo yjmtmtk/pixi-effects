@@ -7,6 +7,7 @@ export const AUTHOR_X = 'https://x.com/t_yjm';
 
 /** The entrances, with their address from the site root. */
 export const NAV = [
+  { id: 'gallery', label: 'Gallery', href: 'gallery/' },
   { id: 'lab', label: 'Lab', href: 'lab/' },
   { id: 'forai', label: 'For AI', href: 'for-ai.html' },
 ];

@@ -6,7 +6,6 @@
       "regions": [
         "samples-hero",
         "samples-promo",
-        "gallery",
         "samples-refined"
       ]
     },
@@ -15,6 +14,13 @@
       "current": "forai",
       "regions": [
         "recipe-list"
+      ]
+    },
+    {
+      "file": "gallery/index.html",
+      "current": "gallery",
+      "regions": [
+        "gallery"
       ]
     },
     {

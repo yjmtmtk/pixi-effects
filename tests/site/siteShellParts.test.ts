@@ -17,8 +17,8 @@ describe('site-parts: the header, footer and head every page shares', () => {
 
   it('the header has the brand, the entrances and GitHub, relative to the page, and marks the current one; there is no theme switch', () => {
     const h = renderHeader({ root: '../../', current: 'forai' });
-    expect(hrefs(h)).toEqual(expect.arrayContaining(['../../', '../../lab/', '../../for-ai.html', 'https://github.com/yjmtmtk/pixi-effects']));
-    expect(NAV.map((n: any) => n.id)).toEqual(['lab', 'forai']);
+    expect(hrefs(h)).toEqual(expect.arrayContaining(['../../', '../../gallery/', '../../lab/', '../../for-ai.html', 'https://github.com/yjmtmtk/pixi-effects']));
+    expect(NAV.map((n: any) => n.id)).toEqual(['gallery', 'lab', 'forai']);
     expect(h.match(/aria-current="page"/g)).toHaveLength(1);
     expect(h).toMatch(/<a href="\.\.\/\.\.\/for-ai\.html" aria-current="page">For AI<\/a>/);
     expect(h).not.toContain('themeBtn');

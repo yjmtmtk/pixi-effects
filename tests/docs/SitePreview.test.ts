@@ -17,7 +17,7 @@ describe('previewing the whole site locally', () => {
   it('the maintainer guide names that command', () => {
     expect(read('site/README.md')).toContain('npm run site');
   });
-  it('the staged site has no Guide, music lab or numbered tour, and no examples/ at all (1.0: Home, Lab, For AI)', async () => {
+  it('the staged site has no Guide, music lab or numbered tour, and no examples/ at all (1.0: Home, Gallery, Lab, For AI)', async () => {
     const out = join(tmpdir(), `site-${process.pid}`);
     try {
       await stageSite(out);
@@ -26,7 +26,7 @@ describe('previewing the whole site locally', () => {
       expect(existsSync(join(out, 'examples/music-lab.html'))).toBe(false);
       expect(existsSync(join(out, 'examples/music-lab'))).toBe(false);
       expect(existsSync(join(out, 'examples'))).toBe(false);
-      for (const page of ['index.html', 'lab/index.html', 'for-ai.html']) expect(existsSync(join(out, page)), page).toBe(true);
+      for (const page of ['index.html', 'gallery/index.html', 'lab/index.html', 'for-ai.html']) expect(existsSync(join(out, page)), page).toBe(true);
     } finally { rmSync(out, { recursive: true, force: true }); }
   }, 60_000);
 });

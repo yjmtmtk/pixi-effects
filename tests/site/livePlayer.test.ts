@@ -148,6 +148,18 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the live p
     });
   }, 60000);
 
+  it('data-modal: a tall window (a square piece on a short screen) keeps its close button and its caption on the screen', async () => {
+    await withFixture({ reduce: true, width: 1280, height: 800 }, async (cdp) => {
+      await cdp.eval(`(() => { const f = document.querySelector('#modal'); f.setAttribute('data-w', '1080'); f.setAttribute('data-h', '1080'); f.querySelector('.live-play').click(); })()`);
+      await check.sleep(400);
+      const r = await cdp.eval(`(() => { const d = document.querySelector('dialog.live-modal'); const c = d.querySelector('.live-modal-close').getBoundingClientRect(); const b = d.getBoundingClientRect();
+        return { closeTop: c.top, closeBottom: c.bottom, boxTop: b.top, boxBottom: b.bottom, vh: innerHeight }; })()`);
+      expect(r.closeTop).toBeGreaterThanOrEqual(0);
+      expect(r.boxTop).toBeGreaterThanOrEqual(0);
+      expect(r.boxBottom).toBeLessThanOrEqual(r.vh);
+    });
+  }, 60000);
+
   it('a piece that cannot start leaves its poster and says so (never an empty box)', async () => {
     await withFixture({ reduce: true }, async (cdp) => {
       await cdp.eval(`document.querySelector('#broken .live-play').click()`);

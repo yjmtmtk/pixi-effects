@@ -104,13 +104,13 @@
     var l = document.createElement('p'); l.className = 'live-modal-line'; l.textContent = line;
     cap.appendChild(h); if (line) cap.appendChild(l);
     d.appendChild(close); d.appendChild(frame); d.appendChild(cap);
+    // the picture at its own size, smaller only when the screen is: the window (close button row, picture, caption) always fits on it
     function size() {
-      var k = Math.min(1, (window.innerWidth - 32) / W, (window.innerHeight - 140) / H);
-      frame.style.width = Math.floor(W * k) + 'px';
-      frame.style.height = Math.floor(H * k) + 'px';
-      d.style.width = frame.style.width;                     // the window is as wide as the picture: the caption wraps under it
+      var room = function (capH) { return Math.min(1, (window.innerWidth - 32) / W, (window.innerHeight - 32 - 48 - 14 - capH) / H); };
+      var apply = function (k) { frame.style.width = Math.floor(W * k) + 'px'; frame.style.height = Math.floor(H * k) + 'px'; d.style.width = frame.style.width; };
+      apply(room(90));
+      apply(room(cap.offsetHeight));                         // again with the caption as it wraps at that width
     }
-    size();
     window.addEventListener('resize', size);
     close.addEventListener('click', function () { d.close(); });
     d.addEventListener('click', function (e) { if (e.target === d) d.close(); });          // a click on the backdrop
@@ -122,6 +122,7 @@
     });
     document.body.appendChild(d);
     if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+    size();
     start(frame);
   }
 

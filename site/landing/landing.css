@@ -59,15 +59,12 @@
 .promo-chat .facts li:first-child{background:rgba(233,30,99,.3);color:#fff}
 @media (min-width:900px){ .promo{grid-template-columns:minmax(0,7fr) minmax(0,4fr)} }
 
-/* ---------- the cards: the gallery (and the shared card body of the samples) ---------- */
-.cards{display:grid;gap:22px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));align-items:start}
+/* ---------- the shared card body of the samples ---------- */
 .sample .live{border-radius:0;box-shadow:none}
 .sample-body{padding:18px 20px 20px;display:grid;gap:12px}
 .sample .sentence{font-size:16px;line-height:1.5;font-weight:600;overflow-wrap:anywhere}
 .sample .sentence::before{content:"“";color:var(--pink)}
 .sample .sentence::after{content:"”";color:var(--pink)}
-.gallery-title{font-size:18px;line-height:1.25;font-weight:800;letter-spacing:-.01em}
-.gallery-line{font-size:15px;line-height:1.45;color:var(--ink-2)}
 
 /* ---------- the refined pieces: the result next to the whole conversation ---------- */
 .refined-list{display:grid;gap:28px}

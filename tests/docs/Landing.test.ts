@@ -11,8 +11,8 @@ const visibleWords = () => main.replace(/<script[\s\S]*?<\/script>/g, ' ').repla
   .replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').split(/\s+/).filter(Boolean).length;
 
 describe('the landing page (index.html at the repository root, deployed as the site root)', () => {
-  it('has the sections of the design, in order: hero, the promo of this project, the gallery, a few more messages, start, for the curious', () => {
-    const ids = ['hero', 'promo', 'gallery', 'refined', 'start', 'curious'];
+  it('has the sections of the design, in order: hero, the promo of this project, a few more messages, start, for the curious (the gallery is its own page)', () => {
+    const ids = ['hero', 'promo', 'refined', 'start', 'curious'];
     const at = ids.map((id) => main.indexOf(`id="${id}"`));
     at.forEach((i, n) => expect(i, ids[n]).toBeGreaterThan(-1));
     expect([...at].sort((a, b) => a - b)).toEqual(at);
@@ -28,10 +28,10 @@ describe('the landing page (index.html at the repository root, deployed as the s
     expect(main).toContain('<!--site:samples-promo-->');
   });
 
-  it('carries the gallery and the refined cards, and the hero points at the gallery', () => {
-    expect(main).toContain('<!--site:gallery-->');
+  it('carries the refined cards, and the hero points at the gallery page (not a section of this one)', () => {
+    expect(main).not.toContain('<!--site:gallery-->');
     expect(main).not.toContain('<!--site:samples-one-->');
-    expect(main).toMatch(/<a class="text-link" href="#gallery">/);
+    expect(main).toMatch(/<a class="text-link" href="gallery\/">See the gallery<\/a>/);
     expect(main).toContain('<!--site:samples-refined-->');
   });
 
