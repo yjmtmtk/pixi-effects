@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **A model's colourways (glTF `KHR_materials_variants`).** `loadModel(url, { variant: 'street' })` starts in one; the loaded model lists them (`variants`), says which is shown (`variant`) and switches with `setVariant(name)` (`null`: the file's own colours). It only swaps materials, so it can follow the time from `update(t)` or a click. A wrong name says the right ones. `pixi-effects probe model.glb` lists them.
+
 ## 1.0.1
 
 - **A rotation that swings with `yoyo` no longer jumps back for one frame where a swing turns.** With an odd `repeat`, the frame exactly at the end of a forward swing showed the value the whole tween ends on (its start), so a lantern swinging 1.6 s a swing at 30 fps jumped every 3.2 s. Only `rotation` was affected, and only when a turn fell exactly on a frame.

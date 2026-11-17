@@ -54,6 +54,17 @@ describe('probe on a glTF model: what an author needs before writing the page (n
     expect(report.longest).toBeCloseTo(1, 6);
   });
 
+  it('a file with colourways (KHR_materials_variants) names them, and how to use them; a .glb the same', async () => {
+    for (const f of ['variants-box.gltf', 'variants-box.glb']) {
+      const r = await probe(fixture(f));
+      expect(r.code, r.stderr).toBe(0);
+      expect(r.stdout, f).toMatch(/colourways +"orange", "blue", "green"/);
+      expect(r.stdout, f).toMatch(/loadModel\(url, \{ variant \}\)|setVariant/);
+    }
+    const plain = await probe(fixture('spin-box.gltf'));
+    expect(plain.stdout).not.toMatch(/colourways/);
+  });
+
   it('a file that needs a decoder (Draco, KTX2, Meshopt) says so, and what PixiJS 3D needs for it', async () => {
     const json = JSON.parse(readFileSync(fixture('spin-box.gltf'), 'utf8'));
     json.extensionsUsed = ['KHR_draco_mesh_compression']; json.extensionsRequired = ['KHR_draco_mesh_compression'];

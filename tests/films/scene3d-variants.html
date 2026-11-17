@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · loadModel colourways (KHR_materials_variants)</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene3d-variants.test.ts): loadModel('../fixtures/variants-box.gltf' | .glb | spin-box.gltf) with its colourways.
+       ?file=gltf|glb|plain  ?variant=NAME (at load)  ?timed=1 (update(t) sets "orange" before 1 s, "blue" after)  ?bad=load|set (a name that is not there).
+       The page gives window.model, window.err (an error a call threw), boxColour(frame) and baseColour(frame) ([r, g, b] at the box's and the base's
+       centre), hashOf(frame), window.__logs. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { register3D, loadModel, fitCamera } from '../../dist/3d.js';
+    import * as P3D from '@pixi/3d';
+    register3D();
+    const q = new URLSearchParams(location.search);
+    const file = { gltf: '../fixtures/variants-box.gltf', glb: '../fixtures/variants-box.glb', plain: '../fixtures/spin-box.gltf' }[q.get('file') || 'gltf'];
+    let view = null;
+    const movie = new Movie();
+    window.movie = movie;
+    window.err = null;
+    window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    const centreOf = (label) => {
+      const n = window.model.model.getChildByLabel(label, true);
+      const b = n.getLocalBounds().applyMatrix4(n.getGlobalTransform(new P3D.Matrix4()));
+      if (label === 'base') return view.worldToScreen({ x: (b.min.x + b.max.x) / 2, y: b.max.y, z: b.max.z - 0.1 });   // its front edge: the box sits on its centre
+      return view.worldToScreen({ x: (b.min.x + b.max.x) / 2, y: (b.min.y + b.max.y) / 2 + 0.2, z: (b.min.z + b.max.z) / 2 });
+    };
+    const colourAt = async (frame, label) => {
+      const img = await movie.snapshot(frame, { as: 'imageData' }); const s = centreOf(label);
+      const i = (Math.round(s.y) * img.width + Math.round(s.x)) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]];
+    };
+    window.boxColour = (f) => colourAt(f, 'box');
+    window.baseColour = (f) => colourAt(f, 'base');
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#101820',
+        composition: { layers: [
+          { type: 'scene3d', name: 'stage',
+            setup: async (ctx) => {
+              view = ctx.view;
+              let m;
+              try { m = await loadModel(file, { animation: false, ...(q.get('variant') ? { variant: q.get('variant') } : {}), ...(q.get('bad') === 'load' ? { variant: 'red' } : {}) }); }
+              catch (e) { window.err = e.message; m = await loadModel(file, { animation: false }); }
+              window.model = m;
+              if (q.get('bad') === 'set') { try { m.setVariant('gren'); } catch (e) { window.err = e.message; } }
+              ctx.root.addChild(m.object, new P3D.AmbientLight({ intensity: 1.2 }));
+              const sun = new P3D.DirectionalLight({ intensity: 2 }); sun.rotation.set(-0.9, 0.5, 0); ctx.root.addChild(sun);
+              fitCamera(ctx, m.object, { direction: [0.4, 0.5, 1] });
+            },
+            update: (t) => { if (q.get('timed')) window.model.setVariant(t < 1 ? 'orange' : 'blue'); } },
+        ] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
+  </script>
+</body>
+</html>

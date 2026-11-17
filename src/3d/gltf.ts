@@ -2,7 +2,8 @@
  * `loadModel(url)` and `fitCamera(ctx, object)`: a glTF / GLB model in a scene3d layer, posed from the time; the camera where the whole model fits.
  */
 import { Assets } from 'pixi.js';
-import { Container3D, Matrix4, Model3D, Vector3 } from '@pixi/3d';
+import { Container3D, Matrix4, Mesh3D, Model3D, Vector3, glbToGltf } from '@pixi/3d';
+import { suggestName } from '../core/options';
 import type { Scene3DContext } from './types';
 
 export interface LoadModelOptions {
@@ -13,6 +14,8 @@ export interface LoadModelOptions {
   offset?: number;
   /** `true` (default): the clip repeats; `false`: it holds its last pose. */
   loop?: boolean;
+  /** A colourway of the file (glTF `KHR_materials_variants`) to start in, by name; see `variants`. Default: the file's own colours. */
+  variant?: string;
 }
 
 export interface LoadedModel {
@@ -28,6 +31,55 @@ export interface LoadedModel {
   fit(n: number): void;
   /** Pose the model at the layer's time `t` (seconds): the clip at `t x speed + offset`, looped or held. A seek, an export and a repeat give the same pose. */
   pose(t: number): void;
+  /** The names of the file's colourways (glTF `KHR_materials_variants`, e.g. a shoe's "midnight" and "street"); `[]` when it has none. */
+  variants: string[];
+  /** The colourway shown now, or `null` for the file's own colours. */
+  readonly variant: string | null;
+  /**
+   * Show a colourway, by name (`null`: the file's own colours). It only swaps materials, so it is cheap and can be called every frame: from
+   * `update(t)` it is a function of the time (`setVariant(t < 2 ? 'midnight' : 'street')`), from a click it changes the picture at once
+   * (then `movie.redraw()`). A part the colourway does not name keeps its own material.
+   */
+  setVariant(name: string | null): void;
+}
+
+interface GltfJsonLike {
+  extensions?: { KHR_materials_variants?: { variants?: Array<{ name?: string }> } };
+  meshes?: Array<{ primitives?: Array<{ material?: number; extensions?: { KHR_materials_variants?: { mappings?: Array<{ material: number; variants: number[] }> } } }> }>;
+}
+
+/** The file's own glTF JSON (a .glb's JSON chunk, or the .gltf text): what PixiJS 3D does not keep, the colourways. Read from the cache of the load just made. */
+async function gltfJson(url: string): Promise<GltfJsonLike | null> {
+  try {
+    const buf = await (await fetch(url)).arrayBuffer();
+    const b = new Uint8Array(buf);
+    if (b[0] === 0x67 && b[1] === 0x6c && b[2] === 0x54 && b[3] === 0x46) return glbToGltf(buf).json as unknown as GltfJsonLike;   // 'glTF'
+    return JSON.parse(new TextDecoder().decode(b)) as GltfJsonLike;
+  } catch { return null; }
+}
+
+/** What `setVariant` swaps: for every mesh of the model whose glTF primitive has colourways, its own material and the one for each colourway. */
+function colourways(json: GltfJsonLike | null, model: Model3D, source: { geometries?: unknown[][] }): { names: string[]; parts: Array<{ mesh: Mesh3D; own: Mesh3D['material']; by: Map<number, Mesh3D['material']> }> } {
+  const names = (json?.extensions?.KHR_materials_variants?.variants ?? []).map((v, i) => v.name ?? `variant ${i}`);
+  const parts: Array<{ mesh: Mesh3D; own: Mesh3D['material']; by: Map<number, Mesh3D['material']> }> = [];
+  if (!names.length || !json?.meshes) return { names, parts };
+  const where = new Map<unknown, { m: number; p: number }>();                           // each primitive's Geometry3D -> its glTF mesh and primitive
+  (source.geometries ?? []).forEach((prims, m) => prims.forEach((g, p) => where.set(g, { m, p })));
+  const materials = model.materials;
+  const walk = (node: { children?: unknown[] }): void => {
+    if (node instanceof Mesh3D) {
+      const at = where.get(node.geometry);
+      const mappings = at ? json.meshes?.[at.m]?.primitives?.[at.p]?.extensions?.KHR_materials_variants?.mappings : undefined;
+      if (mappings?.length) {
+        const by = new Map<number, Mesh3D['material']>();
+        for (const mp of mappings) { const mat = materials[mp.material]; if (mat) for (const v of mp.variants) by.set(v, mat as Mesh3D['material']); }
+        parts.push({ mesh: node, own: node.material, by });
+      }
+    }
+    for (const c of node.children ?? []) walk(c as { children?: unknown[] });
+  };
+  walk(model as unknown as { children?: unknown[] });
+  return { names, parts };
 }
 
 const label = 'pixi-effects: loadModel';
@@ -59,6 +111,26 @@ export async function loadModel(url: string, options: LoadModelOptions = {}): Pr
   model.position.set(-(box.min.x + box.max.x) / 2, -(box.min.y + box.max.y) / 2, -(box.min.z + box.max.z) / 2);
   const base = { x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z };
 
+  const ways = colourways(await gltfJson(url), model, source as { geometries?: unknown[][] });
+  let current: string | null = null;
+  const unknownVariant = (where: string, name: string): string => {
+    if (!ways.names.length) return `pixi-effects: ${where}: the model has no colourways (its file has no KHR_materials_variants)`;
+    const near = suggestName(name, ways.names);
+    return `pixi-effects: ${where}: the model has no colourway "${name}" (its colourways: ${ways.names.map((n) => `"${n}"`).join(', ')})${near ? `; did you mean "${near}"?` : ''}`;
+  };
+  const setVariant = (name: string | null): void => {
+    if (name === current) return;
+    if (name === null) { for (const part of ways.parts) part.mesh.material = part.own; current = null; return; }
+    const i = ways.names.indexOf(name);
+    if (i < 0) throw new Error(unknownVariant('setVariant', String(name)));
+    for (const part of ways.parts) part.mesh.material = part.by.get(i) ?? part.own;
+    current = name;
+  };
+  if (options.variant !== undefined) {
+    if (!ways.names.includes(options.variant)) throw new Error(unknownVariant('loadModel', String(options.variant)));
+    setVariant(options.variant);
+  }
+
   const state = clip !== null && player ? player.getState(clip) : null;
   const pose = (t: number): void => {
     if (!state) return;
@@ -77,6 +149,9 @@ export async function loadModel(url: string, options: LoadModelOptions = {}): Pr
       object.scale.set(k, k, k);
     },
     pose,
+    variants: ways.names,
+    get variant() { return current; },
+    setVariant,
   };
 }
 

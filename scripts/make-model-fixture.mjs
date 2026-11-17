@@ -96,3 +96,42 @@ console.log(`${longOut}: ${JSON.stringify(plank).length} bytes`);
   writeFileSync(skinnedOut, JSON.stringify(skinned) + '\n');
   console.log(`${skinnedOut}: ${JSON.stringify(skinned).length} bytes`);
 }
+
+// tests/fixtures/variants-box.gltf and .glb: the box with three colourways (KHR_materials_variants: "orange" the default, "blue", "green") and a grey base
+// under it that has no colourways (a variant leaves it alone). The .glb is the same model in one binary file (the buffer inside it, not a data: URI).
+{
+  const variants = {
+    ...gltf,
+    extensionsUsed: ['KHR_materials_variants'],
+    extensions: { KHR_materials_variants: { variants: [{ name: 'orange' }, { name: 'blue' }, { name: 'green' }] } },
+    nodes: [{ name: 'box', mesh: 0 }, { name: 'base', mesh: 1, translation: [0, -0.75, 0], scale: [1.6, 0.25, 1.6] }],
+    scenes: [{ nodes: [0, 1] }],
+    meshes: [
+      { name: 'box', primitives: [{ ...gltf.meshes[0].primitives[0], material: 0, extensions: { KHR_materials_variants: { mappings: [{ material: 0, variants: [0] }, { material: 1, variants: [1] }, { material: 2, variants: [2] }] } } }] },
+      { name: 'base', primitives: [{ ...gltf.meshes[0].primitives[0], material: 3 }] },
+    ],
+    materials: [
+      gltf.materials[0],
+      { name: 'blue', pbrMetallicRoughness: { baseColorFactor: [0.15, 0.4, 1, 1], metallicFactor: 0, roughnessFactor: 0.6 } },
+      { name: 'green', pbrMetallicRoughness: { baseColorFactor: [0.2, 0.85, 0.3, 1], metallicFactor: 0, roughnessFactor: 0.6 } },
+      { name: 'grey', pbrMetallicRoughness: { baseColorFactor: [0.5, 0.5, 0.5, 1], metallicFactor: 0, roughnessFactor: 0.8 } },
+    ],
+    animations: undefined,
+  };
+  const vOut = out.replace('spin-box.gltf', 'variants-box.gltf');
+  writeFileSync(vOut, JSON.stringify(variants) + '\n');
+  console.log(`${vOut}: ${JSON.stringify(variants).length} bytes`);
+
+  // the GLB: JSON chunk + BIN chunk (each padded to 4 bytes), the buffer without its uri
+  const bin = Buffer.from(variants.buffers[0].uri.split(',')[1], 'base64');
+  const json = { ...variants, buffers: [{ byteLength: bin.length }] };
+  const pad = (b, fill) => Buffer.concat([b, Buffer.alloc((4 - (b.length % 4)) % 4, fill)]);
+  const jsonChunk = pad(Buffer.from(JSON.stringify(json)), 0x20), binChunk = pad(bin, 0);
+  const head = Buffer.alloc(12), jh = Buffer.alloc(8), bh = Buffer.alloc(8);
+  head.writeUInt32LE(0x46546c67, 0); head.writeUInt32LE(2, 4); head.writeUInt32LE(12 + 8 + jsonChunk.length + 8 + binChunk.length, 8);
+  jh.writeUInt32LE(jsonChunk.length, 0); jh.writeUInt32LE(0x4e4f534a, 4);
+  bh.writeUInt32LE(binChunk.length, 0); bh.writeUInt32LE(0x004e4942, 4);
+  const glbOut = out.replace('spin-box.gltf', 'variants-box.glb');
+  writeFileSync(glbOut, Buffer.concat([head, jh, jsonChunk, bh, binChunk]));
+  console.log(`${glbOut}: written`);
+}

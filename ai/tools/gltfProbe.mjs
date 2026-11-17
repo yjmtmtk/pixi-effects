@@ -80,6 +80,7 @@ export function describeGltf(json, { file, bytes, container }) {
     return { index, name: a.name ?? `(unnamed ${index})`, duration: round(duration) };
   });
   if (!animations.length) notes.push('no animation: loadModel poses nothing; the model stays in the pose it is stored in');
+  const variants = (json.extensions?.KHR_materials_variants?.variants ?? []).map((v, i) => v.name ?? `variant ${i}`);
   const required = json.extensionsRequired ?? [];
   const decoders = required.filter((e) => /draco|meshopt|basisu|ktx2|webp/i.test(e));
   if (decoders.length) notes.push(`needs ${decoders.join(', ')}: PixiJS 3D's loader has its own decoders for Draco and Meshopt; KTX2 / Basis textures need import 'pixi.js/ktx2' on the page: look at the model once in a picture (check), or re-export it without that compression`);
@@ -89,7 +90,7 @@ export function describeGltf(json, { file, bytes, container }) {
     file, container: `glTF ${json.asset?.version ?? '2.0'} (${container})`, bytes,
     counts: { nodes: nodes.length, meshes: meshes.length, skins: (json.skins ?? []).length, materials: (json.materials ?? []).length, textures: (json.textures ?? []).length },
     size: size ? size.map((v) => round(v, 6)) : null, longest: size ? round(Math.max(...size), 6) : null,
-    animations, extensions: json.extensionsUsed ?? [], notes,
+    animations, variants, extensions: json.extensionsUsed ?? [], notes,
   };
 }
 
@@ -117,6 +118,7 @@ export function gltfText(r) {
   L.push(`  model  ${plural(c.nodes, 'node')} · ${plural(c.meshes, 'mesh').replace('meshs', 'meshes')} · ${plural(c.skins, 'skin')} · ${plural(c.materials, 'material')} · ${plural(c.textures, 'texture')}`);
   if (r.size) L.push(`  size   ${r.size.map(num).join(' × ')}  (x × y × z in the file's units, as stored: the longest side is ${num(r.longest)}; loadModel's fit(n) scales that side to n)`);
   for (const a of r.animations) L.push(`  clip   ${a.index} "${a.name}" ${num(a.duration)} s`);
+  if (r.variants?.length) L.push(`  colourways ${r.variants.map((v) => `"${v}"`).join(', ')}  (loadModel(url, { variant }) starts in one; model.setVariant(name) switches, null for the file's own)`);
   for (const n of r.notes) L.push(`  note   ${n}`);
   return L.join('\n');
 }
