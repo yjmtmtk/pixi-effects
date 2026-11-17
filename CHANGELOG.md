@@ -3,6 +3,8 @@
 ## Unreleased
 
 - **A model's colourways (glTF `KHR_materials_variants`).** `loadModel(url, { variant: 'street' })` starts in one; the loaded model lists them (`variants`), says which is shown (`variant`) and switches with `setVariant(name)` (`null`: the file's own colours). It only swaps materials, so it can follow the time from `update(t)` or a click. A wrong name says the right ones. `pixi-effects probe model.glb` lists them.
+- **KTX2 textures need nothing on the page.** `register3D()` registers PixiJS's KTX2 loader (it fetches nothing until a KTX2 texture is met) and pins its transcoder to the pixi.js in use (PixiJS's default fetched the newest one). A path the page set with `setKTXTranscoderPath` is left alone.
+- **A Draco model whose decoder cannot be loaded says so.** Its decoder comes from www.gstatic.com the first time; offline, or on a page that blocks other sites, `loadModel` now says what happened and what to do (serve the decoder and call `setDracoDecoderPath`, or export without Draco) instead of PixiJS's loader error. Meshopt models load offline (the decoder is built into PixiJS 3D). `probe` says what each compression needs.
 
 ## 1.0.1
 

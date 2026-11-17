@@ -81,9 +81,11 @@ export function describeGltf(json, { file, bytes, container }) {
   });
   if (!animations.length) notes.push('no animation: loadModel poses nothing; the model stays in the pose it is stored in');
   const variants = (json.extensions?.KHR_materials_variants?.variants ?? []).map((v, i) => v.name ?? `variant ${i}`);
-  const required = json.extensionsRequired ?? [];
-  const decoders = required.filter((e) => /draco|meshopt|basisu|ktx2|webp/i.test(e));
-  if (decoders.length) notes.push(`needs ${decoders.join(', ')}: PixiJS 3D's loader has its own decoders for Draco and Meshopt; KTX2 / Basis textures need import 'pixi.js/ktx2' on the page: look at the model once in a picture (check), or re-export it without that compression`);
+  const used = new Set([...(json.extensionsUsed ?? []), ...(json.extensionsRequired ?? [])]);
+  if (used.has('KHR_draco_mesh_compression')) notes.push('KHR_draco_mesh_compression (Draco): its decoder loads from www.gstatic.com the first time; offline, or on a page that blocks other sites, the model will not load (loadModel says so): serve the decoder and call setDracoDecoderPath, or export again without Draco');
+  for (const e of ['EXT_meshopt_compression', 'KHR_meshopt_compression']) if (used.has(e)) notes.push(`${e} (Meshopt): its decoder is built into PixiJS 3D: nothing to do, and it works offline`);
+  if (used.has('KHR_texture_basisu')) notes.push('KHR_texture_basisu (KTX2 textures): nothing to add on the page, register3D() registers the loader; its transcoder loads from cdn.jsdelivr.net the first time (the pixi.js version in use)');
+  if (used.has('KHR_mesh_quantization')) notes.push('KHR_mesh_quantization: read by PixiJS 3D as it is');
   const external = [...(json.buffers ?? []), ...(json.images ?? [])].filter((x) => x.uri && !/^data:/i.test(x.uri));
   if (external.length) notes.push(`${external.length} file(s) are loaded next to the model (${external.slice(0, 3).map((x) => x.uri).join(', ')}${external.length > 3 ? ', …' : ''}): keep them beside it`);
   return {

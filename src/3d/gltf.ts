@@ -2,7 +2,7 @@
  * `loadModel(url)` and `fitCamera(ctx, object)`: a glTF / GLB model in a scene3d layer, posed from the time; the camera where the whole model fits.
  */
 import { Assets } from 'pixi.js';
-import { Container3D, Matrix4, Mesh3D, Model3D, Vector3, glbToGltf } from '@pixi/3d';
+import { Container3D, Matrix4, Mesh3D, Model3D, Vector3, dracoDecoderUrls, glbToGltf } from '@pixi/3d';
 import { suggestName } from '../core/options';
 import type { Scene3DContext } from './types';
 
@@ -87,7 +87,17 @@ const label = 'pixi-effects: loadModel';
 /** Load a glTF / GLB (a URL relative to the page) as a PixiJS 3D model, ready to pose from the time. Call it in a scene3d layer's `setup` (await it). */
 export async function loadModel(url: string, options: LoadModelOptions = {}): Promise<LoadedModel> {
   if (typeof url !== 'string' || !url) throw new Error(`${label}: the first argument is the model's URL: await loadModel('model.glb')`);
-  const source = await Assets.load(url);
+  let source;
+  try { source = await Assets.load(url); }
+  catch (e) {
+    const json = await gltfJson(url) as { extensionsUsed?: string[] } | null;
+    if (json?.extensionsUsed?.includes('KHR_draco_mesh_compression')) {
+      const name = url.split(/[?#]/)[0]!.split('/').pop();
+      throw new Error(`${label}: "${name}" is compressed with Draco and its decoder could not be loaded (from ${dracoDecoderUrls.jsUrl}: offline, or a page that blocks other sites?). `
+        + `Serve draco_wasm_wrapper.js and draco_decoder.wasm yourself and call setDracoDecoderPath({ jsUrl, wasmUrl }) from '@pixi/3d' before loading, or export the model again without Draco. (${(e as Error)?.message ?? e})`);
+    }
+    throw e;
+  }
   const model = new Model3D({ source, autoUpdate: false, autoPlay: false } as ConstructorParameters<typeof Model3D>[0]);
   // a file with no animation has no player
   const player = model.player as unknown as { animationLabels: readonly string[]; getState(label: string): { animation: { duration: number }; gotoAndStop(t: number): unknown } } | undefined;

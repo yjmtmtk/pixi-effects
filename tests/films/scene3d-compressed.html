@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · loadModel with compressed glTF (KTX2, Draco, Meshopt)</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene3d-compressed.test.ts): loadModel of a compressed model in a scene3d layer. ?file=ktx2|draco|meshopt
+       ?decoder=missing (the Draco decoder is pointed at a file that is not there: what a page offline, or one that blocks other sites, meets).
+       The page gives window.model, window.err (what loadModel threw), window.ktx (the KTX2 transcoder URLs), hashOf(frame), window.__logs. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { register3D, loadModel, fitCamera } from '../../dist/3d.js';
+    import { ktxTranscoderUrls } from 'pixi.js';
+    import * as P3D from '@pixi/3d';
+    register3D();
+    window.ktx = { ...ktxTranscoderUrls };
+    const q = new URLSearchParams(location.search);
+    const file = { ktx2: '../fixtures/ktx2-box.gltf', draco: '../fixtures/draco/Box.gltf', meshopt: '../fixtures/meshopt-box.gltf' }[q.get('file')];
+    if (q.get('decoder') === 'missing') P3D.setDracoDecoderPath({ jsUrl: '/tests/fixtures/no-such-draco-wrapper.js', wasmUrl: '/tests/fixtures/no-such-draco.wasm' });
+    const movie = new Movie();
+    window.movie = movie;
+    window.err = null;
+    window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    window.drawn = async () => { const d = (await movie.snapshot(10, { as: 'imageData' })).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 16) + Math.abs(d[i + 1] - 24) + Math.abs(d[i + 2] - 32) > 30) n++; return n; };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 1, frameRate: 30, background: '#101820',
+        composition: { layers: [
+          { type: 'scene3d', name: 'stage',
+            setup: async (ctx) => {
+              let m = null;
+              try { m = await loadModel(file, { animation: false }); } catch (e) { window.err = e.message; return; }
+              window.model = m;
+              ctx.root.addChild(m.object, new P3D.AmbientLight({ intensity: 1.2 }));
+              const sun = new P3D.DirectionalLight({ intensity: 2 }); sun.rotation.set(-0.9, 0.5, 0); ctx.root.addChild(sun);
+              fitCamera(ctx, m.object, { direction: [0.6, 0.5, 1] });
+            } },
+        ] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
+  </script>
+</body>
+</html>
