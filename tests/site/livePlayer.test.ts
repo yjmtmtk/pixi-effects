@@ -188,6 +188,14 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the live p
     });
   }, 60000);
 
+  it('a piece started from the keyboard keeps the focus in it (the play button hides; the focus goes to the piece, not to the page)', async () => {
+    await withFixture({ reduce: true }, async (cdp) => {
+      await cdp.eval(`(() => { const b = document.querySelector('#two .live-play'); b.focus(); b.click(); })()`);
+      await until(cdp, (x) => x.two.live);
+      expect(await cdp.eval(`(() => { const a = document.activeElement; return a && a.tagName === 'IFRAME' && !!a.closest('#two'); })()`)).toBe(true);
+    });
+  }, 60000);
+
   it('a piece that cannot start leaves its poster and says so (never an empty box)', async () => {
     await withFixture({ reduce: true }, async (cdp) => {
       await cdp.eval(`document.querySelector('#broken .live-play').click()`);

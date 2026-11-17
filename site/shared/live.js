@@ -68,9 +68,11 @@
     ifr.src = fig.getAttribute('data-page');
     ifr.allow = 'autoplay; fullscreen';
     ifr.title = (label || 'A piece').replace(/^Play /, '');
+    var hadFocus = fig.contains(document.activeElement);
     fig.appendChild(ifr);
     fig.classList.add('is-live');
     loading(fig, true);
+    if (hadFocus) ifr.focus();                               // the play button hides: the focus goes into the piece (its keys work), not back to the page
     var t0 = Date.now();
     (function poll() {
       if (!ifr.isConnected) return;

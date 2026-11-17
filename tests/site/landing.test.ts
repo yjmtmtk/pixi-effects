@@ -59,6 +59,15 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
     });
   }, 30000);
 
+  it('a tab switch clears the note a failed piece left (it was about the other piece)', async () => {
+    await withLanding(1440, async (cdp) => {
+      await cdp.eval(`(() => { const f = document.querySelector('#hero figure.live'); const n = document.createElement('p'); n.className = 'live-note'; n.textContent = 'This browser could not play it live.'; f.appendChild(n); })()`);
+      const tabs: string[] = await cdp.eval(`[...document.querySelectorAll('[role="tab"]')].map(t => t.id)`);
+      await cdp.eval(`document.getElementById(${JSON.stringify(tabs[1])}).click()`);
+      expect(await cdp.eval(`!!document.querySelector('#hero .live-note')`)).toBe(false);
+    });
+  }, 30000);
+
   it('the language tabs work with the keyboard (arrows move the selection and the focus)', async () => {
     await withLanding(1440, async (cdp) => {
       await cdp.eval(`document.querySelector('[role="tab"]').focus()`);

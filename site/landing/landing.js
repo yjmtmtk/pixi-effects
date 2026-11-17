@@ -16,6 +16,8 @@
       if (fig.getAttribute('data-page') === tab.getAttribute('data-page')) return;
       var wasLive = fig.classList.contains('is-live');
       if (window.peLive) window.peLive.stop(fig);
+      var old = fig.querySelector('.live-note');
+      if (old) old.remove();                                  // a note a failed piece left was about that piece
       fig.setAttribute('data-page', tab.getAttribute('data-page'));
       var img = fig.querySelector('img');
       img.src = tab.getAttribute('data-poster');
