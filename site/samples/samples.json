@@ -57,13 +57,13 @@
       "lang": "en",
       "title": "pixi-effects promo",
       "messages": [
-        "Make a promo video for this project."
+        "Make a promo video for this project. It will be the main video on its website, so make it about a minute long and show clearly what the project can do."
       ],
       "page": "promo.html",
       "poster": "poster.jpg",
-      "alt": "Code on the left becomes the picture on the right: text, motion, sound and a check, then the pixi-effects title and its install line.",
-      "minutes": 7,
-      "runs": 1,
+      "alt": "A one-minute promo of pixi-effects: a sentence typed to an AI becomes a video, then a video as data, moving type, 2.5D, real 3D, particles, charts, shaders, sound written as text, and the AI checking its own work.",
+      "minutes": 9,
+      "runs": 3,
       "model": "Claude Opus",
       "version": "1.0.0"
     }
