@@ -92,7 +92,15 @@
         var movie = w.movie;
         if (movie && typeof movie.play === 'function') {
           if (opts && opts.muted) { try { movie.muted = true; } catch (e) { /* the bar still works */ } }   // no click yet: a browser would block the sound
-          Promise.resolve(typeof movie.gotoFrame === 'function' ? movie.gotoFrame(0) : null).then(function () { movie.play(); }).catch(function () { /* the bar still works */ });
+          // the piece's own loader fades out once it is ready (about 0.6 s): play from the first frame only when it has gone, not under it
+          var since = Date.now();
+          (function whenClear() {
+            if (!ifr.isConnected) return;
+            var fading = null;
+            try { fading = w.document.querySelector('.pe-loader'); } catch (e) { /* gone */ }
+            if (fading && Date.now() - since < 1500) { setTimeout(whenClear, 50); return; }
+            Promise.resolve(typeof movie.gotoFrame === 'function' ? movie.gotoFrame(0) : null).then(function () { movie.play(); }).catch(function () { /* the bar still works */ });
+          })();
         }
         return;
       }

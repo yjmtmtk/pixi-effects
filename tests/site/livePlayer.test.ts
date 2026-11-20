@@ -196,6 +196,25 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the live p
     });
   }, 60000);
 
+  it('a piece starts playing only once its own loader has gone (not under the loader while it fades out)', async () => {
+    for (const reduce of [false, true]) {
+      await withFixture({ reduce }, async (cdp) => {
+        await cdp.eval(`document.querySelector('#own .live-play').click()`);
+        const look = () => cdp.eval(`(() => { const i = document.querySelector('#own iframe'); const w = i && i.contentWindow; const d = w && w.document;
+          return { playing: !!(w && w.movie && w.movie.isPlaying), loader: !!(d && d.querySelector('.pe-loader')) }; })()`);
+        const t0 = Date.now(); let overlap = false, played = false;
+        while (Date.now() - t0 < 12000 && !played) {
+          const r = await look();
+          if (r.playing && r.loader) overlap = true;
+          if (r.playing && !r.loader) played = true;
+          await check.sleep(25);
+        }
+        expect(played, `reduce=${reduce}: it plays`).toBe(true);
+        expect(overlap, `reduce=${reduce}: never playing under the loader`).toBe(false);
+      });
+    }
+  }, 60000);
+
   it('a piece that cannot start leaves its poster and says so (never an empty box)', async () => {
     await withFixture({ reduce: true }, async (cdp) => {
       await cdp.eval(`document.querySelector('#broken .live-play').click()`);
