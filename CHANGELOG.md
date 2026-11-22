@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
 
 - **The timeline's colours are where you read the names.** In `view`, each layer name has a dot in its type's colour (the colour of its bar; the type is in its tooltip), and the legend under the last row is gone (it was far below the rows once there were many, and listed every type). `movie.timelineSvg()` (the `timeline.html` that `check` writes) keeps its legend, now listing only the types the movie has, in one `<g class="legend">`.
 - **`view` has a quiet one-row header and Light / Dark / Auto colours.** The keys are behind a "?" button instead of a sentence across the window; the zoom reads `1×` at fit instead of a second "fit" beside the fit button; the switch is named "auto reload"; Light / Dark / Auto (Auto follows the system) is remembered for the next time and applied before the first paint.
