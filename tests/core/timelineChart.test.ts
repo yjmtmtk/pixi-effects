@@ -13,6 +13,8 @@ class Box extends Sequence {
   async build(): Promise<void> { this.target = new Container(); this.intrinsicWidth = 200; this.intrinsicHeight = 100; }
 }
 registerSequenceType('__box', Box as never);
+const KINDS = ['__k0', '__k1', '__k2', '__k3', '__k4', '__k5', '__k6', '__k7', '__k8', '__k9'];
+for (const k of KINDS) registerSequenceType(k, Box as never);
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 12 };
 async function scene(layers: unknown[], extra: Record<string, unknown> = {}) {
@@ -143,8 +145,16 @@ describe('timelineSvg — the chart a viewer can put a playhead on', () => {
     expect(Number(bar)).toBeCloseTo((attr('x0') + attr('x1')) / 2, 1);
   });
 
+  it('the legend lists only the types the movie has, in one <g class="legend">', async () => {
+    const data = collectTimeline(await scene([{ type: '__box', name: 'a' }, { type: '__k1', name: 'b' }, { type: '__box', name: 'c' }]), 12);
+    const svg = timelineSvg(data);
+    const legend = /<g class="legend">([\s\S]*?)<\/g>\s*<\/svg>/.exec(svg)?.[1] ?? '';
+    expect([...legend.matchAll(/class="tick">([^<]+)</g)].map(m => m[1])).toEqual(['__box', '__k1']);
+    for (const absent of ['text', 'scene3d', 'camera', 'null']) expect(legend).not.toContain(`>${absent}<`);
+  });
+
   it('the legend wraps onto more lines when the chart is narrow, and always stays inside the picture (a narrow window must not cut it off)', async () => {
-    const data = collectTimeline(await scene([{ type: '__box', name: 'a' }]), 12);
+    const data = collectTimeline(await scene(KINDS.map((type, i) => ({ type, name: 'l' + i }))), 12);
     const legendBoxes = (svg: string) => [...svg.matchAll(/<g transform="translate\(([\d.]+),([\d.]+)\)"><rect width="12"/g)].map(m => ({ x: Number(m[1]), y: Number(m[2]) }));
     for (const chartWidth of [100, 300, 600, 950, 2000]) {
       const svg = timelineSvg(data, { chartWidth, labels: false });

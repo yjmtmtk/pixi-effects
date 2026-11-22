@@ -289,11 +289,17 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
       const x = (t: number) => cdp.eval(`(() => { const d = document.querySelector('#plot svg').dataset; return +d.x0 + (${t} / +d.duration) * (+d.x1 - +d.x0); })()`);
       expect(Math.abs(cues[0]!.x - await x(0.5))).toBeLessThan(1);
       expect(Math.abs(cues[1]!.x - await x(2))).toBeLessThan(1);
-      // nothing the chart draws under its rows (the legend) sits on the sound row
+      // no legend under the chart: each name carries its type's colour instead (the colour of its bar), and the type in its tooltip
       expect(await cdp.eval(`(() => {
-        const svg = document.querySelector('#plot svg'), snd = svg.querySelector('.sound'), top = +svg.dataset.bottom, bottom = +snd.getAttribute('data-bottom');
-        return [...svg.children].filter(el => el !== snd && el.id !== 'head').map(el => /translate\\(([-\\d.]+)[, ]+([-\\d.]+)\\)/.exec(el.getAttribute('transform') || '')).filter(Boolean).filter(m => +m[2] > top && +m[2] < bottom).length;
-      })()`)).toBe(0);
+        const svg = document.querySelector('#plot svg'), top = +svg.dataset.bottom;
+        return !!svg.querySelector('.legend') || [...svg.children].filter(el => el.id !== 'head' && !el.classList.contains('sound')).some(el => { const t = el.transform && el.transform.baseVal; return t && t.numberOfItems && t.consolidate().matrix.f > top; });
+      })()`)).toBe(false);
+      const dots: Array<{ dot: string; bar: string; title: string }> = await cdp.eval(`(() => {
+        const rows = [...document.querySelectorAll('#plot svg g.row')], names = [...document.querySelectorAll('#names .name:not(.sound)')];
+        return names.map((n, i) => { const d = n.querySelector('.dot'), probe = document.createElement('i'); probe.style.color = rows[i].querySelector('rect.bar').getAttribute('fill'); document.body.appendChild(probe); const bar = getComputedStyle(probe).color; probe.remove(); return { dot: d ? getComputedStyle(d).backgroundColor : '', bar, title: n.title }; });
+      })()`);
+      expect(dots.length).toBeGreaterThan(1);
+      for (const d of dots) { expect(d.dot).toBe(d.bar); expect(d.title).toMatch(/ Â· \w+$/); }
       // the playhead reaches down through the sound row
       expect(await cdp.eval("+document.querySelector('#head line').getAttribute('y2') >= +document.querySelector('#plot svg .sound').getAttribute('data-bottom') - 1")).toBe(true);
 

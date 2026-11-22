@@ -135,6 +135,7 @@ export function viewerHtml({ pageUrl, title }) {
   #plot svg .sound .wave { fill: #4895ef; opacity: .55; }
   #plot svg .sound .cue line { stroke: #4895ef; stroke-width: 1.5; } #plot svg .sound .cue path { fill: #4895ef; }
   #names .name.sound { color: #4895ef; }
+  #names .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 0; background: var(--dim); }
 </style></head>
 <body>
 <header><b>${escHtml(title)}</b><button id="play" type="button" disabled>▶</button><span id="time">0.00 / 0.00 s · frame 0</span><span id="status">loading the page…</span><button id="warn" type="button" hidden title="what the page warned about (and the sound's problems): click to show">⚠ 0</button><span id="update" hidden><button id="reload" type="button" title="load the page again, on the frame you are on (R)">Updated — reload (R)</button></span>
@@ -327,12 +328,6 @@ export function viewerHtml({ pageUrl, title }) {
     }
     g.innerHTML = inner;
     svg.insertBefore(g, head);
-    // what the chart draws under its rows (the legend of the layer types) moves down by the sound row's height
-    for (const el of [...svg.children]) {
-      if (el === g || el === head || !el.transform || !el.transform.baseVal || !el.transform.baseVal.numberOfItems) continue;
-      const m = el.transform.baseVal.consolidate().matrix;          // read through the SVG DOM: no regular expression inside this template string
-      if (m.f > geom.bottom) el.setAttribute('transform', 'translate(' + m.e + ',' + (m.f + SOUND_H) + ')');
-    }
     const H = Math.max(vb.height + SOUND_H, y0 + h + 6);
     svg.setAttribute('viewBox', vb.x + ' ' + vb.y + ' ' + vb.width + ' ' + H); svg.setAttribute('height', String(H));
     const line = head.querySelector('line'); if (line) line.setAttribute('y2', String(y0 + h));
@@ -433,6 +428,25 @@ export function viewerHtml({ pageUrl, title }) {
   }
   const seekTime = t => seekFrame(t * movie.frameRate);
 
+  /**
+   * The chart's legend of layer types sits under its last row, far from the rows once there are many: the names column carries each
+   * type's colour instead (paintDots). Removed here: the <g class="legend">, or, from a library before it had that class, whatever the
+   * chart draws translated below its rows. The chart then ends under its last row.
+   */
+  function dropLegend() {
+    for (const el of [...svg.children]) {
+      const t = el.transform && el.transform.baseVal;
+      if (el.classList.contains('legend') || (t && t.numberOfItems && t.consolidate().matrix.f > geom.bottom)) el.remove();   // read through the SVG DOM: no regular expression inside this template string
+    }
+    const vb = svg.viewBox.baseVal, H = geom.bottom + 16;
+    svg.setAttribute('viewBox', vb.x + ' ' + vb.y + ' ' + vb.width + ' ' + H); svg.setAttribute('height', String(H));
+  }
+  /** Each name's dot takes the colour of its row's bar (the chart's own colours, whatever the library version). */
+  function paintDots() {
+    const rows = svg.querySelectorAll('g.row'), dots = names.querySelectorAll('.name:not(.sound) .dot');
+    dots.forEach((dot, i) => { const bar = rows[i] && rows[i].querySelector('rect.bar'); dot.style.background = bar ? bar.getAttribute('fill') : ''; });
+  }
+
   /** Draw the chart at the current zoom. \`anchor\` = { t, x }: the time that must stay at x pixels from the left of the panel. */
   function render(anchor) {
     const keep = anchor ?? (geom ? { t: nowT(), x: tToX(nowT()) + NAMES_W - chart.scrollLeft } : null);
@@ -440,6 +454,7 @@ export function viewerHtml({ pageUrl, title }) {
     svg = plot.querySelector('svg');
     const d = svg.dataset;
     geom = { dur: +d.duration, x0: +d.x0, x1: +d.x1, top: +d.top, bottom: +d.bottom, vbw: svg.viewBox.baseVal.width };
+    dropLegend();
     head = document.createElementNS(NS, 'g'); head.id = 'head';
     head.innerHTML = '<line x1="0" x2="0" y1="' + (geom.top - 2) + '" y2="' + geom.bottom + '"/><path d="M -6 ' + (geom.top - 8) + ' l 12 0 l -6 9 z"/>';
     svg.appendChild(head);
@@ -448,6 +463,7 @@ export function viewerHtml({ pageUrl, title }) {
     svg.addEventListener('pointerup', onEnd); svg.addEventListener('pointercancel', onEnd);
     if (zoom <= 1) chart.scrollLeft = 0;
     else if (keep) chart.scrollLeft = Math.max(0, NAMES_W + tToX(keep.t) - keep.x);
+    paintDots();
     $zlabel.textContent = zoom <= 1.001 ? '1×' : zoom.toFixed(zoom < 10 ? 1 : 0) + '×';
     $zout.disabled = zoom <= 1.001; $zfit.disabled = zoom <= 1.001; $zin.disabled = zoom >= maxZoom() - 0.001;
   }
@@ -476,7 +492,7 @@ export function viewerHtml({ pageUrl, title }) {
   function drawNames() {
     const data = movie.timelineData();
     names.innerHTML = '<div class="ruler" style="height:34px"></div>' + data.rows.map(r =>
-      '<div class="name" data-start="' + r.start + '" style="padding-left:' + (8 + r.depth * 14) + 'px" title="' + esc(r.path + ' · ' + r.type) + '">' + esc(r.name) + '</div>').join('')
+      '<div class="name" data-start="' + r.start + '" style="padding-left:' + (8 + r.depth * 14) + 'px" title="' + esc(r.path + ' · ' + r.type) + '"><i class="dot"></i>' + esc(r.name) + '</div>').join('')
       + (sound ? '<div class="name sound" data-start="0" style="height:' + SOUND_H + 'px;line-height:' + SOUND_H + 'px;padding-left:8px" title="the mix: its waveform, and a mark where each sound starts">sound</div>' : '');
   }
   function mount() {
