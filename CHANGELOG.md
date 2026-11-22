@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
 
 - **Music written as text reaches far more styles.** Every score sounded alike: soft seventh chords on eight gentle instruments, and one lo-fi example that every AI copied. Now:
   - **twelve new instruments**: `piano`, `organ` (with a rotating speaker), `strings`, `brass`, `choir`, `flute`, `guitar` (clean; with `drive` a rock guitar), `saw`, `supersaw`, `square` (the chip-tune pulse, `width` for the thinner ones), `808` and `marimba`. `piano`, `organ`, `strings`, `flute`, `guitar` and `808` used to be read as the nearest of the first eight (with a warning); they now play themselves;
