@@ -423,9 +423,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
       expect(text).toMatch(want);
       await check.sleep(400);                                                         // the bar eases to its width
       expect(await cdp.eval("parseFloat(getComputedStyle(document.querySelector('#wait .bar i')).width) / parseFloat(getComputedStyle(document.querySelector('#wait .bar')).width)")).toBeCloseTo(query ? 0.4 : 0.62, 1);
-      for (let i = 0; i < 20 && !/[1-9]\d* s elapsed/.test(text); i++) { await check.sleep(300); text = await cdp.eval("document.getElementById('wait').innerText").catch(() => ''); }
-      expect(text).toMatch(/[1-9]\d* s elapsed/);                                // and the seconds, named, so a long build never looks frozen
-      expect(text).not.toMatch(/(^|\s)0 s/);                                     // never a bare "0 s" nobody can read
+      await check.sleep(1500);
+      text = await cdp.eval("document.getElementById('wait').innerText").catch(() => '');
+      expect(text).not.toMatch(/\d+\s*s\b/);                                      // no seconds counter: the stage and the percent say how far it is
     } finally {
       try { chromeProc.kill(); } catch { /* gone */ }
       proc.kill();

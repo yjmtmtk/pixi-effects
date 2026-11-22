@@ -104,7 +104,6 @@ export function viewerHtml({ pageUrl, title }) {
   #wait .wlabel { letter-spacing: .14em; font-weight: 600; }
   #wait .bar { width: 240px; height: 3px; margin: 10px auto 8px; background: rgba(255,255,255,.16); border-radius: 2px; overflow: hidden; }
   #wait .bar i { display: block; height: 100%; width: 0; background: #ff5c8a; transition: width .2s; }
-  #wait .secs { min-height: 1.3em; color: #8fa0bf; font-family: ui-monospace, Menlo, monospace; }
   #wait[hidden] { display: none; }
   iframe { border: 0; display: block; transform-origin: 0 0; }
   #chart { flex: 1 1 0; min-height: 0; overflow: auto; border-top: 1px solid var(--line); display: flex; align-items: flex-start; }
@@ -131,7 +130,7 @@ export function viewerHtml({ pageUrl, title }) {
 <header><b>${escHtml(title)}</b><button id="play" type="button" disabled>▶</button><span id="time">0.00 / 0.00 s · frame 0</span><span id="status">loading the page…</span><button id="warn" type="button" hidden title="what the page warned about (and the sound's problems): click to show">⚠ 0</button><span id="update" hidden><button id="reload" type="button" title="load the page again, on the frame you are on (R)">Updated — reload (R)</button></span><label id="autolabel" title="reload by itself, but only while the movie is paused"><input type="checkbox" id="auto"> auto</label>
   <span class="zoom"><button id="zout" type="button" title="zoom out (-)" disabled>−</button><span id="zlabel">fit</span><button id="zin" type="button" title="zoom in (+, or Ctrl/⌘ + wheel)" disabled>+</button><button id="zfit" type="button" title="fit the whole movie (0)" disabled>fit</button></span></header>
 <div id="warnings" hidden></div>
-<div id="stage" class="pending"><iframe id="page" class="pending" src="${escHtml(pageUrl)}" allow="autoplay; fullscreen"></iframe><div id="wait"><div><div class="wlabel">LOADING THE PAGE</div><div class="bar"><i></i></div><div class="secs"></div></div></div></div>
+<div id="stage" class="pending"><iframe id="page" class="pending" src="${escHtml(pageUrl)}" allow="autoplay; fullscreen"></iframe><div id="wait"><div><div class="wlabel">LOADING THE PAGE</div><div class="bar"><i></i></div></div></div></div>
 <div id="chart"><div id="names"></div><div id="plot"></div></div>
 <script>
 (() => {
@@ -151,10 +150,10 @@ export function viewerHtml({ pageUrl, title }) {
 
   /**
    * While the page builds its movie: how far it is, as its own loader shows it (the .pe-loader's data-stage / data-percent, which
-   * movie.init writes), or from the movie's 'loadprogress' event for a page without that loader; and the seconds, so it never looks frozen.
+   * movie.init writes), or from the movie's 'loadprogress' event for a page without that loader.
    */
   let progress = null, hooked = null;
-  function showProgress(t0) {
+  function showProgress() {
     let stage = '', pct = null;
     try {
       const w = frame.contentWindow, d = frame.contentDocument;
@@ -166,8 +165,6 @@ export function viewerHtml({ pageUrl, title }) {
     const $w = document.getElementById('wait');
     $w.querySelector('.wlabel').textContent = stage ? stage + '  ' + pct + '%' : 'LOADING THE PAGE';
     $w.querySelector('.bar i').style.width = (stage && Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0) + '%';
-    const secs = Math.floor((Date.now() - t0) / 1000);
-    $w.querySelector('.secs').textContent = secs ? secs + ' s elapsed' : '';                // the time waited so far, named; nothing in the first second
   }
 
   /** The page is laid out (or will never be): show it. Until then it is hidden, so it never flashes at the iframe's default size in the corner. */
@@ -179,11 +176,10 @@ export function viewerHtml({ pageUrl, title }) {
     const mine = ++gen;
     movie = null; svg = null; head = null; geom = null; stuck = false;
     $status.classList.remove('failed'); $status.textContent = 'loading the page…';
-    const t0 = Date.now();
     let strayAt = 0;
     for (let i = 0; i < 600 && !movie; i++) {
       if (mine !== gen) return;                                      // a newer reload took over
-      showProgress(t0);
+      showProgress();
       let failed = '';
       try {
         const w = frame.contentWindow;
