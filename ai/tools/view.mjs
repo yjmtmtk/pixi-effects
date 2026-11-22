@@ -234,18 +234,36 @@ export function viewerHtml({ pageUrl, title }) {
   // keeps its picture at the left edge (the template does) is still centred: the iframe is as wide as the page's own content, then centred.
   function layout() {
     const stageW = stage.clientWidth || innerWidth, headH = document.querySelector('header').offsetHeight;
-    let h = 560, cw = stageW;
+    const room = Math.max(200, innerHeight - headH - 240);
+    let h = 560, cw = stageW, c = null;
     frame.style.width = stageW + 'px'; frame.style.transform = 'none'; frame.style.marginLeft = '0px';
     try {
-      const c = frame.contentDocument.querySelector('canvas');
+      c = frame.contentDocument.querySelector('canvas');
       if (c) { const r = c.getBoundingClientRect(); h = Math.round(r.height + 40); cw = Math.min(stageW, Math.round(r.right + r.left)); }
     } catch { /* a page we cannot read */ }
-    const k = Math.min(1, Math.max(200, innerHeight - headH - 240) / h);
+    const k = Math.min(1, room / h);
+    if (k < 1 && c) {
+      // too tall: make the page NARROWER rather than smaller. A page whose canvas follows its width (the template's does) lays itself out
+      // again, and its player bar keeps its own size; scaling the whole frame would shrink the bar until it cannot be used.
+      let w = Math.max(200, Math.floor(cw * k)), fits = false;
+      for (let i = 0; i < 3 && !fits; i++) {
+        frame.style.width = w + 'px';
+        const r = c.getBoundingClientRect(), h2 = Math.round(r.height + 40);
+        if (r.right > w + 1) break;                                   // the canvas did not follow: this page cannot narrow
+        if (h2 <= room + 1) {
+          fits = true;
+          frame.style.height = h2 + 'px'; stage.style.height = h2 + 'px';
+          frame.style.marginLeft = Math.max(0, Math.round((stageW - w) / 2)) + 'px';
+        } else w = Math.max(200, Math.floor(w * (room / h2)));       // the page's own margins: a little narrower again
+      }
+      if (fits) return;
+    }
+    const s = k;
     frame.style.width = cw + 'px';
-    frame.style.transform = 'scale(' + k + ')';
-    frame.style.marginLeft = Math.max(0, Math.round((stageW - cw * k) / 2)) + 'px';
+    frame.style.transform = 'scale(' + s + ')';
+    frame.style.marginLeft = Math.max(0, Math.round((stageW - cw * s) / 2)) + 'px';
     frame.style.height = h + 'px';
-    stage.style.height = Math.round(h * k) + 'px';
+    stage.style.height = Math.round(h * s) + 'px';
   }
   frame.addEventListener('load', layout);
   addEventListener('resize', () => { layout(); if (svg) render(null); });

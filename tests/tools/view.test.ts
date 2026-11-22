@@ -183,6 +183,52 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
     }
   }, 90_000);
 
+  it('in a small window the page is made narrower, not scaled: the player bar keeps its size; a page that cannot narrow is still scaled to fit', async () => {
+    const open = async (page: string) => {
+      const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, page), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
+      const url: string = await new Promise((res, rej) => {
+        let buf = '';
+        const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);
+        proc.stdout!.on('data', d => { buf += d; const m = buf.match(/(http:\/\/127\.0\.0\.1:\d+\/__viewer)/); if (m) { clearTimeout(t); res(m[1]!); } });
+      });
+      return { proc, url };
+    };
+    const userDataDir = mkdtempSync(join(tmpdir(), 'view-test-'));
+    const { proc: chromeProc, cdp } = await launchPage(chrome, userDataDir);
+    const procs: Array<ReturnType<typeof spawn>> = [];
+    try {
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.enable');
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1000, height: 620, deviceScaleFactor: 1, mobile: false });
+      const look = async (page: string) => {
+        const { proc, url } = await open(page); procs.push(proc);
+        await cdp.send('Page.navigate', { url });
+        let ready = false;
+        for (let i = 0; i < 100 && !ready; i++) { await check.sleep(300); ready = await cdp.eval("!!document.querySelector('#plot svg')").catch(() => false); }
+        expect(ready).toBe(true);
+        await check.sleep(300);
+        return cdp.eval(`(() => {
+          const f = document.getElementById('page'), st = document.getElementById('stage'), d = f.contentDocument;
+          const m = getComputedStyle(f).transform, scale = m === 'none' ? 1 : new DOMMatrix(m).a;
+          const c = d.querySelector('canvas').getBoundingClientRect(), bar = d.querySelector('.movie-controller button');
+          return { scale, canvasBottom: c.bottom * scale, stageH: st.getBoundingClientRect().height, barH: bar ? bar.getBoundingClientRect().height * scale : null, barCss: bar ? bar.offsetHeight : null, canvasW: c.width * scale };
+        })()`);
+      };
+      const responsive = await look('tests/fixtures/view-responsive.html');
+      expect(responsive.scale).toBe(1);                                         // not scaled: the page laid itself out narrower
+      expect(responsive.barH).toBeCloseTo(responsive.barCss, 0);                // the player bar's buttons at their own size
+      expect(responsive.canvasBottom).toBeLessThanOrEqual(responsive.stageH + 1); // and the picture fits
+      expect(responsive.stageH).toBeLessThan(620 - 200);                        // leaving room for the timeline
+      const fixed = await look('tests/films/timeline.html');                    // a 640 Ã— 360 canvas with no CSS: it cannot narrow
+      expect(fixed.canvasBottom).toBeLessThanOrEqual(fixed.stageH + 1);
+    } finally {
+      try { chromeProc.kill(); } catch { /* gone */ }
+      for (const p of procs) p.kill();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 120_000);
+
   for (const [query, want] of [['', /BUILDING LAYERS\s+62%/], ['event', /LOADING ASSETS\s+40%/]] as const)
   it(`while the movie builds, the viewer shows how far it is (${query ? 'from the loadprogress event' : 'from the page loader'}), not a bare "loading"`, async () => {
     const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'tests/fixtures/view-progress.html'), '--no-open', ...(query ? ['--query', query] : [])], { stdio: ['ignore', 'pipe', 'inherit'] });
