@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { resolveMusic } from '../../src/audio/music/resolve';
 import { renderMusic, musicLength } from '../../src/audio/music/render';
 
@@ -259,11 +259,16 @@ describe('review fixes (2026-11-22)', () => {
     expect(brightness(l, 22050, 2.1, 2.4)).toBeLessThan(brightness(l, 22050, 1.6, 1.9) * 0.6);
   });
 
-  it('the lofi kit costs about what its drums last, not 2.4 s a hit', () => {
-    const score = (kit?: string) => ({ bpm: 82, reverb: 0, ...(kit ? { kit } : {}), tracks: [{ inst: 'keys', vol: 0, notes: '_:128' }], drums: { kick: 'x.........x.....', snare: '....x.......x...', hat: 'xxxxxxxxxxxxxxxx' } });
-    const time = (kit?: string) => { const m = resolveMusic(score(kit), 'x')!; const t0 = performance.now(); renderMusic(m, 22050, musicLength(m), false); return performance.now() - t0; };
-    time(); time('lofi');                                         // warm up
-    expect(time('lofi')).toBeLessThan(time() * 1.6 + 50);
+  it('the lofi kit works only over what each drum lasts, not 2.4 s a hit (counted, not timed: a timing test fails on a loaded machine)', () => {
+    // the sampler runs Math.tanh twice a sample; the classic kit does not: the difference is how many samples the sampler worked on
+    const tanhCalls = (kit?: string) => {
+      const spy = vi.spyOn(Math, 'tanh');
+      render({ bpm: 120, reverb: 0, humanize: 0, ...(kit ? { kit } : {}), tracks: [{ inst: 'keys', vol: 0, notes: '_:8' }], drums: { hat: 'x...............................' } }, 22050, 3);
+      const n = spy.mock.calls.length; spy.mockRestore(); return n;
+    };
+    const sampled = (tanhCalls('lofi') - tanhCalls()) / 2;
+    expect(sampled).toBeGreaterThan(0.1 * 22050);                 // a hat (0.12 s) and a little tail
+    expect(sampled).toBeLessThan(0.2 * 22050);                    // not 2.4 s of it
   });
 
   it('arp notes count against the note limit', () => {
