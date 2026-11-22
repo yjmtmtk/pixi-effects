@@ -329,6 +329,44 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
   }
   const press = (cdp: any, key: string) => cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key, text: key }).then(() => cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key }));
 
+  it('the header is one quiet row: the keys behind a "?" button, not a sentence across the window; zoom reads 1Ã—, not a second "fit"', async () => {
+    const v = await viewer('tests/fixtures/view-warnings.html', { w: 1280, h: 800 });
+    try {
+      expect(await v.ready()).toBe(true);
+      const head = await v.cdp.eval("(() => { const h = document.querySelector('header'); return { h: h.getBoundingClientRect().height, text: h.innerText, status: document.getElementById('status').textContent, help: document.getElementById('help').hidden }; })()");
+      expect(head.h).toBeLessThan(50);                                               // one row at 1280 px
+      expect(head.text).not.toMatch(/Space plays/);                                  // the keys are not spelled out across the header
+      expect(head.status).toBe('');
+      expect(head.help).toBe(true);
+      await v.cdp.eval("document.getElementById('keys').click()");
+      expect(await v.cdp.eval("(() => { const h = document.getElementById('help'); return !h.hidden && /Space/.test(h.textContent) && /zoom/.test(h.textContent); })()")).toBe(true);
+      expect(await v.cdp.eval("document.getElementById('autolabel').textContent.trim()")).toBe('auto reload');
+    } finally { await v.close(); }
+  }, 60_000);
+
+  it('Light / Dark / Auto: the choice sets the colours, Auto follows the system, and the choice is kept for the next time', async () => {
+    const v = await viewer('tests/fixtures/view-warnings.html', { w: 1280, h: 800 });
+    const bg = () => v.cdp.eval("getComputedStyle(document.body).backgroundColor");
+    const light = 'rgb(247, 245, 241)', dark = 'rgb(14, 19, 32)';
+    try {
+      expect(await v.ready()).toBe(true);
+      await v.cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+      expect(await v.cdp.eval("document.querySelector('#theme [aria-pressed=true]').dataset.theme")).toBe('auto');
+      expect(await bg()).toBe(dark);                                                   // Auto: the system is dark
+      await v.cdp.eval("document.querySelector('#theme [data-theme=light]').click()");
+      expect(await bg()).toBe(light);                                                  // Light, although the system is dark
+      await v.cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+      await v.cdp.eval("document.querySelector('#theme [data-theme=dark]').click()");
+      expect(await bg()).toBe(dark);                                                   // Dark, although the system is light
+      await v.cdp.eval("location.reload()");
+      expect(await v.until("document.readyState === 'complete' && !!document.getElementById('theme')", 30)).toBe(true);
+      expect(await bg()).toBe(dark);                                                   // kept
+      expect(await v.cdp.eval("document.querySelector('#theme [aria-pressed=true]').dataset.theme")).toBe('dark');
+      await v.cdp.eval("document.querySelector('#theme [data-theme=auto]').click()");
+      expect(await bg()).toBe(light);                                                  // Auto again: the system is light now
+    } finally { await v.close(); }
+  }, 60_000);
+
   it('a page that could not start comes back with R, or by itself with auto, once it is fixed and saved; the old page\'s sound problems are gone', async () => {
     const live = join(root, 'tests/fixtures/view-recover.tmp.html');
     const good = readFileSync(join(root, 'tests/fixtures/view-warnings.html'), 'utf8');
@@ -559,7 +597,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
       const m = () => cdp.eval(`(() => { const c = document.getElementById('chart'), s = document.querySelector('#plot svg'); return { svgW: s.getBoundingClientRect().width, scrollW: c.scrollWidth, clientW: c.clientWidth, label: document.getElementById('zlabel').textContent, names: document.querySelectorAll('#names .name').length, namesLeft: document.getElementById('names').getBoundingClientRect().left, scrollLeft: c.scrollLeft }; })()`);
 
       const fit = await m();
-      expect(fit.label).toBe('fit');
+      expect(fit.label).toBe('1Ã—');                                           // the zoom, not a second "fit" next to the fit button
       expect(fit.scrollW).toBeLessThanOrEqual(fit.clientW + 1);               // the whole movie, no sideways scrolling
       expect(fit.names).toBeGreaterThan(5);
 
@@ -589,7 +627,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
 
       await cdp.eval("document.getElementById('zfit').click()");
       const back = await m();
-      expect(back.label).toBe('fit');
+      expect(back.label).toBe('1Ã—');
       expect(back.scrollW).toBeLessThanOrEqual(back.clientW + 1);
     } finally {
       try { chromeProc.kill(); } catch { /* gone */ }

@@ -11,7 +11,7 @@
  *
  * It watches the page's folder (not `node_modules`, `out`, `reviews`, `check-out`, hidden files). When the work changes it shows "Updated hh:mm:ss — reload (R)"
  * and NOTHING else: the picture you are looking at never switches by itself. Reload (the button, or R) loads the page again and goes back to the frame you were on.
- * The switch "auto" (off by default, remembered) reloads for you, but only while the movie is paused and you are not dragging the timeline.
+ * The switch "auto reload" (off by default, remembered) reloads for you, but only while the movie is paused and you are not dragging the timeline.
  *
  * Needs: Node >= 18. A browser (the default one is opened; --no-open prints the address instead). The page must follow
  * skills/pixi-effects/template.html (`window.movie`, `window.__ready = true`) and use a pixi-effects that has `movie.timelineSvg()` (0.7+).
@@ -81,9 +81,11 @@ const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').repl
 export function viewerHtml({ pageUrl, title }) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escHtml(title)} — pixi-effects view</title>
+<script>try { const t = localStorage.getItem('pe-view-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch { /* storage may be blocked */ }</script>
 <style>
-  :root { --bg: #f7f5f1; --ink: #1d2433; --dim: #6b7587; --line: #d9d5cc; --head: #e0245e; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #0e1320; --ink: #e8eefc; --dim: #8fa0bf; --line: #26304a; --head: #ff5c8a; } }
+  :root { --bg: #f7f5f1; --ink: #1d2433; --dim: #6b7587; --line: #d9d5cc; --head: #e0245e; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0e1320; --ink: #e8eefc; --dim: #8fa0bf; --line: #26304a; --head: #ff5c8a; color-scheme: dark; } }
+  :root[data-theme="dark"] { --bg: #0e1320; --ink: #e8eefc; --dim: #8fa0bf; --line: #26304a; --head: #ff5c8a; color-scheme: dark; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 13px system-ui, sans-serif; }
   body { display: flex; flex-direction: column; }
   header { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
@@ -93,7 +95,15 @@ export function viewerHtml({ pageUrl, title }) {
   #status.failed { color: var(--head); font-weight: 600; }
   #update button { background: var(--head); color: #fff; border-color: var(--head); font-weight: 600; }
   #autolabel { color: var(--dim); user-select: none; }
-  .zoom { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+  .tools { display: inline-flex; align-items: center; gap: 14px; margin-left: auto; }
+  .zoom { display: inline-flex; align-items: center; gap: 4px; }
+  #theme { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  #theme button { border: 0; border-radius: 0; padding: 3px 9px; color: var(--dim); }
+  #theme button + button { border-left: 1px solid var(--line); }
+  #theme button[aria-pressed="true"] { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
+  #keys { padding: 3px 9px; color: var(--dim); }
+  #keys[aria-expanded="true"] { color: var(--ink); background: color-mix(in srgb, var(--ink) 12%, transparent); }
+  #help { padding: 6px 14px; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 12px; }
   #zlabel { min-width: 44px; text-align: center; font-family: ui-monospace, Menlo, monospace; color: var(--dim); }
   button { font: inherit; background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 3px 12px; cursor: pointer; }
   button:disabled { opacity: .4; cursor: default; }
@@ -127,8 +137,12 @@ export function viewerHtml({ pageUrl, title }) {
   #names .name.sound { color: #4895ef; }
 </style></head>
 <body>
-<header><b>${escHtml(title)}</b><button id="play" type="button" disabled>▶</button><span id="time">0.00 / 0.00 s · frame 0</span><span id="status">loading the page…</span><button id="warn" type="button" hidden title="what the page warned about (and the sound's problems): click to show">⚠ 0</button><span id="update" hidden><button id="reload" type="button" title="load the page again, on the frame you are on (R)">Updated — reload (R)</button></span><label id="autolabel" title="reload by itself, but only while the movie is paused"><input type="checkbox" id="auto"> auto</label>
-  <span class="zoom"><button id="zout" type="button" title="zoom out (-)" disabled>−</button><span id="zlabel">fit</span><button id="zin" type="button" title="zoom in (+, or Ctrl/⌘ + wheel)" disabled>+</button><button id="zfit" type="button" title="fit the whole movie (0)" disabled>fit</button></span></header>
+<header><b>${escHtml(title)}</b><button id="play" type="button" disabled>▶</button><span id="time">0.00 / 0.00 s · frame 0</span><span id="status">loading the page…</span><button id="warn" type="button" hidden title="what the page warned about (and the sound's problems): click to show">⚠ 0</button><span id="update" hidden><button id="reload" type="button" title="load the page again, on the frame you are on (R)">Updated — reload (R)</button></span>
+  <span class="tools"><span class="zoom"><button id="zout" type="button" title="zoom out (-)" disabled>−</button><span id="zlabel">1×</span><button id="zin" type="button" title="zoom in (+, or Ctrl/⌘ + wheel)" disabled>+</button><button id="zfit" type="button" title="fit the whole movie (0)" disabled>fit</button></span>
+  <label id="autolabel" title="when the page is saved, reload it by itself (only while the movie is paused)"><input type="checkbox" id="auto"> auto reload</label>
+  <span id="theme" role="group" aria-label="colours"><button type="button" data-theme="auto" aria-pressed="true" title="follow the system">Auto</button><button type="button" data-theme="light" aria-pressed="false">Light</button><button type="button" data-theme="dark" aria-pressed="false">Dark</button></span>
+  <button id="keys" type="button" title="mouse and keys" aria-expanded="false" aria-controls="help">?</button></span></header>
+<div id="help" hidden>click or drag the timeline · Space plays · ← → step a frame (Shift: a second) · + / − zoom (Ctrl/⌘ + wheel) · 0 fits · click a layer name to jump to its start · R reloads</div>
 <div id="warnings" hidden></div>
 <div id="stage" class="pending"><iframe id="page" class="pending" src="${escHtml(pageUrl)}" allow="autoplay; fullscreen"></iframe><div id="wait"><div><div class="wlabel">LOADING THE PAGE</div><div class="bar"><i></i></div></div></div></div>
 <div id="chart"><div id="names"></div><div id="plot"></div></div>
@@ -232,6 +246,21 @@ export function viewerHtml({ pageUrl, title }) {
   }
   $reload.addEventListener('click', reload);
   $auto.addEventListener('change', () => { try { localStorage.setItem('pe-view-auto', $auto.checked ? '1' : '0'); } catch { /* storage may be blocked */ } });
+
+  /** Colours: Auto follows the system; Light / Dark hold whatever the system says. Kept for the next time (the head script applies it before the first paint). */
+  const $theme = document.getElementById('theme');
+  function setTheme(t) {
+    if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+    for (const b of $theme.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.theme === (t || 'auto')));
+  }
+  setTheme(document.documentElement.dataset.theme || 'auto');
+  $theme.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    setTheme(b.dataset.theme);
+    try { if (b.dataset.theme === 'auto') localStorage.removeItem('pe-view-theme'); else localStorage.setItem('pe-view-theme', b.dataset.theme); } catch { /* storage may be blocked */ }
+  });
+  const $keys = document.getElementById('keys'), $help = document.getElementById('help');
+  $keys.addEventListener('click', () => { $help.hidden = !$help.hidden; $keys.setAttribute('aria-expanded', String(!$help.hidden)); layout(); });
   // auto only while the movie is paused and nobody is dragging: otherwise the notice waits
   const maybeAuto = () => { if (pending && $auto.checked && !scrubbing && (stuck || (movie && !movie.isPlaying))) reload(); };
 
@@ -329,7 +358,7 @@ export function viewerHtml({ pageUrl, title }) {
   function layout() {
     const myLayout = ++layoutGen;
     const stageW = stage.clientWidth || innerWidth, headH = document.querySelector('header').offsetHeight;
-    const listH = $warnings.hidden ? 0 : $warnings.offsetHeight;           // the warnings list, when open, takes its share of the height
+    const listH = ($warnings.hidden ? 0 : $warnings.offsetHeight) + ($help.hidden ? 0 : $help.offsetHeight);   // the warnings list and the keys, when open, take their share
     const room = Math.max(160, innerHeight - headH - listH - 240);
     frame.style.transform = 'none'; frame.style.marginLeft = '0px'; frame.style.width = stageW + 'px';
     let c = null;
@@ -419,7 +448,7 @@ export function viewerHtml({ pageUrl, title }) {
     svg.addEventListener('pointerup', onEnd); svg.addEventListener('pointercancel', onEnd);
     if (zoom <= 1) chart.scrollLeft = 0;
     else if (keep) chart.scrollLeft = Math.max(0, NAMES_W + tToX(keep.t) - keep.x);
-    $zlabel.textContent = zoom <= 1.001 ? 'fit' : zoom.toFixed(zoom < 10 ? 1 : 0) + '×';
+    $zlabel.textContent = zoom <= 1.001 ? '1×' : zoom.toFixed(zoom < 10 ? 1 : 0) + '×';
     $zout.disabled = zoom <= 1.001; $zfit.disabled = zoom <= 1.001; $zin.disabled = zoom >= maxZoom() - 0.001;
   }
   function setZoom(z, anchor) {
@@ -459,7 +488,7 @@ export function viewerHtml({ pageUrl, title }) {
     // setVars / resize / rebuild built the movie again: its rows and its sound may have changed
     const m = movie;
     if (typeof m.on === 'function') m.on('rebuilt', () => { if (movie !== m) return; readSound(); warnShown = null; readWarnings(); drawNames(); render(null); });
-    $status.textContent = 'click or drag the timeline · Space plays · ← → step a frame (Shift: a second) · + / − zoom (Ctrl/⌘ + wheel) · click a layer name to jump to its start';
+    $status.textContent = '';
     $play.disabled = false; $zfit.disabled = true;
     if (bound) return;                                              // the controls below are bound once; a reload only rebuilds the timeline
     bound = true;
