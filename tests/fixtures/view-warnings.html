@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>view: a movie with warnings and sound</title></head>
+<body>
+  <!-- Fixture for tests/tools/view.test.ts: a ready movie whose spec has a misspelt key (the library warns, the page collects it in
+       window.__logs as the template does) and two sounds (a music bed from 0.5 s, a pop at 2 s): view shows the warning and the sound row. -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>window.__logs = []; for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }</script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 4, frameRate: 30, background: '#101828',
+        composition: { layers: [
+          { type: 'text', name: 'title', text: 'warnings', style: { fontSize: 48, fill: '#ffffff' }, initial: { x: 320, y: 180, anchorX: 0.5, anchorY: 0.5, alpah: 1 } },
+          { type: 'audio', name: 'bed', at: 0.5, volume: 0.6, music: { bpm: 120, tracks: [{ inst: 'keys', notes: 'C:2 G:2' }] } },
+          { type: 'audio', name: 'pop', at: 2, sfx: 'pop' },
+        ] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

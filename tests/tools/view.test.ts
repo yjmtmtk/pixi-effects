@@ -44,6 +44,20 @@ describe('view.mjs — pure helpers', () => {
   });
 });
 
+describe('view.mjs — the viewer page\'s own script', () => {
+  it('parses (it is written inside a template string, where a backslash-n turns into a real line break: a broken viewer)', () => {
+    const html: string = view.viewerHtml({ pageUrl: '/a.html', title: 't' });
+    const js = html.split('<script>')[1]!.split('</script>')[0]!;
+    expect(() => new Function(js)).not.toThrow();
+  });
+  it('its source has no single backslash a template string would swallow (a backslash-d in a regex became a plain d: the regex silently matched nothing)', () => {
+    const src = readFileSync(join(root, 'ai/tools/view.mjs'), 'utf8');
+    const body = src.slice(src.indexOf('export function viewerHtml'), src.indexOf('</script>', src.indexOf('export function viewerHtml')));
+    const bad = [...body.matchAll(/(?<!\\)\\(?![\\`$])[^u]/g)].map(m => body.slice(Math.max(0, m.index! - 30), m.index! + 10));
+    expect(bad).toEqual([]);
+  });
+});
+
 describe('view.mjs — knowing that the work changed (no reload by itself)', () => {
   const tmp = () => mkdtempSync(join(tmpdir(), 'view-sig-'));
 
@@ -221,6 +235,65 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs �
       expect(responsive.stageH).toBeLessThan(620 - 200);                        // leaving room for the timeline
       const fixed = await look('tests/films/timeline.html');                    // a 640 × 360 canvas with no CSS: it cannot narrow
       expect(fixed.canvasBottom).toBeLessThanOrEqual(fixed.stageH + 1);
+    } finally {
+      try { chromeProc.kill(); } catch { /* gone */ }
+      for (const p of procs) p.kill();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 120_000);
+
+  it('shows the page\'s warnings (a count that opens the list) and the sound under the timeline: the waveform of the mix and a mark where each sound starts', async () => {
+    const open = async (page: string) => {
+      const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, page), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
+      const url: string = await new Promise((res, rej) => {
+        let buf = '';
+        const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);
+        proc.stdout!.on('data', d => { buf += d; const m = buf.match(/(http:\/\/127\.0\.0\.1:\d+\/__viewer)/); if (m) { clearTimeout(t); res(m[1]!); } });
+      });
+      return { proc, url };
+    };
+    const userDataDir = mkdtempSync(join(tmpdir(), 'view-test-'));
+    const { proc: chromeProc, cdp } = await launchPage(chrome, userDataDir);
+    const procs: Array<ReturnType<typeof spawn>> = [];
+    const ready = async (page: string) => {
+      const { proc, url } = await open(page); procs.push(proc);
+      await cdp.send('Page.navigate', { url });
+      let ok = false;
+      for (let i = 0; i < 100 && !ok; i++) { await check.sleep(300); ok = await cdp.eval("!!document.querySelector('#plot svg')").catch(() => false); }
+      expect(ok).toBe(true);
+      await check.sleep(1500);                                                  // the warnings are looked at every second
+    };
+    try {
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.enable');
+      await ready('tests/fixtures/view-warnings.html');
+      // warnings: a count, and the list with the message when it is opened
+      expect(await cdp.eval("document.getElementById('warn').hidden")).toBe(false);
+      expect(await cdp.eval("document.getElementById('warn').textContent")).toMatch(/1/);
+      await cdp.eval("document.getElementById('warn').click()");
+      expect(await cdp.eval("document.getElementById('warnings').hidden")).toBe(false);
+      expect(await cdp.eval("document.getElementById('warnings').textContent")).toContain('alpah');
+      // sound: a row named "sound", a waveform that is not flat, a mark per sound at its start
+      expect(await cdp.eval("[...document.querySelectorAll('#names .name')].some(n => n.textContent === 'sound')")).toBe(true);
+      expect(await cdp.eval("(document.querySelector('#plot svg .sound .wave')?.getAttribute('d') || '').length")).toBeGreaterThan(200);
+      const cues: Array<{ name: string; x: number }> = await cdp.eval(`[...document.querySelectorAll('#plot svg .sound .cue')].map(c => ({ name: c.querySelector('title').textContent, x: +c.getAttribute('data-x') }))`);
+      expect(cues.map(c => c.name).join(' ')).toMatch(/bed.*pop/);
+      const x = (t: number) => cdp.eval(`(() => { const d = document.querySelector('#plot svg').dataset; return +d.x0 + (${t} / +d.duration) * (+d.x1 - +d.x0); })()`);
+      expect(Math.abs(cues[0]!.x - await x(0.5))).toBeLessThan(1);
+      expect(Math.abs(cues[1]!.x - await x(2))).toBeLessThan(1);
+      // nothing the chart draws under its rows (the legend) sits on the sound row
+      expect(await cdp.eval(`(() => {
+        const svg = document.querySelector('#plot svg'), snd = svg.querySelector('.sound'), top = +svg.dataset.bottom, bottom = +snd.getAttribute('data-bottom');
+        return [...svg.children].filter(el => el !== snd && el.id !== 'head').map(el => /translate\\(([-\\d.]+)[, ]+([-\\d.]+)\\)/.exec(el.getAttribute('transform') || '')).filter(Boolean).filter(m => +m[2] > top && +m[2] < bottom).length;
+      })()`)).toBe(0);
+      // the playhead reaches down through the sound row
+      expect(await cdp.eval("+document.querySelector('#head line').getAttribute('y2') >= +document.querySelector('#plot svg .sound').getAttribute('data-bottom') - 1")).toBe(true);
+
+      // a movie with no warnings and no sound: no count, no sound row
+      await ready('tests/films/timeline.html');
+      expect(await cdp.eval("document.getElementById('warn').hidden")).toBe(true);
+      expect(await cdp.eval("!!document.querySelector('#plot svg .sound')")).toBe(false);
     } finally {
       try { chromeProc.kill(); } catch { /* gone */ }
       for (const p of procs) p.kill();

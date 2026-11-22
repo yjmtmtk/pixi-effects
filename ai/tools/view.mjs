@@ -118,10 +118,19 @@ export function viewerHtml({ pageUrl, title }) {
   #plot svg .band { fill: var(--ink); } #plot svg .key { fill: var(--ink); opacity: .85; } #plot svg .transition { fill: #4cc9f0; opacity: .16; } #plot svg .bar { opacity: .88; }
   #plot svg .row:hover .band { fill-opacity: .1; }
   #head line { stroke: var(--head); stroke-width: 2; } #head path { fill: var(--head); }
+  #warn { background: #f4a259; color: #1d2433; border-color: #f4a259; font-weight: 600; }
+  #warnings { max-height: 30vh; overflow: auto; padding: 8px 14px; border-bottom: 1px solid var(--line); font: 12px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+  #warnings div { padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  #warnings .sound { color: #4895ef; }
+  #plot svg .sound .bg { fill: color-mix(in srgb, var(--ink) 4%, transparent); }
+  #plot svg .sound .wave { fill: #4895ef; opacity: .55; }
+  #plot svg .sound .cue line { stroke: #4895ef; stroke-width: 1.5; } #plot svg .sound .cue path { fill: #4895ef; }
+  #names .name.sound { color: #4895ef; }
 </style></head>
 <body>
-<header><b>${escHtml(title)}</b><button id="play" type="button" disabled>▶</button><span id="time">0.00 / 0.00 s · frame 0</span><span id="status">loading the page…</span><span id="update" hidden><button id="reload" type="button" title="load the page again, on the frame you are on (R)">Updated — reload (R)</button></span><label id="autolabel" title="reload by itself, but only while the movie is paused"><input type="checkbox" id="auto"> auto</label>
+<header><b>${escHtml(title)}</b><button id="play" type="button" disabled>▶</button><span id="time">0.00 / 0.00 s · frame 0</span><span id="status">loading the page…</span><button id="warn" type="button" hidden title="what the page warned about (and the sound's problems): click to show">⚠ 0</button><span id="update" hidden><button id="reload" type="button" title="load the page again, on the frame you are on (R)">Updated — reload (R)</button></span><label id="autolabel" title="reload by itself, but only while the movie is paused"><input type="checkbox" id="auto"> auto</label>
   <span class="zoom"><button id="zout" type="button" title="zoom out (-)" disabled>−</button><span id="zlabel">fit</span><button id="zin" type="button" title="zoom in (+, or Ctrl/⌘ + wheel)" disabled>+</button><button id="zfit" type="button" title="fit the whole movie (0)" disabled>fit</button></span></header>
+<div id="warnings" hidden></div>
 <div id="stage" class="pending"><iframe id="page" class="pending" src="${escHtml(pageUrl)}" allow="autoplay; fullscreen"></iframe><div id="wait"><div><div class="wlabel">LOADING THE PAGE</div><div class="bar"><i></i></div><div class="secs">0 s</div></div></div></div>
 <div id="chart"><div id="names"></div><div id="plot"></div></div>
 <script>
@@ -216,6 +225,79 @@ export function viewerHtml({ pageUrl, title }) {
   const maybeAuto = () => { if (pending && $auto.checked && movie && !movie.isPlaying && !scrubbing) reload(); };
 
   // does the work still look the same? (the server's number goes up when a file in the folder changes)
+  // ---- what the page warned about: its window.__logs (the template collects every console warning there), and the sound's problems
+  const $warn = document.getElementById('warn'), $warnings = document.getElementById('warnings');
+  let soundIssues = [], warnShown = '';
+  $warn.addEventListener('click', () => { $warnings.hidden = !$warnings.hidden; });
+  function readWarnings() {
+    let logs = [];
+    try { logs = (frame.contentWindow.__logs || []).map(String).filter(l => /^(warn|error|uncaught|unhandled|init)/.test(l)); } catch { /* reloading */ }
+    const all = [...logs.map(l => ({ text: l, sound: false })), ...soundIssues.map(t => ({ text: 'sound: ' + t, sound: true }))];
+    const key = all.map(w => w.text).join('\\n');
+    if (key === warnShown) return;
+    warnShown = key;
+    $warn.hidden = all.length === 0;
+    $warn.textContent = '⚠ ' + all.length;
+    $warnings.innerHTML = all.map(w => '<div' + (w.sound ? ' class="sound"' : '') + '>' + esc(w.text) + '</div>').join('');
+    if (!all.length) $warnings.hidden = true;
+  }
+  setInterval(readWarnings, 1000);
+
+  // ---- the sound: the mix's waveform (peaks in buckets, made once per page) and where each sound starts (movie.inspectAudio().cues)
+  let sound = null;
+  function readSound() {
+    sound = null; soundIssues = [];
+    try {
+      const buf = movie.audioBuffer;
+      if (!buf || !buf.length) return;
+      const B = 8000, peaks = new Float32Array(B), per = buf.length / B;
+      const chans = Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c));
+      for (let b = 0; b < B; b++) {
+        let m = 0;
+        for (const ch of chans) for (let i = Math.floor(b * per), e = Math.min(buf.length, Math.floor((b + 1) * per)); i < e; i++) { const v = ch[i] < 0 ? -ch[i] : ch[i]; if (v > m) m = v; }
+        peaks[b] = m;
+      }
+      let top = 0; for (const v of peaks) if (v > top) top = v;
+      const report = typeof movie.inspectAudio === 'function' ? movie.inspectAudio() : null;
+      sound = { peaks, top: top || 1, seconds: buf.length / buf.sampleRate, cues: (report && report.cues) || [] };
+      soundIssues = (report && report.issues) || [];
+    } catch { sound = null; }
+  }
+  const SOUND_H = 52;
+  /** The sound row at the bottom of the chart (aligned with a "sound" name), and the playhead reaching down through it. */
+  function drawSound() {
+    if (!sound || !svg) return;
+    const y0 = geom.bottom + 4, h = SOUND_H - 10, mid = y0 + h / 2, vb = svg.viewBox.baseVal;
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'sound'); g.setAttribute('data-bottom', String(y0 + h));
+    const cols = Math.max(1, Math.round(geom.x1 - geom.x0)), step = Math.max(1, cols / 6000), B = sound.peaks.length;
+    const amp = x => {                                             // the loudest bucket under this column, 0..1 of the loudest of all
+      const t0 = ((x - geom.x0) / (geom.x1 - geom.x0)) * geom.dur, t1 = ((x + step - geom.x0) / (geom.x1 - geom.x0)) * geom.dur;
+      let m = 0;
+      for (let b = Math.floor((t0 / sound.seconds) * B), e = Math.min(B, Math.ceil((t1 / sound.seconds) * B)); b < e; b++) if (sound.peaks[b] > m) m = sound.peaks[b];
+      return m / sound.top;
+    };
+    const up = [], down = [];
+    for (let x = geom.x0; x <= geom.x1; x += step) { const a = amp(x) * (h / 2); up.push(x.toFixed(1) + ' ' + (mid - a).toFixed(1)); down.push(x.toFixed(1) + ' ' + (mid + a).toFixed(1)); }
+    let inner = '<rect class="bg" x="' + geom.x0 + '" y="' + y0 + '" width="' + (geom.x1 - geom.x0) + '" height="' + h + '"/>';
+    inner += '<path class="wave" d="M ' + up.join(' L ') + ' L ' + down.reverse().join(' L ') + ' Z"/>';
+    for (const c of sound.cues) {
+      const x = tToX(c.t);
+      inner += '<g class="cue" data-x="' + x.toFixed(2) + '"><line x1="' + x + '" x2="' + x + '" y1="' + y0 + '" y2="' + (y0 + h) + '"/><path d="M ' + (x - 4) + ' ' + y0 + ' l 8 0 l -4 6 z"/><title>' + esc(c.name) + ' · ' + c.t.toFixed(2) + ' s</title></g>';
+    }
+    g.innerHTML = inner;
+    svg.insertBefore(g, head);
+    // what the chart draws under its rows (the legend of the layer types) moves down by the sound row's height
+    for (const el of [...svg.children]) {
+      if (el === g || el === head || !el.transform || !el.transform.baseVal || !el.transform.baseVal.numberOfItems) continue;
+      const m = el.transform.baseVal.consolidate().matrix;          // read through the SVG DOM: no regular expression inside this template string
+      if (m.f > geom.bottom) el.setAttribute('transform', 'translate(' + m.e + ',' + (m.f + SOUND_H) + ')');
+    }
+    const H = Math.max(vb.height + SOUND_H, y0 + h + 6);
+    svg.setAttribute('viewBox', vb.x + ' ' + vb.y + ' ' + vb.width + ' ' + H); svg.setAttribute('height', String(H));
+    const line = head.querySelector('line'); if (line) line.setAttribute('y2', String(y0 + h));
+  }
+
   async function poll() {
     try {
       const v = await (await fetch('/__viewer/version', { cache: 'no-store' })).json();
@@ -298,6 +380,7 @@ export function viewerHtml({ pageUrl, title }) {
     head = document.createElementNS(NS, 'g'); head.id = 'head';
     head.innerHTML = '<line x1="0" x2="0" y1="' + (geom.top - 2) + '" y2="' + geom.bottom + '"/><path d="M -6 ' + (geom.top - 8) + ' l 12 0 l -6 9 z"/>';
     svg.appendChild(head);
+    drawSound();
     svg.addEventListener('pointerdown', onDown); svg.addEventListener('pointermove', onMove);
     svg.addEventListener('pointerup', onEnd); svg.addEventListener('pointercancel', onEnd);
     if (zoom <= 1) chart.scrollLeft = 0;
@@ -328,8 +411,11 @@ export function viewerHtml({ pageUrl, title }) {
 
   function mount() {
     const data = movie.timelineData();
+    readSound();
+    warnShown = null; readWarnings();
     names.innerHTML = '<div class="ruler" style="height:34px"></div>' + data.rows.map(r =>
-      '<div class="name" data-start="' + r.start + '" style="padding-left:' + (8 + r.depth * 14) + 'px" title="' + esc(r.path + ' · ' + r.type) + '">' + esc(r.name) + '</div>').join('');
+      '<div class="name" data-start="' + r.start + '" style="padding-left:' + (8 + r.depth * 14) + 'px" title="' + esc(r.path + ' · ' + r.type) + '">' + esc(r.name) + '</div>').join('')
+      + (sound ? '<div class="name sound" data-start="0" style="height:' + SOUND_H + 'px;line-height:' + SOUND_H + 'px;padding-left:8px" title="the mix: its waveform, and a mark where each sound starts">sound</div>' : '');
     render(null);
     $status.textContent = 'click or drag the timeline · Space plays · ← → step a frame (Shift: a second) · + / − zoom (Ctrl/⌘ + wheel) · click a layer name to jump to its start';
     $play.disabled = false; $zfit.disabled = true;
