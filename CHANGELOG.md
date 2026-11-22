@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.1
 
 - **A `delay` follows a tempo change.** Its distance is counted in beats; with `bpm` points the echoes were spaced by the first tempo and drifted off the beat once it changed. A score with one tempo sounds as in 1.2.0.
 - **`sidechain` dips exactly where each kick lands.** With `humanize` the kick moves a few milliseconds on every hit; the track now ducks under the kick as it was placed, not under where it was written.
