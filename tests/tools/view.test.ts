@@ -146,8 +146,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs �
     }
   }, 90_000);
 
-  it('a page whose movie cannot start says why at once (the init failure from window.__logs), not "loading the page…" for two minutes', async () => {
-    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'tests/fixtures/view-init-failed.html'), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
+  for (const query of ['', 'short'])
+  it(`a page whose movie cannot start says why at once (the init failure from window.__logs${query ? ', written "init:"' : ''}), not "loading the page…" for two minutes`, async () => {
+    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'tests/fixtures/view-init-failed.html'), '--no-open', ...(query ? ['--query', query] : [])], { stdio: ['ignore', 'pipe', 'inherit'] });
     const url: string = await new Promise((res, rej) => {
       let buf = '';
       const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);

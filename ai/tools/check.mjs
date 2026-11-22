@@ -502,7 +502,7 @@ export async function runCheck(opts, log = console.log) {
       try {
         const ready = await cdp.eval('window.__ready === true');
         info = await cdp.eval(INFO);
-        const failed = (info.logs || []).some(l => /^(init:|uncaught)/.test(l));
+        const failed = (info.logs || []).some(l => /^(init failed|init:|uncaught)/.test(l));          // both ways pages write it (the template: 'init failed:')
         if (ready || failed || consoleLines.length) break;
       } catch { /* the page is still loading */ }
       // a script or the page itself could not be loaded and nothing has started since: no use in waiting out the minute
@@ -530,7 +530,9 @@ export async function runCheck(opts, log = console.log) {
         report.problems.push(`the page could not be loaded completely: ${lost.slice(0, 3).map(describeLoadFailure).join('; ')}${lost.length > 3 ? ` (+${lost.length - 3} more)` : ''}${report.retried ? ' — tried twice' : ''}. `
           + (own ? `That is a file of the page's own server (the folder served is ${root}): check the path in the page's import map or its <script src>.` : 'That address is not served here (a CDN or another site): check it is spelled right and reachable, then run the check again.'));
       }
-      report.problems.push(`the page did not become ready (window.__ready !== true${lost.length ? ', because of the failed load above' : ' within 60 s'}${info?.hasMovie ? '' : '; window.movie is missing'})`);
+      const initFailure = report.logs.find(l => /^(init failed|init:|uncaught)/.test(String(l)));
+      if (initFailure) report.problems.push(`the movie could not start: ${String(initFailure).replace(/^(init( failed)?:|uncaught:?)\s*/, '')}`);
+      else report.problems.push(`the page did not become ready (window.__ready !== true${lost.length ? ', because of the failed load above' : ' within 60 s'}${info?.hasMovie ? '' : '; window.movie is missing'})`);
       return finish(report, outDir, log);
     }
     // --var / --size: the page is rebuilt once with what the command line gave (the first size; the others are looked at after the export)

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **A page whose movie cannot start says so at once, in `view`, `check` and `render`.** When `movie.init` threw (a missing image, a typo in the import map), the viewer showed "loading the page…" for two minutes before a vague line, and `check` waited out its whole minute and then said "did not become ready within 60 s": it looked for `init:` while the template writes `init failed:`. All three now stop within a second and print `the movie could not start: <the reason>` (in red in the viewer; save the fix and it offers a reload). Both spellings pages use (`init failed:` and `init:`) are recognised.
+
 ## 1.2.1
 
 - **A `delay` follows a tempo change.** Its distance is counted in beats; with `bpm` points the echoes were spaced by the first tempo and drifted off the beat once it changed. A score with one tempo sounds as in 1.2.0.

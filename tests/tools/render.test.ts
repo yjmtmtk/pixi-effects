@@ -138,6 +138,19 @@ describe('render.mjs — pure helpers', () => {
 const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs — the command, run for real in Chrome', () => {
+  it('a page whose movie cannot start exits 1 at once and names the failure, in either spelling ("init failed:" / "init:")', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'render-fail-'));
+    for (const query of [[], ['--query', 'short']]) {
+      const t0 = Date.now();
+      const r = await promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'tests/fixtures/view-init-failed.html'), '-o', join(dir, 'x.mp4'), '--quiet', '--timeout', '150', ...query], { timeout: 170_000 })
+        .catch((e: { stdout: string; stderr: string; code: number }) => e) as { stdout: string; stderr: string; code: number };
+      expect(r.code).toBe(1);
+      expect(Date.now() - t0).toBeLessThan(30_000);
+      expect(r.stdout + r.stderr).toContain('the movie could not start: [Loader.load] Failed to load');
+    }
+    rmSync(dir, { recursive: true, force: true });
+  }, 120_000);
+
   it('--range / --scene / --draft write a smaller file for part of the movie (and --scene with an unknown name exits 1 saying so)', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'render-range-'));
     const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'tests/films/export-range.html'), ...args, '--quiet', '--timeout', '150'], { timeout: 170_000 });

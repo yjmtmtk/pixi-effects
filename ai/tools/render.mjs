@@ -258,7 +258,9 @@ export async function runRender(opts, log = console.log, progress = () => {}) {
     const ready = await cdp.eval('window.__ready === true').catch(() => false);
     result.logs = [...new Set([...(info?.logs ?? []), ...consoleLines])];
     if (!ready || !info?.hasMovie) {
-      result.problems.push(`the page did not become ready (window.__ready !== true${info?.hasMovie ? '' : '; window.movie is missing'})${result.logs.length ? ': ' + result.logs[0] : ''}`);
+      const initFailure = result.logs.find(l => /^(init failed|init:|uncaught)/.test(String(l)));          // both ways pages write it (the template: 'init failed:')
+      if (initFailure) result.problems.push(`the movie could not start: ${String(initFailure).replace(/^(init( failed)?:|uncaught:?)\s*/, '')}`);
+      else result.problems.push(`the page did not become ready (window.__ready !== true${info?.hasMovie ? '' : '; window.movie is missing'})${result.logs.length ? ': ' + result.logs[0] : ''}`);
       return result;
     }
     // --var / --size: the page is built again with them before anything is drawn

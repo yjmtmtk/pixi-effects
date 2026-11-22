@@ -274,6 +274,19 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(ex.audio.rmsDbPerSecond.slice(0, 9).every((db: number) => db > -60)).toBe(true);
   }, 190_000);
 
+  for (const query of ['', 'short'])
+  it(`a page whose movie cannot start says why at once${query ? ' (written "init:")' : ''}, not after waiting out the minute`, async () => {
+    const out = mkdtempSync(join(tmpdir(), 'check-test-'));
+    const t0 = Date.now();
+    const r = await promisify(execFile)('node', [
+      join(root, 'ai/tools/check.mjs'), join(root, 'tests/fixtures/view-init-failed.html'), '--out', out, '--no-export', '--timeout', '150', ...(query ? ['--query', query] : []),
+    ], { timeout: 170_000 }).catch((e: { stdout: string; code: number }) => e);
+    expect(r.code).toBe(1);
+    expect(Date.now() - t0).toBeLessThan(30_000);
+    expect(r.stdout).toContain('the movie could not start: [Loader.load] Failed to load');
+    expect(r.stdout).not.toContain('within 60 s');
+  }, 190_000);
+
   it('a movie with no sound says "no audio track", not a decoding error', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [

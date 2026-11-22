@@ -142,11 +142,11 @@ export function viewerHtml({ pageUrl, title }) {
         const w = frame.contentWindow;
         if (w && w.__ready === true && w.movie) movie = w.movie;
         // the template's way of failing: init threw and said why in window.__logs (__ready never comes): say it now, not after two minutes
-        else failed = ((w && w.__logs) || []).find(l => /^init failed|^uncaught/.test(String(l))) || '';
+        else failed = ((w && w.__logs) || []).find(l => /^(init failed|init:|uncaught)/.test(String(l))) || '';
       } catch { /* still loading */ }
       if (failed) {
         $status.classList.add('failed');
-        $status.textContent = 'the movie could not start — ' + String(failed).replace(/^init failed:\\s*/, '') + ' (fix it and save: the viewer offers a reload)';
+        $status.textContent = 'the movie could not start — ' + String(failed).replace(/^init( failed)?:\\s*/, '') + ' (fix it and save: the viewer offers a reload)';
         return;
       }
       if (!movie) await sleep(200);
