@@ -277,11 +277,14 @@ interface LayerInfo
   alpha: number
   bounds: Rect | null
   depthBlur?: number
+  fontPx?: number
   light?: number
   moving: boolean
   name?: string
   onCanvas: "none" | "full" | "partial" | null
+  opacity: number
   path: string
+  text?: string
   threeD: boolean
   type: string
   visible: boolean

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **`movie.inspect` says how a text is drawn.** Each layer has `opacity` (its alpha times every group above it: a text at 0.8 in a composition at 0.5 is 0.4 to the eye; `alpha` stays its own), and a text layer has `text` (the words drawn now) and `fontPx` (its font size on the canvas, after every scale: 20 px scaled 2× is 40). The size and the fade a viewer gets can be read without looking at a picture.
+- **Two reloads in a row in `view` come back to the frame you were on.** Clicking reload twice quickly built the timeline twice when the page was quick to start (both waited for the same load), and the second reload forgot the frame.
+
 ## 1.3.0
 
 - **The timeline's colours are where you read the names.** In `view`, each layer name has a dot in its type's colour (the colour of its bar; the type is in its tooltip), and the legend under the last row is gone (it was far below the rows once there were many, and listed every type). `movie.timelineSvg()` (the `timeline.html` that `check` writes) keeps its legend, now listing only the types the movie has, in one `<g class="legend">`.

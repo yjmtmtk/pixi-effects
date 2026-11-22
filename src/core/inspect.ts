@@ -27,6 +27,12 @@ export interface LayerInfo {
   depthBlur?: number;
   /** Light (threeD layers that receive lights): how lit the layer is this frame, 0..1+ (the brightness of the light falling on its middle; 1 = as with no light, 0 = black). Left out when there is no light. */
   light?: number;
+  /** Its alpha with every group above it (what the eye gets): `alpha` is the layer's own (and its null parents'). */
+  opacity: number;
+  /** Text layers: the text drawn now (a typewriter: what has been typed). */
+  text?: string;
+  /** Text layers outside threeD: the font size as drawn on the canvas, in canvas pixels (the set size times every scale above it). */
+  fontPx?: number;
 }
 
 export interface InspectReport {
@@ -182,7 +188,16 @@ export function inspectScene(
       const moving = motion.running;
       const zeroScale = (o: unknown): boolean => { const s = (o as { scale?: { x: number; y: number } } | null)?.scale; return !!s && (s.x === 0 || s.y === 0); };
       const zero = parentZero || zeroScale(t) || carriers.some(c => zeroScale(c.target));
-      const info: LayerInfo = { path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas };
+      const info: LayerInfo = { path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas, opacity: Number((parentAlpha * alpha).toFixed(3)) };
+      if (seq.spec.type === 'text' && t) {
+        const tx = t as unknown as { text?: unknown; style?: { fontSize?: unknown }; toGlobal?: (p: { x: number; y: number }) => { x: number; y: number } };
+        info.text = String(tx.text ?? '');
+        const size = Number(tx.style?.fontSize);
+        if (!insideThreeD && !threeD && Number.isFinite(size) && tx.toGlobal) {
+          const a = tx.toGlobal({ x: 0, y: 0 }), b = tx.toGlobal({ x: 0, y: 1 });
+          info.fontPx = Number((size * Math.hypot(b.x - a.x, b.y - a.y)).toFixed(1));
+        }
+      }
       if (threeD) info.depthBlur = Number(depthBlur.toFixed(2));
       if (threeD && light !== undefined) info.light = Number(light.toFixed(2));
       layers.push(info);

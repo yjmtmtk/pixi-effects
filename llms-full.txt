@@ -4916,9 +4916,12 @@ interface InspectReport {
     path: string;                // names (or type#index) from the root, joined by '/'
     name?: string; type: string; threeD: boolean;
     visible: boolean;            // alive at this frame, not hidden by an ancestor, alpha > 0
-    alpha: number;
+    alpha: number;               // its own (and its null parents')
+    opacity: number;             // alpha with every group above it: what the eye gets
     bounds: { x: number; y: number; width: number; height: number } | null;   // canvas pixels; null inside a threeD layer
     onCanvas: 'full' | 'partial' | 'none' | null;
+    text?: string;               // text layers: the words drawn now (a typewriter: what has been typed)
+    fontPx?: number;             // text layers outside threeD: the font size as drawn, in canvas pixels (the set size times every scale above it)
   }>;
 }
 ```

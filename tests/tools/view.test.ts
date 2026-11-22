@@ -410,16 +410,18 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
     } finally { await v.close(); }
   }, 90_000);
 
-  it('two reloads in a row build the timeline once', async () => {
+  it('two reloads in a row build the timeline once, and come back to the frame the viewer was on', async () => {
     const v = await viewer('tests/films/timeline.html');
     try {
       expect(await v.ready()).toBe(true);
+      await v.cdp.eval("document.getElementById('page').contentWindow.movie.gotoFrame(20)");
       const before = await v.cdp.eval('+document.body.dataset.mounts');
       await v.cdp.eval("document.getElementById('reload').click(); setTimeout(() => document.getElementById('reload').click(), 30)");
       await check.sleep(500);
       expect(await v.ready()).toBe(true);
       await check.sleep(2500);
       expect(await v.cdp.eval('+document.body.dataset.mounts')).toBe(before + 1);
+      expect(await v.cdp.eval("document.getElementById('page').contentWindow.movie.currentFrame")).toBe(20);
     } finally { await v.close(); }
   }, 90_000);
 

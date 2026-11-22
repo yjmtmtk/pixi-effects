@@ -235,14 +235,19 @@ export function viewerHtml({ pageUrl, title }) {
   attach(null);
 
   /** Load the page again and come back to the same frame (and playing, if it was). Only ever on a request. */
+  let reloads = 0, carried = null;                                  // the latest reload: two clicks in a row wait for the same load, and only the last one attaches (with the first one's frame)
   async function reload() {
-    const restore = movie ? { frame: movie.currentFrame, playing: movie.isPlaying } : null;
+    const mine = ++reloads;
+    const restore = movie ? { frame: movie.currentFrame, playing: movie.isPlaying } : carried;
+    carried = restore;
     pending = false; $update.hidden = true;
     movie = null; svg = null; head = null; geom = null; plot.innerHTML = ''; names.innerHTML = '';
     sound = null; soundIssues = []; warnShown = null; readWarnings();   // nothing of the old page's is shown for the new one
     const loaded = new Promise(r => frame.addEventListener('load', r, { once: true }));
     try { frame.contentWindow.location.reload(); } catch { frame.src = frame.src; }
     await loaded;
+    if (mine !== reloads) return;
+    carried = null;
     await attach(restore);
   }
   $reload.addEventListener('click', reload);
