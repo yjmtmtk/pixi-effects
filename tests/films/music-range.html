@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · music: instruments, effects, kits</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): the wider palette of `music` (1.2) in a real browser: every new instrument, every track effect
+    (drive, crush, a tone sweep with resonance, chorus, delay, sidechain, glide, arp, width) and every drum kit, in one 8-bar score.
+    It must become ready with no warnings, and its sound must be the same on every load (tests/films/music-range.test.ts).
+  -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.23.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 640, height: 360, duration: 18, frameRate: 30, background: '#10131c',
+        composition: { layers: [
+          { type: 'text', text: 'music: the wider palette', style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
+          { type: 'audio', at: 0, volume: 0.9, music: {
+            bpm: 120, reverb: 0.2, seed: 5, kit: '808',
+            tracks: [
+              { inst: 'piano', vol: 0.5, notes: 'Am:4 F:4 C:4 G:4' },
+              { inst: 'organ', vol: 0.35, notes: '_:4 F:4 _:8' },
+              { inst: 'strings', vol: 0.3, attack: 0.3, notes: '_:8 C:4 G:4' },
+              { inst: 'brass', vol: 0.4, notes: '_:12 [g3 d4]:4' },
+              { inst: 'choir', vol: 0.3, notes: '_:4 [a4 c5]:12' },
+              { inst: 'flute', vol: 0.4, glide: 0.05, notes: '_:16 e5:1 g5:1 a5:2' },
+              { inst: 'guitar', vol: 0.4, drive: 0.7, tone: 0.7, chorus: 0.3, notes: '_:16 E5@2:2 G5@2:2' },
+              { inst: 'saw', vol: 0.4, resonance: 0.7, glide: 0.04, tone: [[0, 0.2], [32, 0.9]], step: 0.5, notes: 'a1 a2 a1 c2 a1 a2 g1 e2 | a1 a2 a1 c2 a1 a2 g1 e2 | a1 a2 a1 c2 a1 a2 g1 e2 | a1 a2 a1 c2 a1 a2 g1 e2 | f1 f2 f1 c2 f1 f2 e1 c2 | f1 f2 f1 c2 f1 f2 e1 c2 | a1 a2 a1 c2 a1 a2 g1 e2 | a1 a2 a1 c2 a1 a2 g1 e2' },
+              { inst: 'supersaw', vol: 0.3, sidechain: 0.7, notes: '_:16 Am:8 F:8' },
+              { inst: 'square', width: 0.25, vol: 0.3, arp: { mode: 'updown', rate: 0.25, octaves: 2 }, delay: { beats: 0.75, mix: 0.3, feedback: 0.4 }, notes: '_:16 Am:8 F:8' },
+              { inst: '808', vol: 0.6, glide: 0.06, drive: 0.3, notes: '_:16 a1:4 c2:4 f1:8' },
+              { inst: 'marimba', vol: 0.4, crush: 0.4, notes: '_:24 e5:0.5 c5:0.5 a4:1 e5:2 c5:4' },
+            ],
+            drums: [
+              { to: 8, kick: 'x...x...x...x...', hat: '..x...x...x...x.' },
+              { from: 8, to: 16, kit: 'acoustic', kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' },
+              { from: 16, to: 24, kit: 'lofi', kick: 'x.........x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.xox.x.' },
+              { from: 24, to: 32, kit: 'chip', kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.', crash: 'x...............' },
+            ],
+          } },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>
