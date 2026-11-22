@@ -59,7 +59,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('a text lay
     });
   });
 
-  it('the timeline view labels the group with what it spells', async () => {
+  it('the timeline chart labels the group with what it spells', async () => {
     await open('', async (cdp) => {
       const detail = await cdp.eval(`movie.timelineData().rows.find(r => r.path === 's').detail`);
       expect(detail).toBe('WWRRGG BB');

@@ -1,7 +1,7 @@
 // `spans`: colour and style inside one text layer. A text layer with `spans: [...]` is expanded, when it is built, into a group (a composition) of
 // ordinary text layers, one per piece (the part of a span that sits on one line), each at the x it has when the pieces are measured one after
 // the other: the same technique as `splitText()`. Nothing new is drawn, so it stays plain data, every filter / mask / keyframe of the layer
-// works on the group, and `inspect` and the timeline view show the pieces.
+// works on the group, and `inspect` and the timeline chart (`timelineSvg`, as pixi-effects view shows it) show the pieces.
 import { CanvasTextMetrics, TextStyle } from 'pixi.js';
 import { suggestName } from '../core/options';
 import { normalizeProps } from '../expr/normalizeProps';
@@ -37,7 +37,7 @@ export interface SpanPiece {
 export interface SpansLayout { pieces: SpanPiece[]; width: number; height: number; lineHeight: number; chars: number }
 
 /** What the group needs to know about its pieces (the typewriter counts over them): kept beside the spec, not in it. */
-export interface SpansMeta { typed: boolean; pieces: Array<{ start: number; length: number }>; /** The text, for a label (the timeline view). */ preview: string }
+export interface SpansMeta { typed: boolean; pieces: Array<{ start: number; length: number }>; /** The text, for a label (the timeline chart). */ preview: string }
 export const spansMeta = new WeakMap<object, SpansMeta>();
 
 const widthOf = (text: string, style: TextStyle): number => CanvasTextMetrics.measureText(text, style).width;

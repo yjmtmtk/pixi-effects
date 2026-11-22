@@ -4,7 +4,7 @@
  *
  *   node ai/tools/view.mjs my-video.html            (or:  npx pixi-effects view my-video.html)
  *
- * It serves the page's folder on a private port and opens your browser on a viewer: the page itself on top (its own player
+ * It serves the page's folder on a private port and opens pixi-effects view ("view" for short) in your browser: the page itself on top (its own player
  * works as usual) and, under it, the timeline of every layer (`movie.timelineSvg()`) with a playhead that follows the movie.
  * Click or drag on the timeline to seek the movie; click a layer's name to jump to where it starts; Space plays / pauses,
  * ← / → step a frame (Shift: a second), Home / End jump to the ends. Stop it with Ctrl-C.
@@ -80,7 +80,7 @@ const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').repl
 /** The viewer page: the composition in an iframe, its timeline under it (zoomable), a playhead, click / drag / keys to seek. */
 export function viewerHtml({ pageUrl, title }) {
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escHtml(title)} — timeline view</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escHtml(title)} — pixi-effects view</title>
 <style>
   :root { --bg: #f7f5f1; --ink: #1d2433; --dim: #6b7587; --line: #d9d5cc; --head: #e0245e; }
   @media (prefers-color-scheme: dark) { :root { --bg: #0e1320; --ink: #e8eefc; --dim: #8fa0bf; --line: #26304a; --head: #ff5c8a; } }
@@ -180,7 +180,7 @@ export function viewerHtml({ pageUrl, title }) {
       if (failed) {
         shown();                                                     // the page as it is: it may show where it went wrong
         $status.classList.add('failed');
-        $status.textContent = 'the movie could not start — ' + String(failed).replace(/^init( failed)?:\\s*/, '') + ' (fix it and save: the viewer offers a reload)';
+        $status.textContent = 'the movie could not start — ' + String(failed).replace(/^init( failed)?:\\s*/, '') + ' (fix it and save: view offers a reload)';
         return;
       }
       if (!movie) await sleep(200);
@@ -426,7 +426,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
     if (opts.help) { console.log(USAGE); process.exit(0); }
     if (!opts.page) throw missing(SPEC, 'the page to look at: pixi-effects view my-video.html');
     const { url } = await startViewer(opts);
-    console.log(`timeline view: ${url}   (Ctrl-C to stop)`);
+    console.log(`pixi-effects view: ${url}   (Ctrl-C to stop)`);
     if (opts.open) openBrowser(url);
   } catch (e) {
     exitWith(e, 'view');
