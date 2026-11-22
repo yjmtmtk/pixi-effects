@@ -105,9 +105,9 @@ describe('resolveMusic: every mistake is named', () => {
 
   it('an unknown instrument or drum is named, with a suggestion', () => {
     const { w, warn } = warnings();
-    resolveMusic({ bpm: 100, tracks: [{ inst: 'piano', notes: 'c4' }, { inst: 'pluk', notes: 'c4' }, { inst: 'keys', notes: 'c4:4' }], drums: { hihat: 'x...', kikc: 'x...' } }, 'layer "m"', warn);
+    resolveMusic({ bpm: 100, tracks: [{ inst: 'rhodes', notes: 'c4' }, { inst: 'pluk', notes: 'c4' }, { inst: 'keys', notes: 'c4:4' }], drums: { hihat: 'x...', kikc: 'x...' } }, 'layer "m"', warn);
     const text = w.join('\n');
-    expect(text).toMatch(/tracks\[0\].*"piano".*did you mean "keys"/);
+    expect(text).toMatch(/tracks\[0\].*"rhodes".*did you mean "keys"/);
     expect(text).toMatch(/tracks\[1\].*"pluk".*did you mean "pluck"/);
     expect(text).toMatch(/drums.*"hihat".*did you mean "hat"/);
     expect(text).toMatch(/drums.*"kikc".*did you mean "kick"/);

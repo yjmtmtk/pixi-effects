@@ -42,6 +42,10 @@ export function noteToMidi(name: string): number | null {
   return 12 * (Number(m[3]) + 1) + SEMI[m[1]!.toLowerCase()]! + accidental(m[2]!);
 }
 
+const SHARP = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
+/** MIDI number → a note as written (60 → `c4`, 61 → `c#4`). */
+export function midiToNote(midi: number): string { return SHARP[((midi % 12) + 12) % 12]! + (Math.floor(midi / 12) - 1); }
+
 /** `Am7` → MIDI notes (root in octave 3); `C@4` puts the root in octave 4, `Am7/e` puts e in the bass. Null when it is not a chord. */
 export function chordToMidi(sym: string): number[] | null {
   const m = /^([A-G])([#b]?)([^@/\s]*)(?:@(\d))?(?:\/([a-gA-G][#b]?))?$/.exec(sym);

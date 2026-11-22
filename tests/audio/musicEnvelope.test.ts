@@ -43,8 +43,8 @@ describe('musicEnvelope()', () => {
   it('a score that cannot play is an error that says why; warnings are still printed', async () => {
     await expect(musicEnvelope({ tracks: [] } as never)).rejects.toThrow(/musicEnvelope\(\).*bpm is required/);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await musicEnvelope({ bpm: 100, tracks: [{ inst: 'piano', notes: 'c4:2' }, { inst: 'keys', notes: 'c4:2' }] });
-    expect(warn.mock.calls.join('\n')).toMatch(/"piano".*did you mean "keys"/);
+    await musicEnvelope({ bpm: 100, tracks: [{ inst: 'rhodes', notes: 'c4:2' }, { inst: 'keys', notes: 'c4:2' }] });
+    expect(warn.mock.calls.join('\n')).toMatch(/"rhodes".*did you mean "keys"/);
     warn.mockRestore();
   });
 });

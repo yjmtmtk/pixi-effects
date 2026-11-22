@@ -38,8 +38,8 @@ describe('musicBuffer()', () => {
     await expect(musicBuffer({ tracks: [] } as never)).rejects.toThrow(/musicBuffer\(\).*bpm is required/);
     await expect(musicBuffer(music, { duration: -1 })).rejects.toThrow(/duration must be a positive/);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await musicBuffer({ bpm: 100, tracks: [{ inst: 'piano', notes: 'c4:2' }, { inst: 'keys', notes: 'c4:2' }] }, { sampleRate: 8000 });
-    expect(warn.mock.calls.join('\n')).toMatch(/"piano".*did you mean "keys"/);
+    await musicBuffer({ bpm: 100, tracks: [{ inst: 'rhodes', notes: 'c4:2' }, { inst: 'keys', notes: 'c4:2' }] }, { sampleRate: 8000 });
+    expect(warn.mock.calls.join('\n')).toMatch(/"rhodes".*did you mean "keys"/);
     warn.mockRestore();
   });
 });

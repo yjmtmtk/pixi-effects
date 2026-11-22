@@ -466,7 +466,14 @@ export interface AudioSfxSpec extends AudioBase {
   loop?: never;
 }
 
-export type MusicInstrument = 'keys' | 'pluck' | 'pad' | 'bass' | 'sub' | 'lead' | 'bell' | 'musicbox';
+export type MusicInstrument = 'keys' | 'pluck' | 'pad' | 'bass' | 'sub' | 'lead' | 'bell' | 'musicbox'
+  | 'piano' | 'organ' | 'strings' | 'brass' | 'choir' | 'flute' | 'guitar' | 'saw' | 'supersaw' | 'square' | '808' | 'marimba';
+/** The drum sounds: `classic` (the default), `808` (hip-hop, trap), `acoustic` (a real kit: rock, pop, jazz), `lofi` (dusty), `chip` (8-bit). */
+export type MusicKit = 'classic' | '808' | 'acoustic' | 'lofi' | 'chip';
+/** A delay as a number (how loud the echoes are, 0–1; a dotted eighth apart) or in full. */
+export type MusicDelay = number | { /** Beats between echoes (default 0.75: a dotted eighth). */ beats?: number; /** Echo level 0–1 (default 0.35). */ mix?: number; /** How much of each echo comes back, 0–0.9 (default 0.35). */ feedback?: number };
+/** Chords played one note at a time: a direction (0.25 beats a note, one octave), or in full. */
+export type MusicArp = 'up' | 'down' | 'updown' | 'random' | { mode?: 'up' | 'down' | 'updown' | 'random'; /** Beats a note (default 0.25). */ rate?: number; /** Octaves climbed (default 1). */ octaves?: number };
 export type MusicDrum = 'kick' | 'snare' | 'hat' | 'openhat' | 'clap' | 'rim' | 'tom' | 'crash' | 'shaker' | 'sleigh';
 /** A level that may change over the music: a number, or `[beat, level]` points joined by straight lines (held before the first and after the last). */
 export type MusicLevel = number | Array<[number, number]>;
@@ -485,8 +492,26 @@ export interface MusicTrack {
   strum?: number;
   /** How much of its written length a note sounds, 0.1–1 (default 0.96). */
   legato?: number;
-  /** Brightness 0–1 (default 1): lower is darker. */
-  tone?: number;
+  /** Brightness 0–1 (default 1): lower is darker; `[beat, value]` points sweep the filter (`[[0, 0.2], [16, 1]]`: a build). */
+  tone?: MusicLevel;
+  /** The filter's peak at its cutoff, 0–1 (default 0): with a moving `tone`, the acid / wah squelch. */
+  resonance?: number;
+  /** Saturation 0–1 (default 0): 0.3 warm, 0.7 a rock guitar, 1 fuzz. */
+  drive?: number;
+  /** Bit-crush 0–1 (default 0): fewer bits and a lower rate, lo-fi or 8-bit grit. */
+  crush?: number;
+  /** Stereo chorus 0–1 (default 0): wider and shimmering. */
+  chorus?: number;
+  /** Echoes: a level 0–1 (a dotted eighth apart), or `{ beats, mix, feedback }`. */
+  delay?: MusicDelay;
+  /** Duck under every kick of the drums, 0–1 (default 0): the pump of house / EDM. */
+  sidechain?: number;
+  /** Seconds each note slides from the one before (lead, bass, sub, saw, square, 808, flute). */
+  glide?: number;
+  /** Play the chords as arpeggios: `'up'`, `'down'`, `'updown'`, `'random'`, or `{ mode, rate, octaves }`. */
+  arp?: MusicArp;
+  /** Pulse width of `square`, 0.05–0.5 (default 0.5): 0.125 and 0.25 are the thinner console sounds. */
+  width?: number;
   /** How much of this track goes to the reverb, 0–1 (default 1). */
   reverb?: number;
   /** Seconds a pad / lead / sub takes to fade in. */
@@ -500,7 +525,7 @@ export interface MusicTrack {
 }
 
 /** Drum patterns: a string of steps (`x` hit, `o` soft hit, `.` nothing), one step = 1/`grid` of a beat. The pattern repeats; `from` / `to` (beats) limit where it plays. */
-export type MusicDrums = { [D in MusicDrum]?: string } & { from?: number; to?: number };
+export type MusicDrums = { [D in MusicDrum]?: string } & { from?: number; to?: number; /** This section's kit (default: the score's). */ kit?: MusicKit };
 
 export interface MusicOptions {
   /** Beats per minute, or `[beat, bpm]` points for a tempo change (a ritardando: `[[0, 96], [28, 96], [32, 60]]`). */
@@ -510,6 +535,8 @@ export interface MusicOptions {
   tracks?: MusicTrack[];
   /** Drum patterns that repeat, or a list of them with `from` / `to` (beats) for sections. */
   drums?: MusicDrums | MusicDrums[];
+  /** The drum sounds (default `classic`); a drum section can set its own. */
+  kit?: MusicKit;
   /** Drum steps per beat (default 4: sixteenth notes; 3 for a triplet / 6/8 feel; 2 for eighths). */
   grid?: number;
   /** Delays the off-beat eighths and sixteenths by this much of a beat, 0–0.4 (default 0). */

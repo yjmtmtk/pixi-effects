@@ -1,4 +1,6 @@
-import { Biquad, clearVoiceTables, hitDrum, reverbSteps, setSampleRate, VOICES, type Bus } from './instruments';
+import { Biquad, clearVoiceTables, reverbSteps, setSampleRate, VOICES, type Bus, type VoiceOptions } from './instruments';
+import { hitKit } from './kits';
+import { chorusRun, crushRun, delayRun, driveRun, sweepRun } from './effects';
 import { TempoMap } from './notation';
 import type { ResolvedMusic, ResolvedTrack } from './resolve';
 
@@ -52,6 +54,31 @@ export function musicBeatTimes(m: ResolvedMusic, until = m.seconds): number[] {
   return times.filter(t => t < until);
 }
 
+
+/** Every kick of the drums, in seconds from the start (over every repeat of a loop), sorted: what a sidechained track ducks under. */
+function kickTimes(m: ResolvedMusic, map: TempoMap, loopSec: number, repeats: number): number[] {
+  const out: number[] = [];
+  for (let r = 0; r < repeats; r++) for (const s of m.drums) {
+    const kick = s.drums.find(d => d.kind === 'kick');
+    if (!kick) continue;
+    const end = Math.min(s.to, m.beats);
+    for (let rep = 0; s.from + rep * s.repeat < end - 1e-6; rep++) for (const h of kick.hits) {
+      const b = s.from + rep * s.repeat + h.i / m.grid;
+      if (b < end) out.push(r * loopSec + map.seconds(b));
+    }
+  }
+  return out.sort((a, b) => a - b);
+}
+/** A level that dips by `amount` at every kick and comes back over `tau` seconds (the pump of house music). Asked in rising order. */
+function ducked(level: (sec: number) => number, kicks: number[], amount: number, tau: number): (sec: number) => number {
+  let j = -1;
+  return sec => {
+    while (j + 1 < kicks.length && kicks[j + 1]! <= sec) j++;
+    if (j < 0) return level(sec);
+    const d = sec - kicks[j]!, env = d < 0.003 ? d / 0.003 : Math.exp(-(d - 0.003) / tau);
+    return level(sec) * (1 - amount * env);
+  };
+}
 
 /** The tone filter (two cascaded biquads per channel) over [i, stop): a plain function, so the loop is not inside the generator. Returns where it stopped. */
 function toneRun(scratch: Bus, a: Biquad[], b: Biquad[], i: number, stop: number, end: number): number {
@@ -125,8 +152,10 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
     };
   };
 
+  const kicks = kickTimes(m, map, loopSec, repeats);
   for (const tr of m.tracks) {
     const inst = VOICES[tr.inst];
+    let prev: number | null = null;                                  // the note a gliding track slides from
     for (let r = 0; r < repeats; r++) {
       const offset = r * loopSec;
       for (let ei = 0; ei < tr.events.length; ei++) {
@@ -139,14 +168,24 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
           const t0 = offset + map.seconds(startBeat) + (rnd() - 0.5) * m.humanize + k * strum;
           const vel = Math.min(1, e.vel * (0.93 + rnd() * 0.14));
           if (t0 * sampleRate >= total) return;
-          inst(midi + tr.transpose, lenSec, vel, scratch, Math.max(0, Math.round(t0 * sampleRate)), rnd, tr.voice);
+          const voice: VoiceOptions = tr.glide > 0 && k === 0 && prev !== null && prev !== midi ? { ...tr.voice, bend: prev - midi, bendTime: tr.glide } : tr.voice;
+          inst(midi + tr.transpose, lenSec, vel, scratch, Math.max(0, Math.round(t0 * sampleRate)), rnd, voice);
         });
+        if (tr.glide > 0 && e.midi.length) prev = e.midi[0]!;
       }
     }
     // where the track made sound: before and after it the scratch bus is exactly 0, so nothing there is filtered or mixed
     const [lo, hi] = extent(scratch);
     let end = hi + 1;
-    if (tr.tone < 1) {
+    if (lo < total) {
+      if (tr.drive > 0) end = driveRun(scratch, lo, end, tr.drive);
+      if (tr.crush > 0) crushRun(scratch, lo, end, tr.crush);
+      if (typeof tr.tone !== 'number' || tr.resonance > 0) {
+        const pts = typeof tr.tone === 'number' ? [[0, tr.tone] as const] : tr.tone.map(([b, v]) => [map.seconds(b), v] as const);
+        end = sweepRun(scratch, lo, end, pts, tr.resonance);
+      }
+    }
+    if (typeof tr.tone === 'number' && tr.tone < 1 && tr.resonance === 0) {
       const fc = 400 * 50 ** tr.tone;
       const a = [new Biquad('lp', fc, 0.7), new Biquad('lp', fc, 0.7)], b = [new Biquad('lp', fc, 0.7), new Biquad('lp', fc, 0.7)];
       let i = lo;
@@ -159,9 +198,14 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
       }
       end = Math.max(end, i);
     }
-    const level = levelAt(tr.vol), pan = Math.max(-1, Math.min(1, tr.pan));
+    if (lo < total) {
+      if (tr.chorus > 0) end = chorusRun(scratch, lo, end, tr.chorus);
+      if (tr.delay) end = delayRun(scratch, lo, end, Math.round((60 / map.bpmAt(0)) * tr.delay.beats * sampleRate), tr.delay.mix, tr.delay.feedback);
+    }
+    const base = levelAt(tr.vol), pan = Math.max(-1, Math.min(1, tr.pan));
+    const level = tr.sidechain > 0 && kicks.length ? ducked(base, kicks, tr.sidechain, 0.18 * (60 / map.bpmAt(0))) : base;
     const gl = Math.cos(((pan + 1) * Math.PI) / 4) * 1.3, gr = Math.sin(((pan + 1) * Math.PI) / 4) * 1.3;
-    const constant = typeof tr.vol === 'number';
+    const constant = typeof tr.vol === 'number' && level === base;
     let g = constant ? level(0) : 0;
     for (let i = lo; i < end; ) {
       const stop = Math.min(end, (i | 65535) + 1);
@@ -185,7 +229,7 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
           const vel = h.vel * (0.9 + rnd() * 0.2);
           const t0 = offset + map.seconds(swingShift(beat)) + (rnd() - 0.5) * m.humanize * 0.5;
           if (t0 * sampleRate >= total) continue;
-          hitDrum(d.kind, vel, scratch, Math.max(0, Math.round(t0 * sampleRate)), rnd);
+          hitKit(s.kit, d.kind, vel, scratch, Math.max(0, Math.round(t0 * sampleRate)), rnd);
         }
       }
     }
