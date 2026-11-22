@@ -183,6 +183,34 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
     }
   }, 90_000);
 
+  for (const [query, want] of [['', /BUILDING LAYERS\s+62%/], ['event', /LOADING ASSETS\s+40%/]] as const)
+  it(`while the movie builds, the viewer shows how far it is (${query ? 'from the loadprogress event' : 'from the page loader'}), not a bare "loading"`, async () => {
+    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'tests/fixtures/view-progress.html'), '--no-open', ...(query ? ['--query', query] : [])], { stdio: ['ignore', 'pipe', 'inherit'] });
+    const url: string = await new Promise((res, rej) => {
+      let buf = '';
+      const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);
+      proc.stdout!.on('data', d => { buf += d; const m = buf.match(/(http:\/\/127\.0\.0\.1:\d+\/__viewer)/); if (m) { clearTimeout(t); res(m[1]!); } });
+    });
+    const userDataDir = mkdtempSync(join(tmpdir(), 'view-test-'));
+    const { proc: chromeProc, cdp } = await launchPage(chrome, userDataDir);
+    try {
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.enable');
+      await cdp.send('Page.navigate', { url });
+      let text = '';
+      for (let i = 0; i < 30 && !want.test(text); i++) { await check.sleep(300); text = await cdp.eval("document.getElementById('wait').innerText").catch(() => ''); }
+      expect(text).toMatch(want);
+      await check.sleep(400);                                                         // the bar eases to its width
+      expect(await cdp.eval("parseFloat(getComputedStyle(document.querySelector('#wait .bar i')).width) / parseFloat(getComputedStyle(document.querySelector('#wait .bar')).width)")).toBeCloseTo(query ? 0.4 : 0.62, 1);
+      expect(text).toMatch(/\d+ s/);                                             // and the seconds, so a long build never looks frozen
+    } finally {
+      try { chromeProc.kill(); } catch { /* gone */ }
+      proc.kill();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 60_000);
+
   for (const query of ['', 'short'])
   it(`a page whose movie cannot start says why at once (the init failure from window.__logs${query ? ', written "init:"' : ''}), not "loading the pageâ€¦" for two minutes`, async () => {
     const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'tests/fixtures/view-init-failed.html'), '--no-open', ...(query ? ['--query', query] : [])], { stdio: ['ignore', 'pipe', 'inherit'] });

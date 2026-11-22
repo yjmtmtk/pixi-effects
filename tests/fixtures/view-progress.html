@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>view: a movie that is still building</title></head>
+<body>
+  <!-- Fixture for tests/tools/view.test.ts: a page part way through movie.init(), never ready. Default: its .pe-loader carries the
+       progress (as movie.init writes it). ?event: no loader, the movie's 'loadprogress' event alone. -->
+  <div style="position: relative"><canvas id="stage" width="640" height="360"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+  <script>
+    window.__logs = [];
+    const viaEvent = new URLSearchParams(location.search).has('event');
+    const listeners = [];
+    window.movie = { on(name, fn) { if (name === 'loadprogress') listeners.push(fn); return this; } };
+    if (viaEvent) document.querySelector('.pe-loader').remove();
+    setTimeout(() => {
+      if (viaEvent) for (const fn of listeners) fn({ stage: 'assets', loaded: 2, total: 5, progress: 0.4 });
+      else { const l = document.querySelector('.pe-loader'); l.setAttribute('data-stage', 'BUILDING LAYERS'); l.setAttribute('data-percent', '62'); }
+    }, 600);
+  </script>
+</body>
+</html>
