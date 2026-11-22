@@ -61,9 +61,9 @@
     // PixiJS 2D objects built by code (Graphics, Sprites, a thousand pieces): { type: 'scene2d', setup({ root }) { root.addChild(…); return { objects } }, update(t, { objects }) { … } } — no import; recipe scene2d-basics
     // import { register3D } from 'pixi-effects/3d';   // a 3D scene (PixiJS 3D: meshes, glTF models, lights) as a layer: call register3D() before init; recipe scene3d-basics
     // import { Mesh3D, Model3D, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
-    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    // A talk instead of a video: import { deck } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
     //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, layers }] });
-    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+    //   composition: d.composition, duration: d.duration; the Controller plays it stop to stop (Presenter is deprecated, removed in 2.0). Docs: reference/cheatsheet.md → Presets (the deck lines).
 
     const W = 1280, H = 720, FPS = 30, DURATION = 6;
 

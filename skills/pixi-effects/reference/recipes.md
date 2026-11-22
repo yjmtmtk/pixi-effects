@@ -1167,9 +1167,9 @@ return [
 
 ---
 
-## A deck: pages and steps for a presenter (`deck`, `Presenter`)
+## A deck: pages and steps (`deck`)
 
-`deck({ pages, transition })` lays pages out one after the other (each page's layers are written in the page's own time) and turns their `stops` into where a `Presenter` pauses. A **step** is a layer that starts at the previous stop and ends at this one: "press next" plays exactly that animation and stops. A page should last its last stop plus the transition.
+`deck({ pages, transition })` lays pages out one after the other (each page's layers are written in the page's own time) and turns their `stops` into where the player pauses (the `Controller` plays a deck stop to stop). A **step** is a layer that starts at the previous stop and ends at this one: "press next" plays exactly that animation and stops. A page should last its last stop plus the transition.
 
 ```js
 // @recipe deck
@@ -1191,12 +1191,13 @@ return { duration: d.duration, layers: d.composition.layers, transitions: d.comp
 
 ```js
 // @docs-only deck-in-page
-// in the page: the deck is spread into init; the Presenter (or the Controller, which then shows the stops and a Present button) plays it
+// in the page: the deck is spread into init; the Controller plays it stop to stop (`Presenter` is deprecated, removed in 2.0)
 import { Movie } from 'pixi-effects';
-import { deck, Presenter } from 'pixi-effects/present';     // (add "pixi-effects/present" to the import map)
+import { Controller } from 'pixi-effects/controller';
+import { deck } from 'pixi-effects/present';     // (add "pixi-effects/present" to the import map)
 const movie = new Movie();
+new Controller(movie, { canvas, presentButton: false });     // play / Space / a click = to the next stop; marks on the seek bar; PDF in the download panel
 await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, ...deck({ /* as above */ }) });
-new Presenter(movie, { canvas });     // arrows / Space / Enter / click / swipe = next, ← = back, B = black screen, F = fullscreen, ? = keys
 ```
 
 ---

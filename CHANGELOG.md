@@ -6,6 +6,7 @@
 - **`view` no longer flashes the page small in the corner while it loads.** The page sat in the iframe's default 300 × 150 at the top left until the movie was ready and laid out; it now stays hidden until then, and the viewer shows how far the page is in its place: the stage and the percent the page's loader shows (`BUILDING LAYERS  62%`, from its `.pe-loader`, or from the movie's `loadprogress` event on a page without one), a bar, and the seconds so far.
 - **In a small window, `view` keeps the player bar usable.** A page too tall for the window was scaled down whole, its player bar with it, until the buttons were too small to hit. The page is now made narrower instead, so a page whose canvas follows its width (the template's does) lays itself out again with the bar at its own size; only a page that cannot narrow is still scaled to fit.
 - **The viewer has one name: pixi-effects view ("view" for short).** It was "timeline view" on its own page and in the address it prints, "the viewer" in the docs and `view` on the command line; the page title, the printed line (`pixi-effects view: http://…`) and the docs now all say pixi-effects view. The command is unchanged.
+- **`Presenter` is deprecated and will be removed in 2.0** (with the Controller's Present button). It works as before in every 1.x release; the docs no longer recommend it and the deck recipe now plays with the `Controller`, which already plays a deck stop to stop. `deck()`, `stops`, `inspectStops`, `stopImages` and the PDF export stay.
 
 ## 1.2.1
 

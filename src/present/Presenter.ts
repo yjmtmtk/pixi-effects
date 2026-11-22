@@ -124,6 +124,7 @@ html, body { margin: 0; height: 100%; background: #0c0e16; color: #e8ecf8; font:
  * a click, a tap or a swipe, like slides with animation. It draws only a small page counter, the page name and a progress line (they
  * fade out when idle), and a black / white screen, a list of keys (`?`) and fullscreen (`F`). Use it instead of `Controller` on the page.
  */
+/** @deprecated Removed in 2.0: play a deck with the `Controller` (it plays stop to stop). It works as before in every 1.x release. */
 export class Presenter {
   readonly movie: Movie;
   /** @internal */

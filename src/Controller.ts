@@ -75,7 +75,7 @@ export interface ControllerOptions {
   keyboard?: boolean;
   /** A click (or tap) on the picture plays / pauses, like a `<video>` element. Default true; `false` leaves the canvas alone. */
   clickToPlay?: boolean;
-  /** A movie with `stops` gets a Present button that starts a {@link Presenter} (keys, click and swipe move through the stops). Default true; `false` keeps only the marks on the seek bar. */
+  /** A movie with `stops` gets a Present button that starts a {@link Presenter} (keys, click and swipe move through the stops). Default true; `false` keeps only the marks on the seek bar. The button goes with `Presenter` in 2.0. */
   presentButton?: boolean;
   /** A movie with `stops`: the play button (and a click on the picture, and Space) plays to the next stop and pauses there, like a slide. Default true; `false` plays straight through to the end. */
   pauseAtStops?: boolean;

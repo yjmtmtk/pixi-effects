@@ -418,7 +418,11 @@ const off = onStop(movie, ({ index, stop, pageIndex }) => …);                 
 The presentation side is a separate entry, `pixi-effects/present`, built on the core's public API only (an import map line: `"pixi-effects/present": ".../dist/present.js"`). The core knows `stops` (named times) and two general moves it is made of: `movie.playUntil(seconds)` and `movie.peek(fn)` (below). An ordinary `movie.play()` ignores the stops. `onStop` listeners belong to the `pixi-effects/present` module the page imported: the `Controller` loads `present.js` from beside itself, so map `"pixi-effects/present"` to the same folder as `Controller.js`, or a Controller landing will not reach your `onStop`.
 
 
-`deck({ pages, transition? })` (from `pixi-effects/present`) builds such a movie from pages (see the DSL reference). **`Presenter`** (also `pixi-effects/present`) is the player for it:
+`deck({ pages, transition? })` (from `pixi-effects/present`) builds such a movie from pages (see the DSL reference). The **`Controller`** plays it stop to stop (below).
+
+> **Deprecated: `Presenter` is removed in 2.0.** It still works in every 1.x release, as documented here; a new page should use the `Controller`, and `presentButton: false` hides the Controller's Present button that starts a Presenter.
+
+**`Presenter`** (also `pixi-effects/present`) is the fullscreen player for it:
 
 ```ts
 import { Presenter } from 'pixi-effects/present';
