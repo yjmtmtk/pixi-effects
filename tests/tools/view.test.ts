@@ -35,7 +35,7 @@ describe('view.mjs â€” pure helpers', () => {
 
   it('viewerHtml: the page in an iframe, the timeline container, a playhead script; the title is escaped', () => {
     const html = view.viewerHtml({ pageUrl: '/examples/a.html?x=1', title: '<b>my</b> & video' });
-    expect(html).toContain('<iframe id="page" src="/examples/a.html?x=1"');
+    expect(html).toContain('<iframe id="page" class="pending" src="/examples/a.html?x=1"');
     expect(html).toContain('id="chart"');
     expect(html).toContain('id="zin"');
     expect(html).toContain('movie.timelineSvg()');
@@ -138,6 +138,43 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
       await check.sleep(900);
       expect(await x()).toBeGreaterThan(x0);
       await cdp.eval("document.getElementById('page').contentWindow.movie.pause()");
+    } finally {
+      try { chromeProc.kill(); } catch { /* gone */ }
+      proc.kill();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 90_000);
+
+  it('while the page loads, it is not shown small in the corner: the frame stays hidden (a centred "loading" instead) until it is laid out', async () => {
+    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'tests/films/timeline.html'), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
+    const url: string = await new Promise((res, rej) => {
+      let buf = '';
+      const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);
+      proc.stdout!.on('data', d => { buf += d; const m = buf.match(/(http:\/\/127\.0\.0\.1:\d+\/__viewer)/); if (m) { clearTimeout(t); res(m[1]!); } });
+    });
+    const userDataDir = mkdtempSync(join(tmpdir(), 'view-test-'));
+    const { proc: chromeProc, cdp } = await launchPage(chrome, userDataDir);
+    try {
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.enable');
+      // record, from the first moment, every state the frame is in until the timeline is there
+      await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__states = []; (function look() {
+        const f = document.getElementById('page'), w = document.getElementById('wait');
+        if (f) window.__states.push({ visible: getComputedStyle(f).visibility !== 'hidden', width: f.getBoundingClientRect().width, wait: !!w && !w.hidden, ready: !!document.querySelector('#plot svg') });
+        if (!document.querySelector('#plot svg')) requestAnimationFrame(look);
+      })();` });
+      await cdp.send('Page.navigate', { url });
+      let ready = false;
+      for (let i = 0; i < 100 && !ready; i++) { await check.sleep(300); ready = await cdp.eval("!!document.querySelector('#plot svg')").catch(() => false); }
+      expect(ready).toBe(true);
+      const states: Array<{ visible: boolean; width: number; wait: boolean; ready: boolean }> = await cdp.eval('window.__states');
+      const before = states.filter(s => !s.ready);
+      expect(before.length).toBeGreaterThan(0);
+      expect(before.filter(s => s.visible)).toEqual([]);                    // never shown before it is laid out
+      expect(before.every(s => s.wait)).toBe(true);                         // the viewer's own "loading" instead
+      expect(await cdp.eval("getComputedStyle(document.getElementById('page')).visibility")).toBe('visible');
+      expect(await cdp.eval("document.getElementById('wait').hidden")).toBe(true);
     } finally {
       try { chromeProc.kill(); } catch { /* gone */ }
       proc.kill();

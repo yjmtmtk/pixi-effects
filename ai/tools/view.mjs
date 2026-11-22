@@ -97,7 +97,11 @@ export function viewerHtml({ pageUrl, title }) {
   #zlabel { min-width: 44px; text-align: center; font-family: ui-monospace, Menlo, monospace; color: var(--dim); }
   button { font: inherit; background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 3px 12px; cursor: pointer; }
   button:disabled { opacity: .4; cursor: default; }
-  #stage { flex: none; overflow: hidden; background: #000; }
+  #stage { flex: none; overflow: hidden; background: #000; position: relative; }
+  #stage.pending { height: min(560px, max(200px, calc(100vh - 300px))); }
+  iframe.pending { visibility: hidden; }
+  #wait { position: absolute; inset: 0; display: grid; place-items: center; color: #8fa0bf; font: 13px system-ui, sans-serif; }
+  #wait[hidden] { display: none; }
   iframe { border: 0; display: block; transform-origin: 0 0; }
   #chart { flex: 1 1 0; min-height: 0; overflow: auto; border-top: 1px solid var(--line); display: flex; align-items: flex-start; }
   #names { position: sticky; left: 0; z-index: 2; flex: none; width: 250px; background: var(--bg); border-right: 1px solid var(--line); }
@@ -114,7 +118,7 @@ export function viewerHtml({ pageUrl, title }) {
 <body>
 <header><b>${escHtml(title)}</b><button id="play" type="button" disabled>▶</button><span id="time">0.00 / 0.00 s · frame 0</span><span id="status">loading the page…</span><span id="update" hidden><button id="reload" type="button" title="load the page again, on the frame you are on (R)">Updated — reload (R)</button></span><label id="autolabel" title="reload by itself, but only while the movie is paused"><input type="checkbox" id="auto"> auto</label>
   <span class="zoom"><button id="zout" type="button" title="zoom out (-)" disabled>−</button><span id="zlabel">fit</span><button id="zin" type="button" title="zoom in (+, or Ctrl/⌘ + wheel)" disabled>+</button><button id="zfit" type="button" title="fit the whole movie (0)" disabled>fit</button></span></header>
-<div id="stage"><iframe id="page" src="${escHtml(pageUrl)}" allow="autoplay; fullscreen"></iframe></div>
+<div id="stage" class="pending"><iframe id="page" class="pending" src="${escHtml(pageUrl)}" allow="autoplay; fullscreen"></iframe><div id="wait">loading the page…</div></div>
 <div id="chart"><div id="names"></div><div id="plot"></div></div>
 <script>
 (() => {
@@ -132,6 +136,9 @@ export function viewerHtml({ pageUrl, title }) {
   let seen = null, pending = false;
   try { $auto.checked = localStorage.getItem('pe-view-auto') === '1'; } catch { /* storage may be blocked */ }
 
+  /** The page is laid out (or will never be): show it. Until then it is hidden, so it never flashes at the iframe's default size in the corner. */
+  function shown() { layout(); stage.classList.remove('pending'); frame.classList.remove('pending'); document.getElementById('wait').hidden = true; }
+
   /** Wait for the page inside to be a ready movie, then (re)build the timeline. \`restore\` = { frame, playing }: go back where the viewer was. */
   async function attach(restore) {
     movie = null; svg = null; head = null; geom = null;
@@ -145,6 +152,7 @@ export function viewerHtml({ pageUrl, title }) {
         else failed = ((w && w.__logs) || []).find(l => /^(init failed|init:|uncaught)/.test(String(l))) || '';
       } catch { /* still loading */ }
       if (failed) {
+        shown();                                                     // the page as it is: it may show where it went wrong
         $status.classList.add('failed');
         $status.textContent = 'the movie could not start — ' + String(failed).replace(/^init( failed)?:\\s*/, '') + ' (fix it and save: the viewer offers a reload)';
         return;
@@ -154,11 +162,13 @@ export function viewerHtml({ pageUrl, title }) {
     if (!movie) {
       let logs = '';
       try { logs = (frame.contentWindow.__logs || []).slice(-3).join(' | '); } catch { /* unreadable */ }
+      shown();
       $status.textContent = 'the page did not become ready (window.__ready === true and window.movie are needed)' + (logs ? ' — ' + logs : '');
       return;
     }
-    if (typeof movie.timelineSvg !== 'function') { $status.textContent = 'this page loads a pixi-effects without movie.timelineSvg() (0.7+ needed)'; return; }
+    if (typeof movie.timelineSvg !== 'function') { shown(); $status.textContent = 'this page loads a pixi-effects without movie.timelineSvg() (0.7+ needed)'; return; }
     layout();
+    shown();
     mount();
     if (restore) { await seekFrame(restore.frame); if (restore.playing) movie.play(); }
   }
