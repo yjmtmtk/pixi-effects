@@ -95,7 +95,7 @@ Frame 240 must render directly, without replaying frames 0 to 239: no hidden clo
 
 ## Sound is on the same timeline
 
-Many AI films look finished with the sound off; then the click lands after the button, the cut misses the beat, the logo arrives before the music resolves. Write a beat grid and drive picture and sound from it: choose a tempo whose bar is a round number of seconds, put every cut on a bar line and every cue on the beat it belongs to. With a licensed or original track, measure its beats and cut against them. Test: close your eyes and listen; if the film has no shape without the picture, the sound is not finished.
+Many AI films look finished with the sound off; then the click lands after the button, the cut misses the beat, the logo arrives before the music resolves. Write a beat grid and drive picture and sound from it: choose a tempo whose bar is a round number of seconds, put every cut on a bar line and every cue on the beat it belongs to. With a licensed or original track, measure its beats and cut against them. Test: close your eyes and listen; if the film has no shape without the picture, the sound is not finished. Choose the music's style from the brief before writing a note (a product launch is not a lullaby, a trailer is not lo-fi): its tempo, harmony, groove and instruments follow from that choice; for a score written as text, the style table and the `music-*` recipes in `recipes.md` give each style's starting point.
 
 ## Review the rendered frames, not your intent
 

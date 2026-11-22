@@ -61,7 +61,7 @@ The same command checks a file you MADE before it goes somewhere with rules (a s
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed; **depth of field** is two camera props, `focus` (a threeD layer's name or a z) and `aperture` (30 default, 0 off), and a rack focus is a keyframe on `focus`.
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
 - **Time:** `speed` (slow motion, backward) and `time` (a curve of the layer's own seconds: freeze, rewind, ramp) on video, audio-file and composition layers; put what you want to rewind in a composition. Children of such a composition are in ITS seconds. `ease: 'cubic-bezier(.4, 0, .2, 1)'` is the CSS curve. See the recipe `rewind-and-replay` and pitfalls 69–73.
-- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes; on a camera put it on `offsetX` / `offsetY` so it rides on the move) `cameraPath()` (a camera flight through `[x, y, z]` points as keyframes; layers it passes: `hideBehindCamera: true`) depth of field (camera `focus` + `aperture`: `{ type: 'camera', initial: { focus: 'title' } }` blurs the other threeD layers by depth; a rack focus is a keyframe on `focus`) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` from `pixi-effects/present` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, layers }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes). (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
+- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes; on a camera put it on `offsetX` / `offsetY` so it rides on the move) `cameraPath()` (a camera flight through `[x, y, z]` points as keyframes; layers it passes: `hideBehindCamera: true`) depth of field (camera `focus` + `aperture`: `{ type: 'camera', initial: { focus: 'title' } }` blurs the other threeD layers by depth; a rack focus is a keyframe on `focus`) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys piano organ pluck guitar strings brass choir flute pad saw supersaw square lead bass sub 808 bell musicbox marimba`, effects per track (`drive`, `delay`, `sidechain`, `glide`, `arp`, a `tone` sweep, …), drum `kit`s (`808`, `acoustic`, `lofi`, `chip`); **choose the style first** (the style table and the `music-*` recipes in `reference/recipes.md`) instead of soft seventh chords at 100 bpm; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` from `pixi-effects/present` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, layers }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes). (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
 - **Draw it yourself (`canvas` layer):** when nothing in the library draws what you need (an afterimage, rings, a brush stroke, a pixel sprite, a chart), `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … } }`: your function of the time draws into the layer's own cleared 2D canvas and it is a normal layer. Pure function of `t` and `info.params` (`info.random()` is seeded; no `Math.random` / `Date.now`); a simulation is computed in `setup` and read by `info.frame`. `info.time` is the movie's clock (several layers share it; never add `at` by hand), `info.canvas(w, h)` makes sprites and masks in `setup`, data shared by several canvas layers lives in module scope, and `import { ease, noise, noise2, random, samplePath } from 'pixi-effects'` gives the library's easing, seeded noise and a path walked by length. `check` prints a `canvas` line (deterministic, slowest draw in ms) and does NOT see text drawn in a canvas. `help canvas`, recipes `canvas-trail`, `canvas-life`, `canvas-text-mask`, `canvas-text-on-path`, `canvas-bars`.
 - **PixiJS 2D by code (`scene2d` layer):** when you want PixiJS objects (`Graphics`, `Sprite`, `AnimatedSprite`, `Text`, many pieces that each move their own way) rather than a 2D context, `{ type: 'scene2d', setup({ root }) { root.addChild(...); return { objects } }, update(t, { objects }) { … } }` (core, nothing to import; recipe `scene2d-basics`): `update` SETS every object from `t`, keyframes reach `scene2d.<object>.<path>` (raw PixiJS values), `movie.pick` names the object under a point (its `label`).
 - **Shader layer and warp:** `{ type: 'shader', fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { … }', uniforms: { speed: 1, tint: '#ff8040' } }` draws a Shadertoy-style formula (GLSL ES 3.00; `iTime` `iResolution` `iFrame` are declared; keyframes move `'uniforms.speed'`; opaque by default; it cannot read the layers behind it; a compile error comes back in your own line numbers). `filters: [{ type: 'warp', kind: 'wave' | 'haze', strength: 6 }]` bends a layer's picture like water or heat.
@@ -185,7 +185,7 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 
 **audio** — a file: `asset`, `loop`, `volume`, `speed` (the pitch follows; `time` keyframes work as for video; not for `sfx` / `music`: change an sfx's `pitch` instead, or put it in a composition and remap that); `volume` (top level, or in `initial` like every other layer's starting values); fade with volume keyframes (`{ at: -2, to: { volume: 0 }, duration: 2 }` fades the last 2 s). Omit `duration` for a one-shot clip: it lasts exactly as long as the clip. With `loop: true` and no `duration` it lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true`.
 **Or a sound effect with no file — `sfx`:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` is the whole thing. Presets, default length in s: `click` 0.04 · `pop` 0.12 · `swoosh` 0.5 (loudest 0.16 s in, moves left → right) · `swipe` 0.22 · `hit` 0.7 · `riser` 1 (loudest at its END: `at = hit − duration`) · `chime` 1.4 · `beep` 0.16 · `coin` 0.4 · `glitch` 0.35 · `typewriter` 0.06. **The mix's loudness in one line:** `movie.init({ loudness: -16 })` brings the whole mix to -16 LUFS (web video), up or down; `check` says when a mix is quiet. Knobs: `sfx: { preset, pitch /* semitones ±24 */, brightness /* −1 dark … 1 bright */, seed /* another take */ }`. **The layer's `duration` IS the sound's length** (omit it; set it to stretch, e.g. a riser; at most 10 s); `volume` is its level (1 = the preset's standard level, peaking at −12 … −18 dBFS by preset; above 1 is allowed: a sparse track of clicks measured −32 LUFS at 0.5 and needed about 2 to reach −24 LUFS). No `loop`: one layer per hit (a JS loop). Custom sound: `sfx: { voices: [{ wave: 'noise' | 'sine' | 'square' | 'saw' | 'triangle', freq: 440 | [from, to], filter: { type: 'lowpass' | 'highpass' | 'bandpass', freq: [from, to] }, envelope: 'fall' | 'bell' | 'swell' | 'hold', pan: [-1, 1] }] }`. The export (mp4 / webm / mov) encodes this same mix (lossy AAC / Opus), on time within a few ms.
-**Or music with no file — `music`:** `{ type: 'audio', music: { bpm: 96, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4 Dm7:4 G7:4' }, { inst: 'bass', notes: 'c2:2 g1:2 …' }], drums: { kick: 'x...x...', snare: '....x...', hat: 'x.x.x.x.' } } }` — a tune written as text (notes in LOWERCASE `c4:2` in beats, chords start with a CAPITAL `Am7` `G7` `C@4` `Am7/e` (`g7` is a very high note, not G7), `[c4 e4 g4]`, rest `_`, hold `~`, `!` accent; `|` ignored). Instruments `keys pluck pad bass sub lead bell musicbox`; drums `kick snare hat openhat clap rim tom crash shaker sleigh` as 16th-note step strings (`x` hit, `o` soft, `.` none; a list of `{ from, to, … }` for sections). Score options `bpm` (or `[[beat, bpm], …]` for a ritardando) `meter` (beats in a bar, default 4: names the bars in `check`'s read-back, no effect on the sound) `swing reverb (0–0.6) humanize drumVol grid transpose tail seed`; track options `vol` (or `[[beat, level], …]` for a fade) `pan step strum legato tone reverb attack release ring transpose`. A plain capital letter is a major chord (`G`, `Bb`, `F#`; `Ebmaj7`, `F#m7`), `E5` is root and fifth only (e3 b3), every chord token is struck again (`~` holds), a track can start late with a rest (`_:32 e4:1 …`), `f#3` / `bb2` are sharps and flats, c4 is middle C, chord names are voiced around octave 3 (good ranges for notes: bass c1–c3, keys / pluck c3–c6, pad c2–c5, lead c4–c6, bell c5–c7). **Drums repeat by themselves** (one bar is enough) and `drums: { from: 32, to: 64, … }` counts BEATS, not bars (`drums` is one object, or a list of them for sections). `check` reads the score back (bars per track, what starts in each bar and on which beat: `Am(2)`; drum span): trust that over counting by hand; `await musicEvents(music)` gives the same as data. Lasts its notes + tail, ends with the movie, `loop: true` repeats; peaks −6 dBFS at `volume: 1`. `await musicEnvelope(music, { frameRate })` → an envelope for `react()`; `await musicBuffer(music)` → a Web Audio `AudioBuffer` to play yourself.
+**Or music with no file — `music`:** `{ type: 'audio', music: { bpm: 118, kit: 'acoustic', tracks: [{ inst: 'piano', notes: 'Am:4 F:4 C:4 G:4' }, { inst: 'bass', notes: 'a1:2 a1:2 f1:4 …' }], drums: { kick: 'x...x...', snare: '....x...', hat: 'x.x.x.x.' } } }`. **Choose the style first** (rock, house, trap, cinematic, lo-fi, chip, ambient, …: the style table and the `music-*` recipes in `recipes.md`), then its tempo, harmony, kit and instruments; do not default to soft seventh chords — a tune written as text (notes in LOWERCASE `c4:2` in beats, chords start with a CAPITAL `Am7` `G7` `C@4` `Am7/e` (`g7` is a very high note, not G7), `[c4 e4 g4]`, rest `_`, hold `~`, `!` accent; `|` ignored). Instruments `keys piano organ pluck guitar strings brass choir flute pad saw supersaw square lead bass sub 808 bell musicbox marimba`; per-track effects `drive crush resonance chorus delay sidechain` (`tone` also takes `[beat, value]` points: a filter sweep), `glide` (mono voices) and `arp: 'up'` (chords as arpeggios), `width` (square's pulse); `kit: 'classic' | '808' | 'acoustic' | 'lofi' | 'chip'` on the score or a drum section; drums `kick snare hat openhat clap rim tom crash shaker sleigh` as 16th-note step strings (`x` hit, `o` soft, `.` none; a list of `{ from, to, … }` for sections). Score options `bpm` (or `[[beat, bpm], …]` for a ritardando) `meter` (beats in a bar, default 4: names the bars in `check`'s read-back, no effect on the sound) `swing reverb (0–0.6) humanize drumVol grid transpose tail seed`; track options `vol` (or `[[beat, level], …]` for a fade) `pan step strum legato tone reverb attack release ring transpose`. A plain capital letter is a major chord (`G`, `Bb`, `F#`; `Ebmaj7`, `F#m7`), `E5` is root and fifth only (e3 b3), every chord token is struck again (`~` holds), a track can start late with a rest (`_:32 e4:1 …`), `f#3` / `bb2` are sharps and flats, c4 is middle C, chord names are voiced around octave 3 (good ranges for notes: bass c1–c3, keys / pluck c3–c6, pad c2–c5, lead c4–c6, bell c5–c7). **Drums repeat by themselves** (one bar is enough) and `drums: { from: 32, to: 64, … }` counts BEATS, not bars (`drums` is one object, or a list of them for sections). `check` reads the score back (bars per track, what starts in each bar and on which beat: `Am(2)`; drum span): trust that over counting by hand; `await musicEvents(music)` gives the same as data. Lasts its notes + tail, ends with the movie, `loop: true` repeats; peaks −6 dBFS at `volume: 1`. `await musicEnvelope(music, { frameRate })` → an envelope for `react()`; `await musicBuffer(music)` → a Web Audio `AudioBuffer` to play yourself.
 
 **shape** — `shape: 'rect' | 'circle' | 'ellipse' | 'arc' | 'line' | 'polygon' | 'path'`:
 
@@ -1245,26 +1245,174 @@ return { layers, duration: total };
 
 A tune written as text: tracks of notes and chords (`c4:2`, `Am7:4`, `_` rest), drum patterns, a tempo. Count the beats (a 4/4 bar is 4); keep every track the same length; give the drums `from` so they enter after the intro; fade a track in with `vol` points. It lasts its notes plus a reverb tail and ends with the movie; `loop: true` repeats it. The mix sits at −6 dBFS peak at `volume: 1`: use 0.5–0.8 under speech or sound effects.
 
+**Choose the style first.** Decide from the brief what the film calls for, then take that style's tempo, harmony, groove, kit and instruments. Without a style every tune comes out as the same soft seventh chords at 90–110 bpm. Starting points:
+
+| Style | bpm | Harmony | Groove / `kit` | Instruments and effects |
+|---|---|---|---|---|
+| Pop / upbeat promo | 110–128 | `Am F C G`, or major I–V–vi–IV | back-beat or four on the floor; `acoustic` / `classic` | `piano`, `bass`, `supersaw` + `sidechain`, `saw` lead + `delay` |
+| Rock | 120–150 | power chords `E5@2 G5@2 A5@2` | `acoustic`, crash on section starts | two `guitar`s with `drive: 0.7`, pan −0.6 / 0.6; `bass` |
+| House / EDM | 120–128 | four minor chords | kick every beat, offbeat open hat, clap 2 & 4 | `piano` stabs, `supersaw` + `sidechain: 0.8`, offbeat `bass`, `tone` points for a build |
+| Acid techno | 124–132 | one chord, phrygian | layers every 8 bars, a breakdown | `saw` with `resonance`, `glide`, moving `tone` |
+| Trap / hip-hop | 130–150, half-time | harmonic minor `Cm Ab Fm G` | `808`, `grid: 8` for 32nd hat rolls | `808` with `glide` + `drive`, `bell` / `piano` melody, `choir` pad |
+| Lo-fi | 70–90, `swing: 0.18` | ninth chords | `lofi` | `piano` + `crush: 0.3`, `tone: 0.55`, `chorus`; `sub` |
+| Cinematic / trailer | 60–90, ritardando into the hit | minor with a major V | toms building (`acoustic`), crash on the hit | staccato `strings` (`legato: 0.4`), `brass` + `choir` swelling, an `808` boom |
+| Orchestral | 90–120 | triads | timpani (`tom`), cymbals | `strings` ostinato, `brass` tune, `choir`, `flute` |
+| Funk | 95–110 | `E9 A9` | syncopated 16ths, ghost notes `,`; `acoustic` | 16th `bass`, `organ` stabs, `guitar` + `chorus`, `brass` riff |
+| Blues | 80–110, `grid: 3` | 12-bar dominant sevenths | shuffle `x.xx.xx.xx.x`; `acoustic` | boogie `bass`, `organ`, `guitar` + `drive: 0.4` |
+| Chiptune / game | 140–170, `humanize: 0` | major, fast arpeggios | `chip` | `square` (`width` 0.25 / 0.125) lead and `arp`, `square` bass |
+| Ambient | 50–70, no drums | lydian or open fifths | — | `strings` / `choir` with `attack` 3+, `piano` + long `delay`, `bell`, `reverb` 0.5 |
+| Corporate / explainer | 100–120 | add9 / sus2 | light: `rim`, `shaker`, `clap` | `marimba` / `pluck` with `delay`, `piano`, soft `supersaw` |
+| Waltz / lullaby | `meter: 3` | major | none | `flute` / `musicbox` tune, `piano` oom-pa-pa, soft `strings` |
+
+```js
+// @recipe music-pop
+// an upbeat product promo: A minor i–VI–III–VII, a pumping supersaw, a saw hook with echoes
+const bar = (r) => Array(8).fill(r).join(' ');
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#2b1b5a' } },
+  { type: 'text', text: 'LAUNCH', at: 0.3, style: { fontFamily: 'Inter, Arial, sans-serif', fontSize: 110, fontWeight: '800', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+  { type: 'audio', at: 0, volume: 0.8, music: {
+      bpm: 118, reverb: 0.25, seed: 2, kit: 'acoustic',
+      tracks: [
+        { inst: 'piano',    vol: 0.6, notes: 'Am:4 F:4 C:4 G:4 | Am:4 F:4 C:4 G:4' },
+        { inst: 'bass',     vol: 0.85, step: 0.5, notes: [bar('a1'), bar('f1'), bar('c2'), bar('g1'), bar('a1'), bar('f1'), bar('c2'), bar('g1')].join(' | ') },
+        { inst: 'supersaw', vol: 0.35, sidechain: 0.6, notes: '_:16 | Am:4 F:4 C:4 G:4' },
+        { inst: 'saw',      vol: 0.55, delay: 0.3, glide: 0.03, notes: '_:16 | e5:1 d5:0.5 c5:0.5 e5:2 | c5:1 a4:1 e5:2 | g5:1 e5:0.5 d5:0.5 c5:2 | d5:3 b4:1' },
+      ],
+      drums: [{ from: 8, kick: 'x...x...x...x...', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }],
+  } },
+];
+```
+
+```js
+// @recipe music-rock
+// two overdriven guitars on power chords, left and right; a real kit
+const riff = 'E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 | E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 G5@2:1 A5@2:1 | ' +
+             'C5@3:0.5 C5@3:0.5 C5@3:0.5 C5@3:0.5 D5@3:0.5 D5@3:0.5 D5@3:0.5 D5@3:0.5 | E5@2:2 ~:1 D5@3:0.5 B5@2:0.5';
+const roots = 'e1 e1 e1 e1 e1 e1 e1 e1 | e1 e1 e1 e1 g1 g1 a1 a1 | c2 c2 c2 c2 d2 d2 d2 d2 | e1 e1 e1 e1 e1 e1 d2 b1';
+const guitar = (pan) => ({ inst: 'guitar', vol: 0.55, pan, drive: 0.75, tone: 0.72, legato: 0.85, notes: riff + ' | ' + riff });
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1b0d0d' } },
+  { type: 'text', text: 'LOUD', at: 0.3, style: { fontFamily: 'Inter, Arial, sans-serif', fontSize: 110, fontWeight: '800', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+  { type: 'audio', at: 0, volume: 0.8, music: {
+      bpm: 132, reverb: 0.18, seed: 6, kit: 'acoustic',
+      tracks: [
+        guitar(-0.6), guitar(0.6),
+        { inst: 'bass', vol: 0.8, tone: 0.65, step: 0.5, drive: 0.2, notes: roots + ' | ' + roots },
+      ],
+      drums: [{ to: 4, crash: 'x...............' }, { kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' }],
+  } },
+];
+```
+
+```js
+// @recipe music-house
+// four on the floor, offbeat piano stabs, a supersaw pad that pumps under the kick and opens up, an offbeat bass
+const chords = ['Am', 'G', 'F', 'G'], root = { Am: 'a1', G: 'g1', F: 'f1' };
+const stab = (c) => `_:0.5 ${c}@4:0.5 _:1 ${c}@4:0.5 _:0.5 ${c}@4:0.5 _:0.5`;
+const offbeat = (c) => Array(4).fill(`_:0.5 ${root[c]}:0.5`).join(' ');
+const phrase = (f) => chords.map(f).join(' | ');
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0a1a1a' } },
+  { type: 'text', text: 'TONIGHT', at: 0.3, style: { fontFamily: 'Inter, Arial, sans-serif', fontSize: 110, fontWeight: '800', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+  { type: 'audio', at: 0, volume: 0.8, music: {
+      bpm: 124, reverb: 0.22, seed: 14,
+      tracks: [
+        { inst: 'piano',    vol: 0.6, legato: 0.6, notes: '_:16 | ' + phrase(stab) },
+        { inst: 'supersaw', vol: 0.32, tone: [[16, 0.3], [32, 0.75]], sidechain: 0.8, notes: '_:16 | Am:4 G:4 F:4 G:4' },
+        { inst: 'bass',     vol: 0.85, tone: 0.6, legato: 0.55, notes: phrase(offbeat) + ' | ' + phrase(offbeat) },
+      ],
+      drums: [{ kick: 'x...x...x...x...', openhat: '..x...x...x...x.' }, { from: 16, clap: '....x.......x...', shaker: 'xoxoxoxoxoxoxoxo' }],
+  } },
+];
+```
+
+```js
+// @recipe music-trap
+// 140 bpm half-time: an 808 that slides and growls, 808 drums with a 32nd hat roll (grid: 8 = 32 steps a bar), a bell melody
+const hats = (roll) => Array.from({ length: 32 }, (_, i) => (i % 4 === 0 || (roll && i >= 24) ? 'x' : '.')).join('');
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#120a14' } },
+  { type: 'text', text: 'NIGHT', at: 0.3, style: { fontFamily: 'Inter, Arial, sans-serif', fontSize: 110, fontWeight: '800', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+  { type: 'audio', at: 0, volume: 0.8, music: {
+      bpm: 140, grid: 8, reverb: 0.3, seed: 8, kit: '808',
+      tracks: [
+        { inst: 'bell',  vol: 0.5, ring: 1.6, notes: 'g5:0.5 eb5:0.5 c5:0.5 g5:0.5 _:0.5 eb6:0.5 d6:0.5 c6:0.5 | g5:1 _:3 | ab5:0.5 eb5:0.5 c5:0.5 ab5:0.5 _:0.5 c6:0.5 bb5:0.5 ab5:0.5 | eb5:1 _:3' },
+        { inst: 'choir', vol: 0.22, attack: 0.8, notes: 'Cm:8 Ab:8' },
+        { inst: '808',   vol: 0.95, glide: 0.07, drive: 0.35, notes: 'c2:1.5 c2:1 _:1.5 | c2:0.75 g1:0.75 c2:0.5 _:2 | ab1:1.5 ab1:1 _:1.5 | ab1:0.75 eb2:0.75 ab1:0.5 _:2' },
+      ],
+      drums: { kick: 'x...........x.........x.........', clap: '................x...............', hat: hats(false) + hats(true) },
+  } },
+];
+```
+
+```js
+// @recipe music-cinematic
+// a trailer build: staccato low strings, a choir and brass swelling, toms growing, a ritardando into the hit
+const pulse = (r) => Array(16).fill(r).join(' ');
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0b0d10' } },
+  { type: 'text', text: 'COMING SOON', at: 0.3, style: { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#e9dcc0' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 2 }] },
+  { type: 'audio', at: 0, volume: 0.85, music: {
+      bpm: [[0, 72], [28, 72], [32, 54]], reverb: 0.5, seed: 11, kit: 'acoustic',
+      tracks: [
+        { inst: 'strings', vol: [[0, 0.55], [32, 0.85]], attack: 0.015, release: 0.12, legato: 0.45, step: 0.5, notes: [pulse('d3'), pulse('bb2'), pulse('g2'), pulse('a2')].join(' | ') + ' | d2:6!' },
+        { inst: 'choir',   vol: [[0, 0], [8, 0.25], [32, 0.7]], attack: 1.2, release: 3, notes: 'Dm@4:8 Bb:8 Gm@4:8 A:8 | Dm@4:6' },
+        { inst: 'brass',   vol: [[16, 0.3], [32, 0.8]], attack: 0.5, release: 1.5, notes: '_:16 | [g3 d4]:8 [a3 e4]:8 | [d3 a3 d4]:6!' },
+        { inst: '808',     vol: 0.7, release: 2, notes: '_:32 | d1:6!' },
+      ],
+      drums: [
+        { from: 8, to: 24, tom: 'x.....x.x.......', kick: 'x...............' },
+        { from: 24, to: 32, tom: 'x..x..x.x..x..x.', kick: 'x.......x.......' },
+        { from: 32, to: 33, kick: 'x...............', crash: 'x...............', tom: 'x...............' },
+      ],
+  } },
+];
+```
+
+```js
+// @recipe music-chip
+// a game: a thin-pulse lead, a chord arpeggiated by `arp`, a square bass, the console's noise drums
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#10204a' } },
+  { type: 'text', text: 'LEVEL 1', at: 0.3, style: { fontFamily: "'Courier New', monospace", fontSize: 110, fontWeight: '800', fill: '#7df9ff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
+  { type: 'audio', at: 0, volume: 0.8, music: {
+      bpm: 150, reverb: 0.05, humanize: 0, seed: 1, kit: 'chip',
+      tracks: [
+        { inst: 'square', width: 0.25, vol: 0.6, legato: 0.5, notes: 'd5:0.5 f#5:0.5 a5:1 f#5:0.5 a5:0.5 d6:1 | c#6:1 b5:0.5 a5:0.5 e5:1 _:1 | d5:0.5 f#5:0.5 b5:1 a5:0.5 f#5:0.5 d5:1 | g5:0.5 f#5:0.5 e5:0.5 d5:0.5 e5:2' },
+        { inst: 'square', width: 0.125, vol: 0.3, arp: { mode: 'up', rate: 0.25, octaves: 2 }, notes: 'D@4:4 A:4 Bm:4 G:4' },
+        { inst: 'square', vol: 0.55, legato: 0.5, step: 0.5, notes: 'd2 d3 d2 d3 d2 d3 d2 d3 | a1 a2 a1 a2 a1 a2 a1 a2 | b1 b2 b1 b2 b1 b2 b1 b2 | g1 g2 g1 g2 g1 g2 g1 g2' },
+      ],
+      drums: { kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' },
+  } },
+];
+```
+
 ```js
 // @recipe music-lofi
+// a late-night lo-fi loop: a crushed, dull piano, a soft sub, a guitar answering, the dusty kit with a lazy swing
 return [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1b1a2e' } },
   { type: 'text', text: 'evening', at: 0.5, style: { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#f3eee4' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
     keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.2 }] },
   { type: 'audio', at: 0, volume: 0.8, music: {
-      bpm: 84, swing: 0.16, reverb: 0.26, seed: 7,
+      bpm: 82, swing: 0.2, reverb: 0.28, seed: 17, kit: 'lofi',
       tracks: [
-        { inst: 'keys',  vol: 0.7, pan: -0.15, strum: 0.012, notes: 'Cmaj7:4 Am7:4 Dm7:4 G7:4 | Cmaj7:4 Am7:4 Dm7:2 G7:2 Cmaj7:4' },
-        { inst: 'bass',  vol: 0.85, notes: 'c2:1.5 _:0.5 g2:1 c2:1 | a1:1.5 _:0.5 e2:1 a1:1 | d2:1.5 _:0.5 a2:1 d2:1 | g1:1.5 _:0.5 d2:1 g1:1 | c2:1.5 _:0.5 g2:1 c2:1 | a1:1.5 _:0.5 e2:1 a1:1 | d2:2 f2:1 a1:1 | g1:2 b1:1 d2:1 | c2:4' },
-        { inst: 'pluck', vol: [[0, 0], [8, 0.55]], pan: 0.25, step: 0.5, notes: '_:8 | e5:1 d5:0.5 c5:0.5 e5:2 | c5:1 a4:1 e5:2 | f5:1 e5:0.5 d5:0.5 a4:2 | d5:1.5 b4:0.5 g4:2 | e5:1 g5:1 e5:1 d5:1 | c5:1 a4:1 c5:2 | d5:1 f5:1 e5:1 d5:1 | b4:2 d5:2 | c5:4' },
-        { inst: 'pad',   vol: 0.5, notes: '[c3 g3 e4]:8 [a2 e3 c4]:8 [d3 a3 f4]:8 [g2 d3 b3]:8' },
+        { inst: 'piano',  vol: 0.7, crush: 0.3, tone: 0.55, chorus: 0.25, strum: 0.02, notes: 'Fm9:4 Bbm9:4 Ebmaj9:4 Abmaj7:2 G7#9:2' },
+        { inst: 'sub',    vol: 0.8, notes: 'f1:1.5 _:0.5 f1:2 | bb1:1.5 _:0.5 bb1:2 | eb2:1.5 _:0.5 eb2:2 | ab1:2 g1:2' },
+        { inst: 'guitar', vol: [[0, 0], [8, 0.35]], tone: 0.5, delay: 0.3, notes: '_:8 | bb4:1 g4:0.5 eb4:0.5 f4:2 | c5:1.5 b4:0.5 g4:2' },
       ],
-      drums: [{ from: 8, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }],
+      drums: { kick: 'x.........x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.xox.x.' },
   } },
 ];
 ```
 
-Other feels: a 6/8 lullaby is `bpm: 72`, `grid: 2`, bars of 3 beats (a dotted quarter `:1.5`, an eighth `:0.5`), instruments `musicbox` + `pluck` + `pad`; a build-up is layers entering with rests and `vol` points on the pad, drums from a later `from`; a ritardando is `bpm: [[0, 96], [28, 96], [32, 60]]`; a bright jingle is `lead` + `bell` + `sleigh` / `shaker` over a bouncy `bass`.
+More: a 6/8 lullaby is `bpm: 72`, `grid: 2`, bars of 3 beats (a dotted quarter `:1.5`, an eighth `:0.5`), `musicbox` or `flute` + `pluck` + `strings`; a build-up is layers entering with rests, `vol` points and a `tone` sweep, drums from a later `from`; a ritardando is `bpm: [[0, 96], [28, 96], [32, 60]]`; a bright jingle is `marimba` + `bell` + `sleigh` / `shaker` over a bouncy `bass`; a 12-bar blues is `grid: 3` with an `organ` and a `guitar` with `drive: 0.4`.
 
 ## Sound effects without files
 
@@ -2644,7 +2792,7 @@ Frame 240 must render directly, without replaying frames 0 to 239: no hidden clo
 
 ## Sound is on the same timeline
 
-Many AI films look finished with the sound off; then the click lands after the button, the cut misses the beat, the logo arrives before the music resolves. Write a beat grid and drive picture and sound from it: choose a tempo whose bar is a round number of seconds, put every cut on a bar line and every cue on the beat it belongs to. With a licensed or original track, measure its beats and cut against them. Test: close your eyes and listen; if the film has no shape without the picture, the sound is not finished.
+Many AI films look finished with the sound off; then the click lands after the button, the cut misses the beat, the logo arrives before the music resolves. Write a beat grid and drive picture and sound from it: choose a tempo whose bar is a round number of seconds, put every cut on a bar line and every cue on the beat it belongs to. With a licensed or original track, measure its beats and cut against them. Test: close your eyes and listen; if the film has no shape without the picture, the sound is not finished. Choose the music's style from the brief before writing a note (a product launch is not a lullaby, a trailer is not lo-fi): its tempo, harmony, groove and instruments follow from that choice; for a score written as text, the style table and the `music-*` recipes in `recipes.md` give each style's starting point.
 
 ## Review the rendered frames, not your intent
 
@@ -2967,21 +3115,43 @@ A tune with no audio file: notes, chords and drum patterns written as strings, p
 
 ```ts
 { type: 'audio', at: 0.5, volume: 0.8, music: {
-    bpm: 84, swing: 0.16, reverb: 0.26,
+    bpm: 118, reverb: 0.25, kit: 'acoustic',
     tracks: [
-      { inst: 'keys',  vol: 0.7, pan: -0.15, strum: 0.012, notes: 'Cmaj7:4 Am7:4 Dm7:4 G7:4' },
-      { inst: 'bass',  vol: 0.85, notes: 'c2:1.5 _:0.5 g2:1 c2:1 | a1:1.5 _:0.5 e2:1 a1:1 | d2:1.5 _:0.5 a2:1 d2:1 | g1:1.5 _:0.5 d2:1 g1:1' },
-      { inst: 'pluck', vol: [[0, 0], [8, 0.55]], step: 0.5, notes: 'e5:1 d5:0.5 c5:0.5 e5:2 | c5:1 a4:1 e5:2 | f5:1 e5:0.5 d5:0.5 a4:2 | d5:1.5 b4:0.5 g4:2' },
+      { inst: 'piano',    vol: 0.7, notes: 'Am:4 F:4 C:4 G:4' },
+      { inst: 'bass',     vol: 0.85, step: 0.5, notes: 'a1 a1 a1 a1 a1 a1 a1 a1 | f1 f1 f1 f1 f1 f1 f1 f1 | c2 c2 c2 c2 c2 c2 c2 c2 | g1 g1 g1 g1 g1 g1 g1 g1' },
+      { inst: 'supersaw', vol: 0.35, sidechain: 0.6, notes: 'Am:4 F:4 C:4 G:4' },
+      { inst: 'saw',      vol: [[0, 0], [8, 0.6]], delay: 0.3, glide: 0.03, notes: 'e5:1 d5:0.5 c5:0.5 e5:2 | c5:1 a4:1 e5:2 | g5:1 e5:0.5 d5:0.5 c5:2 | d5:3 b4:1' },
     ],
-    drums: [{ from: 4, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }],
+    drums: [{ from: 4, kick: 'x...x...x...x...', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }],
 } }
 ```
 
+**Choose the style first.** Before writing notes, decide what the film calls for (from the brief, the pictures, the audience), then take that style's tempo, mode, harmony, groove, kit and instruments. Without a style an AI writes the same soft seventh chords at 90–110 bpm every time. Starting points (change them freely):
+
+| Style | bpm | Key / harmony | Groove and kit | Instruments and effects |
+|---|---|---|---|---|
+| Pop / upbeat promo | 110–128 | major, or minor i–VI–III–VII (`Am F C G`) | four on the floor or a back-beat; `classic` / `acoustic` | `piano`, `bass`, `supersaw` with `sidechain`, a `saw` lead with `delay` |
+| Rock | 120–150 | E or A minor, power chords (`E5@2 G5@2 A5@2`) | `acoustic`, crash on section starts | two `guitar`s with `drive: 0.7` panned −0.6 / 0.6, `bass` with a little `drive` |
+| House / EDM | 120–128 | minor, four chords a phrase | kick every beat, offbeat open hat, clap on 2 and 4; `classic` | `piano` stabs, `supersaw` with `sidechain: 0.8`, offbeat `bass`, `tone` points for a build |
+| Techno (acid) | 124–132 | one chord or none, phrygian (`f gb ab`) | layers entering every 8 bars, a breakdown | a `saw` line with `resonance`, `glide` and moving `tone`, `supersaw` stabs with `delay` |
+| Trap / hip-hop | 130–150 half-time | harmonic minor (`Cm Ab Fm G`) | `kit: '808'`, `grid: 8` for 32nd hat rolls, clap on beat 3 | `808` with `glide` and `drive`, `bell` or `piano` melody, a `choir` pad |
+| Lo-fi | 70–90, `swing: 0.15–0.2` | ninth chords | `kit: 'lofi'` | `piano` or `keys` with `crush: 0.3`, `tone: 0.55`, `chorus`; `sub` |
+| Cinematic / trailer | 60–90, a ritardando into the hit | minor with a major V (`Dm Bb Gm A`) | toms building (`acoustic`), a crash on the hit | staccato `strings` (`legato: 0.4`), `brass` and `choir` swelling with `vol` points, an `808` boom |
+| Orchestral | 90–120 | minor or major, triads | timpani (`tom`), cymbals | `strings` ostinato, `brass` melody, `choir`, `flute` |
+| Funk | 95–110, a little `swing` | dominant ninths (`E9 A9`) | syncopated 16ths, ghost notes (`,`); `acoustic` | 16th `bass`, `organ` stabs, `guitar` chank with `chorus`, `brass` riff |
+| Blues | 80–110, `grid: 3` | 12 bars of dominant sevenths | shuffle hats `x.xx.xx.xx.x`; `acoustic` | boogie `bass`, `organ`, `guitar` with `drive: 0.4` |
+| Chiptune / game | 140–170, `humanize: 0` | major, fast arpeggios | `kit: 'chip'` | `square` (`width` 0.25 / 0.125) for lead and `arp`, `square` bass |
+| Ambient | 50–70, no drums | lydian or open fifths, no progression | — | slow `strings` / `choir` (`attack` 3+), `piano` with a long `delay`, `bell`, `reverb` 0.5+ |
+| Waltz / lullaby | 3/4 (`meter: 3`) | major | none or soft | `flute` or `musicbox` tune, `piano` oom-pa-pa, soft `strings` |
+| Corporate / tech explainer | 100–120 | major add9 / sus2 | light: `rim`, `shaker`, `clap` | `marimba` or `pluck` pattern with `delay`, `piano`, a soft `supersaw` pad |
+
 **Layer.** `at` starts it, `volume` (and volume keyframes) scale it. `duration` defaults to the music's length plus its reverb tail (`tail`, 2.5 s), but never past the end of the composition (the music then ends with the movie, with a short fade). A shorter `duration` cuts it with a fade; a longer one is silent after the music unless **`loop: true`**, which repeats the score until the layer ends (default: the end of the composition). At `volume: 1` the music peaks at −6 dBFS (about −20 dB RMS), a bed that sits under speech and sound effects (an sfx peaks at −12 dBFS). Measured: a 4-bar tune (bell + bass + kick, a pluck and a hat on the repeat) at `volume: 0.8` reads −22 LUFS and −7.7 dBTP; web video is usually −14 to −16 LUFS, so 0.8 is not a limit: raise `volume` and watch `inspectAudio().loudness.truePeakDb`. `inspectAudio()` lists a music layer as ONE source (its start); to line a picture up with a note, take its time from [`musicEvents(music)`](api.md#musicevents) (seconds from the start of the music, the tempo map applied: add the layer's `at`), or build the bars and the score from one array so they cannot drift.
 
-**Score** (`music`): `bpm` (a number, or `[beat, bpm]` points for a tempo change: `[[0, 96], [28, 96], [32, 60]]` slows down over beats 28–32, a ritardando), `tracks`, `drums`, `swing` (0–0.4: delays the off-beat eighths and sixteenths; 0.16 is a gentle lo-fi lilt), `reverb` (0–0.6, default 0.22), `humanize` (seconds of seeded timing jitter, default 0.012), `drumVol` (default 0.8), `grid` (drum steps per beat, default 4), `meter` (beats in a bar, default 4: it only names the bars in [`musicEvents()`](api.md#musicevents) and in the `check` read-back, playback does not use it), `transpose` (semitones, all pitched tracks), `tail`, `seed`. Misspelt names warn with "did you mean". The music's length is its longest track (drums repeat up to it), so a track of rests (`'_:16'`) sets a length.
+**Score** (`music`): `bpm` (a number, or `[beat, bpm]` points for a tempo change: `[[0, 96], [28, 96], [32, 60]]` slows down over beats 28–32, a ritardando), `tracks`, `drums`, `swing` (0–0.4: delays the off-beat eighths and sixteenths; 0.16 is a gentle lo-fi lilt), `reverb` (0–0.6, default 0.22), `humanize` (seconds of seeded timing jitter, default 0.012), `drumVol` (default 0.8), `grid` (drum steps per beat, default 4), `meter` (beats in a bar, default 4: it only names the bars in [`musicEvents()`](api.md#musicevents) and in the `check` read-back, playback does not use it), `transpose` (semitones, all pitched tracks), `kit` (the drum sounds: `classic`, `808`, `acoustic`, `lofi`, `chip`), `tail`, `seed`. Misspelt names warn with "did you mean". The music's length is its longest track (drums repeat up to it), so a track of rests (`'_:16'`) sets a length.
 
-**Tracks.** `inst` is one of `keys` (electric piano), `pluck` (guitar / harp), `pad` (slow warm synth pad), `bass` (synth bass), `sub` (pure sine bass, for a heartbeat), `lead` (soft melodic lead), `bell` (glockenspiel), `musicbox` (a bright tine with a short ring). Options: `vol` (0–1.5, default 0.8, or `[beat, level]` points joined by lines for a fade-in or a swell), `pan` (−1…1), `step` (length of a token without `:`, in beats, default 1), `strum` (seconds between the notes of a chord, 0.01 sounds natural), `legato` (0.1–1, how much of a note's length it sounds), `tone` (0–1, brightness; lower is darker, a lo-fi dulling), `reverb` (0–1, this track's share of the reverb: dry bass, wet bells), `attack` / `release` (seconds; a pad's fade in and out), `ring` (seconds a bell or musicbox rings), `transpose` (semitones for this track). Good ranges: bass c1–c3, keys / pluck c3–c6, pad c2–c5, lead c4–c6, bell c5–c7.
+**Tracks.** `inst` is one of `keys` (electric piano), `piano` (acoustic piano), `organ` (tonewheel organ with a rotating speaker), `pluck` (acoustic guitar / harp / koto), `guitar` (electric guitar, clean; with `drive` a rock guitar), `strings` (string ensemble), `brass` (horn section), `choir` (voices singing "aah"), `flute`, `pad` (slow warm synth pad), `saw` (synth saw: leads, basses, stabs), `supersaw` (seven detuned saws: trance / EDM chords), `square` (the chip-tune pulse), `lead` (soft melodic lead), `bass` (synth bass), `sub` (pure sine bass, for a heartbeat), `808` (the trap bass: a sine that drops into its pitch, saturated), `bell` (glockenspiel), `musicbox` (a bright tine with a short ring), `marimba` (struck wooden bars; `ring` sets the length). Options: `vol` (0–1.5, default 0.8, or `[beat, level]` points joined by lines for a fade-in or a swell), `pan` (−1…1), `step` (length of a token without `:`, in beats, default 1), `strum` (seconds between the notes of a chord, 0.01 sounds natural), `legato` (0.1–1, how much of a note's length it sounds), `tone` (0–1, brightness; lower is darker, a lo-fi dulling), `reverb` (0–1, this track's share of the reverb: dry bass, wet bells), `attack` / `release` (seconds; a pad's fade in and out), `ring` (seconds a bell, musicbox or marimba rings), `transpose` (semitones for this track). Good ranges: bass / 808 c1–c3, keys / piano / pluck / guitar c2–c6, pad / strings / choir c2–c5, brass c3–c5, lead / saw / square / flute c4–c6, bell c5–c7.
+
+**Effects** (per track, each off unless written; they run in this order): `drive` (0–1 saturation: 0.3 warm, 0.7 a rock guitar, 1 fuzz), `crush` (0–1: fewer bits and a lower rate, lo-fi or 8-bit grit), `tone` (as above; or `[beat, value]` points: a filter sweep, `[[0, 0.2], [16, 1]]` opens over four bars, the build of a drop), `resonance` (0–1: a peak at the filter's cutoff; with a moving `tone` and `glide`, the acid squelch), `chorus` (0–1: wider and shimmering), `delay` (echoes: a number 0–1 is how loud, a dotted eighth apart; or `{ beats, mix, feedback }`: `{ beats: 0.5, mix: 0.3, feedback: 0.4 }`), `sidechain` (0–1: the track dips at every kick of the drums and comes back, the pump of house; the drums need a kick, `drumVol: 0` keeps it silent), then `vol` and `pan`, then `reverb`. Two more change the notes: `glide` (seconds each note slides from the one before: `lead`, `bass`, `sub`, `saw`, `square`, `808`, `flute`) and `arp` (a chord is played one note at a time: `'up'`, `'down'`, `'updown'`, `'random'` at a quarter beat a note, or `{ mode, rate, octaves }`; single notes are left alone). `width` (0.05–0.5) is the pulse width of `square`: 0.125 and 0.25 are the thinner console voices.
 
 **`notes` string.** Tokens are separated by spaces (`|` is ignored: use it for bars). The unit is the **beat** (a quarter note); count them, a 4/4 bar is 4 beats.
 
@@ -2994,7 +3164,7 @@ A tune with no audio file: notes, chords and drum patterns written as strings, p
 | `~` `~:1` | hold: lengthens the note before |
 | `!` `,` | accent / soft, before or after the length: `c4!:1`, `c4:1,` |
 
-**Drums.** `drums` is an object of patterns, or a list of them with `from` / `to` (beats) so a groove can start late or stop (`[{ kick: 'x...' }, { from: 8, snare: '....x...' }]`). A pattern is a string of steps: `x` hit, `o` soft hit, `.` nothing (`|` and spaces are ignored); one step is 1/`grid` of a beat, so with the default grid 4 a 16-step string is one bar of 4/4, and a longer string (32 steps) is a longer figure that repeats. **The pattern repeats by itself** from `from` to `to`: you write one bar, not eight. `from` and `to` are **beats** from the start of the music (not bars): bar 9 of a 4/4 piece is `from: 32`; leave `to` out to play to the end. Drums: `kick snare hat openhat clap rim tom crash shaker sleigh` (`sleigh` is a jingle of small bells).
+**Drums.** `drums` is an object of patterns, or a list of them with `from` / `to` (beats) so a groove can start late or stop (`[{ kick: 'x...' }, { from: 8, snare: '....x...' }]`). A pattern is a string of steps: `x` hit, `o` soft hit, `.` nothing (`|` and spaces are ignored); one step is 1/`grid` of a beat, so with the default grid 4 a 16-step string is one bar of 4/4, and a longer string (32 steps) is a longer figure that repeats. **The pattern repeats by itself** from `from` to `to`: you write one bar, not eight. `from` and `to` are **beats** from the start of the music (not bars): bar 9 of a 4/4 piece is `from: 32`; leave `to` out to play to the end. Drums: `kick snare hat openhat clap rim tom crash shaker sleigh` (`sleigh` is a jingle of small bells). **Kits** change how they sound: `kit` on the score, or on one drum section (`{ from: 32, kit: 'acoustic', … }`): `classic` (the default, a clean electronic kit), `808` (the drum machine of hip-hop and trap: a long booming kick, metallic hats), `acoustic` (a real kit for rock, pop, jazz: beater click, snare wires, toms that sound like timpani at low tempi), `lofi` (the classic kit through a dusty 8-bit sampler), `chip` (a game console's noise channel).
 
 **Other meters.** The notation counts beats (the quarter note is 1), so 3/4 is bars of 3 beats. 6/8 is bars of 3 beats too: a dotted quarter is `:1.5`, an eighth `:0.5`; set `grid: 2` so a drum step is an eighth note (a 6-step pattern is one bar; the same `grid: 2` gives 6 eighth steps per bar in 3/4), and leave `swing` at 0. `grid: 3` is for triplet eighths in 4/4 (a shuffle).
 

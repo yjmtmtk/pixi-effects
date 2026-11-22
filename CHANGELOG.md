@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Music written as text reaches far more styles.** Every score sounded alike: soft seventh chords on eight gentle instruments, and one lo-fi example that every AI copied. Now:
+  - **twelve new instruments**: `piano`, `organ` (with a rotating speaker), `strings`, `brass`, `choir`, `flute`, `guitar` (clean; with `drive` a rock guitar), `saw`, `supersaw`, `square` (the chip-tune pulse, `width` for the thinner ones), `808` and `marimba`. `piano`, `organ`, `strings`, `flute`, `guitar` and `808` used to be read as the nearest of the first eight (with a warning); they now play themselves;
+  - **effects on a track**: `drive`, `crush`, `tone` as `[beat, value]` points (a filter sweep) with `resonance`, `chorus`, `delay` (a number, or `{ beats, mix, feedback }`), `sidechain` (the track dips under every kick, the pump of house), `glide` (each note slides from the one before, on the voices that play one note at a time) and `arp` (chords played as arpeggios);
+  - **drum kits**: `kit: 'classic' | '808' | 'acoustic' | 'lofi' | 'chip'` on the score or on one drum section;
+  - **the docs choose a style first**: a style table (tempo, harmony, groove, kit, instruments for pop, rock, house, techno, trap, lo-fi, cinematic, orchestral, funk, blues, chip-tune, ambient, explainer, waltz) and seven tested recipes (`music-pop`, `music-rock`, `music-house`, `music-trap`, `music-cinematic`, `music-chip`, `music-lofi`).
+  A score that uses none of this sounds exactly as before, to the bit. Every new name warns with "did you mean" when misspelt, and words people reach for (`violin`, `trumpet`, `8bit`, `xylophone`, `hammond`, …) point at the instrument that makes that sound.
+
 ## 1.1.0
 
 - **A model's colourways (glTF `KHR_materials_variants`).** `loadModel(url, { variant: 'street' })` starts in one; the loaded model lists them (`variants`), says which is shown (`variant`) and switches with `setVariant(name)` (`null`: the file's own colours). It only swaps materials, so it can follow the time from `update(t)` or a click. A wrong name says the right ones. `pixi-effects probe model.glb` lists them.

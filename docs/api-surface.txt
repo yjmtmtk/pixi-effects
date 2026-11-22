@@ -413,7 +413,9 @@ interface MovieOptions
   poster?: number
   vars?: Vars
   width?: number
+type MusicArp = 'up' | 'down' | 'updown' | 'random' | { mode?: 'up' | 'down' | 'updown' | 'random'; /** Beats a note (default 0.25). */ rate?: number; /** Octaves climbed (default 1). *…
 function musicBuffer(music: MusicOptions, options?: { sampleRate?: number | undefined; duration?: number | undefined; loop?: boolean | undefined; }): Promise<AudioBuffer>
+type MusicDelay = number | { /** Beats between echoes (default 0.75: a dotted eighth). */ beats?: number; /** Echo level 0–1 (default 0.35). */ mix?: number; /** How much of each echo com…
 type MusicDrum = 'kick' | 'snare' | 'hat' | 'openhat' | 'clap' | 'rim' | 'tom' | 'crash' | 'shaker' | 'sleigh'
 interface MusicDrumEvents
   hits: MusicDrumHit[]
@@ -424,7 +426,7 @@ interface MusicDrumHit
   beatInBar: number
   time: number
   velocity: number
-type MusicDrums = { [D in MusicDrum]?: string } & { from?: number; to?: number }
+type MusicDrums = { [D in MusicDrum]?: string } & { from?: number; to?: number; /** This section's kit (default: the score's). */ kit?: MusicKit }
 function musicEnvelope(music: MusicOptions, options?: EnvelopeOptions): Promise<AudioEnvelope>
 function musicEvents(music: MusicOptions): Promise<MusicEvents>
 interface MusicEvents
@@ -435,7 +437,8 @@ interface MusicEvents
   meter: number
   seconds: number
   tracks: MusicTrackEvents[]
-type MusicInstrument = 'keys' | 'pluck' | 'pad' | 'bass' | 'sub' | 'lead' | 'bell' | 'musicbox'
+type MusicInstrument = 'keys' | 'pluck' | 'pad' | 'bass' | 'sub' | 'lead' | 'bell' | 'musicbox' | 'piano' | 'organ' | 'strings' | 'brass' | 'choir' | 'flute' | 'guitar' | 'saw' | 'supersaw' | …
+type MusicKit = 'classic' | '808' | 'acoustic' | 'lofi' | 'chip'
 type MusicLevel = number | Array<[number, number]>
 interface MusicNote
   bar: number
@@ -454,6 +457,7 @@ interface MusicOptions
   drumVol?: number
   grid?: number
   humanize?: number
+  kit?: MusicKit
   meter?: number
   reverb?: number
   seed?: number
@@ -472,19 +476,28 @@ interface MusicSummary
   tail: number
   tracks: { inst: string; beats: number; bars: number; events: number; perBar: string[]; }[]
 interface MusicTrack
+  arp?: MusicArp
   attack?: number
+  chorus?: number
+  crush?: number
+  delay?: MusicDelay
+  drive?: number
+  glide?: number
   inst: MusicInstrument
   legato?: number
   notes: string
   pan?: number
   release?: number
+  resonance?: number
   reverb?: number
   ring?: number
+  sidechain?: number
   step?: number
   strum?: number
-  tone?: number
+  tone?: MusicLevel
   transpose?: number
   vol?: MusicLevel
+  width?: number
 interface MusicTrackEvents
   bars: number
   beats: number
@@ -665,7 +678,7 @@ interface SfxVoice
   gain?: number
   pan?: number | [number, number]
   to?: number
-  wave: "sine" | "triangle" | "square" | "saw" | "noise"
+  wave: "saw" | "square" | "sine" | "triangle" | "noise"
 interface ShaderLayerSpec extends LayerCommon
   fragment: string
   height?: string | number
@@ -710,7 +723,7 @@ interface StaggerOptions
   amount?: number
   each?: number
   ease?: string
-  from?: number | "center" | "start" | "end" | "edges" | "random"
+  from?: number | "center" | "random" | "start" | "end" | "edges"
   grid?: [number, number]
   seed?: number
 interface Stop

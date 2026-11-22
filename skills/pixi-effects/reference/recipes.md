@@ -737,26 +737,174 @@ return { layers, duration: total };
 
 A tune written as text: tracks of notes and chords (`c4:2`, `Am7:4`, `_` rest), drum patterns, a tempo. Count the beats (a 4/4 bar is 4); keep every track the same length; give the drums `from` so they enter after the intro; fade a track in with `vol` points. It lasts its notes plus a reverb tail and ends with the movie; `loop: true` repeats it. The mix sits at −6 dBFS peak at `volume: 1`: use 0.5–0.8 under speech or sound effects.
 
+**Choose the style first.** Decide from the brief what the film calls for, then take that style's tempo, harmony, groove, kit and instruments. Without a style every tune comes out as the same soft seventh chords at 90–110 bpm. Starting points:
+
+| Style | bpm | Harmony | Groove / `kit` | Instruments and effects |
+|---|---|---|---|---|
+| Pop / upbeat promo | 110–128 | `Am F C G`, or major I–V–vi–IV | back-beat or four on the floor; `acoustic` / `classic` | `piano`, `bass`, `supersaw` + `sidechain`, `saw` lead + `delay` |
+| Rock | 120–150 | power chords `E5@2 G5@2 A5@2` | `acoustic`, crash on section starts | two `guitar`s with `drive: 0.7`, pan −0.6 / 0.6; `bass` |
+| House / EDM | 120–128 | four minor chords | kick every beat, offbeat open hat, clap 2 & 4 | `piano` stabs, `supersaw` + `sidechain: 0.8`, offbeat `bass`, `tone` points for a build |
+| Acid techno | 124–132 | one chord, phrygian | layers every 8 bars, a breakdown | `saw` with `resonance`, `glide`, moving `tone` |
+| Trap / hip-hop | 130–150, half-time | harmonic minor `Cm Ab Fm G` | `808`, `grid: 8` for 32nd hat rolls | `808` with `glide` + `drive`, `bell` / `piano` melody, `choir` pad |
+| Lo-fi | 70–90, `swing: 0.18` | ninth chords | `lofi` | `piano` + `crush: 0.3`, `tone: 0.55`, `chorus`; `sub` |
+| Cinematic / trailer | 60–90, ritardando into the hit | minor with a major V | toms building (`acoustic`), crash on the hit | staccato `strings` (`legato: 0.4`), `brass` + `choir` swelling, an `808` boom |
+| Orchestral | 90–120 | triads | timpani (`tom`), cymbals | `strings` ostinato, `brass` tune, `choir`, `flute` |
+| Funk | 95–110 | `E9 A9` | syncopated 16ths, ghost notes `,`; `acoustic` | 16th `bass`, `organ` stabs, `guitar` + `chorus`, `brass` riff |
+| Blues | 80–110, `grid: 3` | 12-bar dominant sevenths | shuffle `x.xx.xx.xx.x`; `acoustic` | boogie `bass`, `organ`, `guitar` + `drive: 0.4` |
+| Chiptune / game | 140–170, `humanize: 0` | major, fast arpeggios | `chip` | `square` (`width` 0.25 / 0.125) lead and `arp`, `square` bass |
+| Ambient | 50–70, no drums | lydian or open fifths | — | `strings` / `choir` with `attack` 3+, `piano` + long `delay`, `bell`, `reverb` 0.5 |
+| Corporate / explainer | 100–120 | add9 / sus2 | light: `rim`, `shaker`, `clap` | `marimba` / `pluck` with `delay`, `piano`, soft `supersaw` |
+| Waltz / lullaby | `meter: 3` | major | none | `flute` / `musicbox` tune, `piano` oom-pa-pa, soft `strings` |
+
+```js
+// @recipe music-pop
+// an upbeat product promo: A minor i–VI–III–VII, a pumping supersaw, a saw hook with echoes
+const bar = (r) => Array(8).fill(r).join(' ');
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#2b1b5a' } },
+  { type: 'text', text: 'LAUNCH', at: 0.3, style: { fontFamily: 'Inter, Arial, sans-serif', fontSize: 110, fontWeight: '800', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+  { type: 'audio', at: 0, volume: 0.8, music: {
+      bpm: 118, reverb: 0.25, seed: 2, kit: 'acoustic',
+      tracks: [
+        { inst: 'piano',    vol: 0.6, notes: 'Am:4 F:4 C:4 G:4 | Am:4 F:4 C:4 G:4' },
+        { inst: 'bass',     vol: 0.85, step: 0.5, notes: [bar('a1'), bar('f1'), bar('c2'), bar('g1'), bar('a1'), bar('f1'), bar('c2'), bar('g1')].join(' | ') },
+        { inst: 'supersaw', vol: 0.35, sidechain: 0.6, notes: '_:16 | Am:4 F:4 C:4 G:4' },
+        { inst: 'saw',      vol: 0.55, delay: 0.3, glide: 0.03, notes: '_:16 | e5:1 d5:0.5 c5:0.5 e5:2 | c5:1 a4:1 e5:2 | g5:1 e5:0.5 d5:0.5 c5:2 | d5:3 b4:1' },
+      ],
+      drums: [{ from: 8, kick: 'x...x...x...x...', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }],
+  } },
+];
+```
+
+```js
+// @recipe music-rock
+// two overdriven guitars on power chords, left and right; a real kit
+const riff = 'E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 | E5@2:0.5 E5@2:0.5 E5@2:0.5 E5@2:0.5 G5@2:1 A5@2:1 | ' +
+             'C5@3:0.5 C5@3:0.5 C5@3:0.5 C5@3:0.5 D5@3:0.5 D5@3:0.5 D5@3:0.5 D5@3:0.5 | E5@2:2 ~:1 D5@3:0.5 B5@2:0.5';
+const roots = 'e1 e1 e1 e1 e1 e1 e1 e1 | e1 e1 e1 e1 g1 g1 a1 a1 | c2 c2 c2 c2 d2 d2 d2 d2 | e1 e1 e1 e1 e1 e1 d2 b1';
+const guitar = (pan) => ({ inst: 'guitar', vol: 0.55, pan, drive: 0.75, tone: 0.72, legato: 0.85, notes: riff + ' | ' + riff });
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1b0d0d' } },
+  { type: 'text', text: 'LOUD', at: 0.3, style: { fontFamily: 'Inter, Arial, sans-serif', fontSize: 110, fontWeight: '800', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+  { type: 'audio', at: 0, volume: 0.8, music: {
+      bpm: 132, reverb: 0.18, seed: 6, kit: 'acoustic',
+      tracks: [
+        guitar(-0.6), guitar(0.6),
+        { inst: 'bass', vol: 0.8, tone: 0.65, step: 0.5, drive: 0.2, notes: roots + ' | ' + roots },
+      ],
+      drums: [{ to: 4, crash: 'x...............' }, { kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' }],
+  } },
+];
+```
+
+```js
+// @recipe music-house
+// four on the floor, offbeat piano stabs, a supersaw pad that pumps under the kick and opens up, an offbeat bass
+const chords = ['Am', 'G', 'F', 'G'], root = { Am: 'a1', G: 'g1', F: 'f1' };
+const stab = (c) => `_:0.5 ${c}@4:0.5 _:1 ${c}@4:0.5 _:0.5 ${c}@4:0.5 _:0.5`;
+const offbeat = (c) => Array(4).fill(`_:0.5 ${root[c]}:0.5`).join(' ');
+const phrase = (f) => chords.map(f).join(' | ');
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0a1a1a' } },
+  { type: 'text', text: 'TONIGHT', at: 0.3, style: { fontFamily: 'Inter, Arial, sans-serif', fontSize: 110, fontWeight: '800', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+  { type: 'audio', at: 0, volume: 0.8, music: {
+      bpm: 124, reverb: 0.22, seed: 14,
+      tracks: [
+        { inst: 'piano',    vol: 0.6, legato: 0.6, notes: '_:16 | ' + phrase(stab) },
+        { inst: 'supersaw', vol: 0.32, tone: [[16, 0.3], [32, 0.75]], sidechain: 0.8, notes: '_:16 | Am:4 G:4 F:4 G:4' },
+        { inst: 'bass',     vol: 0.85, tone: 0.6, legato: 0.55, notes: phrase(offbeat) + ' | ' + phrase(offbeat) },
+      ],
+      drums: [{ kick: 'x...x...x...x...', openhat: '..x...x...x...x.' }, { from: 16, clap: '....x.......x...', shaker: 'xoxoxoxoxoxoxoxo' }],
+  } },
+];
+```
+
+```js
+// @recipe music-trap
+// 140 bpm half-time: an 808 that slides and growls, 808 drums with a 32nd hat roll (grid: 8 = 32 steps a bar), a bell melody
+const hats = (roll) => Array.from({ length: 32 }, (_, i) => (i % 4 === 0 || (roll && i >= 24) ? 'x' : '.')).join('');
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#120a14' } },
+  { type: 'text', text: 'NIGHT', at: 0.3, style: { fontFamily: 'Inter, Arial, sans-serif', fontSize: 110, fontWeight: '800', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+  { type: 'audio', at: 0, volume: 0.8, music: {
+      bpm: 140, grid: 8, reverb: 0.3, seed: 8, kit: '808',
+      tracks: [
+        { inst: 'bell',  vol: 0.5, ring: 1.6, notes: 'g5:0.5 eb5:0.5 c5:0.5 g5:0.5 _:0.5 eb6:0.5 d6:0.5 c6:0.5 | g5:1 _:3 | ab5:0.5 eb5:0.5 c5:0.5 ab5:0.5 _:0.5 c6:0.5 bb5:0.5 ab5:0.5 | eb5:1 _:3' },
+        { inst: 'choir', vol: 0.22, attack: 0.8, notes: 'Cm:8 Ab:8' },
+        { inst: '808',   vol: 0.95, glide: 0.07, drive: 0.35, notes: 'c2:1.5 c2:1 _:1.5 | c2:0.75 g1:0.75 c2:0.5 _:2 | ab1:1.5 ab1:1 _:1.5 | ab1:0.75 eb2:0.75 ab1:0.5 _:2' },
+      ],
+      drums: { kick: 'x...........x.........x.........', clap: '................x...............', hat: hats(false) + hats(true) },
+  } },
+];
+```
+
+```js
+// @recipe music-cinematic
+// a trailer build: staccato low strings, a choir and brass swelling, toms growing, a ritardando into the hit
+const pulse = (r) => Array(16).fill(r).join(' ');
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#0b0d10' } },
+  { type: 'text', text: 'COMING SOON', at: 0.3, style: { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#e9dcc0' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 2 }] },
+  { type: 'audio', at: 0, volume: 0.85, music: {
+      bpm: [[0, 72], [28, 72], [32, 54]], reverb: 0.5, seed: 11, kit: 'acoustic',
+      tracks: [
+        { inst: 'strings', vol: [[0, 0.55], [32, 0.85]], attack: 0.015, release: 0.12, legato: 0.45, step: 0.5, notes: [pulse('d3'), pulse('bb2'), pulse('g2'), pulse('a2')].join(' | ') + ' | d2:6!' },
+        { inst: 'choir',   vol: [[0, 0], [8, 0.25], [32, 0.7]], attack: 1.2, release: 3, notes: 'Dm@4:8 Bb:8 Gm@4:8 A:8 | Dm@4:6' },
+        { inst: 'brass',   vol: [[16, 0.3], [32, 0.8]], attack: 0.5, release: 1.5, notes: '_:16 | [g3 d4]:8 [a3 e4]:8 | [d3 a3 d4]:6!' },
+        { inst: '808',     vol: 0.7, release: 2, notes: '_:32 | d1:6!' },
+      ],
+      drums: [
+        { from: 8, to: 24, tom: 'x.....x.x.......', kick: 'x...............' },
+        { from: 24, to: 32, tom: 'x..x..x.x..x..x.', kick: 'x.......x.......' },
+        { from: 32, to: 33, kick: 'x...............', crash: 'x...............', tom: 'x...............' },
+      ],
+  } },
+];
+```
+
+```js
+// @recipe music-chip
+// a game: a thin-pulse lead, a chord arpeggiated by `arp`, a square bass, the console's noise drums
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#10204a' } },
+  { type: 'text', text: 'LEVEL 1', at: 0.3, style: { fontFamily: "'Courier New', monospace", fontSize: 110, fontWeight: '800', fill: '#7df9ff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
+  { type: 'audio', at: 0, volume: 0.8, music: {
+      bpm: 150, reverb: 0.05, humanize: 0, seed: 1, kit: 'chip',
+      tracks: [
+        { inst: 'square', width: 0.25, vol: 0.6, legato: 0.5, notes: 'd5:0.5 f#5:0.5 a5:1 f#5:0.5 a5:0.5 d6:1 | c#6:1 b5:0.5 a5:0.5 e5:1 _:1 | d5:0.5 f#5:0.5 b5:1 a5:0.5 f#5:0.5 d5:1 | g5:0.5 f#5:0.5 e5:0.5 d5:0.5 e5:2' },
+        { inst: 'square', width: 0.125, vol: 0.3, arp: { mode: 'up', rate: 0.25, octaves: 2 }, notes: 'D@4:4 A:4 Bm:4 G:4' },
+        { inst: 'square', vol: 0.55, legato: 0.5, step: 0.5, notes: 'd2 d3 d2 d3 d2 d3 d2 d3 | a1 a2 a1 a2 a1 a2 a1 a2 | b1 b2 b1 b2 b1 b2 b1 b2 | g1 g2 g1 g2 g1 g2 g1 g2' },
+      ],
+      drums: { kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' },
+  } },
+];
+```
+
 ```js
 // @recipe music-lofi
+// a late-night lo-fi loop: a crushed, dull piano, a soft sub, a guitar answering, the dusty kit with a lazy swing
 return [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fill: '#1b1a2e' } },
   { type: 'text', text: 'evening', at: 0.5, style: { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#f3eee4' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
     keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.2 }] },
   { type: 'audio', at: 0, volume: 0.8, music: {
-      bpm: 84, swing: 0.16, reverb: 0.26, seed: 7,
+      bpm: 82, swing: 0.2, reverb: 0.28, seed: 17, kit: 'lofi',
       tracks: [
-        { inst: 'keys',  vol: 0.7, pan: -0.15, strum: 0.012, notes: 'Cmaj7:4 Am7:4 Dm7:4 G7:4 | Cmaj7:4 Am7:4 Dm7:2 G7:2 Cmaj7:4' },
-        { inst: 'bass',  vol: 0.85, notes: 'c2:1.5 _:0.5 g2:1 c2:1 | a1:1.5 _:0.5 e2:1 a1:1 | d2:1.5 _:0.5 a2:1 d2:1 | g1:1.5 _:0.5 d2:1 g1:1 | c2:1.5 _:0.5 g2:1 c2:1 | a1:1.5 _:0.5 e2:1 a1:1 | d2:2 f2:1 a1:1 | g1:2 b1:1 d2:1 | c2:4' },
-        { inst: 'pluck', vol: [[0, 0], [8, 0.55]], pan: 0.25, step: 0.5, notes: '_:8 | e5:1 d5:0.5 c5:0.5 e5:2 | c5:1 a4:1 e5:2 | f5:1 e5:0.5 d5:0.5 a4:2 | d5:1.5 b4:0.5 g4:2 | e5:1 g5:1 e5:1 d5:1 | c5:1 a4:1 c5:2 | d5:1 f5:1 e5:1 d5:1 | b4:2 d5:2 | c5:4' },
-        { inst: 'pad',   vol: 0.5, notes: '[c3 g3 e4]:8 [a2 e3 c4]:8 [d3 a3 f4]:8 [g2 d3 b3]:8' },
+        { inst: 'piano',  vol: 0.7, crush: 0.3, tone: 0.55, chorus: 0.25, strum: 0.02, notes: 'Fm9:4 Bbm9:4 Ebmaj9:4 Abmaj7:2 G7#9:2' },
+        { inst: 'sub',    vol: 0.8, notes: 'f1:1.5 _:0.5 f1:2 | bb1:1.5 _:0.5 bb1:2 | eb2:1.5 _:0.5 eb2:2 | ab1:2 g1:2' },
+        { inst: 'guitar', vol: [[0, 0], [8, 0.35]], tone: 0.5, delay: 0.3, notes: '_:8 | bb4:1 g4:0.5 eb4:0.5 f4:2 | c5:1.5 b4:0.5 g4:2' },
       ],
-      drums: [{ from: 8, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }],
+      drums: { kick: 'x.........x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.xox.x.' },
   } },
 ];
 ```
 
-Other feels: a 6/8 lullaby is `bpm: 72`, `grid: 2`, bars of 3 beats (a dotted quarter `:1.5`, an eighth `:0.5`), instruments `musicbox` + `pluck` + `pad`; a build-up is layers entering with rests and `vol` points on the pad, drums from a later `from`; a ritardando is `bpm: [[0, 96], [28, 96], [32, 60]]`; a bright jingle is `lead` + `bell` + `sleigh` / `shaker` over a bouncy `bass`.
+More: a 6/8 lullaby is `bpm: 72`, `grid: 2`, bars of 3 beats (a dotted quarter `:1.5`, an eighth `:0.5`), `musicbox` or `flute` + `pluck` + `strings`; a build-up is layers entering with rests, `vol` points and a `tone` sweep, drums from a later `from`; a ritardando is `bpm: [[0, 96], [28, 96], [32, 60]]`; a bright jingle is `marimba` + `bell` + `sleigh` / `shaker` over a bouncy `bass`; a 12-bar blues is `grid: 3` with an `organ` and a `guitar` with `drive: 0.4`.
 
 ## Sound effects without files
 
