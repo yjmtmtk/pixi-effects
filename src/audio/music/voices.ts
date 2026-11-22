@@ -23,6 +23,17 @@ class Rotor {
 const write = (out: Bus, at: number, l: number, r: number): void => { out.L[at]! += l; out.R[at]! += r; };
 const limit = (out: Bus, start: number, n: number): number => Math.max(0, Math.min(n, out.L.length - start));
 const cents = (c: number): number => 2 ** (c / 1200);
+/** The last 15 ms of a voice's `n` samples fade to 0, so a note that is still sounding when its length runs out does not click. */
+const fadeOut = (i: number, n: number): number => { const k = Math.max(1, Math.round(0.015 * SR)); return i < n - k ? 1 : Math.max(0, (n - i) / k); };
+/**
+ * `count` samples of seeded noise through `f`, drawn up front: a voice draws the same random numbers whether or not the render's end
+ * cuts its note (the later tracks and the drums then get the same numbers too).
+ */
+function noiseRun(rnd: () => number, count: number, f: (x: number) => number): Float64Array {
+  const out = new Float64Array(count);
+  for (let i = 0; i < count; i++) out[i] = f(rnd() * 2 - 1);
+  return out;
+}
 
 export const NEW_VOICES: Record<NewInstrumentName, Voice> = {
   // acoustic piano: inharmonic partials struck by a hammer (brighter when harder), a two-stage decay, a damper after the written length
@@ -38,6 +49,7 @@ export const NEW_VOICES: Record<NewInstrumentName, Voice> = {
       parts.push({ r: new Rotor(fk), r2: k <= 3 ? new Rotor(fk * cents(k === 1 ? 0.9 : 0.6)) : null, a, k1: Math.exp(-d / SR), k2: Math.exp((-d * 0.22) / SR), e1: 0.72, e2: 0.28 });
     }
     const hammer = new Biquad('lp', 1800 + 2500 * vel, 0.7), pan = Math.max(-0.6, Math.min(0.6, (m - 60) / 50));
+    const hammerNoise = noiseRun(rnd, Math.ceil(0.012 * SR), x => hammer.run(x));
     for (let i = 0; i < lim; i++) {
       const t = i / SR;
       let s = 0;
@@ -46,9 +58,9 @@ export const NEW_VOICES: Record<NewInstrumentName, Voice> = {
         s += (p.r2 ? (p.r.next() + p.r2.next()) * 0.5 : p.r.next()) * p.a * (p.e1 + p.e2);
         p.e1 *= p.k1; p.e2 *= p.k2;
       }
-      if (t < 0.012) s += hammer.run(rnd() * 2 - 1) * 0.18 * vel * (1 - t / 0.012);
+      if (t < 0.012) s += hammerNoise[i]! * 0.18 * vel * (1 - t / 0.012);
       const damp = t < dur ? 1 : Math.exp(-(t - dur) * (5 / rel));
-      const y = s * damp * 0.24 * vel * Math.min(1, t / 0.0015);
+      const y = s * damp * 0.24 * vel * Math.min(1, t / 0.0015) * fadeOut(i, n);
       write(out, start + i, y * (1 - pan * 0.5), y * (1 + pan * 0.5));
     }
   },
@@ -57,7 +69,7 @@ export const NEW_VOICES: Record<NewInstrumentName, Voice> = {
     const f = mtof(m), rel = o.release ?? 0.06, A = o.attack ?? 0.006, n = Math.floor((dur + rel) * SR), lim = limit(out, start, n);
     const ratios = [1, 2, 3, 4, 6, 8], amps = [1, 0.7, 0.45, 0.35, 0.2, 0.12];   // drawbars 8' 4' 2 2/3' 2' 1 1/3' 1': the note's own pitch at the bottom
     const wheels = ratios.map((r, k) => (f * r < SR * 0.45 ? { r: new Rotor(f * r), a: amps[k]! } : null)).filter((w): w is { r: Rotor; a: number } => !!w);
-    const click = new Biquad('bp', 2400, 0.8), g = 0.1 * (0.75 + 0.25 * vel);
+    const click = new Biquad('bp', 2400, 0.8), g = 0.1 * (0.75 + 0.25 * vel), clickNoise = noiseRun(rnd, Math.ceil(0.004 * SR), x => click.run(x));
     // the rotating speaker turns at 6.1 Hz for every note alike: its phase follows the bus position, as one rotor started at sample 0
     const spin = new Rotor(6.1), w0 = (TAU * 6.1 * start) / SR;
     spin.x = Math.cos(w0); spin.y = Math.sin(w0);
@@ -66,7 +78,7 @@ export const NEW_VOICES: Record<NewInstrumentName, Voice> = {
       const lfo = spin.next(), lfo2 = spin.x;
       let s = 0;
       for (const w of wheels) s += w.r.next() * w.a;
-      if (t < 0.004) s += click.run(rnd() * 2 - 1) * 0.6;
+      if (t < 0.004) s += clickNoise[i]! * 0.6;
       const env = t < dur ? Math.min(1, t / A) : Math.max(0, 1 - (t - dur) / rel);
       const y = s * env * g;
       write(out, start + i, y * (1 + 0.22 * lfo), y * (1 + 0.22 * lfo2));
@@ -130,13 +142,13 @@ export const NEW_VOICES: Record<NewInstrumentName, Voice> = {
     const f = mtof(m), A = o.attack ?? 0.06, R = o.release ?? 0.12, n = Math.floor((dur + R) * SR), lim = limit(out, start, n);
     const breath = new Biquad('bp', Math.min(SR * 0.4, f * 2), 1.6), gl = glideOf(o);
     let ph = rnd();
+    const air = noiseRun(rnd, n, x => breath.run(x));
     for (let i = 0; i < lim; i++) {
       const t = i / SR, vib = 1 + 0.0045 * Math.sin(TAU * 5 * t) * Math.min(1, Math.max(0, (t - 0.25) / 0.4));
       ph = (ph + ((gl ? f * gl(t) : f) * vib) / SR) % 1;
       const s1 = Math.sin(TAU * ph), c1 = Math.cos(TAU * ph);
       const tone = s1 + 0.22 * (2 * s1 * c1) + 0.06 * (s1 * (3 - 4 * s1 * s1));
-      const air = breath.run(rnd() * 2 - 1) * (0.05 + 0.4 * Math.exp(-t * 30));
-      const y = (tone + air) * adsr(t, dur, A, 0.1, 0.85, R) * 0.26 * vel;
+      const y = (tone + air[i]! * (0.05 + 0.4 * Math.exp(-t * 30))) * adsr(t, dur, A, 0.1, 0.85, R) * 0.26 * vel;
       write(out, start + i, y, y);
     }
   },
@@ -152,12 +164,12 @@ export const NEW_VOICES: Record<NewInstrumentName, Voice> = {
     const sustain = 0.99945 - 0.25 / (f + 300), muted = 0.965;
     const body = new Biquad('hp', 90, 0.7), pan = (rnd() - 0.5) * 0.25;
     let w = L0;
-    const read = (back: number): number => { const p = w - back, i0 = Math.floor(p), fr = p - i0; return buf[i0 & mask]! * (1 - fr) + buf[(i0 - 1) & mask]! * fr; };
+    const read = (back: number): number => { const p = w - back, i0 = Math.floor(p), fr = p - i0; return buf[i0 & mask]! * (1 - fr) + buf[(i0 + 1) & mask]! * fr; };   // i0 + 1 ≤ w − 1: already written (back ≥ 2)
     for (let i = 0; i < lim; i++) {
       const t = i / SR, loss = t < dur ? sustain : muted;
       const y0 = loss * 0.5 * (read(D) + read(D + 1));
       buf[w & mask] = y0; w++;
-      const y = body.run(y0) * 0.5 * vel * Math.min(1, t / 0.001);
+      const y = body.run(y0) * 0.5 * vel * Math.min(1, t / 0.001) * fadeOut(i, n);
       write(out, start + i, y * (1 - pan), y * (1 + pan));
     }
   },
@@ -208,14 +220,14 @@ export const NEW_VOICES: Record<NewInstrumentName, Voice> = {
   // the 808 bass: a sine that drops into its pitch, decays slowly, and is saturated so a phone speaker still hears it
   '808'(m, dur, vel, out, start, rnd, o) {
     const f = mtof(m), R = o.release ?? 0.25, n = Math.floor((dur + R) * SR), lim = limit(out, start, n), gl = glideOf(o);
-    const k = 1.7, norm = 1 / Math.tanh(k);
+    const k = 1.7, norm = 1 / Math.tanh(k), click = noiseRun(rnd, Math.ceil(0.002 * SR), x => x);
     let ph = 0;
     for (let i = 0; i < lim; i++) {
       const t = i / SR;
       ph += (TAU * (gl ? f * gl(t) : f) * (1 + 1.1 * Math.exp(-t * 30))) / SR;
       const body = Math.tanh(k * Math.sin(ph)) * norm;
       const env = (t < dur ? Math.exp(-t * 0.9) : Math.exp(-dur * 0.9) * Math.max(0, 1 - (t - dur) / R)) * Math.min(1, t / 0.002);
-      const y = (body + (t < 0.002 ? (rnd() - 0.5) * 0.4 : 0)) * env * 0.5 * vel;
+      const y = (body + (t < 0.002 ? click[i]! * 0.2 : 0)) * env * 0.5 * vel;
       write(out, start + i, y, y);
     }
   },
@@ -225,13 +237,14 @@ export const NEW_VOICES: Record<NewInstrumentName, Voice> = {
     const ratios = [1, 3.93, 9.2], amps = [1, 0.32 * (0.5 + vel), 0.1 * (0.4 + vel)], rates = [1, 4, 11];
     const modes = ratios.map(r => (f * r < SR * 0.45 ? new Rotor(f * r) : null));
     const mallet = new Biquad('bp', Math.min(SR * 0.4, f * 3), 1.2), pan = Math.max(-0.5, Math.min(0.5, (m - 66) / 40));
+    const malletNoise = noiseRun(rnd, Math.ceil(0.004 * SR), x => mallet.run(x));
     void dur;
     for (let i = 0; i < lim; i++) {
       const t = i / SR;
       let s = 0;
       for (let k = 0; k < 3; k++) { const md = modes[k]; if (md) s += md.next() * amps[k]! * Math.exp(-base * rates[k]! * t); }
-      if (t < 0.004) s += mallet.run(rnd() * 2 - 1) * 0.25 * vel;
-      const y = s * Math.min(1, t / 0.001) * 0.32 * vel;
+      if (t < 0.004) s += malletNoise[i]! * 0.25 * vel;
+      const y = s * Math.min(1, t / 0.001) * 0.32 * vel * fadeOut(i, n);
       write(out, start + i, y * (1 - pan), y * (1 + pan));
     }
   },

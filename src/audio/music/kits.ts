@@ -93,9 +93,12 @@ function acoustic(kind: DrumName, vel: number, mono: Mono, rnd: Rand, out: Bus, 
   }
 }
 
-/** The classic kit through a dusty sampler: 8 bits, a third of the rate, a duller top, a little saturation. */
+/** How long each classic drum sounds (instruments.ts), so the sampler below runs only over the hit and its filter's tail. */
+const CLASSIC_LENGTH: Record<DrumName, number> = { kick: 0.5, snare: 0.4, clap: 0.35, hat: 0.12, openhat: 0.6, rim: 0.1, tom: 0.5, crash: 1.8, shaker: 0.16, sleigh: 0.5 };
+
+/** The classic kit through a dusty sampler: 8 bits, about 11 kHz, a duller top, a little saturation. */
 function lofi(kind: DrumName, vel: number, out: Bus, start: number, rnd: Rand): void {
-  const n = Math.min(len(2.4), out.L.length - start);
+  const n = Math.min(len(CLASSIC_LENGTH[kind] + 0.01), out.L.length - start);
   if (n <= 0) { hitDrum(kind, vel, { L: new Float32Array(0), R: new Float32Array(0) }, 0, rnd); return; }
   const tmp: Bus = { L: new Float32Array(n), R: new Float32Array(n) };
   hitDrum(kind, vel, tmp, 0, rnd);

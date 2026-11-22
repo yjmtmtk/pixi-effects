@@ -56,7 +56,7 @@ export function musicBeatTimes(m: ResolvedMusic, until = m.seconds): number[] {
 
 
 /** Every kick of the drums, in seconds from the start (over every repeat of a loop), sorted: what a sidechained track ducks under. */
-function kickTimes(m: ResolvedMusic, map: TempoMap, loopSec: number, repeats: number): number[] {
+function kickTimes(m: ResolvedMusic, map: TempoMap, loopSec: number, repeats: number, swing: (beat: number) => number): number[] {
   const out: number[] = [];
   for (let r = 0; r < repeats; r++) for (const s of m.drums) {
     const kick = s.drums.find(d => d.kind === 'kick');
@@ -64,7 +64,7 @@ function kickTimes(m: ResolvedMusic, map: TempoMap, loopSec: number, repeats: nu
     const end = Math.min(s.to, m.beats);
     for (let rep = 0; s.from + rep * s.repeat < end - 1e-6; rep++) for (const h of kick.hits) {
       const b = s.from + rep * s.repeat + h.i / m.grid;
-      if (b < end) out.push(r * loopSec + map.seconds(b));
+      if (b < end) out.push(r * loopSec + map.seconds(swing(b)));          // where the kick really plays: after swing, as the drums place it
     }
   }
   return out.sort((a, b) => a - b);
@@ -152,7 +152,7 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
     };
   };
 
-  const kicks = kickTimes(m, map, loopSec, repeats);
+  const kicks = kickTimes(m, map, loopSec, repeats, swingShift);
   for (const tr of m.tracks) {
     const inst = VOICES[tr.inst];
     let prev: number | null = null;                                  // the note a gliding track slides from
@@ -182,7 +182,7 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
       if (tr.crush > 0) crushRun(scratch, lo, end, tr.crush);
       if (typeof tr.tone !== 'number' || tr.resonance > 0) {
         const pts = typeof tr.tone === 'number' ? [[0, tr.tone] as const] : tr.tone.map(([b, v]) => [map.seconds(b), v] as const);
-        end = sweepRun(scratch, lo, end, pts, tr.resonance);
+        end = sweepRun(scratch, lo, end, pts, tr.resonance, loop ? loopSec : 0);
       }
     }
     if (typeof tr.tone === 'number' && tr.tone < 1 && tr.resonance === 0) {

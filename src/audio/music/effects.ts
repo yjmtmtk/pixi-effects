@@ -35,7 +35,7 @@ export function crushRun(bus: Bus, lo: number, end: number, amount: number): voi
  * The tone filter when it moves or resonates: a 24 dB low-pass whose cutoff follows `[seconds, value]` points (value 0–1 as `tone`:
  * 400 Hz × 50^value, so 1 is about 20 kHz), and whose first stage peaks at the cutoff with `resonance` (the acid squelch).
  */
-export function sweepRun(bus: Bus, lo: number, end: number, pts: ReadonlyArray<readonly [number, number]>, resonance: number): number {
+export function sweepRun(bus: Bus, lo: number, end: number, pts: ReadonlyArray<readonly [number, number]>, resonance: number, wrap = 0): number {
   const q = 0.7 + resonance * 9, at = (sec: number): number => {
     if (sec <= pts[0]![0]) return pts[0]![1];
     for (let j = 1; j < pts.length; j++) if (sec < pts[j]![0]) return pts[j - 1]![1] + ((pts[j]![1] - pts[j - 1]![1]) * (sec - pts[j - 1]![0])) / (pts[j]![0] - pts[j - 1]![0]);
@@ -46,7 +46,7 @@ export function sweepRun(bus: Bus, lo: number, end: number, pts: ReadonlyArray<r
   const stop = cap(bus, end + Math.round(0.05 * SR));
   for (let i = lo; i < stop; i++) {
     if ((i - lo) % 32 === 0) {
-      const fc = 400 * 50 ** at(i / SR);
+      const fc = 400 * 50 ** at(wrap > 0 ? (i / SR) % wrap : i / SR);   // with loop, the sweep starts again on every pass (as vol points do)
       a[0]!.set('lp', fc, q); b[0]!.set('lp', fc, q); a[1]!.set('lp', fc, 0.7); b[1]!.set('lp', fc, 0.7);
     }
     L[i] = a[1]!.run(a[0]!.run(L[i]!)) * gain;

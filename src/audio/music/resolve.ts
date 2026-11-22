@@ -185,7 +185,6 @@ export function resolveMusic(music: unknown, who: string, warn: Warn = defaultWa
     };
     let parsed;
     try { parsed = parseNotes(t.notes, knob('step', 0.0625, 16, 1)); } catch (e) { warn(`pixi-effects: ${where} (${inst}): ${(e as Error).message}. The track is skipped.`); return; }
-    notes += parsed.events.length;
     let vol: ResolvedTrack['vol'] = 0.8;
     if (t.vol !== undefined) {
       if (finite(t.vol)) vol = clamp(t.vol, 0, 1.5);
@@ -229,6 +228,10 @@ export function resolveMusic(music: unknown, who: string, warn: Warn = defaultWa
     if (t.arp !== undefined) {
       const a = arpOf(t.arp, where, warn);
       if (a) events = arpeggiate(events, a, seed + i * 7919);
+    }
+    notes += events.length;                                          // after the arp: it multiplies the notes
+    if (t.resonance !== undefined && finite(t.resonance) && t.resonance > 0 && tone === 1) {
+      warn(`pixi-effects: ${where} (${inst}): resonance peaks at the filter's cutoff, and with tone 1 the filter is open (its cutoff above hearing): give tone a number below 1 (0.4) or [beat, value] points for a sweep, or the resonance only makes the track quieter`);
     }
     tracks.push({
       inst, events, length: parsed.length, vol, pan: knob('pan', -1, 1, 0), strum: knob('strum', 0, 0.2, 0), legato: knob('legato', 0.1, 1, 0.96),
@@ -304,6 +307,7 @@ function arpOf(v: unknown, where: string, warn: Warn): Arp | null {
     if (!m) return null;
     const rate = finite(o.rate) ? clamp(o.rate, 0.0625, 4) : 0.25, octaves = finite(o.octaves) ? clamp(Math.round(o.octaves), 1, 4) : 1;
     if (o.rate !== undefined && !(finite(o.rate) && o.rate >= 0.0625 && o.rate <= 4)) warn(`pixi-effects: ${where}: arp.rate is beats per note, 0.0625–4 (got ${JSON.stringify(o.rate)}); using ${rate}`);
+    if (o.octaves !== undefined && !(finite(o.octaves) && o.octaves >= 1 && o.octaves <= 4)) warn(`pixi-effects: ${where}: arp.octaves is how many octaves the arpeggio climbs, 1–4 (got ${JSON.stringify(o.octaves)}); using ${octaves}`);
     return { mode: m, rate, octaves };
   }
   warn(`pixi-effects: ${where}: arp must be a direction ('up', 'down', 'updown', 'random') or { mode, rate, octaves } (got ${JSON.stringify(v)}); the chords are played as chords`);

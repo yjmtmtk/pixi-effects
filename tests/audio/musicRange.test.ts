@@ -223,3 +223,87 @@ describe('drum kits', () => {
     expect(tail(hit('kick', '808'))).toBeGreaterThan(tail(hit('kick')) * 3);
   });
 });
+
+describe('review fixes (2026-11-22)', () => {
+  const SR = 48000;
+  it('guitar is in tune on every note (the fractional delay reads forward): within 0.5 % at 48 kHz', () => {
+    for (const [note, hz] of [['e2', 82.41], ['a2', 110], ['g4', 392], ['a4', 440], ['c5', 523.25], ['e5', 659.26]] as const) {
+      const [l] = render({ bpm: 60, reverb: 0, humanize: 0, tracks: [{ inst: 'guitar', notes: `${note}:2`, legato: 1 }] }, SR, 1);
+      const f = pitch(l, SR, 0.1, 0.3, 60, 1200);
+      expect(Math.abs(f / hz - 1), `${note}: ${f.toFixed(2)} Hz`).toBeLessThan(0.005);
+    }
+  });
+
+  it('a guitar note ends with a fade, not a cut (no sample jumps at its end)', () => {
+    const [l] = render({ bpm: 120, reverb: 0, humanize: 0, tracks: [{ inst: 'guitar', notes: 'e2:0.5 _:3.5' }] }, SR, 1.5);
+    let peak = 0, lastLoud = 0;
+    for (let i = 0; i < l.length; i++) { peak = Math.max(peak, Math.abs(l[i]!)); if (Math.abs(l[i]!) > 1e-6) lastLoud = i; }
+    // the last 2 ms before silence stay below 5 % of the peak
+    let tail = 0; for (let i = lastLoud - Math.round(0.002 * SR); i <= lastLoud; i++) tail = Math.max(tail, Math.abs(l[i]!));
+    expect(tail / peak).toBeLessThan(0.05);
+  });
+
+  it('a piano note held past its 8 s cap and a long-ringing marimba fade out instead of being cut', () => {
+    for (const [inst, extra, len] of [['piano', {}, 10], ['marimba', { ring: 6 }, 7]] as const) {
+      const [l] = render({ bpm: 60, reverb: 0, humanize: 0, tracks: [{ inst, notes: 'c4:10', ...extra }] }, 8000, len);
+      let peak = 0, lastLoud = 0;
+      for (let i = 0; i < l.length; i++) { peak = Math.max(peak, Math.abs(l[i]!)); if (Math.abs(l[i]!) > 1e-6) lastLoud = i; }
+      let tail = 0; for (let i = lastLoud - 16; i <= lastLoud; i++) tail = Math.max(tail, Math.abs(l[i]!));
+      expect(tail / peak, inst).toBeLessThan(0.01);
+    }
+  });
+
+  it('with loop, a tone sweep starts again on every pass (as vol points do)', () => {
+    const m = resolveMusic({ bpm: 120, reverb: 0, humanize: 0, tail: 0, tracks: [{ inst: 'supersaw', notes: 'a2:4', legato: 1, tone: [[0, 0], [4, 1]] }] }, 'x')!;
+    const [l] = renderMusic(m, 22050, 4.4, true);              // two passes of 2 s
+    expect(brightness(l, 22050, 2.1, 2.4)).toBeLessThan(brightness(l, 22050, 1.6, 1.9) * 0.6);
+  });
+
+  it('the lofi kit costs about what its drums last, not 2.4 s a hit', () => {
+    const score = (kit?: string) => ({ bpm: 82, reverb: 0, ...(kit ? { kit } : {}), tracks: [{ inst: 'keys', vol: 0, notes: '_:128' }], drums: { kick: 'x.........x.....', snare: '....x.......x...', hat: 'xxxxxxxxxxxxxxxx' } });
+    const time = (kit?: string) => { const m = resolveMusic(score(kit), 'x')!; const t0 = performance.now(); renderMusic(m, 22050, musicLength(m), false); return performance.now() - t0; };
+    time(); time('lofi');                                         // warm up
+    expect(time('lofi')).toBeLessThan(time() * 1.6 + 50);
+  });
+
+  it('arp notes count against the note limit', () => {
+    const { w, warn } = warnings();
+    const m = resolveMusic({ bpm: 120, tracks: Array.from({ length: 16 }, () => ({ inst: 'square', notes: Array(40).fill('C:4').join(' '), arp: { rate: 0.0625, octaves: 4 } })) }, 'x', warn);
+    expect(m).toBeNull();
+    expect(w.join('\n')).toMatch(/notes; the limit is/);
+  });
+
+  it('arp.octaves out of range or not a number is named', () => {
+    const { w, warn } = warnings();
+    resolveMusic({ bpm: 120, tracks: [{ inst: 'square', notes: 'C:4', arp: { octaves: 7 } }, { inst: 'square', notes: 'C:4', arp: { octaves: 'two' } }] }, 'x', warn);
+    expect(w.filter(m => /arp\.octaves/.test(m)).length).toBe(2);
+  });
+
+  it('resonance with an open tone is named (the peak would sit above hearing and only lower the level)', () => {
+    const { w, warn } = warnings();
+    resolveMusic({ bpm: 120, tracks: [{ inst: 'saw', notes: 'c4:4', resonance: 0.6 }] }, 'x', warn);
+    expect(w.join('\n')).toMatch(/resonance.*tone/);
+  });
+
+  it('a voice draws the same random numbers whether or not the render cuts inside its note', async () => {
+    const { VOICES, setSampleRate } = await import('../../src/audio/music/instruments');
+    setSampleRate(8000);
+    for (const inst of NEW) {
+      const count = (busLen: number) => {
+        let n = 0; const rnd = () => { n++; return 0.5; };
+        const bus = { L: new Float32Array(busLen), R: new Float32Array(busLen) };
+        (VOICES as Record<string, (...a: unknown[]) => void>)[inst]!(60, 1, 0.8, bus, 0, rnd, {});
+        return n;
+      };
+      expect(count(10), inst).toBe(count(8000 * 9));
+    }
+  });
+
+  it('sidechain ducks on the kick where it really plays (after swing)', () => {
+    const SR2 = 8000;
+    const [l] = render({ bpm: 120, swing: 0.4, reverb: 0, humanize: 0, drumVol: 0, tracks: [{ inst: 'sub', notes: 'a3:8', sidechain: 0.9, legato: 1 }], drums: { kick: '..x...x...x...x.' } }, SR2, 4);
+    // kicks on the off-beat eighths, swung by 0.2 beat (0.1 s): the dip is after the swung time, not before it
+    const swung = 1.25 + 0.1;
+    expect(rmsOf(l, SR2, swung + 0.005, swung + 0.04)).toBeLessThan(rmsOf(l, SR2, swung - 0.06, swung - 0.01) * 0.6);
+  });
+});

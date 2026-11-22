@@ -518,7 +518,7 @@ export interface MusicTrack {
   attack?: number;
   /** Seconds a note fades out after its written length. */
   release?: number;
-  /** Seconds a bell / musicbox keeps ringing (default 2.5 / 1.3). */
+  /** Seconds a bell / musicbox / marimba keeps ringing (default 2.5 / 1.3 / 1.1). */
   ring?: number;
   /** Shift every note by this many semitones. */
   transpose?: number;
