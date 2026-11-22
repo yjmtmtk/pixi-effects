@@ -90,6 +90,7 @@ export function viewerHtml({ pageUrl, title }) {
   header b { font-size: 14px; font-weight: 600; }
   #time { font-family: ui-monospace, Menlo, monospace; color: var(--dim); }
   #status { color: var(--dim); }
+  #status.failed { color: var(--head); font-weight: 600; }
   #update button { background: var(--head); color: #fff; border-color: var(--head); font-weight: 600; }
   #autolabel { color: var(--dim); user-select: none; }
   .zoom { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
@@ -134,8 +135,20 @@ export function viewerHtml({ pageUrl, title }) {
   /** Wait for the page inside to be a ready movie, then (re)build the timeline. \`restore\` = { frame, playing }: go back where the viewer was. */
   async function attach(restore) {
     movie = null; svg = null; head = null; geom = null;
+    $status.classList.remove('failed'); $status.textContent = 'loading the page…';
     for (let i = 0; i < 600 && !movie; i++) {
-      try { const w = frame.contentWindow; if (w && w.__ready === true && w.movie) movie = w.movie; } catch { /* still loading */ }
+      let failed = '';
+      try {
+        const w = frame.contentWindow;
+        if (w && w.__ready === true && w.movie) movie = w.movie;
+        // the template's way of failing: init threw and said why in window.__logs (__ready never comes): say it now, not after two minutes
+        else failed = ((w && w.__logs) || []).find(l => /^init failed|^uncaught/.test(String(l))) || '';
+      } catch { /* still loading */ }
+      if (failed) {
+        $status.classList.add('failed');
+        $status.textContent = 'the movie could not start — ' + String(failed).replace(/^init failed:\\s*/, '') + ' (fix it and save: the viewer offers a reload)';
+        return;
+      }
       if (!movie) await sleep(200);
     }
     if (!movie) {

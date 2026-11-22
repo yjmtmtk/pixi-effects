@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>view: a page whose movie cannot start</title></head>
+<body>
+  <!-- Fixture for tests/tools/view.test.ts: the template's way of failing (init threw; the message is in window.__logs, __ready never comes). -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    setTimeout(() => { window.__logs.push('init failed: [Loader.load] Failed to load http://127.0.0.1/thumbs/scene-0.jpg (404 Not Found)'); }, 300);
+  </script>
+</body>
+</html>

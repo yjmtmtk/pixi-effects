@@ -146,6 +146,32 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs �
     }
   }, 90_000);
 
+  it('a page whose movie cannot start says why at once (the init failure from window.__logs), not "loading the page…" for two minutes', async () => {
+    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'tests/fixtures/view-init-failed.html'), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
+    const url: string = await new Promise((res, rej) => {
+      let buf = '';
+      const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);
+      proc.stdout!.on('data', d => { buf += d; const m = buf.match(/(http:\/\/127\.0\.0\.1:\d+\/__viewer)/); if (m) { clearTimeout(t); res(m[1]!); } });
+    });
+    const userDataDir = mkdtempSync(join(tmpdir(), 'view-test-'));
+    const { proc: chromeProc, cdp } = await launchPage(chrome, userDataDir);
+    try {
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.enable');
+      await cdp.send('Page.navigate', { url });
+      let status = '';
+      for (let i = 0; i < 30 && !/could not start/.test(status); i++) { await check.sleep(300); status = await cdp.eval("document.getElementById('status').textContent").catch(() => ''); }
+      expect(status).toMatch(/could not start/);
+      expect(status).toContain('could not start — [Loader.load] Failed to load');          // the "init failed:" prefix dropped, one space
+      expect(await cdp.eval("getComputedStyle(document.getElementById('status')).color")).not.toBe(await cdp.eval("getComputedStyle(document.getElementById('time')).color"));
+    } finally {
+      try { chromeProc.kill(); } catch { /* gone */ }
+      proc.kill();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 60_000);
+
   it('tells you the work changed but never switches by itself; reload keeps the place; auto reloads only when the movie is paused', async () => {
     const live = join(root, 'tests/films/view-live.tmp.html');
     writeFileSync(live, readFileSync(join(root, 'tests/films/determinism-first-frame.html'), 'utf8').replace('duration: 2,', 'duration: 60,'));          // long enough to still be playing when the edit arrives
