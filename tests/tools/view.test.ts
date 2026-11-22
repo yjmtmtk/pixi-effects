@@ -226,7 +226,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
             playScreen: play ? play.getBoundingClientRect().height * scale : null, playOwn: play ? play.offsetHeight : null, stageH: st.height };
         })()`);
       };
-      for (const [query, w, h] of [['', 1000, 620], ['centred', 1280, 800], ['vertical', 1280, 800], ['vertical', 600, 900], ['centred', 600, 900]] as const) {
+      for (const [query, w, h] of [['', 1000, 620], ['centred', 1280, 800], ['vertical', 1280, 800], ['vertical', 600, 900], ['centred', 600, 900], ['vertical', 1000, 620]] as const) {
         const r = await look('tests/fixtures/view-responsive.html', query, w, h);
         const what = `${query || 'plain'} at ${w}x${h}`;
         expect(r.scale, what).toBe(1);                                          // not scaled: the page laid itself out narrower
@@ -235,6 +235,11 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
         expect(r.playScreen, what).toBeCloseTo(r.playOwn, 0);                   // â€¦ at its own size
         expect(r.stageH, what).toBeLessThan(h - 200);                           // leaving room for the timeline
       }
+      // a player bar that cannot give way (a page on an older release): as narrow as the bar allows, then scaled for the rest
+      const old = await look('tests/fixtures/view-responsive.html', 'vertical&oldbar', 1000, 620);
+      expect(old.fits).toBe(true);
+      expect(await cdp.eval("(() => { const b = document.getElementById('page').contentDocument.querySelector('.mc-bar'); return b.scrollWidth <= b.clientWidth + 1; })()")).toBe(true);
+      expect(old.scale).toBeGreaterThan(0.5);                                   // larger than scaling the whole page (0.43)
       const fixed = await look('tests/films/timeline.html', '', 600, 900);      // a 640 Ã— 360 canvas with no CSS, wider than the window: scaled to fit
       expect(fixed.fits).toBe(true);
     } finally {
@@ -418,7 +423,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
       expect(text).toMatch(want);
       await check.sleep(400);                                                         // the bar eases to its width
       expect(await cdp.eval("parseFloat(getComputedStyle(document.querySelector('#wait .bar i')).width) / parseFloat(getComputedStyle(document.querySelector('#wait .bar')).width)")).toBeCloseTo(query ? 0.4 : 0.62, 1);
-      expect(text).toMatch(/\d+ s/);                                             // and the seconds, so a long build never looks frozen
+      for (let i = 0; i < 20 && !/[1-9]\d* s elapsed/.test(text); i++) { await check.sleep(300); text = await cdp.eval("document.getElementById('wait').innerText").catch(() => ''); }
+      expect(text).toMatch(/[1-9]\d* s elapsed/);                                // and the seconds, named, so a long build never looks frozen
+      expect(text).not.toMatch(/(^|\s)0 s/);                                     // never a bare "0 s" nobody can read
     } finally {
       try { chromeProc.kill(); } catch { /* gone */ }
       proc.kill();

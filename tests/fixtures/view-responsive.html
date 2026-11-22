@@ -9,12 +9,15 @@
     .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
     .centred .stage { margin: 0 auto; }
     .vertical .stage { width: min(420px, 100%); margin: 0 auto; }
+    /* ?oldbar: the player bar of a release before 1.3, which gives nothing way when narrow (it needs about 266 px) */
+    .oldbar .mc-time { display: inline !important; } .oldbar .mc-loop, .oldbar .mc-export { display: flex !important; } .oldbar .mc-bar { gap: 12px !important; padding: 6px 12px 8px !important; }
   </style>
 </head>
 <body>
   <!-- Fixture for tests/tools/view.test.ts: laid out as skills/pixi-effects/template.html (a canvas that follows the page's width) with the player bar.
-       ?centred: the box capped at 960px and centred; ?vertical: a 9:16 piece capped at 420px and centred (as the vertical gallery pieces are). -->
-  <script>const q = new URLSearchParams(location.search); if (q.has('centred')) document.body.className = 'centred'; if (q.has('vertical')) document.body.className = 'vertical';</script>
+       ?centred: the box capped at 960px and centred; ?vertical: a 9:16 piece capped at 420px and centred (as the vertical gallery pieces are);
+       ?oldbar: a player bar that does not give way when narrow (as before 1.3). -->
+  <script>const q = new URLSearchParams(location.search); document.body.className = ['centred', 'vertical', 'oldbar'].filter(k => q.has(k)).join(' ');</script>
   <div class="stage"><canvas id="stage" width="1280" height="720"></canvas></div>
   <script>if (new URLSearchParams(location.search).has('vertical')) { const c = document.getElementById('stage'); c.width = 720; c.height = 1280; }</script>
   <script>window.__logs = []; for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.join(' ')); o(...a); }; }</script>

@@ -544,7 +544,7 @@ What you have: `play()`, `pause()`, `gotoFrame(frame)`, `volume`, `muted` / `tog
 
 ## `Controller`
 
-Imported from `pixi-effects/controller`.
+Imported from `pixi-effects/controller`. A narrow player (a 9:16 piece embedded small, a card) keeps its bar inside the picture: below about 300 px wide the time gives way, below 230 px the loop button, below 190 px the download button and the volume slider; play, the seek bar, mute and fullscreen always stay.
 
 ```ts
 import { Controller } from 'pixi-effects/controller';

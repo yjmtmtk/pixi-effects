@@ -76,3 +76,21 @@ runFilms('Controller: the player wraps the canvas without moving it, in a real b
     });
   }, 90_000);
 });
+
+runFilms('Controller: a narrow player keeps its bar inside the picture', () => {
+  it('at 320, 220 and 160 px wide nothing of the bar sticks out (the time, then the loop and the download buttons give way); play and fullscreen stay', async () => {
+    await withFilm('controller', async (film) => {
+      for (const width of [320, 220, 160]) {
+        await metrics(film, width); await sleep(400);
+        const m = await film.eval<{ overflow: number; play: boolean; full: boolean }>(`(() => {
+          const c = document.getElementById('stage').getBoundingClientRect(), bar = document.querySelector('.mc-bar');
+          const inside = sel => { const e = document.querySelector(sel); if (!e || !e.offsetParent) return false; const r = e.getBoundingClientRect(); return r.left >= c.left - 1 && r.right <= c.right + 1; };
+          return { overflow: bar.scrollWidth - bar.clientWidth, play: inside('.mc-play'), full: inside('.mc-fullscreen') };
+        })()`);
+        expect(m.overflow, `${width}px: the bar overflows`).toBeLessThanOrEqual(1);
+        expect(m.play, `${width}px: play`).toBe(true);
+        expect(m.full, `${width}px: fullscreen`).toBe(true);
+      }
+    });
+  }, 90_000);
+});

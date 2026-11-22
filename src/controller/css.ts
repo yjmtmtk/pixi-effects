@@ -234,4 +234,10 @@ export const CONTROLLER_CSS = `
   color: rgba(255,255,255,0.7); font-size: 11px;
   font-family: Menlo, Monaco, monospace;
 }
+/* (last, so it wins over the rules above) a narrow player (a 9:16 piece embedded small, a card): what is least needed gives way, so nothing sticks out of the picture;
+   play, the seek bar, the sound and fullscreen always stay */
+.movie-controller { container-type: inline-size; }
+@container (max-width: 300px) { .mc-time { display: none; } .mc-bar { gap: 8px; padding-left: 8px; padding-right: 8px; } }
+@container (max-width: 230px) { .mc-loop { display: none; } }
+@container (max-width: 190px) { .mc-export, .mc-vol-slider { display: none; } }
 `;

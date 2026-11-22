@@ -104,7 +104,7 @@ export function viewerHtml({ pageUrl, title }) {
   #wait .wlabel { letter-spacing: .14em; font-weight: 600; }
   #wait .bar { width: 240px; height: 3px; margin: 10px auto 8px; background: rgba(255,255,255,.16); border-radius: 2px; overflow: hidden; }
   #wait .bar i { display: block; height: 100%; width: 0; background: #ff5c8a; transition: width .2s; }
-  #wait .secs { color: #8fa0bf; font-family: ui-monospace, Menlo, monospace; }
+  #wait .secs { min-height: 1.3em; color: #8fa0bf; font-family: ui-monospace, Menlo, monospace; }
   #wait[hidden] { display: none; }
   iframe { border: 0; display: block; transform-origin: 0 0; }
   #chart { flex: 1 1 0; min-height: 0; overflow: auto; border-top: 1px solid var(--line); display: flex; align-items: flex-start; }
@@ -131,7 +131,7 @@ export function viewerHtml({ pageUrl, title }) {
 <header><b>${escHtml(title)}</b><button id="play" type="button" disabled>▶</button><span id="time">0.00 / 0.00 s · frame 0</span><span id="status">loading the page…</span><button id="warn" type="button" hidden title="what the page warned about (and the sound's problems): click to show">⚠ 0</button><span id="update" hidden><button id="reload" type="button" title="load the page again, on the frame you are on (R)">Updated — reload (R)</button></span><label id="autolabel" title="reload by itself, but only while the movie is paused"><input type="checkbox" id="auto"> auto</label>
   <span class="zoom"><button id="zout" type="button" title="zoom out (-)" disabled>−</button><span id="zlabel">fit</span><button id="zin" type="button" title="zoom in (+, or Ctrl/⌘ + wheel)" disabled>+</button><button id="zfit" type="button" title="fit the whole movie (0)" disabled>fit</button></span></header>
 <div id="warnings" hidden></div>
-<div id="stage" class="pending"><iframe id="page" class="pending" src="${escHtml(pageUrl)}" allow="autoplay; fullscreen"></iframe><div id="wait"><div><div class="wlabel">LOADING THE PAGE</div><div class="bar"><i></i></div><div class="secs">0 s</div></div></div></div>
+<div id="stage" class="pending"><iframe id="page" class="pending" src="${escHtml(pageUrl)}" allow="autoplay; fullscreen"></iframe><div id="wait"><div><div class="wlabel">LOADING THE PAGE</div><div class="bar"><i></i></div><div class="secs"></div></div></div></div>
 <div id="chart"><div id="names"></div><div id="plot"></div></div>
 <script>
 (() => {
@@ -166,7 +166,8 @@ export function viewerHtml({ pageUrl, title }) {
     const $w = document.getElementById('wait');
     $w.querySelector('.wlabel').textContent = stage ? stage + '  ' + pct + '%' : 'LOADING THE PAGE';
     $w.querySelector('.bar i').style.width = (stage && Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0) + '%';
-    $w.querySelector('.secs').textContent = Math.floor((Date.now() - t0) / 1000) + ' s';
+    const secs = Math.floor((Date.now() - t0) / 1000);
+    $w.querySelector('.secs').textContent = secs ? secs + ' s elapsed' : '';                // the time waited so far, named; nothing in the first second
   }
 
   /** The page is laid out (or will never be): show it. Until then it is hidden, so it never flashes at the iframe's default size in the corner. */
@@ -328,7 +329,9 @@ export function viewerHtml({ pageUrl, title }) {
 
   // The page is shown whole and in the MIDDLE: as tall as its picture, scaled down (never up) so the timeline stays in view under it. A page that
   // keeps its picture at the left edge (the template does) is still centred: the iframe is as wide as the page's own content, then centred.
+  let layoutGen = 0;
   function layout() {
+    const myLayout = ++layoutGen;
     const stageW = stage.clientWidth || innerWidth, headH = document.querySelector('header').offsetHeight;
     const listH = $warnings.hidden ? 0 : $warnings.offsetHeight;           // the warnings list, when open, takes its share of the height
     const room = Math.max(160, innerHeight - headH - listH - 240);
@@ -352,15 +355,35 @@ export function viewerHtml({ pageUrl, title }) {
     if (fits(full)) { place(Math.min(stageW, full.cw), full.h, 1); return; }
     // too tall (or too wide): find the widest frame the page fits in when it lays itself out again (a canvas that follows its box,
     // as the template's does, even one capped and centred); the player bar then keeps its own size. Scaling would shrink it too.
-    let lo = 200, hi = stageW, best = null;
+    let lo = 120, hi = stageW, best = null;
     for (let i = 0; i < 14 && hi - lo > 2; i++) {
       const w = Math.floor((lo + hi) / 2), m = look(w);
       if (fits(m)) { best = { w, m }; lo = w; } else hi = w;
     }
-    if (best) { place(best.w, best.m.h, 1); return; }
+    if (best) { place(best.w, best.m.h, 1); settleBar(myLayout, best.w, room, stageW, place, look); return; }
     // a page that cannot narrow (a fixed-size canvas): scaled to fit, as before
     const m = look(stageW), k = Math.min(1, room / m.h, stageW / Math.max(1, m.cw));
     place(Math.max(stageW, m.cw), m.h, k);
+  }
+  /**
+   * The player bar follows its canvas a frame later (it is sized by script), so whether it fits is known only then. If it sticks out
+   * (an older bar gives nothing way when narrow), the frame widens until it fits and the rest is scaled: its buttons stay as large as they can.
+   */
+  async function settleBar(myLayout, w, room, stageW, place, look) {
+    let bar = null;
+    try { bar = frame.contentDocument.querySelector('.mc-bar'); } catch { /* unreadable */ }
+    if (!bar) return;
+    let widened = false;
+    for (let i = 0; i < 8; i++) {
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      if (myLayout !== layoutGen) return;                                // laid out again meanwhile
+      if (!bar.offsetParent || bar.scrollWidth <= bar.clientWidth + 1) break;
+      w = Math.min(stageW * 3, w + (bar.scrollWidth - bar.clientWidth) + 2); widened = true;
+      frame.style.transform = 'none'; frame.style.width = w + 'px';
+    }
+    if (!widened || myLayout !== layoutGen) return;
+    const m = look(w);
+    place(w, m.h, Math.min(1, room / m.h, stageW / w));
   }
   frame.addEventListener('load', layout);
   addEventListener('resize', () => { layout(); if (svg) render(null); });
