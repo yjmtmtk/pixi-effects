@@ -146,6 +146,19 @@ export class TempoMap {
     return this.secAt[i]! + TempoMap.span(beat - b0, t0, t);
   }
 
+  /** Seconds → beats: the exact inverse of `seconds` (before the start, the first tempo held backwards). */
+  beatAt(sec: number): number {
+    if (sec <= 0) return (sec * this.points[0]![1]) / 60;
+    let i = this.points.length - 1;
+    while (i > 0 && this.secAt[i]! > sec) i--;
+    const [b0, t0] = this.points[i]!;
+    const next = this.points[i + 1], s = sec - this.secAt[i]!;
+    if (!next || Math.abs(next[1] - t0) < 1e-9) return b0 + (s * t0) / 60;
+    // inside a ramp the tempo is t0 + k·db, and the seconds are (60 / k)·ln(1 + k·db / t0): solved for db
+    const k = (next[1] - t0) / (next[0] - b0);
+    return b0 + (t0 * (Math.exp((k * s) / 60) - 1)) / k;
+  }
+
   /** The tempo at a beat. */
   bpmAt(beat: number): number {
     if (beat <= this.points[0]![0]) return this.points[0]![1];

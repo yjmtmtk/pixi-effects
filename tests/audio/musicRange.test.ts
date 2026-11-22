@@ -312,3 +312,35 @@ describe('review fixes (2026-11-22)', () => {
     expect(rmsOf(l, SR2, swung + 0.005, swung + 0.04)).toBeLessThan(rmsOf(l, SR2, swung - 0.06, swung - 0.01) * 0.6);
   });
 });
+
+describe('the two minors left after 1.2.0', () => {
+  it('TempoMap.beatAt is the inverse of seconds: constant, ramps up and down, before the start', async () => {
+    const { TempoMap } = await import('../../src/audio/music/notation');
+    for (const pts of [[[0, 120]], [[0, 96], [28, 96], [32, 60]], [[0, 60], [8, 140], [16, 140]]] as Array<Array<[number, number]>>) {
+      const map = new TempoMap(pts);
+      for (const b of [-1, 0, 0.5, 3, 27.9, 29, 31.5, 32, 40]) expect(map.beatAt(map.seconds(b)), `${JSON.stringify(pts)} beat ${b}`).toBeCloseTo(b, 9);
+    }
+  });
+
+  it('a delay counted in beats follows a tempo change: one beat of 60 bpm later, not of the starting 120', () => {
+    const SR = 8000;
+    // 4 beats at 120 (2 s), then 60 bpm: a short note on beat 8 (6 s) echoes one beat later, at 7 s
+    const [l] = render({ bpm: [[0, 120], [4, 120], [4.001, 60]], reverb: 0, humanize: 0, tracks: [{ inst: 'marimba', notes: '_:8 a4:0.25 _:3.75', delay: { beats: 1, mix: 0.7, feedback: 0 } }] }, SR, 8.5);
+    expect(rmsOf(l, SR, 6.98, 7.08)).toBeGreaterThan(rmsOf(l, SR, 6.48, 6.58) * 3 + 1e-5);
+  });
+
+  it('sidechain ducks where each kick really lands, humanize jitter included', () => {
+    const SR = 8000;
+    const score = (o: object) => ({ bpm: 120, reverb: 0, humanize: 0.06, seed: 3, ...o, drums: { kick: 'x.......' } });   // a kick every second
+    // the same score twice: the random numbers are drawn the same way, so the kicks land on the same samples in both
+    const [kicksOnly] = render(score({ drumVol: 1, tracks: [{ inst: 'sub', notes: 'a3:16', vol: 0, legato: 1 }] }), SR, 8);
+    const [ducked] = render(score({ drumVol: 0, tracks: [{ inst: 'sub', notes: 'a3:16', sidechain: 0.9, legato: 1 }] }), SR, 8);
+    const onsets: number[] = [];
+    for (let i = 1, quiet = 0; i < kicksOnly.length; i++) {
+      if (Math.abs(kicksOnly[i]!) > 0.02 && (quiet > 0.2 * SR || i === quiet)) onsets.push(i / SR);
+      quiet = Math.abs(kicksOnly[i]!) > 0.02 ? 0 : quiet + 1;
+    }
+    expect(onsets.length).toBeGreaterThan(3);
+    for (const k of onsets.slice(1, 6)) expect(rmsOf(ducked, SR, k + 0.004, k + 0.03), `kick at ${k.toFixed(3)} s`).toBeLessThan(rmsOf(ducked, SR, k - 0.035, k - 0.005) * 0.6);
+  });
+});

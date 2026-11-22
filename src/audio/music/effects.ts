@@ -71,6 +71,33 @@ export function chorusRun(bus: Bus, lo: number, end: number, amount: number): nu
   return stop;
 }
 
+/**
+ * Echoes whose distance changes with the tempo: `delayAt(seconds)` is how many samples back the echo heard at that moment comes from
+ * (asked every 32 samples). Read between samples, so a slowing tempo stretches the echoes smoothly. Otherwise as `delayRun`.
+ */
+export function delayRunVarying(bus: Bus, lo: number, end: number, delayAt: (sec: number) => number, mix: number, feedback: number): number {
+  const extra = Math.round(0.007 * SR), L = bus.L, R = bus.R;
+  let longest = 1;
+  for (let i = lo; i < cap(bus, end + 1); i += 256) longest = Math.max(longest, delayAt(i / SR));
+  const repeats = feedback > 0 ? Math.ceil(Math.log(0.001) / Math.log(feedback)) : 1;
+  // the echoes of the last sound reach this far (a slowing tempo spaces them out: measure there too)
+  for (let k = 1, at = end; k <= repeats; k++) { const d = delayAt(at / SR); longest = Math.max(longest, d); at += d; }
+  const stop = cap(bus, end + Math.ceil((longest + extra) * repeats) + 1), n = stop - lo;
+  const dl = new Float32Array(n), dr = new Float32Array(n);
+  const read = (a: Float32Array, base: number, pos: number): number => { if (pos < 0) return 0; const i0 = Math.floor(pos), fr = pos - i0; return (a[base + i0] ?? 0) * (1 - fr) + (a[base + i0 + 1] ?? 0) * fr; };
+  let ml = 0, mr = 0, D = 1;
+  for (let i = 0; i < n; i++) {
+    if (i % 32 === 0) D = Math.max(1, delayAt((lo + i) / SR));
+    const pl = i - D, pr = i - D - extra;
+    const xl = read(L, lo, pl), xr = read(R, lo, pr), fl = read(dl, 0, pl), fr = read(dr, 0, pr);
+    ml += 0.35 * (fl - ml); mr += 0.35 * (fr - mr);
+    dl[i] = xl + feedback * (fl * 0.6 + ml * 0.4);
+    dr[i] = xr + feedback * (fr * 0.6 + mr * 0.4);
+  }
+  for (let i = 0; i < n; i++) { L[lo + i] = L[lo + i]! + dl[i]! * mix; R[lo + i] = R[lo + i]! + dr[i]! * mix; }
+  return stop;
+}
+
 /** Echoes `delay` samples apart (the right side a hair later, for width), each `feedback` as loud as the last and a little darker. */
 export function delayRun(bus: Bus, lo: number, end: number, delay: number, mix: number, feedback: number): number {
   const D = Math.max(1, delay), DR = D + Math.round(0.007 * SR);
