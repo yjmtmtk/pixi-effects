@@ -2,6 +2,7 @@ import { Assets } from 'pixi.js';
 import { Sequence } from './Base';
 import { normalizeKeyframe } from '../core/Timeline';
 import { describeLayer } from '../core/lint';
+import { soundLevel } from './soundLevel';
 import { remapOf, clockTable, type TimeRemap } from '../core/remap';
 import type { AudioLayerSpec, AudioAssetSpec, AudioSfxSpec, AudioMusicSpec, AudioDescriptor } from '../types';
 import { AUDIO_FORMATS, type AudioAssetData } from '../core/AssetLoader';
@@ -106,7 +107,8 @@ export class AudioSequence extends Sequence {
   override collectAudio(out: AudioDescriptor[], baseTime: number): void {
     if (!this._audioBuffer && !this._synth) return;
     // `volume` at the top level, or `initial: { volume }` like every other layer's starting values (the top level wins)
-    const initialVolume = this.spec.volume ?? (this.spec.initial as { volume?: number } | undefined)?.volume ?? 1;
+    const scope = this.scope() as unknown as Record<string, number>, layer = describeLayer(this.spec);
+    const initialVolume = soundLevel(this.spec.volume ?? (this.spec.initial as { volume?: unknown } | undefined)?.volume, scope, layer);
     const t0 = baseTime + this.at;
     const dur = this.duration!;
     const sourceMap = this._remap
@@ -122,11 +124,11 @@ export class AudioSequence extends Sequence {
       start: t0,
       end: t0 + dur,
       initialVolume,
-      volumeKeyframes: this._volumePoints(t0, dur, initialVolume),
+      volumeKeyframes: this._volumePoints(t0, dur, initialVolume, scope, layer),
     });
   }
 
-  private _volumePoints(t0: number, dur: number, initialVolume: number): { time: number; value: number }[] {
+  private _volumePoints(t0: number, dur: number, initialVolume: number, scope: Record<string, number>, layer: string): { time: number; value: number }[] {
     const volumeKeyframes: { time: number; value: number }[] = [];
     // The mixer ramps linearly from the PREVIOUS event to each point. So, like every other keyframe, a
     // volume change must (1) hold the value it has until its own start (a point at `start` with the
@@ -140,9 +142,10 @@ export class AudioSequence extends Sequence {
     for (const kf of keyframes) {
       const start = t0 + kf.at;
       const end = start + kf.duration;
-      const set = (kf.set as Record<string, number> | undefined)?.volume;
-      const to = (kf.to as Record<string, number> | undefined)?.volume;
-      const from = (kf.from as Record<string, number> | undefined)?.volume;
+      const level = (v: unknown): number | undefined => (v === undefined ? undefined : soundLevel(v, scope, layer));
+      const set = level((kf.set as Record<string, unknown> | undefined)?.volume);
+      const to = level((kf.to as Record<string, unknown> | undefined)?.volume);
+      const from = level((kf.from as Record<string, unknown> | undefined)?.volume);
       point(start, current);                               // hold until the keyframe starts
       if (kf.kind === 'set' && set !== undefined) {
         point(start, set);

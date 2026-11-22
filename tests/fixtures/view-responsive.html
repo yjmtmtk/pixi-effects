@@ -7,11 +7,16 @@
     body { background: #0d1220; margin: 0; padding: 16px; }
     .stage { position: relative; width: min(960px, 100%); }
     .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    .centred .stage { margin: 0 auto; }
+    .vertical .stage { width: min(420px, 100%); margin: 0 auto; }
   </style>
 </head>
 <body>
-  <!-- Fixture for tests/tools/view.test.ts: laid out as skills/pixi-effects/template.html (a canvas that follows the page's width) with the player bar. -->
+  <!-- Fixture for tests/tools/view.test.ts: laid out as skills/pixi-effects/template.html (a canvas that follows the page's width) with the player bar.
+       ?centred: the box capped at 960px and centred; ?vertical: a 9:16 piece capped at 420px and centred (as the vertical gallery pieces are). -->
+  <script>const q = new URLSearchParams(location.search); if (q.has('centred')) document.body.className = 'centred'; if (q.has('vertical')) document.body.className = 'vertical';</script>
   <div class="stage"><canvas id="stage" width="1280" height="720"></canvas></div>
+  <script>if (new URLSearchParams(location.search).has('vertical')) { const c = document.getElementById('stage'); c.width = 720; c.height = 1280; }</script>
   <script>window.__logs = []; for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.join(' ')); o(...a); }; }</script>
   <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
   <script type="module">
@@ -21,7 +26,8 @@
     window.movie = movie;
     new Controller(movie, { canvas: document.getElementById('stage') });
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#1b2440',
+      const vertical = new URLSearchParams(location.search).has('vertical');
+      await movie.init({ canvas: document.getElementById('stage'), width: vertical ? 720 : 1280, height: vertical ? 1280 : 720, duration: 4, frameRate: 30, background: '#1b2440',
         composition: { layers: [{ type: 'text', text: 'player bar', style: { fontSize: 80, fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } }] } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }

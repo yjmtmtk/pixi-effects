@@ -197,44 +197,46 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs �
     }
   }, 90_000);
 
-  it('in a small window the page is made narrower, not scaled: the player bar keeps its size; a page that cannot narrow is still scaled to fit', async () => {
-    const open = async (page: string) => {
-      const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, page), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
-      const url: string = await new Promise((res, rej) => {
-        let buf = '';
-        const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);
-        proc.stdout!.on('data', d => { buf += d; const m = buf.match(/(http:\/\/127\.0\.0\.1:\d+\/__viewer)/); if (m) { clearTimeout(t); res(m[1]!); } });
-      });
-      return { proc, url };
-    };
+  it('in a small window the page is made narrower, not scaled: the player bar keeps its size (a centred, capped page and a 9:16 one too); a page that cannot narrow is still scaled to fit', async () => {
     const userDataDir = mkdtempSync(join(tmpdir(), 'view-test-'));
     const { proc: chromeProc, cdp } = await launchPage(chrome, userDataDir);
     const procs: Array<ReturnType<typeof spawn>> = [];
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');
-      await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1000, height: 620, deviceScaleFactor: 1, mobile: false });
-      const look = async (page: string) => {
-        const { proc, url } = await open(page); procs.push(proc);
+      const look = async (page: string, query: string, w: number, h: number) => {
+        await cdp.send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
+        const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, page), '--no-open', ...(query ? ['--query', query] : [])], { stdio: ['ignore', 'pipe', 'inherit'] });
+        procs.push(proc);
+        const url: string = await new Promise((res, rej) => {
+          let buf = '';
+          const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);
+          proc.stdout!.on('data', d => { buf += d; const m = buf.match(/(http:\/\/127\.0\.0\.1:\d+\/__viewer)/); if (m) { clearTimeout(t); res(m[1]!); } });
+        });
         await cdp.send('Page.navigate', { url });
         let ready = false;
         for (let i = 0; i < 100 && !ready; i++) { await check.sleep(300); ready = await cdp.eval("!!document.querySelector('#plot svg')").catch(() => false); }
         expect(ready).toBe(true);
-        await check.sleep(300);
+        await check.sleep(400);
         return cdp.eval(`(() => {
-          const f = document.getElementById('page'), st = document.getElementById('stage'), d = f.contentDocument;
+          const f = document.getElementById('page'), st = document.getElementById('stage').getBoundingClientRect(), fr = f.getBoundingClientRect(), d = f.contentDocument;
           const m = getComputedStyle(f).transform, scale = m === 'none' ? 1 : new DOMMatrix(m).a;
-          const c = d.querySelector('canvas').getBoundingClientRect(), bar = d.querySelector('.movie-controller button');
-          return { scale, canvasBottom: c.bottom * scale, stageH: st.getBoundingClientRect().height, barH: bar ? bar.getBoundingClientRect().height * scale : null, barCss: bar ? bar.offsetHeight : null, canvasW: c.width * scale };
+          const c = d.querySelector('canvas').getBoundingClientRect(), play = d.querySelector('.movie-controller .mc-play');
+          return { scale, fits: fr.left + c.left * scale - st.left >= -1 && fr.left + c.right * scale - st.left <= st.width + 1 && fr.top + c.top * scale - st.top >= -1 && fr.top + c.bottom * scale - st.top <= st.height + 1,
+            playScreen: play ? play.getBoundingClientRect().height * scale : null, playOwn: play ? play.offsetHeight : null, stageH: st.height };
         })()`);
       };
-      const responsive = await look('tests/fixtures/view-responsive.html');
-      expect(responsive.scale).toBe(1);                                         // not scaled: the page laid itself out narrower
-      expect(responsive.barH).toBeCloseTo(responsive.barCss, 0);                // the player bar's buttons at their own size
-      expect(responsive.canvasBottom).toBeLessThanOrEqual(responsive.stageH + 1); // and the picture fits
-      expect(responsive.stageH).toBeLessThan(620 - 200);                        // leaving room for the timeline
-      const fixed = await look('tests/films/timeline.html');                    // a 640 × 360 canvas with no CSS: it cannot narrow
-      expect(fixed.canvasBottom).toBeLessThanOrEqual(fixed.stageH + 1);
+      for (const [query, w, h] of [['', 1000, 620], ['centred', 1280, 800], ['vertical', 1280, 800], ['vertical', 600, 900], ['centred', 600, 900]] as const) {
+        const r = await look('tests/fixtures/view-responsive.html', query, w, h);
+        const what = `${query || 'plain'} at ${w}x${h}`;
+        expect(r.scale, what).toBe(1);                                          // not scaled: the page laid itself out narrower
+        expect(r.fits, what).toBe(true);                                        // and the picture is inside the stage
+        expect(r.playOwn, what).toBeGreaterThan(20);                            // the player bar's button is really there …
+        expect(r.playScreen, what).toBeCloseTo(r.playOwn, 0);                   // … at its own size
+        expect(r.stageH, what).toBeLessThan(h - 200);                           // leaving room for the timeline
+      }
+      const fixed = await look('tests/films/timeline.html', '', 600, 900);      // a 640 × 360 canvas with no CSS, wider than the window: scaled to fit
+      expect(fixed.fits).toBe(true);
     } finally {
       try { chromeProc.kill(); } catch { /* gone */ }
       for (const p of procs) p.kill();
@@ -301,6 +303,101 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs �
       try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
     }
   }, 120_000);
+
+  /** A viewer on `page` (with `query`) in a fresh Chrome tab of `w` × `h`; `ready()` waits for the timeline. */
+  async function viewer(page: string, o: { query?: string; w?: number; h?: number } = {}) {
+    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, page), '--no-open', ...(o.query ? ['--query', o.query] : [])], { stdio: ['ignore', 'pipe', 'inherit'] });
+    const url: string = await new Promise((res, rej) => {
+      let buf = '';
+      const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);
+      proc.stdout!.on('data', d => { buf += d; const m = buf.match(/(http:\/\/127\.0\.0\.1:\d+\/__viewer)/); if (m) { clearTimeout(t); res(m[1]!); } });
+    });
+    const userDataDir = mkdtempSync(join(tmpdir(), 'view-test-'));
+    const { proc: chromeProc, cdp } = await launchPage(chrome, userDataDir);
+    await cdp.send('Runtime.enable');
+    await cdp.send('Page.enable');
+    if (o.w) await cdp.send('Emulation.setDeviceMetricsOverride', { width: o.w, height: o.h, deviceScaleFactor: 1, mobile: false });
+    await cdp.send('Page.navigate', { url });
+    const until = async (expr: string, tries = 100) => { let v = false; for (let i = 0; i < tries && !v; i++) { await check.sleep(300); v = await cdp.eval(expr).catch(() => false); } return v; };
+    const close = async () => { try { chromeProc.kill(); } catch { /* gone */ } proc.kill(); await check.sleep(200); try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* held */ } };
+    return { cdp, until, close, ready: () => until("!!document.querySelector('#plot svg')") };
+  }
+  const press = (cdp: any, key: string) => cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key, text: key }).then(() => cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key }));
+
+  it('a page that could not start comes back with R, or by itself with auto, once it is fixed and saved; the old page\'s sound problems are gone', async () => {
+    const live = join(root, 'tests/fixtures/view-recover.tmp.html');
+    const good = readFileSync(join(root, 'tests/fixtures/view-warnings.html'), 'utf8');
+    const quiet = good.replace("vars: { popVol: 1 }", "vars: { popVol: 0.0001 }");   // an inaudible sound: a sound problem
+    const broken = good.replace("window.__ready = true;", "throw new Error('a missing image');");
+    writeFileSync(live, quiet);
+    const v = await viewer('tests/fixtures/view-recover.tmp.html');
+    try {
+      expect(await v.ready()).toBe(true);
+      expect(await v.until("document.getElementById('warnings').textContent.includes('sound:')", 20)).toBe(true);
+      for (const how of ['R', 'auto'] as const) {
+        writeFileSync(live, broken);
+        expect(await v.until("!document.getElementById('update').hidden", 30)).toBe(true);
+        await v.cdp.eval("document.getElementById('reload').click()");
+        expect(await v.until("/could not start/.test(document.getElementById('status').textContent)", 60)).toBe(true);
+        expect(await v.cdp.eval("document.getElementById('warnings').textContent.includes('sound:')")).toBe(false);   // not the old page's
+        if (how === 'auto') await v.cdp.eval("document.getElementById('auto').checked = true; document.getElementById('auto').dispatchEvent(new Event('change'))");
+        writeFileSync(live, quiet);
+        expect(await v.until("!document.getElementById('update').hidden || !!document.querySelector('#plot svg')", 30)).toBe(true);
+        if (how === 'R') await press(v.cdp, 'r');
+        expect(await v.ready(), how).toBe(true);
+        if (how === 'auto') await v.cdp.eval("document.getElementById('auto').checked = false; document.getElementById('auto').dispatchEvent(new Event('change'))");
+      }
+    } finally {
+      await v.close();
+      rmSync(live, { force: true });
+    }
+  }, 180_000);
+
+  it('a stray error before the movie is ready does not stop the wait: the timeline comes when the movie does', async () => {
+    const v = await viewer('tests/fixtures/view-uncaught.html');
+    try {
+      expect(await v.ready()).toBe(true);
+      expect(await v.cdp.eval("document.getElementById('warnings').textContent")).toContain('a stray widget failed');   // still listed
+    } finally { await v.close(); }
+  }, 90_000);
+
+  it('two reloads in a row build the timeline once', async () => {
+    const v = await viewer('tests/films/timeline.html');
+    try {
+      expect(await v.ready()).toBe(true);
+      const before = await v.cdp.eval('+document.body.dataset.mounts');
+      await v.cdp.eval("document.getElementById('reload').click(); setTimeout(() => document.getElementById('reload').click(), 30)");
+      await check.sleep(500);
+      expect(await v.ready()).toBe(true);
+      await check.sleep(2500);
+      expect(await v.cdp.eval('+document.body.dataset.mounts')).toBe(before + 1);
+    } finally { await v.close(); }
+  }, 90_000);
+
+  it('opening the warnings keeps the timeline usable: the page makes room for the list', async () => {
+    const v = await viewer('tests/fixtures/view-warnings.html', { w: 1000, h: 700 });
+    try {
+      expect(await v.ready()).toBe(true);
+      await check.sleep(1500);
+      await v.cdp.eval("document.getElementById('warn').click()");
+      await check.sleep(300);
+      expect(await v.cdp.eval("document.getElementById('chart').getBoundingClientRect().height")).toBeGreaterThan(150);
+    } finally { await v.close(); }
+  }, 90_000);
+
+  it('after setVars rebuilds the movie, the sound row shows the new sound', async () => {
+    const v = await viewer('tests/fixtures/view-warnings.html');
+    try {
+      expect(await v.ready()).toBe(true);
+      const wave = () => v.cdp.eval("document.querySelector('#plot svg .sound .wave').getAttribute('d')");
+      const before = await wave();
+      await v.cdp.eval("document.getElementById('page').contentWindow.movie.setVars({ popVol: 0.0001 })");
+      let changed = false;
+      for (let i = 0; i < 30 && !changed; i++) { await check.sleep(300); changed = (await wave().catch(() => before)) !== before; }
+      expect(changed).toBe(true);
+      expect(await v.until("document.getElementById('warnings').textContent.includes('inaudible')", 20)).toBe(true);   // and its sound problems
+    } finally { await v.close(); }
+  }, 90_000);
 
   for (const [query, want] of [['', /BUILDING LAYERS\s+62%/], ['event', /LOADING ASSETS\s+40%/]] as const)
   it(`while the movie builds, the viewer shows how far it is (${query ? 'from the loadprogress event' : 'from the page loader'}), not a bare "loading"`, async () => {

@@ -12,12 +12,12 @@ const SR = 44100;
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
 
 /** Render an audio layer of constant amplitude 1 through the real mixer, return its level at `times` seconds. */
-async function levels(spec: Record<string, unknown>, times: number[], total = 10): Promise<number[]> {
+async function levels(spec: Record<string, unknown>, times: number[], total = 10, shape: CompositionShape = comp): Promise<number[]> {
   const probe = new OfflineAudioContext(1, SR, SR);
   const buffer = probe.createBuffer(1, SR * total, SR);
   buffer.getChannelData(0).fill(1);
   (Assets as unknown as { get: unknown }).get = async () => ({ audioBuffer: buffer, duration: total });
-  const seq = new AudioSequence({ type: 'audio', asset: 'a', loop: true, ...spec } as unknown as LayerSpec, comp, comp);
+  const seq = new AudioSequence({ type: 'audio', asset: 'a', loop: true, ...spec } as unknown as LayerSpec, shape, shape);
   await seq.build();
   const out: AudioDescriptor[] = [];
   seq.collectAudio(out, 0);
@@ -112,5 +112,22 @@ describe('audio layer default duration', () => {
 
   it('an explicit duration always wins', async () => {
     expect(await durationOf({ loop: true, duration: 3 })).toBe(3);
+  });
+});
+
+describe('a volume may be an expression, like every other number (a variable, arithmetic)', () => {
+  const withVars = { ...comp, vars: { loud: 0.5 } } as CompositionShape;
+  it('volume: "loud" and a keyframe to: { volume: "loud * 2" } use the variable (it crashed the whole movie: a non-finite AudioParam value)', async () => {
+    const [start, end] = await levels({ duration: 10, volume: 'loud', keyframes: [{ at: 4, to: { volume: 'loud * 2' }, duration: 1 }] }, [1, 6], 10, withVars);
+    expect(start).toBeCloseTo(0.5, 2);
+    expect(end).toBeCloseTo(1, 2);
+  });
+  it('a volume that is not a number names the layer and plays at 1 instead of stopping the movie', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const [v] = await levels({ name: 'bed', duration: 10, volume: 'loudd' }, [1], 10, withVars);
+    const said = warn.mock.calls.map(c => String(c[0])).join('\n');
+    warn.mockRestore();
+    expect(v).toBeCloseTo(1, 2);
+    expect(said).toMatch(/layer "bed".*volume "loudd" is not a number.*did you mean "loud"/);
   });
 });

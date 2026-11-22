@@ -173,20 +173,31 @@ export function viewerHtml({ pageUrl, title }) {
   function shown() { layout(); stage.classList.remove('pending'); frame.classList.remove('pending'); document.getElementById('wait').hidden = true; }
 
   /** Wait for the page inside to be a ready movie, then (re)build the timeline. \`restore\` = { frame, playing }: go back where the viewer was. */
+  let gen = 0, stuck = false;                                       // gen: the latest attach (an older one stops); stuck: the page did not start
   async function attach(restore) {
-    movie = null; svg = null; head = null; geom = null;
+    const mine = ++gen;
+    movie = null; svg = null; head = null; geom = null; stuck = false;
     $status.classList.remove('failed'); $status.textContent = 'loading the page…';
     const t0 = Date.now();
+    let strayAt = 0;
     for (let i = 0; i < 600 && !movie; i++) {
+      if (mine !== gen) return;                                      // a newer reload took over
       showProgress(t0);
       let failed = '';
       try {
         const w = frame.contentWindow;
         if (w && w.__ready === true && w.movie) movie = w.movie;
-        // the template's way of failing: init threw and said why in window.__logs (__ready never comes): say it now, not after two minutes
-        else failed = ((w && w.__logs) || []).find(l => /^(init failed|init:|uncaught)/.test(String(l))) || '';
+        else {
+          const logs = ((w && w.__logs) || []).map(String);
+          // the template's way of failing: init threw and said why in window.__logs (__ready never comes): say it now, not after two minutes
+          failed = logs.find(l => /^(init failed|init:)/.test(l)) || '';
+          // a stray error elsewhere on the page may not stop the movie: give it 5 s more to become ready before calling it a failure
+          const stray = logs.find(l => /^(uncaught|unhandled)/.test(l));
+          if (!failed && stray) { strayAt = strayAt || Date.now(); if (Date.now() - strayAt > 5000) failed = stray; }
+        }
       } catch { /* still loading */ }
       if (failed) {
+        stuck = true;
         shown();                                                     // the page as it is: it may show where it went wrong
         $status.classList.add('failed');
         $status.textContent = 'the movie could not start — ' + String(failed).replace(/^init( failed)?:\\s*/, '') + ' (fix it and save: view offers a reload)';
@@ -194,7 +205,9 @@ export function viewerHtml({ pageUrl, title }) {
       }
       if (!movie) await sleep(200);
     }
+    if (mine !== gen) return;
     if (!movie) {
+      stuck = true;
       let logs = '';
       try { logs = (frame.contentWindow.__logs || []).slice(-3).join(' | '); } catch { /* unreadable */ }
       shown();
@@ -214,6 +227,7 @@ export function viewerHtml({ pageUrl, title }) {
     const restore = movie ? { frame: movie.currentFrame, playing: movie.isPlaying } : null;
     pending = false; $update.hidden = true;
     movie = null; svg = null; head = null; geom = null; plot.innerHTML = ''; names.innerHTML = '';
+    sound = null; soundIssues = []; warnShown = null; readWarnings();   // nothing of the old page's is shown for the new one
     const loaded = new Promise(r => frame.addEventListener('load', r, { once: true }));
     try { frame.contentWindow.location.reload(); } catch { frame.src = frame.src; }
     await loaded;
@@ -222,13 +236,13 @@ export function viewerHtml({ pageUrl, title }) {
   $reload.addEventListener('click', reload);
   $auto.addEventListener('change', () => { try { localStorage.setItem('pe-view-auto', $auto.checked ? '1' : '0'); } catch { /* storage may be blocked */ } });
   // auto only while the movie is paused and nobody is dragging: otherwise the notice waits
-  const maybeAuto = () => { if (pending && $auto.checked && movie && !movie.isPlaying && !scrubbing) reload(); };
+  const maybeAuto = () => { if (pending && $auto.checked && !scrubbing && (stuck || (movie && !movie.isPlaying))) reload(); };
 
   // does the work still look the same? (the server's number goes up when a file in the folder changes)
   // ---- what the page warned about: its window.__logs (the template collects every console warning there), and the sound's problems
   const $warn = document.getElementById('warn'), $warnings = document.getElementById('warnings');
   let soundIssues = [], warnShown = '';
-  $warn.addEventListener('click', () => { $warnings.hidden = !$warnings.hidden; });
+  $warn.addEventListener('click', () => { $warnings.hidden = !$warnings.hidden; layout(); });
   function readWarnings() {
     let logs = [];
     try { logs = (frame.contentWindow.__logs || []).map(String).filter(l => /^(warn|error|uncaught|unhandled|init)/.test(l)); } catch { /* reloading */ }
@@ -316,36 +330,37 @@ export function viewerHtml({ pageUrl, title }) {
   // keeps its picture at the left edge (the template does) is still centred: the iframe is as wide as the page's own content, then centred.
   function layout() {
     const stageW = stage.clientWidth || innerWidth, headH = document.querySelector('header').offsetHeight;
-    const room = Math.max(200, innerHeight - headH - 240);
-    let h = 560, cw = stageW, c = null;
-    frame.style.width = stageW + 'px'; frame.style.transform = 'none'; frame.style.marginLeft = '0px';
-    try {
-      c = frame.contentDocument.querySelector('canvas');
-      if (c) { const r = c.getBoundingClientRect(); h = Math.round(r.height + 40); cw = Math.min(stageW, Math.round(r.right + r.left)); }
-    } catch { /* a page we cannot read */ }
-    const k = Math.min(1, room / h);
-    if (k < 1 && c) {
-      // too tall: make the page NARROWER rather than smaller. A page whose canvas follows its width (the template's does) lays itself out
-      // again, and its player bar keeps its own size; scaling the whole frame would shrink the bar until it cannot be used.
-      let w = Math.max(200, Math.floor(cw * k)), fits = false;
-      for (let i = 0; i < 3 && !fits; i++) {
-        frame.style.width = w + 'px';
-        const r = c.getBoundingClientRect(), h2 = Math.round(r.height + 40);
-        if (r.right > w + 1) break;                                   // the canvas did not follow: this page cannot narrow
-        if (h2 <= room + 1) {
-          fits = true;
-          frame.style.height = h2 + 'px'; stage.style.height = h2 + 'px';
-          frame.style.marginLeft = Math.max(0, Math.round((stageW - w) / 2)) + 'px';
-        } else w = Math.max(200, Math.floor(w * (room / h2)));       // the page's own margins: a little narrower again
-      }
-      if (fits) return;
+    const listH = $warnings.hidden ? 0 : $warnings.offsetHeight;           // the warnings list, when open, takes its share of the height
+    const room = Math.max(160, innerHeight - headH - listH - 240);
+    frame.style.transform = 'none'; frame.style.marginLeft = '0px'; frame.style.width = stageW + 'px';
+    let c = null;
+    try { c = frame.contentDocument.querySelector('canvas'); } catch { /* a page we cannot read */ }
+    const place = (w, h, k) => {                                         // the frame w wide (its own pixels), h tall, scaled by k, centred
+      frame.style.width = w + 'px'; frame.style.height = h + 'px';
+      frame.style.transform = k === 1 ? 'none' : 'scale(' + k + ')';
+      frame.style.marginLeft = Math.max(0, Math.round((stageW - w * k) / 2)) + 'px';
+      stage.style.height = Math.round(h * k) + 'px';
+    };
+    if (!c) { const k = Math.min(1, room / 560); place(stageW, 560, k); return; }
+    const look = w => {                                                  // at frame width w: where the canvas is and how tall the frame must be
+      frame.style.width = w + 'px';
+      const r = c.getBoundingClientRect();
+      return { r, h: Math.round(Math.max(r.height + 40, r.bottom + 16)), cw: Math.round(r.right + Math.max(0, r.left)) };
+    };
+    const fits = m => m.r.left >= -1 && m.r.right <= parseFloat(frame.style.width) + 1 && m.h <= room;
+    const full = look(stageW);
+    if (fits(full)) { place(Math.min(stageW, full.cw), full.h, 1); return; }
+    // too tall (or too wide): find the widest frame the page fits in when it lays itself out again (a canvas that follows its box,
+    // as the template's does, even one capped and centred); the player bar then keeps its own size. Scaling would shrink it too.
+    let lo = 200, hi = stageW, best = null;
+    for (let i = 0; i < 14 && hi - lo > 2; i++) {
+      const w = Math.floor((lo + hi) / 2), m = look(w);
+      if (fits(m)) { best = { w, m }; lo = w; } else hi = w;
     }
-    const s = k;
-    frame.style.width = cw + 'px';
-    frame.style.transform = 'scale(' + s + ')';
-    frame.style.marginLeft = Math.max(0, Math.round((stageW - cw * s) / 2)) + 'px';
-    frame.style.height = h + 'px';
-    stage.style.height = Math.round(h * s) + 'px';
+    if (best) { place(best.w, best.m.h, 1); return; }
+    // a page that cannot narrow (a fixed-size canvas): scaled to fit, as before
+    const m = look(stageW), k = Math.min(1, room / m.h, stageW / Math.max(1, m.cw));
+    place(Math.max(stageW, m.cw), m.h, k);
   }
   frame.addEventListener('load', layout);
   addEventListener('resize', () => { layout(); if (svg) render(null); });
@@ -409,14 +424,22 @@ export function viewerHtml({ pageUrl, title }) {
   function onMove(e) { if (scrubbing) seekTime(clientToTime(e.clientX)); }
   function onEnd() { if (!scrubbing) return; scrubbing = false; if (wasPlaying) movie.play(); }
 
-  function mount() {
+  /** The names column: one per row of the chart, and the sound row's name when there is sound. */
+  function drawNames() {
     const data = movie.timelineData();
-    readSound();
-    warnShown = null; readWarnings();
     names.innerHTML = '<div class="ruler" style="height:34px"></div>' + data.rows.map(r =>
       '<div class="name" data-start="' + r.start + '" style="padding-left:' + (8 + r.depth * 14) + 'px" title="' + esc(r.path + ' · ' + r.type) + '">' + esc(r.name) + '</div>').join('')
       + (sound ? '<div class="name sound" data-start="0" style="height:' + SOUND_H + 'px;line-height:' + SOUND_H + 'px;padding-left:8px" title="the mix: its waveform, and a mark where each sound starts">sound</div>' : '');
+  }
+  function mount() {
+    document.body.dataset.mounts = String((+document.body.dataset.mounts || 0) + 1);
+    readSound();
+    warnShown = null; readWarnings();
+    drawNames();
     render(null);
+    // setVars / resize / rebuild built the movie again: its rows and its sound may have changed
+    const m = movie;
+    if (typeof m.on === 'function') m.on('rebuilt', () => { if (movie !== m) return; readSound(); warnShown = null; readWarnings(); drawNames(); render(null); });
     $status.textContent = 'click or drag the timeline · Space plays · ← → step a frame (Shift: a second) · + / − zoom (Ctrl/⌘ + wheel) · click a layer name to jump to its start';
     $play.disabled = false; $zfit.disabled = true;
     if (bound) return;                                              // the controls below are bound once; a reload only rebuilds the timeline
@@ -434,23 +457,25 @@ export function viewerHtml({ pageUrl, title }) {
       const t = overPlot ? clientToTime(e.clientX) : nowT(), x = overPlot ? e.clientX - r.left : playheadAnchor().x;
       setZoom(zoom * Math.exp(-e.deltaY * 0.0025), { t, x });
     }, { passive: false });
-    addEventListener('keydown', e => {
-      if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
-      if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); reload(); return; }
-      if (!movie) return;
-      const fps = movie.frameRate, f = movie.currentFrame;
-      if (e.key === ' ') { e.preventDefault(); toggle(); }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); seekFrame(f - (e.shiftKey ? fps : 1)); }
-      else if (e.key === 'ArrowRight') { e.preventDefault(); seekFrame(f + (e.shiftKey ? fps : 1)); }
-      else if (e.key === 'Home') { e.preventDefault(); seekFrame(0); }
-      else if (e.key === 'End') { e.preventDefault(); seekFrame(movie.totalFrames); }
-      else if (e.key === '+' || e.key === '=') { e.preventDefault(); setZoom(zoom * 1.6, playheadAnchor()); }
-      else if (e.key === '-') { e.preventDefault(); setZoom(zoom / 1.6, playheadAnchor()); }
-      else if (e.key === '0') { e.preventDefault(); setZoom(1, null); }
-    });
-    requestAnimationFrame(tick);
   }
   const toggle = () => { if (!movie) return; if (movie.isPlaying) movie.pause(); else movie.play(); };
+
+  // keys and the playhead's clock are bound once, before any page is ready: R reloads even a page that never started
+  addEventListener('keydown', e => {
+    if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
+    if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); reload(); return; }
+    if (!movie) return;
+    const fps = movie.frameRate, f = movie.currentFrame;
+    if (e.key === ' ') { e.preventDefault(); toggle(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); seekFrame(f - (e.shiftKey ? fps : 1)); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); seekFrame(f + (e.shiftKey ? fps : 1)); }
+    else if (e.key === 'Home') { e.preventDefault(); seekFrame(0); }
+    else if (e.key === 'End') { e.preventDefault(); seekFrame(movie.totalFrames); }
+    else if (e.key === '+' || e.key === '=') { e.preventDefault(); setZoom(zoom * 1.6, playheadAnchor()); }
+    else if (e.key === '-') { e.preventDefault(); setZoom(zoom / 1.6, playheadAnchor()); }
+    else if (e.key === '0') { e.preventDefault(); setZoom(1, null); }
+  });
+  requestAnimationFrame(tick);
 
   function tick() {
     if (!movie || !head || !geom) { maybeAuto(); requestAnimationFrame(tick); return; }

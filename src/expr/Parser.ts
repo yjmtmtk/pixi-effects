@@ -205,6 +205,12 @@ export function isExpr(v: unknown): v is string {
   return typeof v === 'string' && v.length > 0;
 }
 
+/** An expression's value, or why it has none (an unknown name, a typo), without printing anything: for a caller that says it its own way. */
+export function tryEvaluateExpr(source: string, scope: Record<string, number>): { value: number } | { error: string } {
+  try { return { value: evalNode(parse(source), scope) }; }
+  catch (e) { return { error: (e as Error).message }; }
+}
+
 export function evaluateExpr(source: string, scope: Record<string, number>): number {
   let ast = astCache.get(source);
   if (ast === undefined) {

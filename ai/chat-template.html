@@ -78,7 +78,7 @@
   <script type="module">
     import { Movie, kenBurns, withFade, wiggle, stagger, animateText, followPath, particles } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
-    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present'; use deck({ pages: [...] }) and new Presenter(movie, { canvas }) instead of the Controller.
+    // A talk instead of a video: import { deck } from 'pixi-effects/present'; use deck({ pages: [...] }): the Controller plays it stop to stop (Presenter is deprecated, removed in 2.0: do not use it).
     // A 3D scene as a layer (inside the edit block, before init): const { register3D } = await import('pixi-effects/3d'); const { Mesh3D, CubeGeometry, Material3D, DirectionalLight } = await import('@pixi/3d'); register3D(); then { type: 'scene3d', setup, update }.
 
     // ===================== EDIT FROM HERE =====================

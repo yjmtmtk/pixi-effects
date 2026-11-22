@@ -2,6 +2,7 @@ import { Sprite, Texture, Assets } from 'pixi.js';
 import { Sequence } from './Base';
 import { FrameCache, type FrameSink } from '../core/FrameCache';
 import { sourceLookup } from '../core/sourceTime';
+import { soundLevel } from './soundLevel';
 import { describeLayer } from '../core/lint';
 import { remapOf, bindClock, clockTable, type TimeRemap } from '../core/remap';
 import type { VideoLayerSpec, AudioDescriptor } from '../types';
@@ -107,7 +108,7 @@ export class VideoSequence extends Sequence {
 
   override collectAudio(out: AudioDescriptor[], baseTime: number): void {
     if (!this._audioBuffer) return;
-    const initialVolume = this.spec.volume ?? 1;
+    const initialVolume = soundLevel(this.spec.volume, this.scope() as unknown as Record<string, number>, describeLayer(this.spec));
     const t0 = baseTime + this.at;
     const sourceMap = this._remap
       ? clockTable(this._remap, 'currentTime', this.duration!, t0, this.scope() as unknown as Record<string, number>, t0 + this.duration!).at
