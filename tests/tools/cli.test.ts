@@ -33,7 +33,7 @@ describe('pixi-effects <check|render|view> — one command that is also the pack
   it('exports ./package.json (a tool reads the version with require("pixi-effects/package.json")), and AGENTS.md names `npx pixi-effects quickstart`', () => {
     const pkg = JSON.parse(execFileSync('cat', [resolve(root, 'package.json')], { encoding: 'utf8' }));
     expect(pkg.exports['./package.json']).toBe('./package.json');
-    expect(execFileSync('cat', [resolve(root, 'AGENTS.md')], { encoding: 'utf8' })).toMatch(/1\. [^\n]*npx pixi-effects quickstart/);
+    expect(execFileSync('cat', [resolve(root, 'AGENTS.md')], { encoding: 'utf8' })).toMatch(/npx pixi-effects quickstart/);
   });
 
   it('runs: with no command it exits 2 and prints the usage; with a bad one it exits 2 and names the command', () => {

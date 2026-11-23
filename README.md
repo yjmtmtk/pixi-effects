@@ -66,55 +66,9 @@ The `mediabunny` line is needed only to export (the download button, `movie.rend
 
 Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@1.3.0/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/3d`) share internal chunks, which only works when each file is served untouched.
 
-> **A 3D scene?** Add three more entries (`pixi-effects/3d`, `@pixi/3d`, `@pixi/3d/extras`) — see [Adding a 3D scene](#adding-a-3d-scene-optional) below.
+> **A 3D scene?** Add three more entries (`pixi-effects/3d`, `@pixi/3d`, `@pixi/3d/extras`; PixiJS 3D needs pixi.js 8.23+) — see [API reference § pixi-effects/3d](./docs/api.md#pixi-effects3d) for the lines and [DSL reference § scene3d](./docs/dsl.md#scene3d) for the layer. three.js can be drawn in a `canvas` layer (recipe `three-in-canvas`).
 >
 > **Want the unreleased `main`?** Point the `pixi-effects*` entries at the GitHub Pages build instead: `https://yjmtmtk.github.io/pixi-effects/dist/index.js` (and `Controller.js`, `3d.js`).
-
-#### Adding a 3D scene (optional)
-
-Add three entries to the importmap above (PixiJS 3D needs `pixi.js` 8.23.0 or later):
-
-```html
-<script type="importmap">
-{
-  "imports": {
-    "...":                     "(everything from the importmap above)",
-    "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@1.3.0/dist/3d.js",
-    "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
-    "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs"
-  }
-}
-</script>
-```
-
-```html
-<script type="module">
-  import { Movie } from 'pixi-effects';
-  import { register3D, scene3d } from 'pixi-effects/3d';         // BEFORE movie.init()
-  import { Mesh3D, TorusKnotGeometry, Material3D, DirectionalLight } from '@pixi/3d';
-
-  register3D();
-
-  // ...inside composition.layers:
-  scene3d({
-    type: 'scene3d', name: 'knot',
-    setup: ({ root, camera }) => {
-      const knot = new Mesh3D({ geometry: new TorusKnotGeometry(), material: new Material3D({ baseColor: 0x7fb4ff, roughness: 0.4 }) });
-      const sun = new DirectionalLight({ intensity: 3 }); sun.rotation.set(-0.8, 0.5, 0);
-      root.addChild(knot, sun);
-      camera.position.set(0, 0, 6); camera.lookAt({ x: 0, y: 0, z: 0 });
-      return { objects: { knot } };        // addressable from keyframes
-    },
-    keyframes: [{ at: 0, to: { 'scene3d.knot.rotation.y': Math.PI * 2 }, duration: 6 }],
-  })
-</script>
-```
-
-The scene is drawn inside PixiJS's renderer in the layer's place, so masks, filters, blend modes and opacity apply. `update(t)` must set everything from `t`. Full spec: [DSL reference § scene3d](./docs/dsl.md#scene3d) and [API reference](./docs/api.md#pixi-effects3d).
-
-#### three.js
-
-There is no three.js layer (it was removed in 0.52.0: PixiJS 3D is the 3D engine). To draw three.js itself, render it in a `canvas` layer: recipe `three-in-canvas` (`npx pixi-effects recipe three-in-canvas`). It plays, seeks and exports like any layer; it cannot be clicked or follow the composition's camera.
 
 ## Quickstart
 
@@ -168,20 +122,7 @@ layers: [
 
 ## For AI agents
 
-This library is designed to be written by AI: a video is plain data, and every mistake we found while having AI sessions build test animations is either warned about at runtime or written down.
-
-- [`llms.txt`](./llms.txt) / [`llms-full.txt`](./llms-full.txt) — index and full text for LLM tooling (generated from the files below).
-- [`skills/pixi-effects/SKILL.md`](./skills/pixi-effects/SKILL.md) — a [skill](https://docs.claude.com/en/docs/claude-code/skills) (workflow, rules, verification loop). Install it with `npx skills add yjmtmtk/pixi-effects` (or copy the `skills/pixi-effects/` folder to `~/.claude/skills/pixi-effects/` or your project's `.claude/skills/`) and your agent loads it by itself when you ask for a video.
-- [`skills/pixi-effects/reference/cheatsheet.md`](./skills/pixi-effects/reference/cheatsheet.md), [`recipes.md`](./skills/pixi-effects/reference/recipes.md) (tested), [`pitfalls.md`](./skills/pixi-effects/reference/pitfalls.md), and a starter [`skills/pixi-effects/template.html`](./skills/pixi-effects/template.html).
-
-- **Start a page, and read only what you need:** `npx pixi-effects new my-video` writes `my-video.html` from the template; `npx pixi-effects recipe [id]` lists the tested recipes and prints one with its code; `npx pixi-effects help <word>` prints the sections of the docs about a word (`mask`, `threeD`, `keyframes`, `music` …). An AI starts from the 2 KB [quick start](./skills/pixi-effects/reference/quickstart.md), not from the cheatsheet.
-- **Look at a page with its timeline, and scrub one with the other:** `npx pixi-effects view my-video.html` (it also watches the folder: when the work changes it shows "Updated hh:mm:ss — reload (R)" and never switches by itself; reload comes back to the same frame) (or `node ai/tools/view.mjs …`) opens **pixi-effects view** ("view" for short) in your browser (with a sound row: the mix's waveform and where each sound starts; and a ⚠ count of the page's warnings): the page on top, the timeline of every layer under it with a playhead that follows the movie. Click or drag the timeline to seek, click a layer's name to jump to where it starts, Space plays, ← / → step a frame, + / − (or Ctrl/⌘ + wheel) zoom, the names stay in place; "?" lists the keys, and Light / Dark / Auto sets its colours. For the human who wants to see what the AI made.
-- **Look at, listen to and cut footage you were handed, with no ffmpeg:** `npx pixi-effects probe clip.mp4` (codecs, size, rotation, sound), `frames clip.mp4 --sheet` (a contact sheet of any video), `sound clip.mp4` (loudness, peak, silences), `trim clip.mp4 3 8 -o cut.mp4` (by copy, with the real times), `concat a.mp4 b.mp4 -o both.mp4` (join clips by copy) and `audio clip.mp4 -o sound.m4a` (the sound alone). They use mediabunny, so there is nothing else to install (`frames`, `sound` and `trim --exact` use Chrome). If ffmpeg is installed and the job is a long transcode, use ffmpeg. See [`docs/media.md`](./docs/media.md).
-- **Render a page to a video file, headless:** `npx pixi-effects render my-video.html -o my-video.mp4` (or `node ai/tools/render.mjs …`; Node ≥ 22 and Chrome installed, no dependencies). The container follows the extension (`mp4 webm mov mkv`); `--quality very-low…very-high`, `--query lang=ja` (added to the page URL), `--strict` (exit 1 when the page logged a warning), `--quiet`. It waits for `window.__ready`, runs `movie.render()` and streams the file to disk; exit 0 = written, 1 = the page or the render failed (no file). For scripts, CI and batches; `pixi-effects check` below is the review.
-- **A talk as a PDF:** `npx pixi-effects render my-talk.html -o my-talk.pdf` (one page per page of a `deck()` / `stops` movie; `--all-stops` makes a page of every step). The review tool writes `stops.png` for such a page, one picture per stop.
-- **One-command review for the AI that wrote the page:** `npx pixi-effects check my-video.html` (or `node ai/tools/check.mjs my-video.html`; Node ≥ 22 and Chrome installed, no dependencies; a Chrome in another place: `CHROME_PATH=/path/to/chrome`). It opens the page in its own headless Chrome and reports warnings, layout (`movie.inspect` over the whole timeline), the soundtrack (`movie.inspectAudio`) and a real export decoded again, and writes a contact sheet PNG and a `timeline.html` (every layer as a bar on a time axis) to look at. Exit code 0 / 1.
-
-They ship in the npm package (`node_modules/pixi-effects/ai/`).
+A video is plain data, and every mistake found while having AI sessions build videos is warned about at runtime or written down. An agent reads [`AGENTS.md`](./AGENTS.md), then the 6 KB [skill](./skills/pixi-effects/SKILL.md) (`npx skills add yjmtmtk/pixi-effects` installs it); [`llms.txt`](./llms.txt) / [`llms-full.txt`](./llms-full.txt) are for LLM tooling. The command line ships in the npm package: `npx pixi-effects new | check | render | view | help | recipe`, and `npx pixi-effects probe | frames | sound | trim | concat | audio` for footage ([`docs/media.md`](./docs/media.md); if ffmpeg is installed and the job is a long transcode, use ffmpeg). `<command> --help` lists the options.
 
 ## Documentation
 

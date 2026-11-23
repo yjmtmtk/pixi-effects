@@ -24,7 +24,7 @@ describe('"Use https://github.com/yjmtmtk/pixi-effects to make a video" works as
 
   it('every repository file AGENTS.md sends an agent to exists, and every raw link points at a file that exists', () => {
     const files = [...agents.matchAll(/`((?:ai|docs|skills)\/[\w./-]+\.(?:md|html|mjs))`/g)].map(m => m[1]!);
-    expect(files.length).toBeGreaterThanOrEqual(6);
+    expect(files.length).toBeGreaterThanOrEqual(3);                               // the quick start, the skill, the development notes
     for (const f of files) expect(existsSync(resolve(root, f)), f).toBe(true);
     for (const m of agents.matchAll(/raw\.githubusercontent\.com\/yjmtmtk\/pixi-effects\/main\/([\w./-]+)/g)) expect(existsSync(resolve(root, m[1]!)), m[1]).toBe(true);
   });
@@ -36,8 +36,8 @@ describe('"Use https://github.com/yjmtmtk/pixi-effects to make a video" works as
     expect(bins).toEqual(['pixi-effects']);                                                       // one command: the older pixi-effects-check|render|view bins are gone
   });
 
-  it('CLAUDE.md hands Claude Code the same file, so there is one source of truth', () => {
-    expect(read('CLAUDE.md').trim()).toBe('@AGENTS.md');
+  it('CLAUDE.md hands Claude Code the same files, so there is one source of truth: AGENTS.md (making a video) and docs/development.md (changing the library)', () => {
+    expect(read('CLAUDE.md').trim()).toBe('@AGENTS.md\n@docs/development.md');
   });
 
   it('the chat path and the shell path both exist in the package (ai/ ships to npm)', () => {
