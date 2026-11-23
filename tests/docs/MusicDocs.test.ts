@@ -16,13 +16,13 @@ describe('music is documented as it is built', () => {
     for (const kind of Object.keys(CHORD_KINDS).filter(k => k !== '')) expect(music, `chord kind ${kind}`).toContain(`\`${kind}\``);
   });
 
-  it('the cheatsheet and SKILL name every instrument and drum', () => {
+  it('the cheatsheet names every instrument and drum, and SKILL sends to help music', () => {
     for (const file of ['skills/pixi-effects/reference/cheatsheet.md']) {
       const text = read(file);
       for (const i of INSTRUMENTS) expect(text, `${file}: ${i}`).toContain(i);
       for (const d of DRUMS) expect(text, `${file}: ${d}`).toContain(d);
     }
-    for (const i of INSTRUMENTS) expect(read('skills/pixi-effects/SKILL.md'), `SKILL: ${i}`).toContain(i);
+    expect(read('skills/pixi-effects/SKILL.md')).toMatch(/help music/);
   });
 
   it('the CHAT guide, the README and llms.txt point at music', () => {

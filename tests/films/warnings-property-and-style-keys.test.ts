@@ -55,7 +55,7 @@ function checkMistakes(logs: string[], mistakes: Mistake[]): void {
     expect(mine.length, `warnings naming ${m.who}: ${JSON.stringify(mine)}`).toBe(1);
     const s = mine[0]!;
     expect(s.startsWith(m.start), `${s}\n  should start with\n${m.start}`).toBe(true);     // the layer, then the wrong key, then the family's words
-    if (!m.noGuess) expect(s, `what was probably meant (SKILL.md step 4)`).toContain(`did you mean "${m.meant}"?`);
+    if (!m.noGuess) expect(s, `what was probably meant`).toContain(`did you mean "${m.meant}"?`);
     if (m.family === 'property') expect(s, 'where a property is written').toMatch(/\(in initial, set, to or from\)/);
     else {
       expect(s, 'a style key that is not one does nothing').toContain('(it is ignored)');

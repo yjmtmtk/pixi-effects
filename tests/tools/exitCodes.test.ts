@@ -91,10 +91,8 @@ describe('the Chrome path: one environment variable, CHROME_PATH', () => {
 });
 
 describe('report.json: the fields that are a contract are written down', () => {
-  it('SKILL.md names version, ok, problems, files, exports, logs and audio, and says the rest is informational', async () => {
-    const { readFileSync } = await import('node:fs');
-    const skill = readFileSync(join(root, 'skills/pixi-effects/SKILL.md'), 'utf8');
-    const line = skill.split('\n').find(l => /report\.json.*contract/i.test(l)) ?? '';
+  it('check --help names version, ok, problems, files, exports, logs and audio, and says the rest is informational (a script reads report.json, not the agent)', async () => {
+    const line = cli(['check', '--help']).stdout.split('\n').find(l => /report\.json.*contract/i.test(l)) ?? '';
     for (const k of ['version', 'ok', 'problems', 'files', 'exports', 'logs', 'audio']) expect(line, k).toContain(`\`${k}\``);
     expect(line).toMatch(/informational/);
   });

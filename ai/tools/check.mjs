@@ -85,6 +85,7 @@ export const SPEC = {
   name: 'check',
   usage: '<page.html> [options]',
   about: 'review a video page: warnings, layout, sound, a contact sheet and a real export, in check-out/<name>/ (report.json, sheet.png, the video)',
+  notes: ['', 'report.json is a contract for a script that reads it: `version`, `ok`, `problems`, `files`, `exports`, `logs` and `audio`; every other field is informational and may change.'],
   options: [
     { flag: '--out', short: '-o', value: 'DIR', help: 'the folder to write into (default check-out/<name>/; DIR itself, with no <name>/ inside it)' },
     { flag: '--frames', value: 'N', help: 'tiles of the contact sheet (default 12)' },
