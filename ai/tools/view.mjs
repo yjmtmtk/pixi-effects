@@ -186,6 +186,7 @@ export function viewerHtml({ pageUrl, title }) {
   function shown() { layout(); stage.classList.remove('pending'); frame.classList.remove('pending'); document.getElementById('wait').hidden = true; }
 
   /** Wait for the page inside to be a ready movie, then (re)build the timeline. \`restore\` = { frame, playing }: go back where the viewer was. */
+  let asked = false, carried = null;                                // a reload was asked for, and the frame to come back to (see reload)
   let gen = 0, stuck = false;                                       // gen: the latest attach (an older one stops); stuck: the page did not start
   async function attach(restore) {
     const mine = ++gen;
@@ -230,26 +231,23 @@ export function viewerHtml({ pageUrl, title }) {
     layout();
     shown();
     mount();
+    asked = false; carried = null;                                   // this page is the one: a later load is not a reload of ours
     if (restore) { await seekFrame(restore.frame); if (restore.playing) movie.play(); }
   }
   attach(null);
 
   /** Load the page again and come back to the same frame (and playing, if it was). Only ever on a request. */
-  let reloads = 0, carried = null;                                  // the latest reload: two clicks in a row wait for the same load, and only the last one attaches (with the first one's frame)
-  async function reload() {
-    const mine = ++reloads;
+  // Every load of the page that a reload asked for attaches again, with the frame of the first reload in a row: two quick reloads can end in one load
+  // or in two (the second one landing after the first), and the timeline must follow the page that is there at the end, not a window that was replaced.
+  function reload() {
     const restore = movie ? { frame: movie.currentFrame, playing: movie.isPlaying } : carried;
-    carried = restore;
+    carried = restore; asked = true;
     pending = false; $update.hidden = true;
     movie = null; svg = null; head = null; geom = null; plot.innerHTML = ''; names.innerHTML = '';
     sound = null; soundIssues = []; warnShown = null; readWarnings();   // nothing of the old page's is shown for the new one
-    const loaded = new Promise(r => frame.addEventListener('load', r, { once: true }));
     try { frame.contentWindow.location.reload(); } catch { frame.src = frame.src; }
-    await loaded;
-    if (mine !== reloads) return;
-    carried = null;
-    await attach(restore);
   }
+  frame.addEventListener('load', () => { if (asked) attach(carried); });
   $reload.addEventListener('click', reload);
   $auto.addEventListener('change', () => { try { localStorage.setItem('pe-view-auto', $auto.checked ? '1' : '0'); } catch { /* storage may be blocked */ } });
 
